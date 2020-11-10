@@ -1,0 +1,17 @@
+Enter URL to download
+example.com
+Skickat Get Request
+351
+HTTP/1.1 200 OK
+Content-Encoding: gzip
+Accept-Ranges: bytes
+Age: 411562
+Cache-Control: max-age=604800
+Content-Type: text/html; charset=UTF-8
+Date: Thu, 27 Aug 2020 19:43:49 GMT
+Etag: "3147526947"
+Expires: Thu, 03 Sep 2020 19:43:49 GMT
+Last-Modified: Thu, 17 Oct 2019 07:18:26 GMT
+Server: ECS (nyb/1D2E)
+X-Cache: HIT
+Content-Length: 648

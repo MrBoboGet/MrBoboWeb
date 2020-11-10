@@ -1,0 +1,20 @@
+Fungerande Crawl grej
+
+	//initialiserar lite lokala variablar så vi kan få grejer att connecta utan att jag specificerar 
+	MBSockets::Init();
+	std::cout << "Enter URL to download" << std::endl;
+	std::string URL;
+	std::getline(std::cin, URL);
+	MBSockets::HTTPConnectSocket HttpConnecter(URL, "80", MBSockets::TraversalProtocol::TCP);
+	HttpConnecter.Connect();
+	//HttpConnecter.Get("");
+	HttpConnecter.Head("");
+	std::cout << "Skickat Get Request" << std::endl;
+	char Buffer[100000];
+	int LengthOfData;
+	while ((LengthOfData = HttpConnecter.RecieveData(Buffer, 100000)) > 0)
+	{
+		std::cout << LengthOfData << std::endl;
+		std::cout << std::string(Buffer, LengthOfData);
+	}
+	return(0);
