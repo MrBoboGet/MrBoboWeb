@@ -98,17 +98,74 @@ enum class MrBoboChatState : uint64_t
 };
 struct MBChatConnection
 {
+private:
+	std::mutex PeerResponseMutex;
+	std::condition_variable PeerResponseConditional;
+	std::mutex PeerSendMutex;
+	std::condition_variable PeerSendConditional;
+	std::atomic<bool> RecievedResponseMessage{ false };
+	std::atomic<bool> RecievedSendMessage{ false };
+	std::deque<std::string> PeerResponseMessages = {};
+	std::deque<std::string> PeerSendMessages = {};
+	std::thread ConnectionListenThread;
+	std::string GetNextResponseMessage()
+	{
+		//clock_t TimeOut = 1000;
+		while (!RecievedResponseMessage)
+		{
+			std::unique_lock<std::mutex> Lock(PeerResponseMutex);
+			PeerSendConditional.wait(Lock);
+		}
+		//fått meddelande, recieved response message är då nästa meddelande
+		std::string ReturnString = "";
+		{
+			std::lock_guard<std::mutex> Lock(PeerResponseMutex);
+			ReturnString = PeerResponseMessages.front();
+			PeerResponseMessages.pop_front();
+		}
+		return(ReturnString);
+	}
+	std::string GetNextSendMessage()
+	{
+		//clock_t TimeOut = 1000;
+		while (!RecievedSendMessage)
+		{
+			std::unique_lock<std::mutex> Lock(PeerSendMutex);
+			PeerSendConditional.wait(Lock);
+		}
+		//fått meddelande, recieved response message är då nästa meddelande
+		std::string ReturnString = "";
+		{
+			std::lock_guard<std::mutex> Lock(PeerSendMutex);
+			ReturnString = PeerSendMessages.front();
+			PeerSendMessages.pop_front();
+		}
+		return(ReturnString);
+	}
+public:
 	int PrivateRecordNumber = 0;
 	int PeerRecordNumber = 0;
 	int ConnectionPort = -1;
 	int ConnectionHandle = -1;
-	std::string PeerIPAddress = "";
+
 	std::mutex ConnectionMutex;
-	std::atomic<bool> ShouldStop{ false };
-	std::thread* ConnectionThread;
+	std::string PeerIPAddress = "";
 	MrBoboChat* AssociatedChatObject;
-	std::atomic<bool> RecievedInput{ false };
+	std::thread* ConnectionThread;
 	std::deque<std::string> ConnectionInput = {};
+
+	MBError SendData(std::string DataToSend)
+	{
+
+	}
+	std::string GetData()
+	{
+
+	}
+	
+
+	std::atomic<bool> ShouldStop{ false };
+	std::atomic<bool> RecievedInput{ false };
 };
 enum class MBCPMessageType : uint8_t
 {
@@ -445,13 +502,19 @@ private:
 		RecievingConnection->RecievedInput = true;
 		return(ReturnError);
 	}
-	int SendDataCompletely(MBSockets::UDPSocket* SocketToUse)
+	MBError SendDataCompletely(MBSockets::UDPSocket* SocketToUse,std::string DataToSend,std::string HostAdress,int PortNumber,MBChatConnection* AssociatedConnectionObject = nullptr)
 	{
-		
+		//ifall vi har en nullptr till connectionen är det samma sak som att datan är okrypterad
+		MBError ErrorToReturn(true);
+		SocketToUse->UDPSendData(DataToSend, HostAdress, PortNumber);
+		return(ErrorToReturn);
 	}
-	int GetNextCompleteTransmission(MBSockets::UDPSocket* SocketToUse)
+	MBError GetNextCompleteTransmission(MBSockets::UDPSocket* SocketToUse, std::string& OutString,MBChatConnection* AssociatedConnectionObject = nullptr)
 	{
-
+		//ifall vi har en nullptr till connectionen är det samma sak som att datan är okrypterad
+		MBError ErrorToReturn(true);
+		OutString = SocketToUse->UDPGetData();
+		return(ErrorToReturn);
 	}
 	void InitaiteConnection(std::string PeerToConnectTo)
 	{
@@ -662,7 +725,7 @@ inline void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboCha
 		}
 		else
 		{
-			MBError RecievedError = AssociatedChatObject->SendDataToConnection(char(0x01) + "sendfile", AssociatedChatObject->ActiveConnectionNumber);
+			MBError RecievedError = AssociatedChatObject->SendDataToConnection(char(0x01) + "sendfile"+CommandWithArguments[1], AssociatedChatObject->ActiveConnectionNumber);
 			if (!RecievedError)
 			{
 				AssociatedChatObject->PrintLine(RecievedError.ErrorMessage);
@@ -845,14 +908,27 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 			AssociatedConnectionObject->RecievedInput = false;
 			for (size_t i = 0; i < AssociatedConnectionObject->ConnectionInput.size(); i++)
 			{
-				std::string DataToSend;
+				std::string Data;
 				{
 					std::lock_guard<std::mutex> Lock(AssociatedConnectionObject->ConnectionMutex);
-					DataToSend = AssociatedConnectionObject->ConnectionInput.front();
+					Data = AssociatedConnectionObject->ConnectionInput.front();
 				}
-				SocketToUse.UDPSendData(DataToSend, AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->ConnectionPort);
-				std::lock_guard<std::mutex> Lock(AssociatedConnectionObject->ConnectionMutex);
-				AssociatedConnectionObject->ConnectionInput.pop_front();
+				if (Data[0] != 0x00)
+				{
+					SocketToUse.UDPSendData(Data, AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->ConnectionPort);
+					std::lock_guard<std::mutex> Lock(AssociatedConnectionObject->ConnectionMutex);
+					AssociatedConnectionObject->ConnectionInput.pop_front();
+				}
+				else
+				{
+					//vi vet att det här är ett special kommando som vi fått från någonstans. I detta fall ska vi göra ett kommandop
+					if(Data.substr(1,8) == "sendfile")
+					{
+						std::string FilePath = Data.substr(9);
+						std::string FileName = Split(FilePath, "/").back();
+						
+					}
+				}
 			}
 		}
 	}
