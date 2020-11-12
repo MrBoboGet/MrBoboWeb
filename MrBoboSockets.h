@@ -283,6 +283,13 @@ namespace MBSockets
 			free(Buffer);
 			return(ReturnValue);
 		}
+		void UDPMakeSocketNonBlocking(int SecondsToWait = 0.5)
+		{
+			struct timeval read_timeout;
+			read_timeout.tv_sec = SecondsToWait;
+			read_timeout.tv_usec = 0;
+			setsockopt(ConnectedSocket, SOL_SOCKET, SO_RCVTIMEO, (const char *)&read_timeout, sizeof read_timeout);
+		}
 		void Listen(std::string PortNumber)
 		{
 			ErrorResults = listen(ConnectedSocket, SOMAXCONN);

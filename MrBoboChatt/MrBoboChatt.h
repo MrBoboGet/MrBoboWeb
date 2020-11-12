@@ -10,6 +10,7 @@
 #elif __linux__
 #include <unistd.h>
 #include <termios.h>
+#include <sys/select.h>
 #endif
 class MrBoboChat;
 struct MainSockPipe
@@ -69,6 +70,100 @@ public:
 		}
 	}
 };
+enum class MBCPMessageType : uint8_t
+{
+	InitiateConnection, AcceptConnection, Null
+};
+class MBCMessage
+{
+protected:
+	//variabel som underlättar parsing
+	int ParseOffset = 0;
+public:
+	MBCPMessageType MBCMessageType = MBCPMessageType::Null;
+	uint32_t RecordNumber = 0;
+	MBCMessage(std::string StringToParse)
+	{
+		TLS1_2::NetWorkDataHandler DataExtracter(reinterpret_cast<const uint8_t*>(StringToParse.c_str()));
+		MBCMessageType = MBCPMessageType(DataExtracter.Extract8());
+		RecordNumber = DataExtracter.Extract32();
+		ParseOffset = DataExtracter.GetPosition();
+	}
+	MBCMessage()
+	{
+
+	}
+	virtual std::string ToString()
+	{
+		std::string ReturnString = "";
+		ReturnString += char(MBCMessageType);
+		for (int i = 3; i >= 0; i--)
+		{
+			ReturnString += char((RecordNumber >> i * 8) % 256);
+		}
+		return(ReturnString);
+	}
+	~MBCMessage()
+	{
+
+	}
+};
+enum class MBCPInitatioMessageType : uint8_t
+{
+	FirstMessage,
+	PortSuggestion,
+	AcceptPort,
+	Null
+};
+class MBCInitatieConnectionMessage : public MBCMessage
+{
+public:
+	MBCPInitatioMessageType InitationMessageType = MBCPInitatioMessageType::Null;
+	uint16_t PortSuggestion = 2700;
+	std::string SendAdress = "";
+	MBCInitatieConnectionMessage(std::string StringToParse) : MBCMessage(StringToParse)
+	{
+		uint32_t OffsetInString = ParseOffset;
+		TLS1_2::NetWorkDataHandler DataExtracter(reinterpret_cast<const uint8_t*>(StringToParse.c_str()));
+		DataExtracter.SetPosition(ParseOffset);
+		InitationMessageType = MBCPInitatioMessageType(DataExtracter.Extract8());
+		PortSuggestion = DataExtracter.Extract16();
+		SendAdress = StringToParse.substr(DataExtracter.GetPosition());
+		ParseOffset = DataExtracter.GetPosition();
+	}
+	std::string ToString() override
+	{
+		std::string ReturnValue = MBCMessage::ToString();
+		ReturnValue += char(InitationMessageType);
+		ReturnValue += char(PortSuggestion >> 8);
+		ReturnValue += char(PortSuggestion % 256);
+		ReturnValue += SendAdress;
+		return(ReturnValue);
+	}
+	MBCInitatieConnectionMessage() : MBCMessage()
+	{
+
+	}
+};
+class MBCConfirmConnectionMessage : public MBCMessage
+{
+public:
+	std::string UserName = "";
+	MBCConfirmConnectionMessage(std::string StringToParse) : MBCMessage(StringToParse)
+	{
+		UserName = StringToParse.substr(ParseOffset);
+	}
+	MBCConfirmConnectionMessage()
+	{
+
+	}
+	std::string ToString() override
+	{
+		std::string ReturnValue = MBCMessage::ToString();
+		ReturnValue += UserName;
+		return(ReturnValue);
+	}
+};
 inline void TestMainFunc()
 {
 	/*
@@ -95,6 +190,52 @@ inline void TestMainFunc()
 enum class MrBoboChatState : uint64_t
 {
 	Start
+};
+enum class MBTCPRecordType : uint8_t
+{
+	InitiateMessageTransfer,
+	MessageData,Null
+};
+enum class MBTCPError : uint8_t
+{
+	OK,Error
+};
+enum class MBTCPRecordSendType : uint8_t
+{
+	Send,
+	Respond,Null
+};
+class MBTCPRecord
+{
+private:
+	int ParseOffset = 0;
+public:
+	MBTCPRecordType RecordType = MBTCPRecordType::Null;
+	MBTCPRecordSendType SendType = MBTCPRecordSendType::Null;
+	uint64_t RecordNumber = 0;
+	MBTCPRecord() {};
+	MBTCPRecord(std::string StringToParse)
+	{
+
+	}
+	virtual std::string ToString()
+	{
+
+	}
+};
+class MBTCPInitatieMessageTransfer : public MBTCPRecord
+{
+	uint64_t MessageId = 0;//sätter ett id som varje record i detta message har
+	uint16_t NumberOfMessages = 0;//avgör hur många data messages som förväntas skickas med denna funktion
+	uint64_t TotalDataLength = 0;//avgör förväntad total mängd data
+	uint8_t DataCheckIntervall = 10;//avgör hur många protokoll max som kan skickas innan en integirets check förväntas
+	MBTCPError RespondError = MBTCPError::OK;
+	MBTCPInitatieMessageTransfer() {};
+	MBTCPInitatieMessageTransfer(std::string StringToParse) : MBTCPRecord(StringToParse)
+	{
+
+	}
+
 };
 struct MBChatConnection
 {
@@ -142,12 +283,20 @@ private:
 		}
 		return(ReturnString);
 	}
+
 public:
 	int PrivateRecordNumber = 0;
 	int PeerRecordNumber = 0;
 	int ConnectionPort = -1;
 	int ConnectionHandle = -1;
+	MBChatConnection()
+	{
+		ConnectionListenThread;
+	}
+	MBChatConnection(std::string PeerIP, int Port)
+	{
 
+	}
 	std::mutex ConnectionMutex;
 	std::string PeerIPAddress = "";
 	MrBoboChat* AssociatedChatObject;
@@ -162,105 +311,17 @@ public:
 	{
 
 	}
-	
 
 	std::atomic<bool> ShouldStop{ false };
 	std::atomic<bool> RecievedInput{ false };
 };
-enum class MBCPMessageType : uint8_t
+void MBChatConnection_ListenFunc(MBChatConnection* AssociatedChatObject)
 {
-	InitiateConnection, AcceptConnection,Null
-};
-class MBCMessage
-{
-protected:
-	//variabel som underlättar parsing
-	int ParseOffset = 0;
-public:
-	MBCPMessageType MBCMessageType = MBCPMessageType::Null;
-	uint32_t RecordNumber = 0;
-	MBCMessage(std::string StringToParse)
-	{
-		TLS1_2::NetWorkDataHandler DataExtracter(reinterpret_cast<const uint8_t*>(StringToParse.c_str()));
-		MBCMessageType = MBCPMessageType(DataExtracter.Extract8());
-		RecordNumber = DataExtracter.Extract32();
-		ParseOffset = DataExtracter.GetPosition();
-	}
-	MBCMessage()
+	while (!AssociatedChatObject->ShouldStop)
 	{
 
 	}
-	virtual std::string ToString()
-	{
-		std::string ReturnString = "";
-		ReturnString += char(MBCMessageType);
-		for (int i = 3; i >=0; i--)
-		{
-			ReturnString += char((RecordNumber >> i * 8) % 256);
-		}
-		return(ReturnString);
-	}
-	~MBCMessage()
-	{
-
-	}
-};
-enum class MBCPInitatioMessageType : uint8_t
-{
-	FirstMessage,
-	PortSuggestion,
-	AcceptPort,
-	Null
-};
-class MBCInitatieConnectionMessage : public MBCMessage
-{
-public:
-	MBCPInitatioMessageType InitationMessageType = MBCPInitatioMessageType::Null;
-	uint16_t PortSuggestion = 2700;
-	std::string SendAdress = "";
-	MBCInitatieConnectionMessage(std::string StringToParse) : MBCMessage(StringToParse)
-	{
-		uint32_t OffsetInString = ParseOffset;
-		TLS1_2::NetWorkDataHandler DataExtracter(reinterpret_cast<const uint8_t*>(StringToParse.c_str()));
-		DataExtracter.SetPosition(ParseOffset);
-		InitationMessageType = MBCPInitatioMessageType(DataExtracter.Extract8());
-		PortSuggestion = DataExtracter.Extract16();
-		SendAdress = StringToParse.substr(DataExtracter.GetPosition());
-		ParseOffset = DataExtracter.GetPosition();
-	}
-	std::string ToString() override
-	{
-		std::string ReturnValue = MBCMessage::ToString();
-		ReturnValue += char(InitationMessageType);
-		ReturnValue += char(PortSuggestion>>8);
-		ReturnValue += char(PortSuggestion%256);
-		ReturnValue += SendAdress;
-		return(ReturnValue);
-	}
-	MBCInitatieConnectionMessage() : MBCMessage()
-	{
-
-	}
-};
-class MBCConfirmConnectionMessage : public MBCMessage
-{
-public:
-	std::string UserName = "";
-	MBCConfirmConnectionMessage(std::string StringToParse) : MBCMessage(StringToParse)
-	{
-		UserName = StringToParse.substr(ParseOffset);
-	}
-	MBCConfirmConnectionMessage()
-	{
-
-	}
-	std::string ToString() override
-	{
-		std::string ReturnValue = MBCMessage::ToString();
-		ReturnValue += UserName;
-		return(ReturnValue);
-	}
-};
+}
 struct MainSockDataToSendStruct
 {
 	std::string Data = "";
@@ -275,7 +336,24 @@ inline void ListenOnInitiationUserInput(std::atomic<bool>* BoolToModify,std::ato
 {
 	while (!ShouldStop)
 	{
-		if (std::cin.rdbuf()->in_avail() > 0)
+		int InputIsAvailable = -1;
+#ifdef WIN32
+		InputIsAvailable = _kbhit();
+#elif __linux__
+		//InputIsAvailable = select();
+		fd_set rfds;
+		struct timeval tv;
+
+		/* Watch stdin (fd 0) to see when it has input. */
+		FD_ZERO(&rfds);
+		FD_SET(0, &rfds);
+		/* Wait up to five seconds. */
+		tv.tv_sec = 5;
+		tv.tv_usec = 0;
+		InputIsAvailable = select(1, &rfds, NULL, NULL, &tv);
+		/* Don’t rely on the value of tv now! */
+#endif
+		if (InputIsAvailable > 0)
 		{
 			*BoolToModify = true;
 			break;
