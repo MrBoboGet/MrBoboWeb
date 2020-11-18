@@ -40,6 +40,7 @@ int main()
 {
 	//initialiserar lite lokala variablar så vi kan få grejer att connecta utan att jag specificerar 
 	MBSockets::Init();
+	TestMBChatGrejer();
 	MrBoboChat TestGrej = MrBoboChat();
 	TestGrej.MainLoop();
 	/*
