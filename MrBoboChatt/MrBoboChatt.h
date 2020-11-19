@@ -935,10 +935,10 @@ private:
 			perror("tcsetattr ICANON");
 		if (read(0, &buf, 1) < 0)
 			perror("read()");
-		old.c_lflag |= ICANON;
-		old.c_lflag |= ECHO;
-		if (tcsetattr(0, TCSADRAIN, &old) < 0)
-			perror("tcsetattr ~ICANON");
+		//old.c_lflag |= ICANON;
+		//old.c_lflag |= ECHO;
+		//if (tcsetattr(0, TCSADRAIN, &old) < 0)
+			//perror("tcsetattr ~ICANON");
 		printf("%c", buf);
 		return buf;
 		//*/
@@ -965,10 +965,12 @@ private:
 			return(1);
 		}
 	}
-	std::atomic<int> FirstAvailablePort{ 0 };
+	std::atomic<int> FirstAvailablePort{ -1 };
+	//std::unordered_map<int, bool> UsedPorts = {};
 	bool PortIsAvailable(int PortToCheck)
 	{
-		if (FirstAvailablePort <= PortToCheck- 5400)
+		//MBSockets::UDPSocket SocketToTest("127.0.0.1", std::to_string(PortToCheck), MBSockets::TraversalProtocol::TCP);
+		if (FirstAvailablePort < PortToCheck- 5400)
 		{
 			FirstAvailablePort += 1;
 			return(true);
@@ -1268,6 +1270,7 @@ inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,st
 	*/
 	if (Recieving)
 	{
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started recievieng thread.");
 		std::string HandshakeData = AssociatedConnectionObject->GetData();
 		//vi skickar data tills vi skickar
 		std::ofstream NewFile(FileToSendOrRecieve);
@@ -1275,30 +1278,59 @@ inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,st
 		while(DataRecieved < RecievedOrSentDataLength)
 		{
 			std::string NewData = AssociatedConnectionObject->GetData();
+			if (NewData != "")
+			{
+				NewFile << NewData;
+				DataRecieved += NewData.size();
+			}
 		}
 		NewFile.close();
 	}
 	else
 	{
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started sending thread.");
 		AssociatedConnectionObject->SendData("Handshake");
 		int ExtractedData = 0;
 		std::ifstream FileToSend(FileToSendOrRecieve, std::ios::in | std::ios::binary | std::ios::ate);
 		int DataChunkSize = 1500;
+		bool DataSentSuccesfully = true;
 		while(ExtractedData < RecievedOrSentDataLength)
 		{
-			char* Data = (char*)malloc(DataChunkSize);
-			FileToSend.read(Data, DataChunkSize);
-			ExtractedData += DataChunkSize;
+			char* Data;
+			if (DataSentSuccesfully)
+			{
+				Data = (char*)malloc(DataChunkSize);
+				FileToSend.read(Data, DataChunkSize);
+			}
+			MBError SendError(true);
 			if(ExtractedData > RecievedOrSentDataLength)
 			{
-				AssociatedConnectionObject->SendData(std::string(Data, RecievedOrSentDataLength % DataChunkSize));
+				SendError = AssociatedConnectionObject->SendData(std::string(Data, RecievedOrSentDataLength % DataChunkSize));
 			}
 			else
 			{
-				AssociatedConnectionObject->SendData(std::string(Data, DataChunkSize));
-			}			
+				SendError = AssociatedConnectionObject->SendData(std::string(Data, DataChunkSize));
+			}
+			if (SendError)
+			{
+				ExtractedData += DataChunkSize;
+				free(Data);
+				DataSentSuccesfully = true;
+			}
+			else
+			{
+				DataSentSuccesfully = false;
+			}
 		}
 		FileToSend.close();
+	}
+	if (Recieving)
+	{
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Succesfully saved file.");
+	}
+	if (!Recieving)
+	{
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Succesfully tramsfered file.");
 	}
 }
 inline void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject)
@@ -1435,6 +1467,7 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 	//skickar handshake meddelanden så vi vet att vi holepunchat
 	//MBSockets::UDPSocket SocketToUse = MBSockets::UDPSocket(AssociatedConnectionObject->PeerIPAddress, std::to_string(AssociatedConnectionObject->ConnectionPort), MBSockets::TraversalProtocol::TCP);
 	//SocketToUse.Bind(AssociatedConnectionObject->ConnectionPort);
+	AssociatedConnectionObject->AssociatedChatObject->PrintLine("Port for connection is "+std::to_string(AssociatedConnectionObject->ConnectionPort));
 	std::mutex MainFuncMutex;
 	std::atomic<bool> HandshakeComplete{ false };
 	//std::atomic<bool> StopThreads{ false };
@@ -1494,17 +1527,41 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 				{
 					std::lock_guard<std::mutex> Lock(MainFuncMutex);
 					MBCMessage Test(Messages[LastReadMessage]);
-					if (MBCMessage(Messages[LastReadMessage]).MBCMessageType != MBCPMessageType::AcceptConnection)
+					std::string Data = Messages[LastReadMessage];
+					//if (MBCMessage(Messages[LastReadMessage]).MBCMessageType != MBCPMessageType::AcceptConnection)
+					if (MBCMessage(Data).MBCMessageType != MBCPMessageType::AcceptConnection)
 					{
-						if (Messages.back()[0] != 0x01)
+						if (Data[0] != 0x01)
 						{
-							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + "[" + PeerUserName + "] " + ANSI::RESET + Messages.back());
+							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + "[" + PeerUserName + "] " + ANSI::RESET + Data);
 						}
-						else if(Messages.back().substr(0,9) == "\1sendfile")
+						else if(Data.substr(0,10) == "\1sendfile ")
 						{
-							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET+" Wants to send you a file named " + Split(Messages.back().substr(10),"/").back()+"\n Do you accept? [y/n]");
-							SizeOfPeerFile = std::stoi(Split(Messages.back(), " ").back());
+							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET+" Wants to send you a file named " + Split(Data.substr(10),"/").back()+"\n Do you accept? [y/n]");
+							SizeOfPeerFile = std::stoi(Split(Data, " ").back());
 							PeerSentFileTransferRequest = true;
+						}
+						else
+						{
+							if (SentFileTransferRequest)
+							{
+								if (Data == "\1sendfileaccepted")
+								{
+									//skapa tråden jada jada
+									AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET + " Accepted the file transfer.");
+									MBChatConnection* NewConnection;
+									CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection);
+									//AssociatedConnectionObject->SendData("\1sendfileaccepted");
+									NewConnection->ConnectionThread = new std::thread(MBCSendFile_MainLopp, NewConnection, FileLocalWantedToSend, false, SizeOfLocalFile);
+									SentFileTransferRequest = false;
+								}
+								if (Data == "\1sendfiledeclined")
+								{
+									//säg att vi inte accepterar 
+									AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET + " Declined the file transfer.");
+									SentFileTransferRequest = false;
+								}
+							}
 						}
 					}
 					LastRecievedMessageIndex += 1;
@@ -1520,7 +1577,12 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 				std::string Data;
 				{
 					std::lock_guard<std::mutex> Lock(AssociatedConnectionObject->ConnectionMutex);
-					Data = AssociatedConnectionObject->ConnectionInput.back();
+					if (AssociatedConnectionObject->ConnectionInput.size() == 0)
+					{
+						continue;
+					}
+					Data = AssociatedConnectionObject->ConnectionInput.front();
+					AssociatedConnectionObject->ConnectionInput.pop_front();
 				}
 				if (AcceptedFileTransfer)
 				{
@@ -1539,6 +1601,7 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 					{
 						//vi skickar att vi accepterar, och gör sedan funktionen som skickar datan
 						AssociatedConnectionObject->AssociatedChatObject->PrintLine("Enter filename:");
+						AssociatedConnectionObject->SendData("\1sendfileaccepted");
 						AcceptedFileTransfer = true;
 					}
 					else if(Data == "n" || Data == "N")
@@ -1557,7 +1620,7 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 				{
 					AssociatedConnectionObject->SendData(Data);
 					std::lock_guard<std::mutex> Lock(AssociatedConnectionObject->ConnectionMutex);
-					AssociatedConnectionObject->ConnectionInput.pop_front();
+					//AssociatedConnectionObject->ConnectionInput.pop_front();
 				}
 				else
 				{
@@ -1575,6 +1638,7 @@ inline void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 					}
 					else if (SentFileTransferRequest)
 					{
+						//makar inte mycket sense, detta borde vi ju få från vår peer
 						if (Data == "\1sendfileaccepted")
 						{
 							//skapa tråden jada jada
@@ -1638,6 +1702,15 @@ inline void TestMBChatGrejer()
 	MissingRecordVerification.ByteLengthOfResendRecords = (2 * MissingRecordVerification.RecordsToResend.size());
 	std::string VeriString = MissingRecordVerification.ToString();
 	MBTCPMessageVerification NewVerification = MBTCPMessageVerification(VeriString);
+
+	MBCInitatieConnectionMessage ConnectionMessage;
+	ConnectionMessage.MBCMessageType = MBCPMessageType::InitiateConnection;
+	ConnectionMessage.InitationMessageType = MBCPInitatioMessageType::FirstMessage;
+	ConnectionMessage.PortSuggestion = 2700;
+	//adressen vi skickar från, vet inte hur man får den externa ipn
+	ConnectionMessage.SendAdress = "127.0.0.1";
+	std::string ConnectionMessageData = ConnectionMessage.ToString();
+	MBCInitatieConnectionMessage ConnectionResponse = MBCInitatieConnectionMessage(ConnectionMessageData);
 }
 inline void StartCon(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject)
 {
@@ -1664,12 +1737,12 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 	MBChatConnection* NewConnection;
 	MBError ErrorReturnMessage = MBError(true);
 
-	std::condition_variable StartConWaitConditional;
-	std::mutex ResourceMutex;
-	std::mutex WaitMutex;
-	std::string RecievedData = "";
+	//std::condition_variable StartConWaitConditional;
+	//std::mutex ResourceMutex;
+	//std::mutex WaitMutex;
+	//std::string RecievedData = "";
 	AssociatedChatObject->PrintLine("Initiating connection...\nPress Enter to cancel\n");
-	bool AgreedOnSocket = false;
+	//bool AgreedOnSocket = false;
 	std::atomic<bool> UserCanceled(false);
 	std::atomic<bool> StopReadThread(false);
 	std::thread ReadUserInputThread(ListenOnInitiationUserInput, &UserCanceled, &StopReadThread);
@@ -1677,9 +1750,9 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 	int PeerFirstMessagePort = -1;
 	int LocalFirstMessagePort = 2700;
 	std::cout << "First message port is " << LocalFirstMessagePort << std::endl;
-	int LastPeerPortSuggestion = -1;
+	//int LastPeerPortSuggestion = -1;
 	//den under sätter vi på något stt
-	int LastLocalPortSuggestion = -1;
+	int LastLocalPortSuggestion = 5400;
 	MainSockPipe Pipe;
 	AssociatedChatObject->AddMainSockPipe(IPAdress, &Pipe);
 	MBCInitatieConnectionMessage MessageToSend;
@@ -1688,7 +1761,13 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 	MessageToSend.PortSuggestion = LocalFirstMessagePort;
 	//adressen vi skickar från, vet inte hur man får den externa ipn
 	MessageToSend.SendAdress = AssociatedChatObject->ExternalIp;
+	bool FirstErrorReported = false;
 	float SendRecordDelay = 0.5;
+	if (MessageToSend.PortSuggestion == -1 && FirstErrorReported == false)
+	{
+		FirstErrorReported = true;
+		AssociatedChatObject->PrintLine("Felaktig port assignades i början");
+	}
 	while (true)
 	{
 		//std::unique_lock<std::mutex> WaitLock(WaitMutex);
@@ -1715,15 +1794,21 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 			break;
 		}
 		//Vi vet att vi faktiskt fick datan från socketen, så parsar in den i en struct som innehåller datan
-		MBCInitatieConnectionMessage PeerMessage(Pipe.RecievedRecords.back());
+		//MBCInitatieConnectionMessage PeerMessage(Pipe.RecievedRecords.back());
+		MBCInitatieConnectionMessage PeerMessage;
+		{
+			std::lock_guard<std::mutex> Lock(Pipe.PipeResourceMutex);
+			PeerMessage = MBCInitatieConnectionMessage(Pipe.RecievedRecords.back());
+		}
 		if (PeerMessage.InitationMessageType == MBCPInitatioMessageType::FirstMessage)
 		{
 			//det första meddelandet som går igenom UDP hål punchandet
 			//vi sätter första porten till det den skickade
 			PeerFirstMessagePort = PeerMessage.PortSuggestion;
 			int FirstPortSuggestion = LocalFirstMessagePort + PeerFirstMessagePort;
-			while (!AssociatedChatObject->PortIsAvailable(FirstPortSuggestion))
+			if (MessageToSend.PortSuggestion == -1 && FirstErrorReported == false)
 			{
+				FirstErrorReported = true;
 				FirstPortSuggestion += 1;
 			}
 			MessageToSend.InitationMessageType = MBCPInitatioMessageType::AcceptPort;
@@ -1735,10 +1820,15 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 			DataToSend.Host = IPAdress;
 			DataToSend.Port = AssociatedChatObject->StandardInitiationPort;
 			AssociatedChatObject->SendDataFromMainSocket(DataToSend);
+			if (MessageToSend.PortSuggestion == -1 && FirstErrorReported == false)
+			{
+				FirstErrorReported = true;
+				AssociatedChatObject->PrintLine("Blev fel efter firstmessage port suggestionen");
+			}
 		}
 		else if (PeerMessage.InitationMessageType == MBCPInitatioMessageType::AcceptPort)
 		{
-			if (PeerMessage.PortSuggestion == LastLocalPortSuggestion || AssociatedChatObject->PortIsAvailable(PeerMessage.PortSuggestion))
+			if (AssociatedChatObject->PortIsAvailable(PeerMessage.PortSuggestion))
 			{
 				//båda parterna har kommit överents om en port som vi kan köra på, vi skapar då den andra threaden som faktiskt är connection threaden
 				NewConnection = new MBChatConnection(IPAdress,PeerMessage.PortSuggestion);
@@ -1747,12 +1837,17 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 				NewConnection->PeerIPAddress = IPAdress;
 				//NewConnection->ConnectionThread = new std::thread(ChatMainFunction, NewConnection);
 				MessageToSend.InitationMessageType = MBCPInitatioMessageType::AcceptPort;
-				MessageToSend.PortSuggestion = LastLocalPortSuggestion;
+				MessageToSend.PortSuggestion = PeerMessage.PortSuggestion;
 				MainSockDataToSendStruct DataToSend;
 				DataToSend.Data = MessageToSend.ToString();
 				DataToSend.Host = IPAdress;
 				DataToSend.Port = AssociatedChatObject->StandardInitiationPort;
 				AssociatedChatObject->SendDataFromMainSocket(DataToSend);
+				if (MessageToSend.PortSuggestion == -1 && FirstErrorReported == false)
+				{
+					FirstErrorReported = true;
+					AssociatedChatObject->PrintLine("Blev fel då peer:en skickade en felaktig port");
+				}
 				StopReadThread = true;
 				break;
 			}
@@ -1770,10 +1865,16 @@ inline MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChat
 				DataToSend.Data = MessageToSend.ToString();
 				DataToSend.Host = IPAdress;
 				DataToSend.Port = AssociatedChatObject->StandardInitiationPort;
+				if (MessageToSend.PortSuggestion == -1 && FirstErrorReported == false)
+				{
+					FirstErrorReported = true;
+					AssociatedChatObject->PrintLine("Blev då den föreslagna porten inte matchade");
+				}
 				AssociatedChatObject->SendDataFromMainSocket(DataToSend);
 			}
 		}
 	}
+	AssociatedChatObject->PrintLine("Connection port " + std::to_string(NewConnection->ConnectionPort));
 	ReadUserInputThread.join();
 	AssociatedChatObject->RemoveMainSockPipe(IPAdress);
 	if (UserCanceled)
