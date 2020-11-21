@@ -197,6 +197,7 @@ enum class MBTCPRecordType : uint8_t
 	InitiateMessageTransfer,
 	MessageData, 
 	RequestResponse,
+	NATBreakMessage,
 	Null
 };
 enum class MBTCPError : uint8_t
@@ -628,8 +629,14 @@ public:
 		std::string ReturnValue = "";
 		std::string PeerFirstMessageData;
 		int FirstWaitTime = 0;
+		//skickar lite data så vi breakar that nat
 		while (true)
 		{
+			MBTCPRecord BreakNatMessage;
+			BreakNatMessage.SendType = MBTCPRecordSendType::Respond;
+			BreakNatMessage.RecordType = MBTCPRecordType::NATBreakMessage;
+			BreakNatMessage.RecordNumber = 0;
+			ConnectionSocket.UDPSendData(BreakNatMessage.ToString(), PeerIPAddress, ConnectionPort);
 			PeerFirstMessageData = GetNextSendMessage();
 			if (PeerFirstMessageData != "")
 			{
@@ -723,7 +730,11 @@ public:
 									continue;
 								}
 								MBTCPMessage NextResponseMessage(NextSendData);
-								RecievedRecordsMap[NextResponseMessage.MessageNumber] = NextResponse.Data;
+								if (RecievedRecordsMap.find(NextResponseMessage.MessageNumber) == RecievedRecordsMap.end())
+								{
+									RecievedRecordsMap[NextResponseMessage.MessageNumber] = NextResponseMessage.Data;
+									MessagesInBatchRecieved += 1;
+								}
 							}
 						}
 						else
@@ -744,7 +755,7 @@ public:
 							MissingRecordVerification.ByteLengthOfResendRecords = 0;
 							ConnectionSocket.UDPSendData(MissingRecordVerification.ToString(), PeerIPAddress, ConnectionPort);
 							LastDataSent = MissingRecordVerification.ToString();
-							if (CompleteBatchesRecieved >= FirstMessage.DataCheckIntervall * FirstMessage.NumberOfMessages)
+							if (CompleteBatchesRecieved*FirstMessage.DataCheckIntervall >= FirstMessage.NumberOfMessages)
 							{
 								Finished = true;
 								break;
@@ -768,7 +779,11 @@ void MBChatConnection_ListenFunc(MBChatConnection* AssociatedChatObject)
 		if (NextDataRecieved != "")
 		{
 			MBTCPRecord DataRecord(NextDataRecieved);
-			if (DataRecord.SendType == MBTCPRecordSendType::Send)
+			if (DataRecord.RecordType == MBTCPRecordType::NATBreakMessage)
+			{
+					
+			}
+			else if (DataRecord.SendType == MBTCPRecordSendType::Send)
 			{
 				std::lock_guard<std::mutex> Lock(AssociatedChatObject->PeerSendMutex);
 				AssociatedChatObject->PeerSendMessages.push_back(NextDataRecieved);
@@ -844,6 +859,7 @@ inline void ChatMainFunction_Listener(MBChatConnection* AssociatedConnectionObje
 	}
 	//std::cout << "Hej da" << std::endl;
 }
+long long GetFileSize(std::string);
 void ChatMainFunction(MBChatConnection* AssociatedConnectionObject);
 void MrBoboChatHelp(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
 void StartCon(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
@@ -854,6 +870,7 @@ void SetUsername(std::vector<std::string> CommandWithArguments, MrBoboChat* Asso
 void ViewConfig(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
 void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
 MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection);
+void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::string FileToSendOrRecieve, bool Recieving, int RecievedOrSentDataLength);
 class MrBoboChat
 {
 	friend void MrBoboChatHelp(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
@@ -889,6 +906,7 @@ private:
 	std::string Username = "Default";
 	std::vector<MBChatConnection*> ActiveConnections = std::vector<MBChatConnection*>(0);
 	std::unordered_map<int, MBChatConnection*> ConnectionMap{};
+	std::unordered_map<int, bool> UsedPorts = {};
 
 	std::mutex PrintMutex;
 
@@ -970,9 +988,10 @@ private:
 	bool PortIsAvailable(int PortToCheck)
 	{
 		//MBSockets::UDPSocket SocketToTest("127.0.0.1", std::to_string(PortToCheck), MBSockets::TraversalProtocol::TCP);
-		if (FirstAvailablePort < PortToCheck- 5400)
+		std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+		if(UsedPorts.find(PortToCheck) == UsedPorts.end())
 		{
-			FirstAvailablePort += 1;
+			//FirstAvailablePort += 1;
 			return(true);
 		}
 		else
@@ -989,6 +1008,7 @@ private:
 	int AddConnection(MBChatConnection* NewConnection)
 	{
 		std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+		UsedPorts[NewConnection->ConnectionPort] = true;
 		NewConnection->ConnectionHandle = LastConnectionNumber + 1;
 		LastConnectionNumber += 1;
 		ConnectionMap[NewConnection->ConnectionHandle] = NewConnection;
@@ -1183,6 +1203,14 @@ public:
 		InitializeObject();
 		PrintLine("Welcome to MrBoboChatt!");
 		PrintLine("Enter /help to get a list of commands");
+		MBChatConnection* NewConnection;
+		MainSocket.Bind(StandardInitiationPort);
+		//CreateConnection("127.0.0.1", this, &NewConnection);
+		//inline void MBCSendFile_MainLopp(MBChatConnection * AssociatedConnectionObject, std::string FileToSendOrRecieve, bool Recieving, int RecievedOrSentDataLength)
+		//std::thread Sendthread(MBCSendFile_MainLopp, NewConnection, "LinusApproves.png", false, 56181);
+		//std::thread RecieveThread(MBCSendFile_MainLopp, NewConnection, "RecievedLinus.png", true, 56181);
+		//Sendthread.join();
+		//RecieveThread.join();
 	}
 	~MrBoboChat()
 	{
@@ -1191,8 +1219,6 @@ public:
 	void MainLoop()
 	{
 		//spawnar alla threads, och passar sedan enbart inputen till motsvarande ställen
-
-		MainSocket.Bind(StandardInitiationPort);
 		while (true)
 		{
 			char NewInput = GetCharInput();
@@ -1273,8 +1299,11 @@ inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,st
 		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started recievieng thread.");
 		std::string HandshakeData = AssociatedConnectionObject->GetData();
 		//vi skickar data tills vi skickar
-		std::ofstream NewFile(FileToSendOrRecieve);
+		std::fstream NewFile(FileToSendOrRecieve,std::ios::binary|std::ios::out);
 		int DataRecieved = 0;
+		int TimeoutCount = 0;
+		int TimoutMax = 15;
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("File to recieve size = " + std::to_string(RecievedOrSentDataLength));
 		while(DataRecieved < RecievedOrSentDataLength)
 		{
 			std::string NewData = AssociatedConnectionObject->GetData();
@@ -1282,6 +1311,15 @@ inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,st
 			{
 				NewFile << NewData;
 				DataRecieved += NewData.size();
+				TimeoutCount = 0;
+			}
+			else
+			{
+				TimeoutCount += 1;
+				if (TimeoutCount > TimoutMax)
+				{
+					break;
+				}
 			}
 		}
 		NewFile.close();
@@ -1291,8 +1329,21 @@ inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,st
 		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started sending thread.");
 		AssociatedConnectionObject->SendData("Handshake");
 		int ExtractedData = 0;
-		std::ifstream FileToSend(FileToSendOrRecieve, std::ios::in | std::ios::binary | std::ios::ate);
+		std::ifstream FileToSend(FileToSendOrRecieve, std::ios::in | std::ios::binary |std::ios::out);
+		if (!FileToSend.is_open())
+		{
+			//error handling
+			//int Hej = 123;
+		}
+		if (!FileToSend.good())
+		{
+			//int Hej = 123;
+		}
 		int DataChunkSize = 1500;
+		if (RecievedOrSentDataLength < DataChunkSize)
+		{
+			DataChunkSize = RecievedOrSentDataLength;
+		}
 		bool DataSentSuccesfully = true;
 		while(ExtractedData < RecievedOrSentDataLength)
 		{
@@ -1303,14 +1354,18 @@ inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,st
 				FileToSend.read(Data, DataChunkSize);
 			}
 			MBError SendError(true);
+			std::string DataToSend;
 			if(ExtractedData > RecievedOrSentDataLength)
 			{
-				SendError = AssociatedConnectionObject->SendData(std::string(Data, RecievedOrSentDataLength % DataChunkSize));
+				DataToSend = std::string(Data, RecievedOrSentDataLength % DataChunkSize);
+				//SendError = AssociatedConnectionObject->SendData();
 			}
 			else
 			{
-				SendError = AssociatedConnectionObject->SendData(std::string(Data, DataChunkSize));
+				DataToSend = std::string(Data,DataChunkSize);
+				//SendError = AssociatedConnectionObject->SendData(std::string(Data, DataChunkSize));
 			}
+			SendError = AssociatedConnectionObject->SendData(DataToSend);
 			if (SendError)
 			{
 				ExtractedData += DataChunkSize;

@@ -39,6 +39,10 @@ void WorkerTestFunction(int Id)
 int main()
 {
 	//initialiserar lite lokala variablar så vi kan få grejer att connecta utan att jag specificerar 
+	//std::fstream TestFil("TestTest.txt", std::ios::binary | std::ios::out);
+	//TestFil << "HejHej";
+	//TestFil.close();
+	std::cout << "Testfile is created" << std::endl;
 	MBSockets::Init();
 	TestMBChatGrejer();
 	MrBoboChat TestGrej = MrBoboChat();
