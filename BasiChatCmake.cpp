@@ -1,4 +1,5 @@
 #define NOMINMAX
+#define _CRT_RAND_S  
 #include <MrBoboSockets.h>
 #include <Crawler.h>
 #include <SearchEngine/MBSearchEngine.h>

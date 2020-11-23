@@ -2,6 +2,7 @@
 #include <MrBoboSockets.h>
 #include <MinaStringOperations.h>
 #include <MrPostOGet/TLSHandler.h>
+#include <MBRandom.h>
 //forwards declaration of all classes
 
 //olika depandancies
@@ -69,6 +70,10 @@ public:
 		{
 			Type = MBErrorType::Error;
 		}
+	}
+	~MBError()
+	{
+
 	}
 };
 enum class MBCPMessageType : uint8_t
@@ -383,11 +388,18 @@ public:
 		return(ReturnValue);
 	}
 };
+struct MBChatConnection_SecurityParameters
+{
+	int KeyLength = 32;
+	std::atomic<bool> ConnectionIsSecure{ false };
+	std::string SharedSecret = "";
+};
 class MBChatConnection;
 void MBChatConnection_ListenFunc(MBChatConnection*);
 struct MBChatConnection
 {
 private:
+	MBChatConnection_SecurityParameters SecurityParameters;
 	std::mutex PeerResponseMutex;
 	std::condition_variable PeerResponseConditional;
 	std::mutex PeerSendMutex;
@@ -450,6 +462,46 @@ private:
 		}
 		return(ReturnString);
 	}
+	MrBigInt GenerateRandomValue(uint16_t MaxNumberOfBytes)
+	{
+		MrBigInt ReturnValue(0);
+		for (size_t i = 0; i < MaxNumberOfBytes; i++)
+		{
+			ReturnValue = ReturnValue + MrBigInt(2).Pow(i)* MBRandom::GetRandomByte();
+		}
+		return(ReturnValue);
+	}
+	bool IpAddresIsLower(std::string LeftIPAdress, std::string RightIPAdress)
+	{
+		return(LeftIPAdress.compare(RightIPAdress) > 0);
+	}
+	std::string EncryptData(std::string& DataToEncrypt)
+	{
+		//vi generarar en random iv som vi encryptar datan med 
+		unsigned char IV[16];
+		for (size_t i = 0; i < 16; i++)
+		{
+			IV[i] = MBRandom::GetRandomByte();
+		}
+		int SizeOfEncryptedData = DataToEncrypt.size() + (16 - (DataToEncrypt.size() % 16));
+		std::string EncryptedData(SizeOfEncryptedData, 0);
+		plusaes::encrypt_cbc((const unsigned char*)DataToEncrypt.c_str(), DataToEncrypt.size(), (const unsigned char*)SecurityParameters.SharedSecret.c_str(), SecurityParameters.SharedSecret.size(), &IV, (unsigned char*)EncryptedData.c_str(), SizeOfEncryptedData, true);
+		EncryptedData = std::string((char*)IV, 16) + EncryptedData;
+		return(EncryptedData);
+	}
+	std::string DecryptData(std::string& DataToDecrypt)
+	{
+		//anta alltid att IV:n är i början
+		unsigned char IV[16];
+		for (size_t i = 0; i < 16; i++)
+		{
+			IV[i] = DataToDecrypt[i];
+		}
+		unsigned long PaddingRemoved = 1;
+		std::string DecryptedData(DataToDecrypt.size() - 16, 0);
+		plusaes::decrypt_cbc((const unsigned char*)DataToDecrypt.substr(16).c_str(), DataToDecrypt.size() - 16, (const unsigned char*)SecurityParameters.SharedSecret.c_str(), SecurityParameters.SharedSecret.size(), &IV, (unsigned char*)DecryptedData.c_str(), DecryptedData.size(), &PaddingRemoved);
+		return(DecryptedData.substr(0, DecryptedData.size() - PaddingRemoved));
+	}
 public:
 	int PrivateRecordNumber = 0;
 	int PeerRecordNumber = 0;
@@ -461,6 +513,7 @@ public:
 	//}
 	MBChatConnection(std::string PeerIP, int Port) : ConnectionSocket(PeerIP, std::to_string(Port), MBSockets::TraversalProtocol::TCP)
 	{
+		std::string PeerMessage = "";
 		ConnectionSocket.UDPMakeSocketNonBlocking(StandardResponseWait);
 		ConnectionSocket.Bind(Port);
 		ConnectionListenThread = std::thread(MBChatConnection_ListenFunc,this);
@@ -470,7 +523,7 @@ public:
 	MrBoboChat* AssociatedChatObject;
 	std::thread* ConnectionThread;
 	std::deque<std::string> ConnectionInput = {};
-
+	MBError EstablishSecureConnection();
 	MBError SendData(std::string DataToSend)
 	{
 		//vi initierat MBTCP protokollet
@@ -483,7 +536,10 @@ public:
 			ReturnError.ErrorMessage = "No data to send";
 			return(ReturnError);
 		}
-
+		if (SecurityParameters.ConnectionIsSecure)
+		{
+			DataToSend = EncryptData(DataToSend);
+		}
 		MBTCPInitatieMessageTransfer FirstMessage;
 		FirstMessage.SendType = MBTCPRecordSendType::Send;
 		FirstMessage.RecordNumber = PrivateRecordNumber;
@@ -765,6 +821,10 @@ public:
 				}
 			}
 		}		
+		if (SecurityParameters.ConnectionIsSecure)
+		{
+			ReturnValue = DecryptData(ReturnValue);
+		}
 		return(ReturnValue);
 	}
 
@@ -859,6 +919,25 @@ inline void ChatMainFunction_Listener(MBChatConnection* AssociatedConnectionObje
 	}
 	//std::cout << "Hej da" << std::endl;
 }
+class MBChatStaticResources
+{
+private:
+	std::mutex ResourceMutex;
+	std::string DiffieHellmanModolu = "87A8E61DB4B6663CFFBBD19C651959998CEEF608660DD0F25D2CEED4435E3B00E00DF8F1D61957D4FAF7DF4561B2AA3016C3D91134096FAA3BF4296D830E9A7C209E0C6497517ABD5A8A9D306BCF67ED91F9E6725B4758C022E0B1EF4275BF7B6C5BFC11D45F9088B941F54EB1E59BB8BC39A0BF12307F5C4FDB70C581B23F76B63ACAE1CAA6B7902D52526735488A0EF13C6D9A51BFA4AB3AD8347796524D8EF6A167B5A41825D967E144E5140564251CCACB83E6B486F6B3CA3F7971506026C0B857F689962856DED4010ABD0BE621C3A3960A54E710C375F26375D7014103A4B54330C198AF126116D2276E11715F693877FAD7EF09CADB094AE91E1A1597";
+	std::string DiffieHellmanGenerator = "3FB32C9B73134D0B2E77506660EDBD484CA7B18F21EF205407F4793A1A0BA12510DBC15077BE463FFF4FED4AAC0BB555BE3A6C1B0C6B47B1BC3773BF7E8C6F62901228F8C28CBB18A55AE31341000A650196F931C77A57F2DDF463E5E9EC144B777DE62AAAB8A8628AC376D282D6ED3864E67982428EBC831D14348F6F2F9193B5045AF2767164E1DFC967C1FB3F2E55A4BD1BFFE83B9C80D052B985D182EA0ADB2A3B7313D3FE14C8484B1E052588B9B7D2BBD2DF016199ECD06E1557CD0915B3353BBB64E0EC377FD028370DF92B52C7891428CDC67EB6184B523D1DB246C32F63078490F00EF8D647D148D47954515E2327CFEF98C582664B4C0F6CC41659";
+public:
+	std::string GetDiffieHellmanModolu()
+	{
+		std::lock_guard<std::mutex> Lock(ResourceMutex);
+		return(DiffieHellmanModolu);
+	}
+	std::string GetDiffieHellmanGenerator()
+	{
+		std::lock_guard<std::mutex> Lock(ResourceMutex);
+		return(DiffieHellmanGenerator);
+	}
+};
+
 long long GetFileSize(std::string);
 void ChatMainFunction(MBChatConnection* AssociatedConnectionObject);
 void MrBoboChatHelp(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
@@ -1172,6 +1251,12 @@ private:
 		}
 	}
 public:
+	MBChatStaticResources StaticResources;
+	std::string GetExtIp()
+	{
+		std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+		return(ExternalIp);
+	}
 	void PrintLine(std::string LineToPrint)
 	{
 		PrintString(LineToPrint + "\n");
@@ -1267,6 +1352,65 @@ public:
 		}
 	}
 };
+MBError MBChatConnection::EstablishSecureConnection()
+{
+	MBError ReturnValue(true);
+	if (SecurityParameters.ConnectionIsSecure)
+	{
+		return(ReturnValue);
+	}
+	std::string PeerResponse = "";
+	MrBigInt PeerIntAfterExponenitation(0);
+	MrBigInt Generator = MrBigInt(AssociatedChatObject->StaticResources.GetDiffieHellmanGenerator(), 16);
+	MrBigInt Modolu = MrBigInt(AssociatedChatObject->StaticResources.GetDiffieHellmanModolu(), 16);
+	MrBigInt LocalRandomNumber = GenerateRandomValue(2048 / 8);
+	MrBigInt LocalRandomNumberAfterExponentiation = Generator.PowM(LocalRandomNumber, Modolu);
+	if (IpAddresIsLower(AssociatedChatObject->GetExtIp(), PeerIPAddress))
+	{
+		//vi skickar datan först
+		//skickar den genom att tolka det som en 256 byte big endian string
+		std::string StringToSend = "";
+		for (int i = 255; i >= 0; i--)
+		{
+			StringToSend += char((LocalRandomNumberAfterExponentiation >> (i * 8)) % 256);
+		}
+		SendData(StringToSend);
+		PeerResponse = GetData();
+	}
+	else if(!(AssociatedChatObject->GetExtIp() == "127.0.0.1" && PeerIPAddress == "127.0.0.1"))
+	{
+		PeerResponse = GetData();
+		std::string StringToSend = "";
+		for (int i = 255; i >= 0; i--)
+		{
+			StringToSend += char((LocalRandomNumberAfterExponentiation >> (i * 8)) % 256);
+		}
+		SendData(StringToSend);
+	}
+	else
+	{
+		//vi har enbart denna clause för att testa konceptet
+		MrBigInt TestInt = GenerateRandomValue(256);
+		TestInt = Generator.PowM(TestInt, Modolu);
+		for (int i = 255; i >= 0; i--)
+		{
+			PeerResponse += char((TestInt >> (i * 8)) % 256);
+		}
+	}
+	for (int i = 255; i >= 0; i--)
+	{
+		PeerIntAfterExponenitation = PeerIntAfterExponenitation + MrBigInt(256).Pow(i) * MrBigInt(PeerResponse[i]);
+	}
+	//
+	//nu ska vi etablera master secreten
+	MrBigInt MasterInteger = Generator.PowM(LocalRandomNumberAfterExponentiation * PeerIntAfterExponenitation, Modolu);
+	//hashar denna inte 
+	SecurityParameters.SharedSecret = std::string(32, 0);
+	picosha2::hash256(MasterInteger.GetString(), SecurityParameters.SharedSecret);
+	//vi är nu klara, vi har etablerat ett en gemensam secret
+	SecurityParameters.ConnectionIsSecure = true;
+	return(ReturnValue);
+}
 inline void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject,std::string FileToSendOrRecieve,bool Recieving,int RecievedOrSentDataLength)
 {
 	/*
@@ -1778,6 +1922,8 @@ inline void StartCon(std::vector<std::string> CommandWithArguments, MrBoboChat* 
 		MBChatConnection* NewConnection;
 		if (CreateConnection(CommandWithArguments[1], AssociatedChatObject, &NewConnection))
 		{
+			//TODO the fuck, varför throwas det ett exception om jag inte sparar värdet???
+			MBError Hej = NewConnection->EstablishSecureConnection();
 			NewConnection->ConnectionThread = new std::thread(ChatMainFunction, NewConnection);
 			AssociatedChatObject->ActiveConnectionNumber = NewConnection->ConnectionHandle;
 		}
