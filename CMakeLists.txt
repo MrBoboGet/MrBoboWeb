@@ -4,6 +4,14 @@ set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 
 project(BasicChatCmake CXX)
 
+#straight copypastad för att se om jag kunde fixa ett problem med threads på arms
+#set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+#3set(CMAKE_HAVE_THREADS_LIBRARY 1)
+#set(CMAKE_USE_WIN32_THREADS_INIT 0)
+#set(CMAKE_USE_PTHREADS_INIT 1)
+##set(THREADS_PREFER_PTHREAD_FLAG ON)
+#slut på copypastad eventuellt hack
+
 ################################################################################
 # Set target arch type if empty. Visual studio solution generator provides it.
 ################################################################################

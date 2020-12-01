@@ -54,7 +54,7 @@ MrBigInt MBChatConnection::GenerateRandomValue(uint16_t MaxNumberOfBytes)
 	MrBigInt ReturnValue(0);
 	for (size_t i = 0; i < MaxNumberOfBytes; i++)
 	{
-		ReturnValue = ReturnValue + MrBigInt(2).Pow(i) * MBRandom::GetRandomByte();
+		ReturnValue = ReturnValue + MrBigInt(256).Pow(i) * MBRandom::GetRandomByte();
 	}
 	return(ReturnValue);
 }
@@ -110,6 +110,10 @@ MBError MBChatConnection::EstablishSecureConnection()
 	MrBigInt Modolu = MrBigInt(AssociatedChatObject->StaticResources.GetDiffieHellmanModolu(), 16);
 	MrBigInt LocalRandomNumber = GenerateRandomValue(2048 / 8);
 	MrBigInt LocalRandomNumberAfterExponentiation = Generator.PowM(LocalRandomNumber, Modolu);
+
+	//test grejer
+	MrBigInt TestInt;
+	std::string StringBefore;
 	if (IpAddresIsLower(AssociatedChatObject->GetExtIp(), PeerIPAddress))
 	{
 		//vi skickar datan först
@@ -119,6 +123,7 @@ MBError MBChatConnection::EstablishSecureConnection()
 		{
 			StringToSend += char((LocalRandomNumberAfterExponentiation >> (i * 8)) % 256);
 		}
+		AssociatedChatObject->PrintLine("Sent data " + ReplaceAll(HexEncodeString(StringToSend), " ", ""));
 		SendData(StringToSend);
 		PeerResponse = GetData();
 	}
@@ -130,13 +135,15 @@ MBError MBChatConnection::EstablishSecureConnection()
 		{
 			StringToSend += char((LocalRandomNumberAfterExponentiation >> (i * 8)) % 256);
 		}
+		AssociatedChatObject->PrintLine("Sent data "+ReplaceAll(HexEncodeString(StringToSend), " ", ""));
 		SendData(StringToSend);
 	}
 	else
 	{
 		//vi har enbart denna clause för att testa konceptet
-		MrBigInt TestInt = GenerateRandomValue(256);
+		TestInt = GenerateRandomValue(256);
 		TestInt = Generator.PowM(TestInt, Modolu);
+		StringBefore = TestInt.GetString();
 		for (int i = 255; i >= 0; i--)
 		{
 			PeerResponse += char((TestInt >> (i * 8)) % 256);
@@ -144,11 +151,24 @@ MBError MBChatConnection::EstablishSecureConnection()
 	}
 	for (int i = 255; i >= 0; i--)
 	{
-		PeerIntAfterExponenitation = PeerIntAfterExponenitation + MrBigInt(256).Pow(i) * MrBigInt(PeerResponse[i]);
+		PeerIntAfterExponenitation = PeerIntAfterExponenitation + MrBigInt(256).Pow(i) * MrBigInt(unsigned char(PeerResponse[255-i]));
 	}
+	AssociatedChatObject->PrintLine("recieved data " + ReplaceAll(HexEncodeString(PeerResponse), " ", ""));
+	//annan testgrej
+	MrBigInt TestIgen(4);
+	TestIgen = TestIgen.Pow(4);
+	std::string TestIgenString = TestIgen.GetString();
+	std::string TestConversionString = "";
+	for (int i = 255; i >= 0; i--)
+	{
+		TestConversionString += char((PeerIntAfterExponenitation >> (i * 8)) % 256);
+	}
+	bool TestIntEqual = PeerIntAfterExponenitation == TestInt;
+	std::string StringAfter = PeerIntAfterExponenitation.GetString();
 	//
 	//nu ska vi etablera master secreten
-	MrBigInt MasterInteger = Generator.PowM(LocalRandomNumberAfterExponentiation * PeerIntAfterExponenitation, Modolu);
+	MrBigInt MasterInteger = PeerIntAfterExponenitation.PowM(LocalRandomNumber, Modolu);
+	AssociatedChatObject->PrintLine("Master integer infered " + ReplaceAll(HexEncodeString(MasterInteger.GetString()), " ", ""));
 	//hashar denna inte 
 	SecurityParameters.SharedSecret = std::string(32, 0);
 	picosha2::hash256(MasterInteger.GetString(), SecurityParameters.SharedSecret);

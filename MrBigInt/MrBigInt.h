@@ -59,6 +59,10 @@ public:
 		ReturnValue._UnderlyingImplentation = NewUnderlyingImplemenationClass;
 		return(ReturnValue);
 	}
+	bool operator==(MrBigInt IntToCompare)
+	{
+		return(_UnderlyingImplentation==IntToCompare._UnderlyingImplentation);
+	}
 	MrBigInt operator>>(int BitsToShift)
 	{
 		MrBigInt ReturnValue = 0;

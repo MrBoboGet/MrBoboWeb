@@ -24,7 +24,7 @@ struct MainSockDataToSendStruct
 	int Port = -1;
 };
 void ListenOnInitiationSocket(MBSockets::UDPSocket* SocketToListenOn, std::string* StringToModify, std::condition_variable* ConditionalToNotify, std::mutex* ResourceMutex);
-void ListenOnInitiationUserInput(std::atomic<bool>* BoolToModify, std::atomic<bool>* ShouldStop);
+void ListenOnInitiationUserInput(std::atomic<bool>* BoolToModify, std::atomic<bool>* ShouldStop,MrBoboChat* AssociatedChatObject,bool OnMainThread);
 void InitiationSendData(MBSockets::UDPSocket* SocketToSendDataOn, std::string* StringToModify, std::condition_variable* ConditionalToNotify, std::mutex* ResourceMutex);
 void ChatMainFunction_Listener(MBChatConnection* AssociatedConnectionObject, std::vector<std::string>* RecievedMessages, std::atomic<bool>* RecievedMessage, std::mutex* MainFuncMutex);
 class MBChatStaticResources
@@ -48,10 +48,22 @@ void SetExtIp(std::vector<std::string> CommandWithArguments, MrBoboChat* Associa
 void SetUsername(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
 void ViewConfig(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
 void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
-MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection);
+MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection, bool OnMainThread);
 
 void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::string FileToSendOrRecieve, bool Recieving, int RecievedOrSentDataLength);
 
+
+class MBCLineObject
+{
+private:
+	int LineNumber = -1;
+	std::string LineData = "";
+	MrBoboChat* AssociatedChatObject = nullptr;
+public:
+	MBCLineObject(MrBoboChat* AssociatedChatObject);
+	std::string GetLineData();
+	void SetLineData(std::string NewData);
+};
 
 class MrBoboChat
 {
@@ -63,8 +75,9 @@ class MrBoboChat
 	friend void MainSocket_Sender(MrBoboChat* AssociatedChatObject);
 	friend void ViewConfig(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
 	friend void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
-	friend MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection);
+	friend MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection, bool OnMainThread);
 
+	friend MBCLineObject;
 private:
 	std::string CurrentInput = "";
 	std::string ExternalIp = "";
@@ -92,6 +105,7 @@ private:
 
 	std::mutex PrintMutex;
 
+	std::atomic<int> CurrentLineIndex{0};
 	std::unordered_map<std::string, void (*)(std::vector<std::string>,MrBoboChat*)> CommandList
 	{
 		{"/help",MrBoboChatHelp},
@@ -102,9 +116,8 @@ private:
 		{"/sendfile",MBCSendFile}
 	};
 
-	char GetCharInput();
-
-
+	int GetCurrentLineIndex();
+	void PrintLineAtIndex(int Index,std::string StringToPrint);
 	void InitializeObject();
 	int AddMainSockPipe(std::string Filter, MainSockPipe* PipeToAdd);
 	//std::atomic<int> FirstAvailablePort{ -1 };
@@ -123,7 +136,9 @@ private:
 	void ChangeConfig(std::string ConfigToChange, std::string& ParameterData);
 public:
 	MBChatStaticResources StaticResources;
-	
+
+	char GetCharInput();
+	std::atomic<bool> InitiatingCancelableInput{ false };
 	std::string GetExtIp();
 	void PrintLine(std::string LineToPrint);
 	void PrintString(std::string StringToPrint);
@@ -145,7 +160,7 @@ void MainSocket_Listener(MrBoboChat* AssociatedChatObject);
 long long GetFileSize(std::string filename);
 void ChatMainFunction(MBChatConnection* AssociatedConnectionObject);
 void StartCon(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
-MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection);
+MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection,bool OnMainThread);
 
 inline void TestMBChatGrejer()
 {

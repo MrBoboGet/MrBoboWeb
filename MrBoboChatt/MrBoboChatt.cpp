@@ -34,33 +34,50 @@ void ListenOnInitiationSocket(MBSockets::UDPSocket* SocketToListenOn, std::strin
 {
 	std::string RecievedDataFromSocket = SocketToListenOn->UDPGetData();
 };
-void ListenOnInitiationUserInput(std::atomic<bool>* BoolToModify, std::atomic<bool>* ShouldStop)
+void ListenOnInitiationUserInput(std::atomic<bool>* BoolToModify, std::atomic<bool>* ShouldStop,MrBoboChat* AssociatedChatObject,bool OnMainThread)
 {
+	AssociatedChatObject->InitiatingCancelableInput = true;
 	while (!*ShouldStop)
 	{
 		int InputIsAvailable = -1;
-#ifdef WIN32
-		InputIsAvailable = _kbhit();
-#elif __linux__
-		//InputIsAvailable = select();
-		fd_set rfds;
-		struct timeval tv;
+		if (OnMainThread)
+		{
+//			/*
+		#ifdef WIN32
+			InputIsAvailable = _kbhit();
+		#elif __linux__
+			//InputIsAvailable = select();
+			fd_set rfds;
+			struct timeval tv;
 
-		/* Watch stdin (fd 0) to see when it has input. */
-		FD_ZERO(&rfds);
-		FD_SET(0, &rfds);
-		/* Wait up to five seconds. */
-		tv.tv_sec = 5;
-		tv.tv_usec = 0;
-		InputIsAvailable = select(1, &rfds, NULL, NULL, &tv);
-		/* Don’t rely on the value of tv now! */
-#endif
-		if (InputIsAvailable > 0)
+			// Watch stdin (fd 0) to see when it has input.
+			FD_ZERO(&rfds);
+			FD_SET(0, &rfds);
+			// Wait up to five seconds.
+			tv.tv_sec = 5;
+			tv.tv_usec = 0;
+			InputIsAvailable = select(1, &rfds, NULL, NULL, &tv);
+			// Don’t rely on the value of tv now!
+		#endif
+//*/		
+			if (InputIsAvailable > 0)
+			{
+				//vi har fått input, och eftersom vi är på mainthreaden kan vi också ta och läsa denna för att se vad det är för något, och cancella om det är enter eller \r
+				char NewInput = AssociatedChatObject->GetCharInput();
+				if (NewInput == '\n' || NewInput == '\r')
+				{
+					*BoolToModify = true;
+					break;
+				}
+			}
+		}
+		if (AssociatedChatObject->InitiatingCancelableInput == false)
 		{
 			*BoolToModify = true;
 			break;
 		}
 	}
+	AssociatedChatObject->InitiatingCancelableInput = false;
 };
 void InitiationSendData(MBSockets::UDPSocket* SocketToSendDataOn, std::string* StringToModify, std::condition_variable* ConditionalToNotify, std::mutex* ResourceMutex)
 {
@@ -97,11 +114,60 @@ std::string MBChatStaticResources::GetDiffieHellmanGenerator()
 	return(DiffieHellmanGenerator);
 }
 
+
+//class MBCLineObject
+MBCLineObject::MBCLineObject(MrBoboChat* ChatObject)
+{
+	LineNumber = ChatObject->GetCurrentLineIndex();
+	AssociatedChatObject = ChatObject;
+	AssociatedChatObject->PrintLine("");
+}
+std::string MBCLineObject::GetLineData()
+{
+	return(LineData);
+}
+void MBCLineObject::SetLineData(std::string NewData)
+{
+	LineData = ReplaceAll(NewData,"\n","");
+	AssociatedChatObject->PrintLineAtIndex(LineNumber,NewData);
+}
+
+
 //class MrBoboChat
+void MrBoboChat::PrintLineAtIndex(int Index, std::string DataToPrint)
+{
+	if (Index > CurrentLineIndex)
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> Lock(PrintMutex);
+	int IndexBeforePrint = CurrentLineIndex;
+	for (size_t i = Index; i < IndexBeforePrint; i++)
+	{
+		//vi ska göra det här skillnaden i antal ggr
+		std::cout << "\x1b[A";
+	}
+	std::cout << "\r";
+	//först clearar vi linen
+	std::cout << "\x1b[K";
+	std::cout << DataToPrint;
+	for (size_t i = Index; i < IndexBeforePrint; i++)
+	{
+		//vi ska göra det här skillnaden i antal ggr
+		std::cout << std::endl;
+	}
+	//hoppar vår grej fram antal steg som vi har i vår 
+	//nu är vi på raden vi började på, så vi tar och helt enkelt skriver ut raden igen
+	std::cout << CurrentInput;
+}
+int MrBoboChat::GetCurrentLineIndex()
+{
+	return(CurrentLineIndex);
+}
 char MrBoboChat::GetCharInput()
 {
 #ifdef WIN32
-	return(_getche());
+	return(_getch());
 #elif __linux__
 	//annat förslag
 	/*
@@ -135,7 +201,7 @@ char MrBoboChat::GetCharInput()
 	//old.c_lflag |= ECHO;
 	//if (tcsetattr(0, TCSADRAIN, &old) < 0)
 		//perror("tcsetattr ~ICANON");
-	printf("%c", buf);
+	//printf("%c", buf);
 	return buf;
 	//*/
 #endif
@@ -346,6 +412,14 @@ void MrBoboChat::PrintString(std::string StringToPrint)
 	{
 		std::cout << "\b \b";
 	}
+	//lägger till i vår newline nummer för varje newline i den
+	for (size_t i = 0; i < StringToPrint.length(); i++)
+	{
+		if (StringToPrint[i] == '\n')
+		{
+			CurrentLineIndex += 1;
+		}
+	}
 	std::cout << StringToPrint;
 	std::cout << CurrentInput;
 	std::flush(std::cout);
@@ -362,12 +436,15 @@ int MrBoboChat::GetCurrentConnection()
 }
 MrBoboChat::MrBoboChat()
 {
+	MainSocket.Bind(StandardInitiationPort);
 	InitializeObject();
 	PrintLine("Welcome to MrBoboChatt!");
 	PrintLine("Enter /help to get a list of commands");
 	MBChatConnection* NewConnection;
-	MainSocket.Bind(StandardInitiationPort);
-	//CreateConnection("127.0.0.1", this, &NewConnection);
+	//CreateConnection("127.0.0.1", this, &NewConnection,true);
+	//NewConnection->EstablishSecureConnection();
+	//NewConnection1->PeerIPAddress = "127.0.0.1";
+	//NewConnection2->PeerIPAddress = "127.0.0.1";
 	//inline void MBCSendFile_MainLopp(MBChatConnection * AssociatedConnectionObject, std::string FileToSendOrRecieve, bool Recieving, int RecievedOrSentDataLength)
 	//std::thread Sendthread(MBCSendFile_MainLopp, NewConnection, "LinusApproves.png", false, 56181);
 	//std::thread RecieveThread(MBCSendFile_MainLopp, NewConnection, "RecievedLinus.png", true, 56181);
@@ -390,6 +467,12 @@ void MrBoboChat::MainLoop()
 
 		if (NewInput == '\r' || NewInput == '\n')
 		{
+			std::cout << NewInput;
+			if (InitiatingCancelableInput)
+			{
+				InitiatingCancelableInput = false;
+				continue;
+			}
 			std::string CurrentInputCopy = CurrentInput;
 			{
 				CurrentInput = "";
@@ -407,6 +490,11 @@ void MrBoboChat::MainLoop()
 		else if (NewInput == '\b' || NewInput == 0x7f)
 		{
 			//PrintString(" ");
+			std::cout << NewInput;
+			if (InitiatingCancelableInput)
+			{
+				continue;
+			}
 			if (NewInput == 0x7f)
 			{
 				printf("\b");
@@ -419,6 +507,11 @@ void MrBoboChat::MainLoop()
 		}
 		else
 		{
+			std::cout << NewInput;
+			if (InitiatingCancelableInput)
+			{
+				continue;
+			}
 			CurrentInput += NewInput;
 		}
 		/*
@@ -767,7 +860,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 									//skapa tråden jada jada
 									AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET + " Accepted the file transfer.");
 									MBChatConnection* NewConnection;
-									CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection);
+									CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection,false);
 									//AssociatedConnectionObject->SendData("\1sendfileaccepted");
 									NewConnection->ConnectionThread = new std::thread(MBCSendFile_MainLopp, NewConnection, FileLocalWantedToSend, false, SizeOfLocalFile);
 									SentFileTransferRequest = false;
@@ -805,7 +898,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 				{
 					//resettar allt, skapar objektet
 					MBChatConnection* NewConnection;
-					CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection);
+					CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection,false);
 					AssociatedConnectionObject->SendData("\1sendfileaccepted");
 					NewConnection->ConnectionThread = new std::thread(MBCSendFile_MainLopp, NewConnection, Data, true, SizeOfPeerFile);
 					PeerSentFileTransferRequest = false;
@@ -861,7 +954,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 							//skapa tråden jada jada
 							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET + " Accepted the file transfer.");
 							MBChatConnection* NewConnection;
-							CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection);
+							CreateConnection(AssociatedConnectionObject->PeerIPAddress, AssociatedConnectionObject->AssociatedChatObject, &NewConnection,false);
 							AssociatedConnectionObject->SendData("\1sendfileaccepted");
 							NewConnection->ConnectionThread = new std::thread(MBCSendFile_MainLopp, NewConnection, FileLocalWantedToSend, false, SizeOfLocalFile);
 							SentFileTransferRequest = false;
@@ -889,9 +982,11 @@ void StartCon(std::vector<std::string> CommandWithArguments, MrBoboChat* Associa
 	else
 	{
 		MBChatConnection* NewConnection;
-		if (CreateConnection(CommandWithArguments[1], AssociatedChatObject, &NewConnection))
+		CreateConnection(CommandWithArguments[1], AssociatedChatObject, &NewConnection,true);
+		//std::thread ConnectionThread = std::thread(CreateConnection, CommandWithArguments[1], AssociatedChatObject, &NewConnection);
+		//ConnectionThread.join();
+		if (NewConnection != nullptr)
 		{
-			//TODO the fuck, varför throwas det ett exception om jag inte sparar värdet???
 			MBError Hej = NewConnection->EstablishSecureConnection();
 			NewConnection->ConnectionThread = new std::thread(ChatMainFunction, NewConnection);
 			AssociatedChatObject->ActiveConnectionNumber = NewConnection->ConnectionHandle;
@@ -902,18 +997,21 @@ void StartCon(std::vector<std::string> CommandWithArguments, MrBoboChat* Associa
 		}
 	}
 }
-MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection)
+MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject, MBChatConnection** OutConnection, bool OnMainThread)
 {
 	MBChatConnection* NewConnection;
 	MBError ErrorReturnMessage = MBError(true);
-	AssociatedChatObject->PrintLine("Initiating connection...\nPress Enter to cancel\n");
+	MBCLineObject InitiatingConnectionLine = MBCLineObject(AssociatedChatObject);
+	InitiatingConnectionLine.SetLineData("Initiating connection     (Press enter to cancel)");
+	//AssociatedChatObject->PrintLine("Press Enter to cancel");
+	//AssociatedChatObject->PrintLine("Initiating connection...\nPress Enter to cancel\n");
 	std::atomic<bool> UserCanceled(false);
 	std::atomic<bool> StopReadThread(false);
-	std::thread ReadUserInputThread(ListenOnInitiationUserInput, &UserCanceled, &StopReadThread);
+	std::thread ReadUserInputThread(ListenOnInitiationUserInput, &UserCanceled, &StopReadThread,AssociatedChatObject,OnMainThread);
 
 	int PeerFirstMessagePort = -1;
 	int LocalFirstMessagePort = 2700;
-	std::cout << "First message port is " << LocalFirstMessagePort << std::endl;
+	//std::cout << "First message port is " << LocalFirstMessagePort << std::endl;
 	//int LastPeerPortSuggestion = -1;
 	//den under sätter vi på något stt
 	int LastLocalPortSuggestion = 5400;
@@ -927,22 +1025,44 @@ MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject,
 	MessageToSend.SendAdress = AssociatedChatObject->ExternalIp;
 	bool FirstErrorReported = false;
 	float SendRecordDelay = 0.5;
+	float UpdateDotDelay = 1;
 	if (MessageToSend.PortSuggestion == -1 && FirstErrorReported == false)
 	{
 		FirstErrorReported = true;
 		AssociatedChatObject->PrintLine("Felaktig port assignades i början");
 	}
+	int DotIndex = 21;
 	while (true)
 	{
 		//std::unique_lock<std::mutex> WaitLock(WaitMutex);
 		//StartConWaitConditional.wait(WaitLock);
 		//klockan som sköter hur vi skickar record
 		clock_t SendRecordTimer = clock();
+		clock_t UpdateDotTimer = clock();
 		while (Pipe.RecordAdded == false && UserCanceled == false)
 		{
+			//kollar om vi ska uppdatera initiating connection grejen
+			if ((clock() - UpdateDotTimer) / float(CLOCKS_PER_SEC) > UpdateDotDelay)
+			{
+				std::string CurrentLine = InitiatingConnectionLine.GetLineData();
+				std::string ReplacedLine = ReplaceAll(CurrentLine, ".", "");
+				if(ReplacedLine.size()+3 == CurrentLine.size())
+				{
+					InitiatingConnectionLine.SetLineData("Initiating connection     (Press enter to cancel)");
+					DotIndex = 21;
+				}
+				else
+				{
+					std::string NewInitatingConnectionLine = CurrentLine;
+					NewInitatingConnectionLine[DotIndex] = '.';
+					DotIndex += 1;
+					InitiatingConnectionLine.SetLineData(NewInitatingConnectionLine);
+				}
+				UpdateDotTimer = clock();
+			}
 			if ((clock() - SendRecordTimer) / float(CLOCKS_PER_SEC) > SendRecordDelay)
 			{
-				std::cout << (clock() - SendRecordTimer) / float(CLOCKS_PER_SEC) << std::endl;
+				//std::cout << (clock() - SendRecordTimer) / float(CLOCKS_PER_SEC) << std::endl;
 				SendRecordTimer = clock();
 				MainSockDataToSendStruct DataToSend;
 				DataToSend.Data = MessageToSend.ToString();
@@ -1038,19 +1158,21 @@ MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject,
 			}
 		}
 	}
-	AssociatedChatObject->PrintLine("Connection port " + std::to_string(NewConnection->ConnectionPort));
 	ReadUserInputThread.join();
 	AssociatedChatObject->RemoveMainSockPipe(IPAdress);
 	if (UserCanceled)
 	{
 		*OutConnection = nullptr;
+		InitiatingConnectionLine.SetLineData("Cancelled connection to " + IPAdress);
 		//delete NewConnection;
 		ErrorReturnMessage.Type = MBErrorType::Error;
 		return(ErrorReturnMessage);
 	}
 	else
 	{
-		AssociatedChatObject->PrintLine("Successfully connected to " + IPAdress);
+		//AssociatedChatObject->PrintLine("Connection port " + std::to_string(NewConnection->ConnectionPort));
+		//AssociatedChatObject->PrintLine("Successfully connected to " + IPAdress);
+		InitiatingConnectionLine.SetLineData("Successfully connected to " + IPAdress);
 		AssociatedChatObject->AddConnection(NewConnection);
 		//vi gör current connection till den vi addade
 		*OutConnection = NewConnection;
