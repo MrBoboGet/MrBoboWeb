@@ -33,6 +33,7 @@ private:
 	std::deque<std::string> PeerResponseMessages = {};
 	std::deque<std::string> PeerSendMessages = {};
 	std::thread ConnectionListenThread;
+	std::string ConnectionDescription = "No description available";
 	MBSockets::UDPSocket ConnectionSocket;
 	//är 16, 20 för säkerhets skull
 	const std::atomic<int> MBTCPMessageHeaderLength{ 20 };
@@ -66,5 +67,7 @@ public:
 	MBChatConnection(std::string PeerIP, int Port); //: ConnectionSocket(PeerIP, std::to_string(Port), MBSockets::TraversalProtocol::TCP);
 	MBError EstablishSecureConnection();
 	MBError SendData(std::string DataToSend);
+	std::string GetDescription();
+	void SetDescription(std::string NewDescription);
 	std::string GetData(float TimeoutInSeconds = 10000);
 };

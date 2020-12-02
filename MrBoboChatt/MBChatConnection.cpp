@@ -123,7 +123,7 @@ MBError MBChatConnection::EstablishSecureConnection()
 		{
 			StringToSend += char((LocalRandomNumberAfterExponentiation >> (i * 8)) % 256);
 		}
-		AssociatedChatObject->PrintLine("Sent data " + ReplaceAll(HexEncodeString(StringToSend), " ", ""));
+		//AssociatedChatObject->PrintLine("Sent data " + ReplaceAll(HexEncodeString(StringToSend), " ", ""));
 		SendData(StringToSend);
 		PeerResponse = GetData();
 	}
@@ -135,7 +135,7 @@ MBError MBChatConnection::EstablishSecureConnection()
 		{
 			StringToSend += char((LocalRandomNumberAfterExponentiation >> (i * 8)) % 256);
 		}
-		AssociatedChatObject->PrintLine("Sent data "+ReplaceAll(HexEncodeString(StringToSend), " ", ""));
+		//AssociatedChatObject->PrintLine("Sent data "+ReplaceAll(HexEncodeString(StringToSend), " ", ""));
 		SendData(StringToSend);
 	}
 	else
@@ -153,7 +153,7 @@ MBError MBChatConnection::EstablishSecureConnection()
 	{
 		PeerIntAfterExponenitation = PeerIntAfterExponenitation + MrBigInt(256).Pow(i) * MrBigInt(unsigned char(PeerResponse[255-i]));
 	}
-	AssociatedChatObject->PrintLine("recieved data " + ReplaceAll(HexEncodeString(PeerResponse), " ", ""));
+	//AssociatedChatObject->PrintLine("recieved data " + ReplaceAll(HexEncodeString(PeerResponse), " ", ""));
 	//annan testgrej
 	MrBigInt TestIgen(4);
 	TestIgen = TestIgen.Pow(4);
@@ -168,7 +168,7 @@ MBError MBChatConnection::EstablishSecureConnection()
 	//
 	//nu ska vi etablera master secreten
 	MrBigInt MasterInteger = PeerIntAfterExponenitation.PowM(LocalRandomNumber, Modolu);
-	AssociatedChatObject->PrintLine("Master integer infered " + ReplaceAll(HexEncodeString(MasterInteger.GetString()), " ", ""));
+	//AssociatedChatObject->PrintLine("Master integer infered " + ReplaceAll(HexEncodeString(MasterInteger.GetString()), " ", ""));
 	//hashar denna inte 
 	SecurityParameters.SharedSecret = std::string(32, 0);
 	picosha2::hash256(MasterInteger.GetString(), SecurityParameters.SharedSecret);
@@ -176,7 +176,16 @@ MBError MBChatConnection::EstablishSecureConnection()
 	SecurityParameters.ConnectionIsSecure = true;
 	return(ReturnValue);
 }
-
+void MBChatConnection::SetDescription(std::string NewDescription)
+{
+	std::lock_guard<std::mutex> Lock(ConnectionMutex);
+	ConnectionDescription = NewDescription;
+}
+std::string MBChatConnection::GetDescription()
+{
+	std::lock_guard<std::mutex> Lock(ConnectionMutex);
+	return(ConnectionDescription);
+}
 MBError MBChatConnection::SendData(std::string DataToSend)
 {
 	//vi initierat MBTCP protokollet

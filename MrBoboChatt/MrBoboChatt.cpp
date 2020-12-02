@@ -160,6 +160,63 @@ void MrBoboChat::PrintLineAtIndex(int Index, std::string DataToPrint)
 	//nu är vi på raden vi började på, så vi tar och helt enkelt skriver ut raden igen
 	std::cout << CurrentInput;
 }
+void MrBoboChat::SwitchConnection(std::vector<std::string> CommandWithArguments)
+{
+	//std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+	if (CommandWithArguments.size() < 2)
+	{
+		PrintLine("Connection index required");
+		return;
+	}
+	else
+	{
+		char* pEnd = nullptr;
+		int ConnectionIndex = strtol(CommandWithArguments[1].c_str(), &pEnd,10);
+		if (*pEnd) // error was detected
+		{
+			PrintLine("Error parsing integer value");
+		}
+		else
+		{
+			if (ConnectionIndex < 0)
+			{
+				ActiveConnectionNumber = -1;
+				PrintLine(DefaultDelimiter);
+			}
+			else
+			{
+				std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+				if (ConnectionMap.find(ConnectionIndex) != ConnectionMap.end())
+				{
+					ActiveConnectionNumber = ConnectionIndex;
+					PrintLine(DefaultDelimiter);
+				}
+				else
+				{
+					PrintLine("Invalid connection index: No connection with this index");
+				}
+			}
+		}
+	}
+}
+void MrBoboChat::ListCons(std::vector<std::string> CommandWithArguments)
+{
+	std::string Delimiter;
+	{
+		std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+		Delimiter = DefaultDelimiter;
+	}
+	PrintLine(Delimiter);
+	PrintLine("Current active connection: " + std::to_string(ActiveConnectionNumber));
+	{
+		std::lock_guard<std::mutex> Lock(GeneralResourceMutex);
+		for (size_t i = 0; i < ActiveConnections.size(); i++)
+		{
+			PrintLine(std::to_string(ActiveConnections[i]->ConnectionHandle) + " - " + ActiveConnections[i]->GetDescription());
+		}
+	}
+	PrintLine(Delimiter);
+}
 int MrBoboChat::GetCurrentLineIndex()
 {
 	return(CurrentLineIndex);
@@ -275,6 +332,14 @@ void MrBoboChat::ParseInput(std::string StringToParse)
 		}
 		else
 		{
+			for (size_t i = 0; i < Commands.size(); i++)
+			{
+				if(Commands[i].CommandName == CommandWithArguments[0].substr(1))
+				{
+					(this->*(Commands[i].CommandFunction))(CommandWithArguments);
+					return;
+				}
+			}
 			PrintLine(CommandWithArguments[0] + " is an unrecognised command");
 		}
 	}
@@ -476,13 +541,20 @@ void MrBoboChat::MainLoop()
 			std::string CurrentInputCopy = CurrentInput;
 			{
 				CurrentInput = "";
-				if (CurrentInput[0] != '/')
+				if (CurrentInputCopy[0] != '/')
 				{
 					PrintLine(ANSI::GREEN + "[" + Username + "] " + ANSI::RESET + CurrentInputCopy);
 				}
 				else
 				{
-					PrintLine(CurrentInputCopy);
+					//vi vill printa funktionen och argumenten med olika färg
+					std::vector<std::string> InputToPrint = Split(CurrentInputCopy, " ");
+					PrintString(ANSI::YELLOW +InputToPrint[0]+ANSI::BOLDCYAN);
+					for (size_t i = 1; i < InputToPrint.size(); i++)
+					{
+						PrintString(" "+InputToPrint[i]);
+					}
+					PrintString(ANSI::RESET+"\n");
 				}
 			}
 			ParseInput(CurrentInputCopy);
@@ -551,14 +623,18 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 	*/
 	if (Recieving)
 	{
-		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started recievieng thread.");
+		//AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started recievieng thread.");
+		AssociatedConnectionObject->SetDescription("Reciving file " + FileToSendOrRecieve);
+		MBCLineObject LineObject(AssociatedConnectionObject->AssociatedChatObject);
+		//square = 254
+		LineObject.SetLineData("Recieving file: ---------- 0% Recieved");
 		std::string HandshakeData = AssociatedConnectionObject->GetData();
 		//vi skickar data tills vi skickar
 		std::fstream NewFile(FileToSendOrRecieve, std::ios::binary | std::ios::out);
 		int DataRecieved = 0;
 		int TimeoutCount = 0;
 		int TimoutMax = 15;
-		AssociatedConnectionObject->AssociatedChatObject->PrintLine("File to recieve size = " + std::to_string(RecievedOrSentDataLength));
+		//AssociatedConnectionObject->AssociatedChatObject->PrintLine("File to recieve size = " + std::to_string(RecievedOrSentDataLength));
 		while (DataRecieved < RecievedOrSentDataLength)
 		{
 			std::string NewData = AssociatedConnectionObject->GetData();
@@ -567,6 +643,21 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 				NewFile << NewData;
 				DataRecieved += NewData.size();
 				TimeoutCount = 0;
+
+				std::string NewLine = "Recieving file: ";
+				int PercentRecieved = int((DataRecieved / float(RecievedOrSentDataLength)*100));
+				int LinesToPrint = 10;
+				for (size_t i = 10; i < PercentRecieved; i+=10)
+				{
+					NewLine += 0x254;
+					LinesToPrint -= 1;
+				}
+				for (size_t i = 0; i < LinesToPrint; i++)
+				{
+					NewLine += "-";
+				}
+				NewLine += " " + std::to_string(PercentRecieved) + "% Recieved";
+				LineObject.SetLineData(NewLine);
 			}
 			else
 			{
@@ -577,11 +668,15 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 				}
 			}
 		}
+		LineObject.SetLineData("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)"+ANSI::GREEN+" Succesfully Recieved"+ANSI::RESET);
 		NewFile.close();
 	}
 	else
 	{
-		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started sending thread.");
+		AssociatedConnectionObject->SetDescription("Sending file " + FileToSendOrRecieve);
+		MBCLineObject LineObject(AssociatedConnectionObject->AssociatedChatObject);
+		//AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started sending thread.");
+		LineObject.SetLineData("Sending file: ---------- 0% Sent");
 		AssociatedConnectionObject->SendData("Handshake");
 		int ExtractedData = 0;
 		std::ifstream FileToSend(FileToSendOrRecieve, std::ios::in | std::ios::binary | std::ios::out);
@@ -607,6 +702,21 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 			{
 				Data = (char*)malloc(DataChunkSize);
 				FileToSend.read(Data, DataChunkSize);
+
+				std::string NewLine = "Sending file: ";
+				int PercentRecieved = int((ExtractedData / float(RecievedOrSentDataLength)*100));
+				int LinesToPrint = 10;
+				for (size_t i = 10; i < PercentRecieved; i += 10)
+				{
+					NewLine += 254;
+					LinesToPrint -= 1;
+				}
+				for (size_t i = 0; i < LinesToPrint; i++)
+				{
+					NewLine += "-";
+				}
+				NewLine += " " + std::to_string(PercentRecieved) + "% Sent";
+				LineObject.SetLineData(NewLine);
 			}
 			MBError SendError(true);
 			std::string DataToSend;
@@ -632,15 +742,8 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 				DataSentSuccesfully = false;
 			}
 		}
+		LineObject.SetLineData("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)"+ANSI::GREEN+ " Succesfully Transfered"+ANSI::RESET);
 		FileToSend.close();
-	}
-	if (Recieving)
-	{
-		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Succesfully saved file.");
-	}
-	if (!Recieving)
-	{
-		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Succesfully tramsfered file.");
 	}
 }
 void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject)
@@ -654,10 +757,17 @@ void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* Asso
 		}
 		else
 		{
-			MBError RecievedError = AssociatedChatObject->SendDataToConnection(std::string(1, 1) + "sendfile " + CommandWithArguments[1], AssociatedChatObject->ActiveConnectionNumber);
-			if (!RecievedError)
+			if (std::filesystem::exists(CommandWithArguments[1]))
 			{
-				AssociatedChatObject->PrintLine(RecievedError.ErrorMessage);
+				MBError RecievedError = AssociatedChatObject->SendDataToConnection(std::string(1, 1) + "sendfile " + CommandWithArguments[1], AssociatedChatObject->ActiveConnectionNumber);
+				if (!RecievedError)
+				{
+					AssociatedChatObject->PrintLine(RecievedError.ErrorMessage);
+				}
+			}
+			else
+			{
+				AssociatedChatObject->PrintLine("Couldn't find file " + CommandWithArguments[1]);
 			}
 		}
 	}
@@ -669,11 +779,18 @@ void MBCSendFile(std::vector<std::string> CommandWithArguments, MrBoboChat* Asso
 void MrBoboChatHelp(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject)
 {
 	//std::cout << "(* denotes optional argument)\n";
+	AssociatedChatObject->PrintLine("|-------------------------------------|");
 	AssociatedChatObject->PrintLine("help - displays a list of commands");
 	AssociatedChatObject->PrintLine("startcon (ipadress) - Starts a connection with specified ip adress");
 	AssociatedChatObject->PrintLine("setextip (ipadress) - Sets your external ip. Correct external ip is required in order to start a connection.");
 	AssociatedChatObject->PrintLine("setuser (username) - Sets your username used in chats. Change is only visible on new connections.");
 	AssociatedChatObject->PrintLine("sendfile (filename) - Transfer a copy of the file to the peer in a chatt as specified by the relative path to this executable or absolute path.");
+	std::lock_guard<std::mutex> Lock(AssociatedChatObject->GeneralResourceMutex);
+	for (size_t i = 0; i < AssociatedChatObject->Commands.size(); i++)
+	{
+		AssociatedChatObject->PrintLine(AssociatedChatObject->Commands[i].CommandDescription);
+	}
+	AssociatedChatObject->PrintLine("|-------------------------------------|");
 	//std::cout << "activecon - lists current active connections by IP or username\n";
 }
 void ViewConfig(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject)
@@ -778,6 +895,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 	//MBSockets::UDPSocket SocketToUse = MBSockets::UDPSocket(AssociatedConnectionObject->PeerIPAddress, std::to_string(AssociatedConnectionObject->ConnectionPort), MBSockets::TraversalProtocol::TCP);
 	//SocketToUse.Bind(AssociatedConnectionObject->ConnectionPort);
 	AssociatedConnectionObject->AssociatedChatObject->PrintLine("Port for connection is " + std::to_string(AssociatedConnectionObject->ConnectionPort));
+	AssociatedConnectionObject->SetDescription("Chat with unknown");
 	std::mutex MainFuncMutex;
 	std::atomic<bool> HandshakeComplete{ false };
 	//std::atomic<bool> StopThreads{ false };
@@ -814,6 +932,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 			}
 		}
 	} while (!HandshakeComplete);
+	AssociatedConnectionObject->SetDescription("Chat with "+PeerUserName);
 	bool PeerSentFileTransferRequest = false;
 	bool SentFileTransferRequest = false;
 	bool AcceptedFileTransfer = false;
@@ -825,9 +944,9 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 	{
 		if (RecievedMessage)
 		{
-			RecievedMessage = false;
 			if (AssociatedConnectionObject->AssociatedChatObject->GetCurrentConnection() == AssociatedConnectionObject->ConnectionHandle)
 			{
+				RecievedMessage = false;
 				int NumberOfMessages;
 				{
 					std::lock_guard<std::mutex> Lock(MainFuncMutex);

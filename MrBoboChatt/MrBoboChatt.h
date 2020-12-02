@@ -65,6 +65,13 @@ public:
 	void SetLineData(std::string NewData);
 };
 
+struct MBCCommand
+{
+	std::string CommandName = "";
+	std::string CommandDescription = "";
+	void (MrBoboChat::* CommandFunction)(std::vector<std::string>);
+};
+
 class MrBoboChat
 {
 	friend void MrBoboChatHelp(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
@@ -79,8 +86,14 @@ class MrBoboChat
 
 	friend MBCLineObject;
 private:
+	std::vector<MBCCommand> Commands =
+	{
+		{"lc","lc - Lists active Connections",&MrBoboChat::ListCons},
+		{"sc","sc (connection index) - Switches active Connection to connection index. Connection index -1 switches active connection to none",&MrBoboChat::SwitchConnection}
+	};
 	std::string CurrentInput = "";
 	std::string ExternalIp = "";
+	std::string DefaultDelimiter = "|-------------------------------------|";
 	std::atomic<int> ActiveConnectionNumber = {-1};
 	std::atomic<int> LastConnectionNumber = 0;
 	const std::atomic<uint32_t> StandardInitiationPort = {2700};
@@ -115,6 +128,8 @@ private:
 		{"/viewconfig",ViewConfig},
 		{"/sendfile",MBCSendFile}
 	};
+	void ListCons(std::vector<std::string> CommandWithArguments);
+	void SwitchConnection(std::vector<std::string> CommandWithArguments);
 
 	int GetCurrentLineIndex();
 	void PrintLineAtIndex(int Index,std::string StringToPrint);
@@ -134,6 +149,7 @@ private:
 	//void InitaiteConnection(std::string PeerToConnectTo);
 	void LoadConfig();
 	void ChangeConfig(std::string ConfigToChange, std::string& ParameterData);
+	std::atomic<int> CursorPosition{0};
 public:
 	MBChatStaticResources StaticResources;
 
