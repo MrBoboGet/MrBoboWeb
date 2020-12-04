@@ -151,7 +151,7 @@ MBError MBChatConnection::EstablishSecureConnection()
 	}
 	for (int i = 255; i >= 0; i--)
 	{
-		PeerIntAfterExponenitation = PeerIntAfterExponenitation + MrBigInt(256).Pow(i) * MrBigInt(unsigned char(PeerResponse[255-i]));
+		PeerIntAfterExponenitation = PeerIntAfterExponenitation + MrBigInt(256).Pow(i) * MrBigInt((unsigned char)(PeerResponse[255-i]));
 	}
 	//AssociatedChatObject->PrintLine("recieved data " + ReplaceAll(HexEncodeString(PeerResponse), " ", ""));
 	//annan testgrej
@@ -211,7 +211,7 @@ MBError MBChatConnection::SendData(std::string DataToSend)
 	{
 		FirstMessage.NumberOfMessages += 1;
 	}
-	FirstMessage.DataCheckIntervall = 10;
+	FirstMessage.DataCheckIntervall = 100;
 	if (FirstMessage.DataCheckIntervall > FirstMessage.NumberOfMessages)
 	{
 		FirstMessage.DataCheckIntervall = FirstMessage.NumberOfMessages;

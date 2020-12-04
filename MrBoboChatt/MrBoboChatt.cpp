@@ -29,6 +29,9 @@ namespace ANSI
 	std::string BOLDMAGENTA = "\033[1m\033[35m";     /* Bold Magenta */
 	std::string BOLDCYAN = "\033[1m\033[36m";    /* Bold Cyan */
 	std::string BOLDWHITE = "\033[1m\033[37m";    /* Bold White */
+	std::string CLEARLINE = "\x1b[2K";
+	std::string MOVELEFT = "\x1b[D";
+	std::string MOVERIGHT = "\x1b[C";
 };
 void ListenOnInitiationSocket(MBSockets::UDPSocket* SocketToListenOn, std::string* StringToModify, std::condition_variable* ConditionalToNotify, std::mutex* ResourceMutex)
 {
@@ -140,12 +143,20 @@ void MrBoboChat::PrintLineAtIndex(int Index, std::string DataToPrint)
 	{
 		return;
 	}
+	//CSI ? 1049 h
 	std::lock_guard<std::mutex> Lock(PrintMutex);
 	int IndexBeforePrint = CurrentLineIndex;
+	//std::cout << "\x1b[?1049H";
+	//std::cout << "\x1b[R";
 	for (size_t i = Index; i < IndexBeforePrint; i++)
 	{
 		//vi ska göra det här skillnaden i antal ggr
+		//std::cout << "\x1b[A";
 		std::cout << "\x1b[A";
+		
+		//std::cout << "\x1b[S";
+		//std::cout << "\x1b[T";
+		std::flush(std::cout);
 	}
 	std::cout << "\r";
 	//först clearar vi linen
@@ -154,11 +165,17 @@ void MrBoboChat::PrintLineAtIndex(int Index, std::string DataToPrint)
 	for (size_t i = Index; i < IndexBeforePrint; i++)
 	{
 		//vi ska göra det här skillnaden i antal ggr
+		//std::cout << "\x1b[T";
+		//std::cout << "\x1b[S";
 		std::cout << std::endl;
 	}
 	//hoppar vår grej fram antal steg som vi har i vår 
 	//nu är vi på raden vi började på, så vi tar och helt enkelt skriver ut raden igen
 	std::cout << CurrentInput;
+}
+bool MrBoboChat::IsPrintable(char CharacterToCheck)
+{
+	return(CharacterToCheck > 31 && CharacterToCheck < 128);
 }
 void MrBoboChat::SwitchConnection(std::vector<std::string> CommandWithArguments)
 {
@@ -265,6 +282,25 @@ char MrBoboChat::GetCharInput()
 }
 void MrBoboChat::InitializeObject()
 {
+#ifdef WIN32
+	IsWindows = true;
+#elif __linux__
+	IsWindows = false;
+#endif
+	if (IsWindows)
+	{
+		KeyCodes.LeftArrow = "\xe0\x4b";
+		KeyCodes.RightArrow = "\xe0\x4d";
+		KeyCodes.UpArrow = "\xe0\x48";
+		KeyCodes.DownArrow = "\xe0\x50";
+	}
+	else
+	{
+		KeyCodes.LeftArrow = "\x1b\x5b\x44";
+		KeyCodes.RightArrow = "\x1b\x5b\x43";
+		KeyCodes.UpArrow = "\x1b\x5b\x41";
+		KeyCodes.DownArrow = "\x1b\x5b\x42";
+	}
 	MBSockets::Init();
 	LoadConfig();
 	MSListenThread = std::thread(MainSocket_Listener, this);
@@ -477,6 +513,10 @@ void MrBoboChat::PrintString(std::string StringToPrint)
 	{
 		std::cout << "\b \b";
 	}
+	if (!IsWindows)
+	{
+		//std::cout << "Tagit bort input" << std::endl;
+	}
 	//lägger till i vår newline nummer för varje newline i den
 	for (size_t i = 0; i < StringToPrint.length(); i++)
 	{
@@ -486,7 +526,13 @@ void MrBoboChat::PrintString(std::string StringToPrint)
 		}
 	}
 	std::cout << StringToPrint;
+	std::flush(std::cout);
 	std::cout << CurrentInput;
+	if (!IsWindows)
+	{
+		//std::cout << "\n";
+		//std::cout << "Printat klart";
+	}
 	std::flush(std::cout);
 }
 std::string MrBoboChat::GetUsrName()
@@ -520,19 +566,89 @@ MrBoboChat::~MrBoboChat()
 {
 
 }
+void MrBoboChat::MoveCursorToPosition(uint16_t PositionToMove)
+{
+	std::lock_guard<std::mutex> Lock(PrintMutex);
+	std::cout << "\x1b[" + std::to_string(PositionToMove+1) + "G";
+	CursorPosition = PositionToMove;
+	//std::string MOVERIGHT = "\x1b[C";
+}
+void MrBoboChat::SetCurrentInput(std::string InputToSet)
+{
+	{
+		std::lock_guard<std::mutex> Lock(PrintMutex);
+		std::cout << ANSI::CLEARLINE;
+	}
+	int PreviousPosition = CursorPosition;
+	MoveCursorToPosition(0);
+	CurrentInput = InputToSet;
+	{
+		std::lock_guard<std::mutex> Lock(PrintMutex);
+		std::cout << CurrentInput;
+	}
+	MoveCursorToPosition(PreviousPosition);
+}
+void MrBoboChat::AddCharToInput(std::string InputToAdd)
+{
+	if(CursorPosition == CharactersInInput)
+	{
+		std::lock_guard<std::mutex> Lock(PrintMutex);
+		CurrentInput += InputToAdd;
+		//MoveCursorToPosition(CursorPosition);
+		std::cout << InputToAdd;
+		CursorPosition += 1;
+		CharactersInInput += 1;
+	}
+	else
+	{
+		//splittar upp den så vi kan lägga in grejer i mitten
+		std::cout << ANSI::CLEARLINE;
+		std::string FirstPart = CurrentInput.substr(0, CursorPosition);
+		std::string SecondPart = CurrentInput.substr(CursorPosition);
+		int PreviousPosition = CursorPosition;
+		MoveCursorToPosition(0);
+		{
+			std::lock_guard<std::mutex> Lock(PrintMutex);
+			CurrentInput = FirstPart + InputToAdd + SecondPart;
+			std::cout << CurrentInput;
+		}
+		CharactersInInput += 1;
+		MoveCursorToPosition(PreviousPosition + 1);
+	}
+}
 void MrBoboChat::MainLoop()
 {
 	//spawnar alla threads, och passar sedan enbart inputen till motsvarande ställen
+	//MBCLineObject TestRad(this);
+	//TestRad.SetLineData("Hej");
+	//clock_t TestClocka = clock_t();
+	//float TestUpdateIntervall = 0.2f;
 	while (true)
 	{
+		//if ((clock()-TestClocka)/(float)CLOCKS_PER_SEC > TestUpdateIntervall)
+		//{
+		//	if (TestRad.GetLineData() == "Hej")
+		//	{
+		//		TestRad.SetLineData("På dig");
+		//	}
+		//	else
+		//	{
+		//		TestRad.SetLineData("Hej");
+		//	}
+		//	TestClocka = clock();
+		//}
 		char NewInput = GetCharInput();
 		//std::cout << HexEncodeByte(NewInput);
 		//continue;
-
-
+		//std::cout << HexEncodeByte(NewInput);
+		//continue;
+		//std::cout << HexEncodeByte(NewInput);
+		//continue;
+		//std::cout << HexEncodeByte(NewInput);
+		//continue;
 		if (NewInput == '\r' || NewInput == '\n')
 		{
-			std::cout << NewInput;
+			std::cout << '\r';
 			if (InitiatingCancelableInput)
 			{
 				InitiatingCancelableInput = false;
@@ -557,34 +673,141 @@ void MrBoboChat::MainLoop()
 					PrintString(ANSI::RESET+"\n");
 				}
 			}
+			CursorPosition = 0;
+			CharactersInInput = 0;
+			if (CurrentInputCopy != "")
+			{
+				PreviousInputs.push_back(CurrentInputCopy);
+				CurrentInputlineIndex = PreviousInputs.size();
+			}
 			ParseInput(CurrentInputCopy);
 		}
 		else if (NewInput == '\b' || NewInput == 0x7f)
 		{
 			//PrintString(" ");
-			std::cout << NewInput;
+			//std::cout << NewInput;
 			if (InitiatingCancelableInput)
 			{
 				continue;
 			}
 			if (NewInput == 0x7f)
 			{
-				printf("\b");
+				//printf("\b");
 			}
-			CurrentInput = CurrentInput.substr(0, CurrentInput.size() - 1);
+			//CurrentInput = CurrentInput.substr(0, CurrentInput.size() - 1);
+			//CurrentInput = CurrentInput.substr(0,)
+			if (CursorPosition > 0)
+			{
+				SetCurrentInput(CurrentInput.substr(0, CursorPosition - 1) + CurrentInput.substr(CursorPosition));
+				MoveCursorToPosition(CursorPosition - 1);
+			}
 			{
 				//std::lock_guard<std::mutex> Lock(PrintMutex);
-				printf(" \b");
+				//printf(" \b");
 			}
 		}
 		else
 		{
-			std::cout << NewInput;
-			if (InitiatingCancelableInput)
+			char FirstCharacterInBuffer = 0;
+			if (SpecialCharacterBuffer.size() > 0)
 			{
-				continue;
+				FirstCharacterInBuffer = SpecialCharacterBuffer[0];
 			}
-			CurrentInput += NewInput;
+			if (IsPrintable(NewInput) && !(FirstCharacterInBuffer == 0x9c || FirstCharacterInBuffer == 0x1b || (unsigned char)FirstCharacterInBuffer == 0xe0))
+			{
+				//std::cout << NewInput;
+				if (InitiatingCancelableInput)
+				{
+					continue;
+				}
+				AddCharToInput(std::string(1,NewInput));
+				SpecialCharacterBuffer = "";
+			}
+			else
+			{
+				SpecialCharacterBuffer += NewInput;
+				if(SpecialCharacterBuffer == KeyCodes.LeftArrow)
+				{
+					MoveCursor(MBCDirection::Left);
+					SpecialCharacterBuffer = "";
+				}
+				else if (SpecialCharacterBuffer == KeyCodes.RightArrow)
+				{
+					MoveCursor(MBCDirection::Right);
+					SpecialCharacterBuffer = "";
+				}
+				else if (SpecialCharacterBuffer == KeyCodes.DownArrow)
+				{
+					CurrentInputlineIndex += 1;
+					if (CurrentInputlineIndex < PreviousInputs.size())
+					{
+						SetCurrentInput(PreviousInputs[CurrentInputlineIndex]);
+						MoveCursorToPosition(CurrentInput.size());
+					}
+					else
+					{
+						SetCurrentInput("");
+						MoveCursorToPosition(0);
+						CurrentInputlineIndex = PreviousInputs.size();
+					}
+					SpecialCharacterBuffer = "";
+				}
+				else if (SpecialCharacterBuffer == KeyCodes.UpArrow)
+				{
+					CurrentInputlineIndex -= 1;
+					if (CurrentInputlineIndex >= 0)
+					{
+						SetCurrentInput(PreviousInputs[CurrentInputlineIndex]);
+						MoveCursorToPosition(CurrentInput.size());
+					}
+					else
+					{
+						CurrentInputlineIndex = 0;
+					}
+					SpecialCharacterBuffer = "";
+				}
+				else if (NewInput == 0x09)
+				{
+					SpecialCharacterBuffer = "";
+				}
+				else
+				{
+					FirstCharacterInBuffer = SpecialCharacterBuffer[0];
+					if (!(FirstCharacterInBuffer == 0x9c || FirstCharacterInBuffer == 0x1b || (unsigned char)FirstCharacterInBuffer == 0xe0))
+					{
+						SpecialCharacterBuffer = "";
+					}
+					if (SpecialCharacterBuffer.size() > 1)
+					{
+						if ((unsigned char)FirstCharacterInBuffer == 0xe0)
+						{
+							//
+							// "\xe0\x4b";
+							//= "\xe0\x4d";
+							//\xe0\x48";
+							// "\xe0\x50";
+							//
+							if (SpecialCharacterBuffer[1] != 0x4b && SpecialCharacterBuffer[1] != 0x4d && SpecialCharacterBuffer[1] != 0x48 && SpecialCharacterBuffer[1] != 0x50)
+							{
+								SpecialCharacterBuffer = "";
+							}
+						}
+						if ((unsigned char)FirstCharacterInBuffer == 0x1b)
+						{
+							//
+							// KeyCodes.LeftArrow = "\x1b\x5b\x44";
+							//KeyCodes.RightArrow = "\x1b\x5b\x43";
+							//KeyCodes.UpArrow = "\x1b\x5b\x41";
+							//KeyCodes.DownArrow = "\x1b\x5b\x42";
+							//
+							if (SpecialCharacterBuffer[1] != 0x44 && SpecialCharacterBuffer[1] != 0x43 && SpecialCharacterBuffer[1] != 0x41 && SpecialCharacterBuffer[1] != 0x42)
+							{
+								SpecialCharacterBuffer = "";
+							}
+						}
+					}
+				}
+			}
 		}
 		/*
 		std::string StringToParse;
@@ -593,7 +816,32 @@ void MrBoboChat::MainLoop()
 		*/
 	}
 }
-
+void MrBoboChat::MoveCursor(MBCDirection DirectioToMove)
+{
+	if (MBCDirection::Left == DirectioToMove)
+	{
+		std::lock_guard<std::mutex> Lock(PrintMutex);
+		std::cout << ANSI::MOVELEFT;
+		CursorPosition -= 1;
+		if (CursorPosition < 0)
+		{
+			CursorPosition = 0;
+		}
+	}
+	else
+	{
+		std::lock_guard<std::mutex> Lock(PrintMutex);
+		CursorPosition += 1;
+		if (CursorPosition > CurrentInput.size())
+		{
+			CursorPosition = CurrentInput.size();
+		}
+		else
+		{
+			std::cout << ANSI::MOVERIGHT;
+		}
+	}
+}
 void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::string FileToSendOrRecieve, bool Recieving, int RecievedOrSentDataLength)
 {
 	/*
@@ -624,10 +872,11 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 	if (Recieving)
 	{
 		//AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started recievieng thread.");
-		AssociatedConnectionObject->SetDescription("Reciving file " + FileToSendOrRecieve);
-		MBCLineObject LineObject(AssociatedConnectionObject->AssociatedChatObject);
+		AssociatedConnectionObject->SetDescription("Recieving file: ---------- 0% Recieved");
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started recieving file. Check description for progress");
+		//MBCLineObject LineObject(AssociatedConnectionObject->AssociatedChatObject);
 		//square = 254
-		LineObject.SetLineData("Recieving file: ---------- 0% Recieved");
+		//LineObject.SetLineData("Recieving file: ---------- 0% Recieved");
 		std::string HandshakeData = AssociatedConnectionObject->GetData();
 		//vi skickar data tills vi skickar
 		std::fstream NewFile(FileToSendOrRecieve, std::ios::binary | std::ios::out);
@@ -657,7 +906,7 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 					NewLine += "-";
 				}
 				NewLine += " " + std::to_string(PercentRecieved) + "% Recieved";
-				LineObject.SetLineData(NewLine);
+				AssociatedConnectionObject->SetDescription(NewLine);
 			}
 			else
 			{
@@ -668,15 +917,16 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 				}
 			}
 		}
-		LineObject.SetLineData("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)"+ANSI::GREEN+" Succesfully Recieved"+ANSI::RESET);
+		//LineObject.SetLineData("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)"+ANSI::GREEN+" Succesfully Recieved"+ANSI::RESET);
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)" + ANSI::GREEN + " Succesfully Recieved" + ANSI::RESET);
 		NewFile.close();
 	}
 	else
 	{
-		AssociatedConnectionObject->SetDescription("Sending file " + FileToSendOrRecieve);
-		MBCLineObject LineObject(AssociatedConnectionObject->AssociatedChatObject);
+		AssociatedConnectionObject->SetDescription("Sending file "+FileToSendOrRecieve+": ---------- 0% Sent");
+		//MBCLineObject LineObject(AssociatedConnectionObject->AssociatedChatObject);
 		//AssociatedConnectionObject->AssociatedChatObject->PrintLine("Started sending thread.");
-		LineObject.SetLineData("Sending file: ---------- 0% Sent");
+		//LineObject.SetLineData("Sending file: ---------- 0% Sent");
 		AssociatedConnectionObject->SendData("Handshake");
 		int ExtractedData = 0;
 		std::ifstream FileToSend(FileToSendOrRecieve, std::ios::in | std::ios::binary | std::ios::out);
@@ -689,7 +939,7 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 		{
 			//int Hej = 123;
 		}
-		int DataChunkSize = 1500;
+		int DataChunkSize = 15000;
 		if (RecievedOrSentDataLength < DataChunkSize)
 		{
 			DataChunkSize = RecievedOrSentDataLength;
@@ -703,7 +953,7 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 				Data = (char*)malloc(DataChunkSize);
 				FileToSend.read(Data, DataChunkSize);
 
-				std::string NewLine = "Sending file: ";
+				std::string NewLine = "Sending file "+FileToSendOrRecieve+": ";
 				int PercentRecieved = int((ExtractedData / float(RecievedOrSentDataLength)*100));
 				int LinesToPrint = 10;
 				for (size_t i = 10; i < PercentRecieved; i += 10)
@@ -716,7 +966,7 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 					NewLine += "-";
 				}
 				NewLine += " " + std::to_string(PercentRecieved) + "% Sent";
-				LineObject.SetLineData(NewLine);
+				//LineObject.SetLineData(NewLine);
 			}
 			MBError SendError(true);
 			std::string DataToSend;
@@ -742,7 +992,7 @@ void MBCSendFile_MainLopp(MBChatConnection* AssociatedConnectionObject, std::str
 				DataSentSuccesfully = false;
 			}
 		}
-		LineObject.SetLineData("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)"+ANSI::GREEN+ " Succesfully Transfered"+ANSI::RESET);
+		AssociatedConnectionObject->AssociatedChatObject->PrintLine("File " + FileToSendOrRecieve + " (" + std::to_string(RecievedOrSentDataLength) + " bytes)"+ANSI::GREEN+ " Succesfully Transfered"+ANSI::RESET);
 		FileToSend.close();
 	}
 }

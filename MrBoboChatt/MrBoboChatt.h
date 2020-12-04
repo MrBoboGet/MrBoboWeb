@@ -71,7 +71,17 @@ struct MBCCommand
 	std::string CommandDescription = "";
 	void (MrBoboChat::* CommandFunction)(std::vector<std::string>);
 };
-
+enum class MBCDirection : uint8_t
+{
+	Left,Right
+};
+struct MBCKeyCodes
+{
+	std::string LeftArrow;
+	std::string RightArrow;
+	std::string DownArrow;
+	std::string UpArrow;
+};
 class MrBoboChat
 {
 	friend void MrBoboChatHelp(std::vector<std::string> CommandWithArguments, MrBoboChat* AssociatedChatObject);
@@ -91,6 +101,9 @@ private:
 		{"lc","lc - Lists active Connections",&MrBoboChat::ListCons},
 		{"sc","sc (connection index) - Switches active Connection to connection index. Connection index -1 switches active connection to none",&MrBoboChat::SwitchConnection}
 	};
+	MBCKeyCodes KeyCodes;
+	std::vector<std::string> PreviousInputs = {};
+	std::atomic<int> CurrentInputlineIndex = 0;
 	std::string CurrentInput = "";
 	std::string ExternalIp = "";
 	std::string DefaultDelimiter = "|-------------------------------------|";
@@ -149,10 +162,18 @@ private:
 	//void InitaiteConnection(std::string PeerToConnectTo);
 	void LoadConfig();
 	void ChangeConfig(std::string ConfigToChange, std::string& ParameterData);
+	bool IsPrintable(char CharToCheck);
 	std::atomic<int> CursorPosition{0};
+	std::atomic<int> CharactersInInput{0};
+	std::string SpecialCharacterBuffer = "";
+	void MoveCursor(MBCDirection DirectioToMove);
+	void MoveCursorToPosition(uint16_t Position);
+	void AddCharToInput(std::string InputToAdd);
+	std::atomic<bool> IsWindows;
+	void SetCurrentInput(std::string InputToSet);
 public:
 	MBChatStaticResources StaticResources;
-
+	
 	char GetCharInput();
 	std::atomic<bool> InitiatingCancelableInput{ false };
 	std::string GetExtIp();
