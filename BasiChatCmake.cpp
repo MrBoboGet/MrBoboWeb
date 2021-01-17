@@ -7,6 +7,7 @@
 #include <MrPostOGet/SearchEngineImplementation.h>
 #include <MrPostOGet/TLSHandler.h>
 #include <MrBoboChatt/MrBoboChatt.h>
+#include <time.h>
 void ListeningPart2(std::string PortToListenTo)
 {
 	MBSockets::ServerSocket ServerSocketen(PortToListenTo, MBSockets::TraversalProtocol::TCP);
@@ -44,10 +45,47 @@ int main()
 	//TestFil << "HejHej";
 	//TestFil.close();
 	//std::cout << "Testfile is created" << std::endl;
+	
+	//MBSockets::Init();
+	//TestMBChatGrejer();
+	//MrBoboChat TestGrej = MrBoboChat();
+	//TestGrej.MainLoop();
+
+	MrBigInt2 Five(5);
+	MrBigInt2 TestInt(1);
+	clock_t Timer = clock();
+	for (size_t i = 0; i < 1000; i++)
+	{
+		TestInt =TestInt * Five;
+		//std::cout << TestInt.ToString() << std::endl;
+		if (i % 10000 == 0)
+		{
+			std::cout << i << std::endl;
+			//std::cout << TestInt.ToString() << std::endl;
+			//std::cout << "i = " << i << " InternalUnits = " << TestInt.GetNumberOfUnits() << std::endl;
+		}
+	}
+	MrBigInt2 ModResult;
+	std::cout << "Mod Börjar" << std::endl;
+	MrBigInt2::PowM(MrBigInt2(123123123), MrBigInt2(123123123), MrBigInt2(321),ModResult);
+	std::cout << ModResult.GetString() << std::endl;
+	std::cout << TestInt.GetString() << std::endl;
+	std::cout << "Took " << (clock() - Timer) / (float)CLOCKS_PER_SEC << " Seconds" << std::endl;
+	Timer = clock();
+	for (size_t i = 0; i <800; i++)
+	{
+		MrBigInt2 Temp = TestInt / 100;
+	}
+	std::cout << "Took " << (clock() - Timer) / (float)CLOCKS_PER_SEC << " Seconds" << std::endl;
+	/*
 	MBSockets::Init();
-	TestMBChatGrejer();
-	MrBoboChat TestGrej = MrBoboChat();
-	TestGrej.MainLoop();
+	MBSockets::HTTPConnectSocket TestSocket("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
+	TestSocket.Connect();
+	TestSocket.EstablishSecureConnetion();
+	std::cout<< TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
+	*/
+	
+	
 	/*
 	clock_t OriginalTime = clock();
 	clock_t Timer = clock();
