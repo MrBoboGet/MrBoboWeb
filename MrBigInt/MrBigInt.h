@@ -9,7 +9,9 @@
 #include <assert.h>
 #include <iostream>
 #include <time.h>
-///*
+#include <chrono>
+//bara för debug
+/*
 class MrBigInt
 {
 private:
@@ -112,7 +114,7 @@ public:
 		return(ReturnValue);
 	}
 };
-//*/
+*/
 /*
 #define INT_BITS sizeof(unsigned int)*8
 class MrBigInt
@@ -287,10 +289,11 @@ public:
 	}
 };
 */
+///*
 typedef unsigned int UnitType;
 #define UNIT_BITS (sizeof(UnitType)*8)
 #define UNIT_MAX ((UnitType)(~0))
-class MrBigInt2
+class MrBigInt
 {
 private:
 	bool IsNegative = false;
@@ -324,7 +327,7 @@ private:
 		}
 		return(true);
 	}
-	void AddUnsigned(MrBigInt2 const& NumberToAdd)
+	void AddUnsigned(MrBigInt const& NumberToAdd)
 	{
 		UnitType LeftSize = InternalUnits.size();
 		UnitType RightSize = NumberToAdd.InternalUnits.size();
@@ -357,7 +360,7 @@ private:
 			InternalUnits.push_back(1);
 		}
 	}
-	void SubtractUnsigned(MrBigInt2 const& NumberToSubtract)
+	void SubtractUnsigned(MrBigInt const& NumberToSubtract)
 	{
 		//förutsätter att vänsterledet alltid är positivt och högerledet negativt
 		unsigned int MaxComponents = std::max(this->InternalUnits.size(), NumberToSubtract.InternalUnits.size());
@@ -420,19 +423,19 @@ private:
 			}
 		}
 	}
-	void NaiveMultiplication(MrBigInt2 const& LeftInt, MrBigInt2 const& RightInt, MrBigInt2& OutResult)
+	void NaiveMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
-		MrBigInt2 Iterator;
-		OutResult = MrBigInt2(0);
+		MrBigInt Iterator;
+		OutResult = MrBigInt(0);
 		while (Iterator < RightInt)
 		{
 			OutResult += (*this);
-			Iterator += MrBigInt2(1);
+			Iterator += MrBigInt(1);
 		}
 	}
-	void LongMultiplication(MrBigInt2 const& LeftInt, MrBigInt2 const& RightInt, MrBigInt2& OutResult)
+	void LongMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
-		OutResult = MrBigInt2(0);
+		OutResult = MrBigInt(0);
 		unsigned int RightSize = RightInt.InternalUnits.size();
 		for (size_t i = 0; i < RightSize; i++)
 		{
@@ -447,9 +450,9 @@ private:
 			}
 		}
 	}
-	void KaratsubaMultiplication(MrBigInt2 const& LeftInt, MrBigInt2 const& RightInt, MrBigInt2& OutResult)
+	void KaratsubaMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
-		MrBigInt2 B = MrBigInt2(1) << (UNIT_BITS);
+		MrBigInt B = MrBigInt(1) << (UNIT_BITS);
 		unsigned int MaxSize = std::max(LeftInt.InternalUnits.size(), RightInt.InternalUnits.size());
 		unsigned int m = MaxSize / 2;
 		if (MaxSize%2 == 1)
@@ -458,10 +461,10 @@ private:
 		}
 		unsigned int LeftSize = LeftInt.InternalUnits.size();
 		unsigned int RightSize = RightInt.InternalUnits.size();
-		MrBigInt2 x0;
-		MrBigInt2 x1;
-		MrBigInt2 y0;
-		MrBigInt2 y1;
+		MrBigInt x0;
+		MrBigInt x1;
+		MrBigInt y0;
+		MrBigInt y1;
 		for (size_t i = 0; i < m; i++)
 		{
 			if (i < x0.InternalUnits.size())
@@ -477,14 +480,14 @@ private:
 
 
 
-		MrBigInt2 z2;
-		MrBigInt2 z1;
-		MrBigInt2 z0;
+		MrBigInt z2;
+		MrBigInt z1;
+		MrBigInt z0;
 	}
-	void UnsignedDivide(MrBigInt2 const& Divident, MrBigInt2& OutRemainder,MrBigInt2& OutQuotient) const
+	void UnsignedDivide(MrBigInt const& Divident, MrBigInt& OutRemainder,MrBigInt& OutQuotient) const
 	{
-		OutRemainder = MrBigInt2();
-		OutQuotient = MrBigInt2();
+		OutRemainder = MrBigInt();
+		OutQuotient = MrBigInt();
 		//unsigned int MaxComponents = std::max(this->InternalUnits.size(), Divident.InternalUnits.size());
 		unsigned int ThisSize = InternalUnits.size();
 		unsigned int MaxSize = std::max(InternalUnits.size(), Divident.InternalUnits.size());
@@ -501,56 +504,146 @@ private:
 				if (Divident <= OutRemainder)
 				{
 					OutRemainder -= Divident;
-					OutQuotient += MrBigInt2(1) << ((i * UNIT_BITS) + j);
+					OutQuotient += MrBigInt(1) << ((i * UNIT_BITS) + j);
 				}
 			}
 		}
 	}
 public:
-	static void PowM(MrBigInt2 const& Base, MrBigInt2 const& Exponent, MrBigInt2 Mod,MrBigInt2& OutResult)
+	static void PowM(MrBigInt const& Base, MrBigInt const& Exponent, MrBigInt const& Mod,MrBigInt& OutResult)
 	{
-		OutResult = MrBigInt2(1);
-		MrBigInt2 CurrentBase = MrBigInt2(Base);
-		MrBigInt2 CurrentExponent = MrBigInt2(Exponent);
-		MrBigInt2 Zero = MrBigInt2(0);
-		MrBigInt2 One = MrBigInt2(1);
-		MrBigInt2 OutMultiple = MrBigInt2(1);
-		unsigned int ExponentDivisorInt = 16;
-		MrBigInt2 ExponentDivisor = MrBigInt2(ExponentDivisorInt);
+		OutResult = MrBigInt(1);
+		MrBigInt CurrentBase = MrBigInt(Base);
+		MrBigInt CurrentExponent = MrBigInt(Exponent);
+		MrBigInt Zero = MrBigInt(0);
+		MrBigInt One = MrBigInt(1);
+		MrBigInt OutMultiple = MrBigInt(1);
+		//en idealiserad och aningen avrundad bild av förhållandet visar att om vi betraktar exponentdivisor som x och exponenten som den andra variabeln
+		//har vi att exponentdivisor som optimalast är konstant för olika värden på expoenenten givet ett förhållande mellan multiplikationen och divisionen
+		//2 har givit bäst resualt än så länge, så vi har kvar den på 2. Kan en annan formula vara mer effektiv?
+		//idealiserad tidskomplexitet som bara beror på exponenten och exponent divisor samt förhållandet:
+		//Q*Log(ExpDiv,Exp)+ExpDiv*Log(ExpDiv,Exp)+(ExpDiv-Konstant)*Log(ExpDiv,Exp) Kosntanten ska vara en funjktiin och ska vara floor och ceil inblandat
+		unsigned int ExponentDivisorInt = 2;
+		MrBigInt ExponentDivisor = MrBigInt(ExponentDivisorInt);
+
+
+		//unsigned int TimesInLoop = 0;
+		//unsigned int MultiplicationCount = 0;
+		//clock_t Timer = clock();
+		//clock_t DeltaDivision = clock();
+		//clock_t DeltaMultiplication = clock();
+		//clock_t TotalDivisionTime = 0;
+		//clock_t TotalMultiplicationTime = 0;
+		//clock_t TotalTime;
 		while (Zero < CurrentExponent)
 		{
-			unsigned int TimesBeforDivisible = (CurrentExponent % MrBigInt2(ExponentDivisor)).GetLowestTerm();
+			//TimesInLoop++;
+			//DeltaDivision = clock();
+			unsigned int TimesBeforDivisible = (CurrentExponent % MrBigInt(ExponentDivisor)).GetLowestTerm();
+			//TotalDivisionTime += clock() - DeltaDivision;
 			for (size_t i = 0; i < TimesBeforDivisible; i++)
 			{
+				//DeltaMultiplication = clock();
 				OutMultiple *= CurrentBase;
 				CurrentExponent -= One;
+				//MultiplicationCount += 1;
+				//TotalMultiplicationTime += clock() - DeltaMultiplication;
 			}
- 			if (CurrentExponent == MrBigInt2(0))
+ 			if (CurrentExponent == MrBigInt(0))
 			{
 				CurrentBase %= Mod;
 				OutMultiple %= Mod;
 				break;
 			}
+			//DeltaDivision = clock();
 			CurrentExponent /= ExponentDivisor;
-			MrBigInt2 BaseCopy = MrBigInt2(CurrentBase);
+			//TotalDivisionTime += clock() - DeltaDivision;
+			MrBigInt BaseCopy = MrBigInt(CurrentBase);
 			for (size_t i = 0; i < ExponentDivisorInt-1; i++)
 			{
+				//DeltaMultiplication = clock();
 				CurrentBase *= BaseCopy;
+				//MultiplicationCount += 1;
+				//TotalMultiplicationTime += clock() - DeltaMultiplication;
 			}
+			//DeltaDivision = clock();
 			CurrentBase %= Mod;
 			OutMultiple %= Mod;
+			//TotalDivisionTime += clock()-DeltaDivision;
 		}
 		OutResult = OutMultiple;
+
+		//TotalTime = (clock() - Timer);
+		//std::cout << "PowM Tog " << TotalTime/(double)CLOCKS_PER_SEC << std::endl;
+		//std::cout << "Times in loop " << TimesInLoop << std::endl;
+		//std::cout << "MultiplicationCount " << MultiplicationCount << std::endl;
+		//std::cout << "Exponent Number " << Exponent.GetString() << std::endl;
+		//std::cout << "Division time " << TotalDivisionTime/(double)CLOCKS_PER_SEC << std::endl;
+		//std::cout << "multiplication time " << TotalMultiplicationTime/(double)CLOCKS_PER_SEC << std::endl;
+		//std::cout << "Division ratio " << TotalDivisionTime / (double)TotalTime << std::endl;
+		//std::cout << "Multiplication Ratio " << TotalMultiplicationTime / (double)TotalTime << std::endl;
 	}
-	MrBigInt2 PowM(MrBigInt2 const& Exponent, MrBigInt2 const& Mod)
+	static void Pow(MrBigInt const& Base,unsigned int Exponent,MrBigInt& OutResult)
 	{
-		MrBigInt2 ReturnValue;
-		MrBigInt2::PowM(*this, Exponent, Mod, ReturnValue);
+		//auto Timer = std::chrono::steady_clock::now();
+		OutResult = MrBigInt(1);
+		///*
+		unsigned int NumberOfRepititions = std::ceil(std::sqrt(Exponent));//Metod med konstant division, just nu snabbare med storleksordning 100ggr
+		unsigned int NumberBeforeDivisible = Exponent % NumberOfRepititions;
+		for (size_t i = 0; i < NumberBeforeDivisible; i++)
+		{
+			OutResult *= Base;
+		}
+		MrBigInt BaseCopy = MrBigInt(Base);
+		for (size_t i = 1; i < NumberOfRepititions; i++)
+		{
+			BaseCopy *= Base;
+		}
+		Exponent /= NumberOfRepititions;
+		for (size_t i = 0; i < Exponent; i++)
+		{
+			OutResult *= BaseCopy;
+		}
+		//*/
+		//Metod med division för varje steg
+		
+		/*
+		unsigned int ExpDiv = 2;
+		MrBigInt BaseCopy(Base);
+		while (Exponent > 0)
+		{
+			unsigned int TimesBeforeDivisible = Exponent % 2;
+			for (size_t i = 0; i < TimesBeforeDivisible; i++)
+			{
+				OutResult*= BaseCopy;
+				Exponent -= 1;
+			}
+			if (Exponent == 0)
+			{
+				break;
+			}
+			Exponent /= ExpDiv;
+			MrBigInt BaseTemp(BaseCopy);
+			for (size_t i = 0; i < ExpDiv; i++)
+			{
+				BaseCopy *= BaseTemp;
+			}
+		}
+		*/
+
+		//auto End = std::chrono::steady_clock::now();
+		//std::chrono::nanoseconds Duration = End-Timer;	
+		//std::cout << "Pow tog " << Duration.count() << std::endl;
+	}
+	MrBigInt PowM(MrBigInt const& Exponent, MrBigInt const& Mod)
+	{
+		MrBigInt ReturnValue;
+		MrBigInt::PowM(*this, Exponent, Mod, ReturnValue);
 		return(ReturnValue);
 	}
-	MrBigInt2 PowM(unsigned int Exponent)
+	MrBigInt Pow(unsigned int Exponent)
 	{
-		MrBigInt2 ReturnValue = MrBigInt2(1);
+		MrBigInt ReturnValue = MrBigInt(1);
 		for (size_t i = 0; i < Exponent; i++)
 		{
 			ReturnValue *= *this;
@@ -561,8 +654,71 @@ public:
 	{
 		return(InternalUnits.size());
 	}
+	void SetFromBigEndianArray(const void* Data, unsigned int NumberOfBytes)
+	{
+		unsigned char BytesInUnit = (UNIT_BITS / 8);
+		unsigned int NumberOfElements = NumberOfBytes / BytesInUnit;
+		unsigned char* CharData = (unsigned char*)Data;
+		if (NumberOfBytes %BytesInUnit != 0)
+		{
+			NumberOfElements += 1;
+		}
+		if (NumberOfElements == 0)
+		{
+			NumberOfElements = 1;
+		}
+		InternalUnits = std::vector<UnitType>(NumberOfElements, 0);
+		int ByteIterator = NumberOfBytes-1;
+		for (size_t i = 0; i < NumberOfElements; i++)
+		{
+			for (size_t j = 0; j < BytesInUnit; j++)
+			{
+				if(ByteIterator < 0)
+				{
+					break;
+				}
+				InternalUnits[i] +=(unsigned int)(((unsigned int)CharData[ByteIterator]) << (j * 8));
+				ByteIterator -= 1;
+			}
+			if (ByteIterator < 0)
+			{
+				break;
+			}
+		}
+		for (int i = NumberOfElements-1; i >= 1 ; i--)
+		{
+			if (InternalUnits[i] == 0)
+			{
+				InternalUnits.pop_back();
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+	void SetFromString(std::string StringToInitializeWith, int Base)
+	{
+		//TODO gör grejer här
+		assert(false);
+	}
+	std::string GetBigEndianArray()
+	{
+		unsigned char UnitBytes = UNIT_BITS / 8;
+		std::string ReturnValue = "";
+		unsigned int UnitArraySize = InternalUnits.size();
+		for (int i = UnitArraySize-1; i >= 0; i--)
+		{
+			for (size_t j = 0; j < UnitBytes; j++)
+			{
+				ReturnValue += (InternalUnits[i] >> (UNIT_BITS-((j+1)*8)))&255;
+			}
+		}
+		return(ReturnValue);
+	}
+
 	//conversions
-	MrBigInt2(int& Number)
+	MrBigInt(int& Number)
 	{
 		InternalUnits[0] = Number;
 		if (Number < 0)
@@ -570,7 +726,7 @@ public:
 			IsNegative = true;
 		}
 	}
-	MrBigInt2(int Number)
+	MrBigInt(int Number)
 	{
 		InternalUnits[0] = Number;
 		if (Number < 0)
@@ -578,12 +734,28 @@ public:
 			IsNegative = true;
 		}
 	}
-	MrBigInt2()
+	//implicit conversion
+	explicit operator int() const
+	{
+		return(GetLowestTerm());
+	}
+	explicit operator char() const
+	{
+		return(GetLowestTerm());
+	}
+	MrBigInt()
 	{
 	}
-	MrBigInt2 operator<<(unsigned int BitsToShift) const
+	MrBigInt(std::string StringToInitializeWith, int Base)
 	{
-		MrBigInt2 NewInt;
+		SetFromString(StringToInitializeWith, 16);
+	}
+
+
+
+	MrBigInt operator<<(unsigned int BitsToShift) const
+	{
+		MrBigInt NewInt;
 		//räknar ut hur stor den måste vara
 		unsigned int NewUnitsCount = BitsToShift / UNIT_BITS;
 		unsigned int BitToShiftCheck = UNIT_BITS - (BitsToShift % UNIT_BITS);
@@ -669,37 +841,42 @@ public:
 			}
 		}
 		return(NewInt);
-		/*
-		unsigned int PreviousBits = 0;
-		for (size_t i = 0; i < NewInt.InternalUnits.size(); i++)
-		{
-			unsigned int NewBits = (NewInt.InternalUnits[i] & (~(UNIT_MAX >> BitsToShift)))>>(INT_BITS-BitsToShift);
-			if (NewBits != 0)
-			{
-				int Hej = 2;
-			}
-			NewInt.InternalUnits[i] = (NewInt.InternalUnits[i] << BitsToShift)+PreviousBits;
-			PreviousBits = NewBits;
-		}
-		if (PreviousBits != 0)
-		{
-			InternalUnits.push_back(PreviousBits);
-		}
-		return(NewInt);
-		*/
+		//unsigned int PreviousBits = 0;
+		//for (size_t i = 0; i < NewInt.InternalUnits.size(); i++)
+		//{
+		//	unsigned int NewBits = (NewInt.InternalUnits[i] & (~(UNIT_MAX >> BitsToShift)))>>(INT_BITS-BitsToShift);
+		//	if (NewBits != 0)
+		//	{
+		//		int Hej = 2;
+		//	}
+		//	NewInt.InternalUnits[i] = (NewInt.InternalUnits[i] << BitsToShift)+PreviousBits;
+		//	PreviousBits = NewBits;
+		//}
+		//if (PreviousBits != 0)
+		//{
+		//	InternalUnits.push_back(PreviousBits);
+		//}
+		//return(NewInt);
+		//
 	}
-	MrBigInt2& operator%=(MrBigInt2 const& RightInt)
+	MrBigInt operator>>(unsigned int BitsToShift)
 	{
-		MrBigInt2 Remainder;
-		MrBigInt2 Quotient;
+		//TODO gör grejer här
+		assert(false);
+		return(0);
+	}
+	MrBigInt& operator%=(MrBigInt const& RightInt)
+	{
+		MrBigInt Remainder;
+		MrBigInt Quotient;
 		UnsignedDivide(RightInt, Remainder, Quotient);
 		IsNegative = false;
 		std::swap(Remainder.InternalUnits, InternalUnits);
 		return(*this);
 	}
-	MrBigInt2& operator*=(const MrBigInt2& RightInt)
+	MrBigInt& operator*=(const MrBigInt& RightInt)
 	{
-		MrBigInt2 Result;
+		MrBigInt Result;
 		LongMultiplication(*this, RightInt, Result);
 		std::swap(Result.InternalUnits, InternalUnits);
 		if (IsNegative == RightInt.IsNegative)
@@ -712,11 +889,11 @@ public:
 		}
 		return(*this);
 	}
-	MrBigInt2& operator/=(MrBigInt2 const& RightInt)
+	MrBigInt& operator/=(MrBigInt const& RightInt)
 	{
 		//långsam division, lång division
-		MrBigInt2 Remainder;
-		MrBigInt2 Quotient;
+		MrBigInt Remainder;
+		MrBigInt Quotient;
 		UnsignedDivide(RightInt, Remainder, Quotient);
 		std::swap(InternalUnits, Quotient.InternalUnits);
 		if (IsNegative == RightInt.IsNegative)
@@ -729,7 +906,7 @@ public:
 		}
 		return(*this);
 	}
-	MrBigInt2& operator+=(const MrBigInt2& RightInt)
+	MrBigInt& operator+=(const MrBigInt& RightInt)
 	{
 		if (IsNegative == RightInt.IsNegative)
 		{
@@ -738,7 +915,7 @@ public:
 		else if (IsNegative && RightInt.IsNegative == false)
 		{
 			//TODO kan optimseras genom att specifia vilket led som är höger och vänster i funktionen
-			MrBigInt2 RightCopy = MrBigInt2(RightInt);
+			MrBigInt RightCopy = MrBigInt(RightInt);
 			RightCopy.SubtractUnsigned(*this);
 			std::swap(InternalUnits, RightCopy.InternalUnits);
 			IsNegative = RightCopy.IsNegative;
@@ -749,7 +926,7 @@ public:
 		}
 		return(*this);
 	}
-	MrBigInt2& operator-=(MrBigInt2 const& RightInt)
+	MrBigInt& operator-=(MrBigInt const& RightInt)
 	{
 		if (!IsNegative && !RightInt.IsNegative)
 		{
@@ -758,7 +935,7 @@ public:
 		if (IsNegative && RightInt.IsNegative)
 		{
 			//vänsterlaedet negativt, högleredet negativt, samma sak som -> VL-HL = HL-abs(VL)
-			MrBigInt2 RightIntCopy = MrBigInt2(RightInt);
+			MrBigInt RightIntCopy = MrBigInt(RightInt);
 			RightIntCopy.NegateNumber();
 			RightIntCopy.SubtractUnsigned(*this);
 			std::swap(RightIntCopy.InternalUnits, InternalUnits);
@@ -772,31 +949,12 @@ public:
 		{
 			AddUnsigned(RightInt);
 		}
-		//MrBigInt2 RightIntCopy = MrBigInt2(RightInt);
+		//MrBigInt RightIntCopy = MrBigInt(RightInt);
 		//RightIntCopy.NegateNumber();
 		//(*this) += RightIntCopy;
 		return(*this);
 	}
-	/*
-	MrBigInt2& operator+=(MrBigInt2&& RightInt)
-	{
-		if (IsNegative == RightInt.IsNegative)
-		{
-			AddUnsigned(RightInt);
-		}
-		else if (IsNegative && RightInt.IsNegative == false)
-		{
-			RightInt.SubtractUnsigned(*this);
-			std::swap(InternalUnits, RightInt.InternalUnits);
-		}
-		if (IsNegative == false && RightInt.IsNegative == true)
-		{
-			SubtractUnsigned(RightInt);
-		}
-		return(*this);
-	}
-	*/
-	bool operator<=(MrBigInt2 const& OtherInt) const
+	bool operator<=(MrBigInt const& OtherInt) const
 	{
 		if ((*this)<OtherInt)
 		{
@@ -808,7 +966,7 @@ public:
 		}
 		return(false);
 	}
-	bool operator==(MrBigInt2 const& OtherInt) const
+	bool operator==(MrBigInt const& OtherInt) const
 	{
 		unsigned int OtherIntSize = OtherInt.InternalUnits.size();
 		unsigned int ThisSize = InternalUnits.size();
@@ -832,11 +990,11 @@ public:
 		}
 		return(true);
 	}
-	bool operator!=(MrBigInt2 const& OtherInt) const
+	bool operator!=(MrBigInt const& OtherInt) const
 	{
 		return(!(*this == OtherInt));
 	}
-	bool operator<(MrBigInt2 const& OtherInt) const
+	bool operator<(MrBigInt const& OtherInt) const
 	{
 		if (!IsNegative && OtherInt.IsNegative)
 		{
@@ -879,11 +1037,11 @@ public:
 		}
 		return(false);
 	}
-	bool operator>(MrBigInt2 const& RightInt) const
+	bool operator>(MrBigInt const& RightInt) const
 	{
 		return(!(*this <= RightInt));
 	}
-	bool operator>=(MrBigInt2 const& RightInt) const
+	bool operator>=(MrBigInt const& RightInt) const
 	{
 		return(!(*this < RightInt));
 	}
@@ -891,47 +1049,47 @@ public:
 	{
 		return(InternalUnits.front());
 	}
-	MrBigInt2 operator%(MrBigInt2 const& RightInt) const
+	MrBigInt operator%(MrBigInt const& RightInt) const
 	{
-		MrBigInt2 ThisCopy(*this);
+		MrBigInt ThisCopy(*this);
 		ThisCopy %= RightInt;
 		return(ThisCopy);
 	}
-	MrBigInt2 operator*(MrBigInt2 const& RightInt) const
+	MrBigInt operator*(MrBigInt const& RightInt) const
 	{
 		//TODO icke naiv implementation
-		MrBigInt2 ThisCopy(*this);
+		MrBigInt ThisCopy(*this);
 		ThisCopy *= RightInt;
 		return(ThisCopy);
 	}
-	MrBigInt2 operator+(MrBigInt2 const& RightInt) const
+	MrBigInt operator+(MrBigInt const& RightInt) const
 	{
-		MrBigInt2 ThisCopy(*this);
+		MrBigInt ThisCopy(*this);
 		ThisCopy += RightInt;
 		return(ThisCopy);
 	}
-	MrBigInt2 operator-(MrBigInt2 const& RightInt) const
+	MrBigInt operator-(MrBigInt const& RightInt) const
 	{
-		MrBigInt2 ThisCopy(*this);
+		MrBigInt ThisCopy(*this);
 		ThisCopy -= RightInt;
 		return(ThisCopy);
 	}
-	MrBigInt2 operator/(MrBigInt2 const& RightInt) const
+	MrBigInt operator/(MrBigInt const& RightInt) const
 	{
-		MrBigInt2 ThisCopy(*this);
+		MrBigInt ThisCopy(*this);
 		ThisCopy /= RightInt;
 		return(ThisCopy);
 	}
 	std::string GetString() const
 	{
-		MrBigInt2 TenthPotens = 1;
+		MrBigInt TenthPotens = 1;
 		std::string Temp = "";
 		//clock_t TotalTimeTimer = clock();
 		double TotalDivideTime = 0;
 		while (TenthPotens < (*this))
 		{
-			MrBigInt2 Quotient;
-			MrBigInt2 Remainder;
+			MrBigInt Quotient;
+			MrBigInt Remainder;
 			//clock_t DivideTimer = clock();
 			UnsignedDivide(TenthPotens, *&Remainder, *&Quotient);
 			//TotalDivideTime += (clock() - DivideTimer) / (double)CLOCKS_PER_SEC;
@@ -957,3 +1115,4 @@ public:
 		return(ReturnValue);
 	}
 };
+//*/

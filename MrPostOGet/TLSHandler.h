@@ -424,8 +424,8 @@ struct TLSServerPublickeyInfo
 
 struct RSAPublicKey
 {
-	mpz_class Modolu;
-	mpz_class Exponent;
+	MrBigInt Modolu;
+	MrBigInt Exponent;
 };
 namespace MBSockets
 {
@@ -436,9 +436,9 @@ class TLSHandler
 {
 private:
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
-	mpz_class OS2IP(const char* Data, uint64_t LengthOfData);
-	mpz_class RSAEP(TLSServerPublickeyInfo& RSAInfo, const mpz_class MessageRepresentative);
-	std::string I2OSP(mpz_class NumberToConvert, uint64_t LengthOfString);
+	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
+	MrBigInt RSAEP(TLSServerPublickeyInfo& RSAInfo, MrBigInt const& MessageRepresentative);
+	std::string I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString);
 	std::string RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo, std::string& DataToEncrypt);
 	void SendClientKeyExchange(TLSServerPublickeyInfo& Data, MBSockets::Socket* SocketToConnect);
 	TLS1_2::SecurityParameters ConnectionParameters;

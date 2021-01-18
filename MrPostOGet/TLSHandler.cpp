@@ -365,7 +365,7 @@ void FillArrayWithRandomBytes(uint8_t* ArrayToFill, int LengthOfArray)
 RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString)
 {
 	RSAPublicKey ReturnValue;
-	mpz_class PublicKeyPrime(0);
+	MrBigInt PublicKeyPrime = 0;
 	//parsa primen från datan, först kollar vi att paddingen är 0
 	if (BitString[0] != 0)
 	{
@@ -386,78 +386,59 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 	}
 	else
 	{
-		for (size_t i = 0; i <= LengthOfPrime - 1; i++)
+		//första är alltid 0
+		PublicKeyPrime.SetFromBigEndianArray(&BitString.c_str()[Parser.GetOffset() + 1], 256);
+		for (size_t i = 0; i < 257; i++)
 		{
-			mpz_class ValueToAdd = 0;
-			mpz_ui_pow_ui(ValueToAdd.get_mpz_t(), 256, LengthOfPrime - 1 - i);
-			uint8_t ExtractedByte = Parser.ExtractByte();
-			//std::cout << HexEncodeByte(ExtractedByte) << " ";
-			PublicKeyPrime += (ValueToAdd * ExtractedByte);
+			Parser.ExtractByte();
 		}
 	}
 	//std::cout << PublicKeyPrime.get_str() << std::endl;
 	//nu räknar vi ut exponenten
 	Parser.ExtractTagData();
 	uint64_t LengthOfExponent = Parser.ExtractLengthOfType();
-	mpz_class Exponent(0);
-	for (size_t i = 0; i <= LengthOfExponent - 1; i++)
-	{
-		mpz_class ValueToAdd = 0;
-		mpz_ui_pow_ui(ValueToAdd.get_mpz_t(), 256, LengthOfExponent - 1 - i);
-		//std::cout << "This is the value of the byte exponents " << ValueToAdd.get_str() << std::endl;
-		Exponent += (ValueToAdd * Parser.ExtractByte());
-	}
-	//std::cout << Exponent.get_str() << std::endl;
+	MrBigInt Exponent(0);
+	Exponent.SetFromBigEndianArray(&BitString[Parser.GetOffset()], LengthOfExponent);
 	ReturnValue.Modolu = PublicKeyPrime;
 	ReturnValue.Exponent = Exponent;
 	return(ReturnValue);
 }
-mpz_class TLSHandler::OS2IP(const char* Data,uint64_t LengthOfData)
+MrBigInt TLSHandler::OS2IP(const char* Data,uint64_t LengthOfData)
 {
-	mpz_class ReturnValue(0);
-	for (size_t i = 0; i <= LengthOfData-1; i++)
-	{
-		mpz_class ValueToAdd(0);
-		mpz_ui_pow_ui(ValueToAdd.get_mpz_t(), 256, LengthOfData - 1 - i);
-		ReturnValue += (ValueToAdd * uint8_t(Data[i]));
-	}
-	return(ReturnValue);
+	MrBigInt ReturnValueTest(0);
+	ReturnValueTest.SetFromBigEndianArray(Data, LengthOfData);
+	return(ReturnValueTest);
 }
-mpz_class TLSHandler::RSAEP(TLSServerPublickeyInfo& RSAInfo,const mpz_class MessageRepresentative)
+MrBigInt TLSHandler::RSAEP(TLSServerPublickeyInfo& RSAInfo,MrBigInt const& MessageRepresentative)
 {
-	mpz_class ReturnValue(0);
+	MrBigInt ReturnValue(0);
 	RSAPublicKey PublicKey = ExtractRSAPublicKeyFromBitString(RSAInfo.ServerKeyData);
-	mpz_powm(ReturnValue.get_mpz_t(), MessageRepresentative.get_mpz_t(), PublicKey.Exponent.get_mpz_t(), PublicKey.Modolu.get_mpz_t());
+	MrBigInt::PowM(MessageRepresentative, PublicKey.Exponent, PublicKey.Modolu, ReturnValue);
 	return(ReturnValue);
 }
-std::string TLSHandler::I2OSP(mpz_class NumberToConvert, uint64_t LengthOfString)
+std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
 {
 	std::string ReturnValue = "";
-	mpz_class MaxValueOfInteger(0);
-	mpz_ui_pow_ui(MaxValueOfInteger.get_mpz_t(), 256, LengthOfString);
+	MrBigInt MaxValueOfInteger(0);
+
+	MrBigInt::Pow(256, LengthOfString, MaxValueOfInteger);
 	if (NumberToConvert > MaxValueOfInteger)
 	{
-		std::cout << "Number to conver " << NumberToConvert.get_str() << std::endl;
-		std::cout << "Max number " << MaxValueOfInteger.get_str() << std::endl;
+		std::cout << "Number to conver " << NumberToConvert.GetString() << std::endl;
+		std::cout << "Max number " << MaxValueOfInteger.GetString() << std::endl;
 		assert(false);
 		return("ERROR");
 	}
 	else
 	{
 		//returnar en string som sett att grejen är big endian, vi appendar dem sista grejerna och till slut så reversar vi den
-		std::string TempString = "";
-		mpz_class TempNumber = NumberToConvert;
-		for (size_t i = 0; i < LengthOfString; i++)
+		std::string NumberAsString = NumberToConvert.GetBigEndianArray();
+		for (size_t i = 0; i < LengthOfString-NumberAsString.size(); i++)
 		{
-			mpz_class NumberToAdd = TempNumber % 256;
-			char ByteToAppend = char(NumberToAdd.get_ui());
-			TempString += ByteToAppend;
-			TempNumber = TempNumber >> 8;
+			ReturnValue += char(0);
 		}
-		for (int i = LengthOfString-1; i >= 0; i--)
-		{
-			ReturnValue += TempString[i];
-		}
+		ReturnValue += NumberAsString;
+
 		return(ReturnValue);
 	}
 }
@@ -486,21 +467,10 @@ std::string TLSHandler::RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo
 	}
 	EM += char(0x00);
 	EM += DataToEncrypt;
-	mpz_class MessageRepresentative = OS2IP(EM.c_str(), 256);
-	mpz_class CiphertextRepresentative = RSAEP(RSAInfo,MessageRepresentative);
+	MrBigInt MessageRepresentative = OS2IP(EM.c_str(), 256);
+	MrBigInt CiphertextRepresentative = RSAEP(RSAInfo,MessageRepresentative);
 	std::string CipherText = I2OSP(CiphertextRepresentative,256);
-	mpz_class TestNumber(256+256*256*256+17);
-	std::string I20SPTestString = I2OSP(TestNumber, 4);
-	//std::ofstream EncData("DataToEnc.txt");
-	//EncData << DataToEncrypt;
-	//EncData.close();
-	//std::ofstream EncryptedDataToSave("EncData.txt");
-	//EncryptedDataToSave << CipherText;
-	//EncryptedDataToSave.close();
-	//std::cout << "Data to encrypt as hex" << std::endl;
-	//std::cout << ReplaceAll(HexEncodeString(DataToEncrypt), " ", "") << std::endl;
-	//std::cout << "Encrypted Ciphertext of data" << std::endl;
-	//std::cout << ReplaceAll(HexEncodeString(CipherText), " ", "") << std::endl;
+	
 	return(CipherText);
 }
 void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::Socket* SocketToConnect)
@@ -524,21 +494,12 @@ void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::S
 	{
 		ConnectionParameters.PreMasterSecret[i] = PreMasterSecret[i];
 	}
-	//mpz_class Message(0);
-	//for (size_t i = 0; i <= 48-1; i++)
-	//{
-	//	mpz_class ValueToAdd(0);
-	//	mpz_ui_pow_ui(ValueToAdd.get_mpz_t(), 256, 48 - 1 - i);
-	//	ValueToAdd = ValueToAdd * PreMasterSecret[i];
-	//	Message += ValueToAdd;
-	//}
 	std::string PremasterSecretString = std::string(reinterpret_cast<char*>(PreMasterSecret), 48);
 	std::string EncryptedPremasterSecret = RSAES_PKCS1_V1_5_ENCRYPT(Data, PremasterSecretString);
 	for (size_t i = 0; i < 256; i++)
 	{
 		DataToSend[9 +2+ i] = EncryptedPremasterSecret[i];
 	}
-	//mpz_powm(EncryptedMessage.get_mpz_t(), Message.get_mpz_t(),Exponent.get_mpz_t(), PublicKeyPrime.get_mpz_t());
 	ConnectionParameters.AllHandshakeMessages.push_back(std::string(reinterpret_cast<char*>(DataToSend), 5 + 4 + 2 + 256));
 	SocketToConnect->SendData(reinterpret_cast<char*>(DataToSend), 5 + 4+2 + 256);
 	free(DataToSend);
