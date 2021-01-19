@@ -197,12 +197,7 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/.;"
         "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
         "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary;"
-        #"${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0;"
-        #"${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0/mpz;"
-        #"${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug;"
-        #"${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/lib/Linux"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
     )
@@ -212,60 +207,11 @@ else()
         "${CMAKE_CURRENT_SOURCE_DIR}/.;"
         "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
         "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0/mpz;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
     )
 endif()
-#[[
-if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
-    target_include_directories(${PROJECT_NAME} PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/.;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0/mpz;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
-    )
-elseif("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x86")
-    target_include_directories(${PROJECT_NAME} PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/.;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0/mpz;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
-    )
-else()
-    target_include_directories(${PROJECT_NAME} PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/.;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/gmp-6.2.0/mpz;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
-    )
-endif()
-]]
 ################################################################################
 # Compile definitions
 ################################################################################
@@ -363,96 +309,20 @@ endif()
 #windows
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
-        #"Ws2_32;"
-        #"libmpir.so.23.0.3"
-        #"libmpirxx.so.8.4.3"
-        "libmpir.a"
-        "libmpirxx.a"
     )
 else()
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "Ws2_32;"
-        "mpir;"
-        "mpirxx"
     )
 endif()
-#[[
-if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
-    set(ADDITIONAL_LIBRARY_DEPENDENCIES
-        "Ws2_32;"
-        "mpir;"
-        "mpirxx"
-    )
-elseif("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x86")
-    set(ADDITIONAL_LIBRARY_DEPENDENCIES
-        "Ws2_32;"
-        "mpir;"
-        "mpirxx"
-    )
-elseif(UNIX)
-    set(ADDITIONAL_LIBRARY_DEPENDENCIES
-        #"Ws2_32;"
-        "libmpir.so.23.0.3"
-        "libmpirxx.so.8.4.3"
-    )
-endif()
-]]
+
 target_link_libraries(${PROJECT_NAME} PRIVATE "${ADDITIONAL_LIBRARY_DEPENDENCIES}")
 if(UNIX)
     target_link_directories(${PROJECT_NAME} PRIVATE
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/mpz/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0;"
-        "C:/MinGW/lib/gcc/mingw32/9.2.0;"
-        "C:/MinGW/lib;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/lib/Linux"
-    )
-else()
-    target_link_directories(${PROJECT_NAME} PRIVATE
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/mpz/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0;"
-        "C:/MinGW/lib/gcc/mingw32/9.2.0;"
-        "C:/MinGW/lib;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug"
-    )
-endif()
-#[[
-if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
-    target_link_directories(${PROJECT_NAME} PRIVATE
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/mpz/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0;"
-        "C:/MinGW/lib/gcc/mingw32/9.2.0;"
-        "C:/MinGW/lib;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug"
-    )
-elseif("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x86")
-    target_link_directories(${PROJECT_NAME} PRIVATE
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/mpz/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0;"
-        "C:/MinGW/lib/gcc/mingw32/9.2.0;"
-        "C:/MinGW/lib;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug"
-    )
-else()
-    #default om inget annat är specificerat
-    target_link_directories(${PROJECT_NAME} PRIVATE
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0/mpz/.libs;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/gmp-6.2.0;"
-        "C:/MinGW/lib/gcc/mingw32/9.2.0;"
-        "C:/MinGW/lib;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_cxx/x64/Debug;"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/build.vc15/lib_mpir_gc/x64/Debug"
-        "C:/Users/emanu/Desktop/Program/C++/ExternaLibrarys/mpir-3.0.0/lib/Linux"
-    )
-endif()
-]]
 
+    )
+else()
+    target_link_directories(${PROJECT_NAME} PRIVATE
+
+    )
+endif()
