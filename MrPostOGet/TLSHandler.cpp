@@ -1,7 +1,9 @@
 #define NOMINMAX
+#define _CRT_RAND_S
 #include <MrBoboSockets.h>
 #include <MrPostOGet/TLSHandler.h>
 #include <math.h>
+#include <MBRandom.h>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 namespace TLS1_2
 {
@@ -956,6 +958,125 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	ConnectionParameters.ServerSequenceNumber = 1;
  	int a = 0;
 }
+MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect)
+{
+	//förutsätter att vi redan connectat med TCP protokollet
+	MBError ErrorToReturn(true);
+	std::vector<std::string> ClientHello = GetNextPlaintextRecords(SocketToConnect);
+	assert(ClientHello.size() == 1);
+	TLS1_2::TLS1_2HelloClientStruct ClientHelloStruct = ParseClientHelloStruct(ClientHello[0]);
+	std::string ServerHelloRecord = GenerateServerHello(ClientHelloStruct);
+	SocketToConnect->SendData(ServerHelloRecord.data(), ServerHelloRecord.size());
+	//test grej
+	std::string ServerCertificateRecord = GenerateServerCertificateRecord();
+
+	return(ErrorToReturn);
+}
+TLS1_2::TLS1_2HelloClientStruct TLSHandler::ParseClientHelloStruct(std::string const& ClientHelloData)
+{
+	TLS1_2::TLS1_2HelloClientStruct ReturnValue;
+	TLS1_2::NetWorkDataHandler Parser((const uint8_t*)ClientHelloData.c_str());
+	//vi börjar med att ta bort det som är på toppen, dvs record och handshake layer headern,total 5+4 = 9
+	Parser.Extract32();
+	Parser.Extract32();
+	Parser.Extract8();
+	//nu parser vi structen
+	TLS1_2::ProtocolVersion ClientHelloProtocolVersion;
+	ClientHelloProtocolVersion.Major = Parser.Extract8();
+	ClientHelloProtocolVersion.Minor = Parser.Extract8();
+	ReturnValue.ProtocolVers = ClientHelloProtocolVersion;
+	
+	std::string ClienHelloRandom = "";
+	for (size_t i = 0; i < 32; i++)
+	{
+		ClienHelloRandom += Parser.Extract8();
+		ConnectionParameters.client_random[i] = ClienHelloRandom[i];
+		ReturnValue.RandomStruct.RandomBytes[i] = ClienHelloRandom[i];
+	}
+
+	uint8_t SessionIdLength = Parser.Extract8();
+	for (size_t i = 0; i < SessionIdLength; i++)
+	{
+		ReturnValue.SessionId.push_back(Parser.Extract8());
+	}
+
+	unsigned int NumberOfCipherSuites = Parser.Extract16() / 2;
+	for (size_t i = 0; i < NumberOfCipherSuites; i++)
+	{
+		TLS1_2::CipherSuite NewCipherSuite;
+		NewCipherSuite.Del1 = Parser.Extract8();
+		NewCipherSuite.Del2 = Parser.Extract8();
+		ReturnValue.CipherSuites.push_back(NewCipherSuite);
+	}
+
+	unsigned int NumberOfCompressionMethods = Parser.Extract8();
+	for (size_t i = 0; i < NumberOfCompressionMethods; i++)
+	{
+		ReturnValue.CompressionMethods.push_back(Parser.Extract8());
+	}
+
+	if (ClientHelloData.size() != Parser.GetPosition())
+	{
+		//det existerar extensions vi vill parsa
+		unsigned int NumberOfExtensionBytes = Parser.Extract16();
+		unsigned int ParsedBytes = 0;
+		while (ParsedBytes != NumberOfExtensionBytes)
+		{
+			TLS1_2::Extension NewExtension;
+			NewExtension.ExtensionType = (TLS1_2::ExtensionTypes)Parser.Extract16();
+			ParsedBytes += 2;
+			unsigned int NewExtensionsByteLength = Parser.Extract16();
+			ParsedBytes += 2;
+			for (size_t i = 0; i < NewExtensionsByteLength; i++)
+			{
+				NewExtension.ExtensionData.push_back(Parser.Extract8());
+				ParsedBytes += 1;
+			}
+			ReturnValue.OptionalExtensions.push_back(NewExtension);
+		}
+	}
+	return(ReturnValue);
+}
+std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello)
+{
+	TLS_RecordGenerator NewRecord;
+	NewRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello);
+	NewRecord.SetContentType(TLS1_2::ContentType::handshake);
+	//server hellon ska innehålla vilken tls variation vi använder, vilket i vårt fall är 1.2
+	NewRecord.AddUINT8(3);
+	NewRecord.AddUINT8(3);
+	//vi generar serverrandom
+	std::string ServerRandom = MBRandom::GetRandomBytes(32);
+	for (size_t i = 0; i < 32; i++)
+	{
+		ConnectionParameters.server_random[i] = ServerRandom[i];
+	}
+	NewRecord.AddOpaqueData(ServerRandom);
+	//vi Generar session id
+	std::string SessionId = TLSHandler::GenerateSessionId();
+	ConnectionParameters.SessionId = SessionId;
+	NewRecord.AddOpaqueArray(SessionId,1);
+	//0,0x3c enda cihpersuiten vi stödjer, egentligen ska vi ju ta och välja ut en beroende på etc
+	for (size_t i = 0; i < ClientHello.CipherSuites.size(); i++)
+	{
+		std::cout << HexEncodeByte(ClientHello.CipherSuites[i].Del1) << " " << HexEncodeByte(ClientHello.CipherSuites[i].Del2) << std::endl;
+	}
+	NewRecord.AddUINT8(0);
+	NewRecord.AddUINT8(0x2f);
+	//uppdatera compressions algorithmen
+	ConnectionParameters.compression_algorithm = TLS1_2::nullCompressionMethod;
+	NewRecord.AddUINT8(0);
+	return(NewRecord.GetHandShakeRecord());
+}
+std::string TLSHandler::GenerateServerCertificateRecord()
+{
+	return("");
+}
+std::string TLSHandler::GenerateSessionId()
+{
+	//TODO Fixa så det faktist ger ett session id på ett bra sätt
+	return(std::string(32, 1));
+}
 bool TLSHandler::VerifyFinishedMessage(std::string DataToVerify)
 {
 	std::string ConcattenatedHandshakeData = "";
@@ -1078,7 +1199,7 @@ std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket)
 	}
 	return(SentApplicationData);
 }
-std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect)
+std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect)
 {
 	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
 	bool WaitingForApplicationData = true;
@@ -1181,6 +1302,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 		else
 		{
 			//Unknown error, något har kajkat en del någonstans
+			assert(false);
 		}
 	}
 	return(ReturnValue);

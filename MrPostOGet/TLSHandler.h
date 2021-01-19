@@ -6,6 +6,7 @@
 #include <time.h>
 #include <picosha2.h>
 #include <plusaes.hpp>
+#include <MBErrorHandling.h>
 enum class TLSVersions
 {
 	TLS1_2,
@@ -32,7 +33,7 @@ namespace TLS1_2
 	struct Extension
 	{
 		ExtensionTypes ExtensionType;
-		std::vector<uint8_t> ExtensionData; //max 2^16-1 i längd
+		std::vector<uint8_t> ExtensionData = {}; //max 2^16-1 i längd
 	};
 	struct Certificate
 	{
@@ -122,6 +123,7 @@ namespace TLS1_2
 		HashAlgorithm Hash;
 		SignatureAlgorithm Signature;
 	};
+	enum CompressionMethod { nullCompressionMethod = 0 };//char i längd
 	struct SecurityParameters
 	{
 		enum ConnectionEnd { server, client };
@@ -132,7 +134,6 @@ namespace TLS1_2
 			nullMaxAlgorithm, hmac_md5, hmac_sha1, hmac_sha256,
 			hmac_sha384, hmac_sha512
 		};
-		enum CompressionMethod { nullCompressionMethod = 0 };//char i längd
 		ConnectionEnd			entity;
 		PRFAlgorithm			prf_algorithm;
 		BulkCipherAlgorithm		bulk_cipher_algorithm;
@@ -160,6 +161,7 @@ namespace TLS1_2
 		ProtocolVersion NegotiatedProtocolVersion = { 3,3 };//standard
 		std::vector<std::string> AllHandshakeMessages = std::vector<std::string>(0);
 		bool HandshakeFinished = false;
+		std::string SessionId = "";
 	};
 
 	struct TLS1_2Alert {
@@ -231,10 +233,10 @@ namespace TLS1_2
 	{
 		ProtocolVersion ProtocolVers;
 		Random RandomStruct;
-		std::vector<uint8_t> SessionId; //max 32 chars
-		std::vector<CipherSuite> CipherSuites;//minst 2, max 2^16-2 bytes
-		std::vector<uint8_t> CompressionMethods; // max 2^8-1 bytes
-		std::vector<Extension> OptionalExtensions; //kan tillskillnad från dem andra vara helt tom, max 2^16-1 bytes
+		std::vector<uint8_t> SessionId = {}; //max 32 chars
+		std::vector<CipherSuite> CipherSuites = {};//minst 2, max 2^16-2 bytes
+		std::vector<uint8_t> CompressionMethods = {}; // max 2^8-1 bytes
+		std::vector<Extension> OptionalExtensions = {}; //kan tillskillnad från dem andra vara helt tom, max 2^16-1 bytes
 	};
 	class uint24
 	{
@@ -416,6 +418,131 @@ namespace TLS1_2
 		std::string Data;
 	};
 }
+class TLS_RecordGenerator
+{
+private:
+	std::string BodyData = "";
+	uint8_t MajorVersion = 3;
+	uint8_t MinorVersion = 3;
+	TLS1_2::HandshakeType CurrentHandshakeType = TLS1_2::HandshakeType::hello_request;
+	TLS1_2::ContentType CurrentContentType = TLS1_2::ContentType::handshake;
+public:
+	void AddUINT8(uint8_t ValueToAdd)
+	{
+		BodyData += char(ValueToAdd);
+	}
+	void AddUINT16(uint16_t ValueToAdd)
+	{
+		BodyData += char(ValueToAdd >> 8);
+		BodyData += char(ValueToAdd);
+	}
+	void AddUINT24(uint32_t ValueToAdd)
+	{
+		BodyData += char(ValueToAdd >> 16);
+		BodyData += char(ValueToAdd >> 8);
+		BodyData += char(ValueToAdd);
+	}
+	void AddUINT32(uint32_t ValueToAdd)
+	{
+		BodyData += char(ValueToAdd >> 24);
+		BodyData += char(ValueToAdd>>16);
+		BodyData += char(ValueToAdd>>8);
+		BodyData += char(ValueToAdd);
+	}
+	static std::string GetNetworkUINT8(uint8_t IntToConvert)
+	{
+		std::string ReturnValue = "";
+		ReturnValue += char(IntToConvert);
+		return(ReturnValue);
+	}
+	static std::string GetNetworkUINT16(uint16_t IntToConvert)
+	{
+		std::string ReturnValue = "";
+		ReturnValue += char(IntToConvert >> 8);
+		ReturnValue += char(IntToConvert);
+		return(ReturnValue);
+	}
+	static std::string GetNetworkUINT24(uint32_t IntToConvert)
+	{
+		std::string ReturnValue = "";
+		ReturnValue += char(IntToConvert >> 16);
+		ReturnValue += char(IntToConvert >> 8);
+		ReturnValue += char(IntToConvert);
+		return(ReturnValue);
+	}
+	static std::string GetNetworkUINT32(uint32_t IntToConvert)
+	{
+		std::string ReturnValue = "";
+		ReturnValue += char(IntToConvert >> 24);
+		ReturnValue += char(IntToConvert >> 16);
+		ReturnValue += char(IntToConvert >> 8);
+		ReturnValue += char(IntToConvert);
+		return(ReturnValue);
+	}
+	void AddOpaqueArray(std::string OpaqueData, unsigned int MaxSize = 2)
+	{
+		uint32_t ArraySize = OpaqueData.size();
+		if (MaxSize == 1)
+		{
+			AddUINT8(ArraySize);
+		}
+		else if (MaxSize == 2)
+		{
+			AddUINT16(ArraySize);
+		}
+		else if (MaxSize == 3)
+		{
+			AddUINT24(ArraySize);
+		}
+		else if (MaxSize == 4)
+		{
+			AddUINT32(ArraySize);
+		}
+		else
+		{
+			assert(false);
+		}
+		BodyData += OpaqueData;
+	}
+	void AddOpaqueData(std::string NewData)
+	{
+		BodyData += NewData;
+	}
+	void SetHandshakeType(TLS1_2::HandshakeType NewHandshakeType)
+	{
+		CurrentHandshakeType = NewHandshakeType;
+	}
+	void SetContentType(TLS1_2::ContentType NewContentType)
+	{
+		CurrentContentType = NewContentType;
+	}
+	std::string GetRecordData()
+	{
+		std::string CompleteRecordData = "";
+		CompleteRecordData += char(CurrentContentType);
+		CompleteRecordData += char(MajorVersion);
+		CompleteRecordData += char(MinorVersion);
+		CompleteRecordData += TLS_RecordGenerator::GetNetworkUINT16(BodyData.size());
+		CompleteRecordData += BodyData;
+		return(CompleteRecordData);
+	}
+	std::string GetHandShakeRecord()
+	{
+		std::string CompleteRecordData = "";
+		CompleteRecordData += char(CurrentContentType);
+		CompleteRecordData += char(MajorVersion);
+		CompleteRecordData += char(MinorVersion);
+		CompleteRecordData += TLS_RecordGenerator::GetNetworkUINT16(BodyData.size()+4);
+		CompleteRecordData += char(CurrentHandshakeType);
+		CompleteRecordData += TLS_RecordGenerator::GetNetworkUINT24(BodyData.size());
+		CompleteRecordData += BodyData;
+		return(CompleteRecordData);
+	}
+	std::string GetBodyData()
+	{
+		return(BodyData);
+	}
+};
 struct TLSServerPublickeyInfo
 {
 	//associated algoritm i guess
@@ -431,6 +558,7 @@ namespace MBSockets
 {
 	class Socket;
 	class ConnectSocket;
+	class ServerSocket;
 }
 class TLSHandler
 {
@@ -446,9 +574,14 @@ private:
 	std::string HMAC_SHA256(std::string Secret, std::string Seed);
 	std::string P_Hash(std::string Secret, std::string Seed, uint64_t AmountOfData);
 	std::string PRF(std::string Secret, std::string Label, std::string Seed, uint64_t AmountOfData);
+	std::string GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello);
+	std::string GenerateServerCertificateRecord();
+	TLS1_2::TLS1_2HelloClientStruct ParseClientHelloStruct(std::string const& ClientHelloData);
+	static std::string GenerateSessionId();
 public:
 	TLSHandler();
 	void EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
+	MBError EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect);
 	std::string GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect);
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
 	void SendClientChangeCipherMessage(MBSockets::ConnectSocket* SocketToConnect);
@@ -461,6 +594,6 @@ public:
 	std::string DecryptBlockcipherRecord(std::string Data);
 	void SendDataAsRecord(std::string& Data, MBSockets::Socket* AssociatedSocket);
 	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket);
-	std::vector<std::string> GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect);
+	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect);
 	~TLSHandler();
 };

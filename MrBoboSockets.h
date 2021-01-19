@@ -365,6 +365,7 @@ namespace MBSockets
 	{
 	private:
 		MB_OS_Socket ListenerSocket = MBInvalidSocket;
+		TLSHandler SocketTlsHandler = TLSHandler();
 	public:
 		int Bind()
 		{
@@ -399,6 +400,11 @@ namespace MBSockets
 				MBCloseSocket(ConnectedSocket);
 			}
 			return(0);
+		}
+		MBError EstablishSecureConnection()
+		{
+			MBError ReturnValue = SocketTlsHandler.EstablishHostTLSConnection(this);
+			return(ReturnValue);
 		}
 		ServerSocket(std::string Port, TraversalProtocol TraversalProto)
 		{

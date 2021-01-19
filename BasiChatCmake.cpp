@@ -1,5 +1,5 @@
 #define NOMINMAX
-#define _CRT_RAND_S  
+#define _CRT_RAND_S
 #include <MrBoboSockets.h>
 #include <Crawler.h>
 #include <SearchEngine/MBSearchEngine.h>
@@ -57,6 +57,15 @@ int main()
 	TestSocket.Connect();
 	TestSocket.EstablishSecureConnetion();
 	std::cout<< TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
+
+	//host test
+	//MBSockets::ServerSocket TestHostSocket = MBSockets::ServerSocket("443", MBSockets::TraversalProtocol::TCP);
+	//TestHostSocket.Bind();
+	//TestHostSocket.Listen();
+	//TestHostSocket.Accept();
+	//TestHostSocket.EstablishSecureConnection();
+
+
 	//MrBigInt Out;
 	//MrBigInt::Pow(MrBigInt(12312323), 123, Out);
 	//*/

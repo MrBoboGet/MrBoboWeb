@@ -1,6 +1,5 @@
 //#include <gmpxx.h>
 //#include <mpir>
-#include <mpirxx.h>
 #pragma once
 #include <algorithm>
 #include <string>

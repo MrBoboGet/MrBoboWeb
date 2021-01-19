@@ -165,7 +165,7 @@ set(ALL_FILES
 ################################################################################
 # Target
 ################################################################################
-add_executable(${PROJECT_NAME} ${ALL_FILES} "MrBoboChatt/MBChatConnection.h" "MrBoboChatt/MBCProtocols.h" "MrBoboChatt/MBCProtocols.cpp" "MrBoboChatt/MBChatConnection.cpp" "MBErrorHandling.h" "MBErrorHandling.cpp"  "MrBoboChatt/MrBoboChatt.cpp")
+add_executable(${PROJECT_NAME} ${ALL_FILES} "MrBoboChatt/MBChatConnection.h" "MrBoboChatt/MBCProtocols.h" "MrBoboChatt/MBCProtocols.cpp" "MrBoboChatt/MBChatConnection.cpp" "MBErrorHandling.h" "MBErrorHandling.cpp"  "MrBoboChatt/MrBoboChatt.cpp" "MBCertificateHandler/MBCertificateHandler.h")
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
