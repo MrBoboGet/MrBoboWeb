@@ -525,7 +525,7 @@ public:
 		unsigned int ExponentDivisorInt = 2;
 		MrBigInt ExponentDivisor = MrBigInt(ExponentDivisorInt);
 
-
+		std::cout << "Börjar PowM" << std::endl;
 		//unsigned int TimesInLoop = 0;
 		//unsigned int MultiplicationCount = 0;
 		//clock_t Timer = clock();
@@ -571,7 +571,7 @@ public:
 			//TotalDivisionTime += clock()-DeltaDivision;
 		}
 		OutResult = OutMultiple;
-
+		std::cout << "Avslutar PowM" << std::endl;
 		//TotalTime = (clock() - Timer);
 		//std::cout << "PowM Tog " << TotalTime/(double)CLOCKS_PER_SEC << std::endl;
 		//std::cout << "Times in loop " << TimesInLoop << std::endl;

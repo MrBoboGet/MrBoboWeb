@@ -53,9 +53,12 @@ int main()
 
 	///*
 	MBSockets::Init();
+	std::cout << "Skapar socketen" << std::endl;
 	MBSockets::HTTPConnectSocket TestSocket("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
+	std::cout << "Börjar TLS connection" << std::endl;
 	TestSocket.Connect();
 	TestSocket.EstablishSecureConnetion();
+	std::cout << "Börjar Get Request" << std::endl;
 	std::cout<< TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
 
 	//host test

@@ -298,6 +298,7 @@ endif()
 #windows
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
+        "lstdc++fs";
     )
 else()
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
