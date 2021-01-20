@@ -805,6 +805,10 @@ std::string TLSHandler::GenerateVerifyDataMessage()
 	TotalUnencryptedRecordData += HandshakeData;
 	ConnectionParameters.AllHandshakeMessages.push_back(TotalUnencryptedRecordData);
 	std::string ReturnValue = GetEncryptedRecord(Record);
+	std::cout << "Total Record Length " << ReturnValue.size() << std::endl;
+	std::cout << "Handshake data size  " << HandshakeData.size() << std::endl;
+	std::cout << "Handshake data " << HexEncodeString(HandshakeData) << std::endl;
+	std::cout << "encrypted record length header " << HexEncodeByte(ReturnValue[3]) << " " << HexEncodeByte(ReturnValue[4]) << std::endl;
 	return(ReturnValue);
 }
 TLSServerPublickeyInfo GetServerPublicKey(std::string& ServerCertificateData)
