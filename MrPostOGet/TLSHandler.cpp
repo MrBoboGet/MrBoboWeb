@@ -960,6 +960,8 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	std::cout << "VerifyDatamessage skickat" << std::endl;
 	std::vector<std::string> ServerVerifyDataResponse = GetNextPlaintextRecords(SocketToConnect);
 	//nu kan vi ta och faktiskt försöka verifera Datan dem skickade
+	assert(ServerVerifyDataResponse.size() > 1);
+	assert(ServerVerifyDataResponse[1].size() >= 9);
 	assert(VerifyFinishedMessage(ServerVerifyDataResponse[1].substr(9)));
 	std::cout << "Data verified" << std::endl;
 	ConnectionParameters.ServerSequenceNumber = 1;
@@ -1086,13 +1088,16 @@ std::string TLSHandler::GenerateSessionId()
 }
 bool TLSHandler::VerifyFinishedMessage(std::string DataToVerify)
 {
+	std::cout << "Går in i verifyfinishedMessage" << std::endl;
 	std::string ConcattenatedHandshakeData = "";
 	for (size_t i = 0; i < ConnectionParameters.AllHandshakeMessages.size(); i++)
 	{
 		ConcattenatedHandshakeData += ConnectionParameters.AllHandshakeMessages[i].substr(5);
 	}
+	std::cout << "Börjar Hash" << std::endl;
 	std::string HashedHandshakeData(picosha2::k_digest_size, 0);
 	picosha2::hash256(ConcattenatedHandshakeData, HashedHandshakeData);
+	std::cout << "Börjar PRF" << std::endl;
 	std::string VerifyData = PRF(std::string(reinterpret_cast<char*>(ConnectionParameters.master_secret), 48), "server finished", HashedHandshakeData, 12);
 	return(DataToVerify == VerifyData);
 }
