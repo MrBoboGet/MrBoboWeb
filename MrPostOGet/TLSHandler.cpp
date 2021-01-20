@@ -4,6 +4,7 @@
 #include <MrPostOGet/TLSHandler.h>
 #include <math.h>
 #include <MBRandom.h>
+#include <MinaStringOperations.h>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 namespace TLS1_2
 {
@@ -1127,6 +1128,7 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 std::string TLSHandler::DecryptBlockcipherRecord(std::string Data)
 {
 	//beror egentligen på om vi är en server eller client men vi förutsätter att vi är en client
+	std::cout << "Börjar deciphra" << std::endl;
 	std::string RecordHeader = Data.substr(0,5);
 	unsigned char IV[16];
 	if (Data[0] == TLS1_2::change_cipher_spec)
@@ -1139,6 +1141,10 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string Data)
 	}
 	//vi kollar hur många bytes padding det är
 	//vi kan då få content octetsen genom att skippa paddingen + 1 +32 
+	if (Data.size() > 21)
+	{
+		std::cout << HexEncodeString(Data) << std::endl;
+	}
 	std::string DataToDecrypt = Data.substr(5+16);
 	uint64_t DataToDecryptSize = DataToDecrypt.size();
 	std::string DecryptedData = std::string(DataToDecryptSize, 0);
@@ -1147,6 +1153,7 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string Data)
 	plusaes::Error AESError = plusaes::decrypt_cbc((const unsigned char*)DataToDecrypt.c_str(), DataToDecryptSize, (unsigned char*)ConnectionParameters.server_write_Key.c_str(), ConnectionParameters.server_write_Key.size(), &IV,
 		(unsigned char*)DecryptedData.data(), DecryptedData.size(), &PaddedSize);
 	assert(AESError == plusaes::Error::kErrorOk);
+	std::cout << "Decryptade med plusaes" << std::endl;
 	std::string ContentOctets = "";
 	std::string MACOctets = "";
 	//egentligen ska vi ta häsnyn till vilken cipher suite vi använder, men walla
@@ -1253,6 +1260,8 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 		{
 			for (int i = 0; i < RawDataProtocols.size(); i++)
 			{
+				std::cout << "Decryptar block chipher recorden" << std::endl;
+				std::cout << HexEncodeString(RawDataProtocols[i]) << std::endl;
 				RawDataProtocols[i] = DecryptBlockcipherRecord(RawDataProtocols[i]);
 				//std::string NewRawData = RawData.substr(0, 5);
 				//NewRawData += DecryptBlockcipherRecord(RawData);
