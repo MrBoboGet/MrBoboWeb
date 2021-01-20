@@ -428,6 +428,7 @@ std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
 	{
 		std::cout << "Number to conver " << NumberToConvert.GetString() << std::endl;
 		std::cout << "Max number " << MaxValueOfInteger.GetString() << std::endl;
+		std::cout << "LengthOfString " << LengthOfString << std::endl;
 		assert(false);
 		return("ERROR");
 	}

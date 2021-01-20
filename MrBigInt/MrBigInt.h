@@ -9,6 +9,7 @@
 #include <iostream>
 #include <time.h>
 #include <chrono>
+#include <cmath>
 //bara för debug
 /*
 class MrBigInt
@@ -589,6 +590,7 @@ public:
 		///*
 		unsigned int NumberOfRepititions = std::ceil(std::sqrt(Exponent));//Metod med konstant division, just nu snabbare med storleksordning 100ggr
 		unsigned int NumberBeforeDivisible = Exponent % NumberOfRepititions;
+		std::cout << "Exponent " << Exponent << std::endl;
 		for (size_t i = 0; i < NumberBeforeDivisible; i++)
 		{
 			OutResult *= Base;
@@ -603,6 +605,9 @@ public:
 		{
 			OutResult *= BaseCopy;
 		}
+		std::cout << "Base " << Base.GetString() << std::endl;
+		std::cout << "NumberOfRepititions " << NumberOfRepititions << std::endl;
+		std::cout << "NumberBeforeDivisible " << NumberBeforeDivisible << std::endl;
 		//*/
 		//Metod med division för varje steg
 		
@@ -1108,6 +1113,10 @@ public:
 		for (size_t i = 0; i < Temp.size(); i++)
 		{
 			ReturnValue += Temp[Temp.size() - 1 - i];
+		}
+		if (ReturnValue == "")
+		{
+			ReturnValue += std::to_string(InternalUnits.front());
 		}
 		//double TotalTime = (clock() - TotalTimeTimer) / (double)CLOCKS_PER_SEC;
 		//std::cout << "Total time is: " << TotalTime << std::endl << "Total divide Time: " << TotalDivideTime << std::endl << "Percentege divie: " << TotalDivideTime / TotalTime << std::endl;
