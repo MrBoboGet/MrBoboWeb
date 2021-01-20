@@ -16,6 +16,7 @@
 	//#include <sys\types.h>
 #endif
 #include <string>
+#include <string.h>
 #include <stdio.h>
 
 #include <thread>

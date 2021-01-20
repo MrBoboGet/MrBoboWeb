@@ -191,29 +191,16 @@ endif()
 # Include directories
 ################################################################################
 #testar att ha olika beroende på om det är windows eller inte
-if(UNIX)
-    target_include_directories(${PROJECT_NAME} PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/.;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
-    )
-else()
-    target_include_directories(${PROJECT_NAME} PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/.;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
-    )
-endif()
+target_include_directories(${PROJECT_NAME} PUBLIC
+    #"${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/.;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/PicoSHA2/;"
+    #"${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/plusaes/include/plusaes/"
+)
 ################################################################################
 # Compile definitions
 ################################################################################
