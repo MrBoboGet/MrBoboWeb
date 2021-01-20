@@ -499,6 +499,7 @@ void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::S
 	}
 	std::string PremasterSecretString = std::string(reinterpret_cast<char*>(PreMasterSecret), 48);
 	std::string EncryptedPremasterSecret = RSAES_PKCS1_V1_5_ENCRYPT(Data, PremasterSecretString);
+	std::cout << "Enkryptat med RSA" << std::endl;
 	for (size_t i = 0; i < 256; i++)
 	{
 		DataToSend[9 +2+ i] = EncryptedPremasterSecret[i];
@@ -948,14 +949,19 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	{
 		ConnectionParameters.master_secret[i] = uint8_t(MasterSecretString[i]);
 	}
+	std::cout << "MasterKey gjord" << std::endl;
 	GenerateKeys();
+	std::cout << "Genererat keys" << std::endl;
 	std::string VerifyDataMessage = GenerateVerifyDataMessage();
+	std::cout << "Generated verify data message" << std::endl;
 	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
 	ConnectionParameters.HandshakeFinished = true;
 	ConnectionParameters.ClientSequenceNumber+=1;
+	std::cout << "VerifyDatamessage skickat" << std::endl;
 	std::vector<std::string> ServerVerifyDataResponse = GetNextPlaintextRecords(SocketToConnect);
 	//nu kan vi ta och faktiskt försöka verifera Datan dem skickade
 	assert(VerifyFinishedMessage(ServerVerifyDataResponse[1].substr(9)));
+	std::cout << "Data verified" << std::endl;
 	ConnectionParameters.ServerSequenceNumber = 1;
  	int a = 0;
 }
