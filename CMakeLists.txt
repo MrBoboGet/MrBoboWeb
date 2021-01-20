@@ -198,6 +198,7 @@ if(UNIX)
         "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
         "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
     )
@@ -208,6 +209,7 @@ else()
         "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
         "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/SingleHeaderSha256;"
         "${CMAKE_CURRENT_SOURCE_DIR}/../ExternaLibrarys/AES"
     )
