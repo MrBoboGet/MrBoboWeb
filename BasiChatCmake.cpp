@@ -55,6 +55,8 @@ int main()
 	
 	
 	//mrbigint test grejer
+	std::cout << UNIT_BITS << std::endl;
+	std::cout << UNIT_MAX << std::endl;
 	MrBigInt TestInt(256);
 	//std::cout << "256^256 " << std::endl << TestInt.Pow(256).GetString() << std::endl;
 	//std::cout << "123123^123%123321"<<std::endl<<MrBigInt(123123).PowM(MrBigInt(123), MrBigInt(123321)).GetString() << std::endl;

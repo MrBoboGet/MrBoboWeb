@@ -443,10 +443,10 @@ private:
 			UnitType CurrentUnit = RightInt.InternalUnits[i];
 			for (size_t j = 0; j < UNIT_BITS; j++)
 			{
-				char CurrentBit = (CurrentUnit >> j)%2;
+				char CurrentBit = (CurrentUnit >> j)&1;
 				if (CurrentBit == 1)
 				{
-					OutResult += LeftInt << (i* UNIT_BITS + j);
+					OutResult += LeftInt << ((i* UNIT_BITS) + j);
 				}
 			}
 		}
@@ -606,11 +606,13 @@ public:
 		for (size_t i = 1; i < NumberOfRepititions; i++)
 		{
 			BaseCopy *= Base;
+			std::cout << "HexEncoded partial Base muliplication" << BaseCopy.GetHexEncodedString() << std::endl;
 		}
 		Exponent /= NumberOfRepititions;
 		for (size_t i = 0; i < Exponent; i++)
 		{
 			OutResult *= BaseCopy;
+			std::cout << "HexEncoded partial Result muliplication" << BaseCopy.GetHexEncodedString() << std::endl;
 		}
 		std::cout << "Base " << Base.GetString() << std::endl;
 		std::cout << "NumberOfRepititions " << NumberOfRepititions << std::endl;
