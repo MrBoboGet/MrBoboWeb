@@ -766,7 +766,37 @@ public:
 
 	MrBigInt operator<<(unsigned int BitsToShift) const
 	{
+		if (BitsToShift == 0)
+		{
+			return(*this);
+		}
 		MrBigInt NewInt;
+		unsigned int NewZeroUnits = BitsToShift / UNIT_BITS;
+		unsigned int SingleBitsToShift = BitsToShift % UNIT_BITS;
+		NewInt.InternalUnits = std::vector<UnitType>(InternalUnits.size()+NewZeroUnits, 0);
+		UnitType PreviousBits = 0;
+		UnitType ThisSize = InternalUnits.size();
+		for (size_t i = 0; i < ThisSize; i++)
+		{
+			NewInt.InternalUnits[i + NewZeroUnits] += PreviousBits;
+			NewInt.InternalUnits[i + NewZeroUnits] += (UnitType)(InternalUnits[i] << SingleBitsToShift);
+			if (SingleBitsToShift == 0)
+			{
+				PreviousBits = 0;
+			}
+			else
+			{
+				PreviousBits = InternalUnits[i] >> (UNIT_BITS - SingleBitsToShift);
+			}
+		}
+		if (PreviousBits != 0)
+		{
+			NewInt.InternalUnits.push_back(PreviousBits);
+		}
+		return(NewInt);
+		
+		
+		
 		//räknar ut hur stor den måste vara
 		unsigned int NewUnitsCount = BitsToShift / UNIT_BITS;
 		unsigned int BitToShiftCheck = UNIT_BITS - (BitsToShift % UNIT_BITS);
