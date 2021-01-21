@@ -1,3 +1,0 @@
-/home/pi/MyProjects/MrBoboWeb/CMakeFiles/rebuild_cache.dir
-/home/pi/MyProjects/MrBoboWeb/CMakeFiles/BasicChatCmake.dir
-/home/pi/MyProjects/MrBoboWeb/CMakeFiles/edit_cache.dir
