@@ -416,6 +416,9 @@ MrBigInt TLSHandler::RSAEP(TLSServerPublickeyInfo& RSAInfo,MrBigInt const& Messa
 {
 	MrBigInt ReturnValue(0);
 	RSAPublicKey PublicKey = ExtractRSAPublicKeyFromBitString(RSAInfo.ServerKeyData);
+	//DEBUG GREJER
+	std::cout << "Public Key Exp:" << std::endl << PublicKey.Exponent.GetHexEncodedString() << std::endl;
+	std::cout << "Public Key Modolu:" << std::endl << PublicKey.Modolu.GetHexEncodedString() << std::endl;
 	MrBigInt::PowM(MessageRepresentative, PublicKey.Exponent, PublicKey.Modolu, ReturnValue);
 	return(ReturnValue);
 }
@@ -474,7 +477,9 @@ std::string TLSHandler::RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo
 	MrBigInt MessageRepresentative = OS2IP(EM.c_str(), 256);
 	MrBigInt CiphertextRepresentative = RSAEP(RSAInfo,MessageRepresentative);
 	std::string CipherText = I2OSP(CiphertextRepresentative,256);
-	
+	//DEBUG GREJER
+	std::cout << "Data to encrypt: " << std::endl << HexEncodeString(DataToEncrypt) << std::endl;
+	std::cout << "Encrypted data: " << std::endl << HexEncodeString(CipherText) << std::endl;
 	return(CipherText);
 }
 void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::Socket* SocketToConnect)
@@ -710,12 +715,20 @@ void TLSHandler::GenerateKeys()
 	ConnectionParameters.client_write_IV = GeneratedKeyData.substr(EncryptKeySize *2, 16);
 	ConnectionParameters.server_write_IV = GeneratedKeyData.substr(EncryptKeySize *3, 16);
 }
-std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt)
+std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt,void* PreDeterminedIV)
 {
 	//generar en random IV
 	std::string TotalRecordData = "";
 	unsigned char IV[16];
 	FillArrayWithRandomBytes(IV, 16);
+	if (PreDeterminedIV != nullptr)
+	{
+		unsigned char* IVData = (unsigned char*)PreDeterminedIV;
+		for (size_t i = 0; i < 16; i++)
+		{
+			IV[i] = IVData[i];
+		}
+	}
 	std::string SequenceNumber = std::string(8, 0);
 	uint64_t TempSequenceNumber = ConnectionParameters.ClientSequenceNumber;
 	for (size_t i = 0; i < 8; i++)
@@ -1158,7 +1171,7 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string Data)
 	//vi kan då få content octetsen genom att skippa paddingen + 1 +32 
 	if (Data.size() > 21)
 	{
-		std::cout << HexEncodeString(Data) << std::endl;
+		//std::cout << HexEncodeString(Data) << std::endl;
 	}
 	std::string DataToDecrypt = Data.substr(5+16);
 	uint64_t DataToDecryptSize = DataToDecrypt.size();
@@ -1276,7 +1289,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 			for (int i = 0; i < RawDataProtocols.size(); i++)
 			{
 				std::cout << "Decryptar block chipher recorden" << std::endl;
-				std::cout << HexEncodeString(RawDataProtocols[i]) << std::endl;
+				//std::cout << HexEncodeString(RawDataProtocols[i]) << std::endl;
 				RawDataProtocols[i] = DecryptBlockcipherRecord(RawDataProtocols[i]);
 				//std::string NewRawData = RawData.substr(0, 5);
 				//NewRawData += DecryptBlockcipherRecord(RawData);

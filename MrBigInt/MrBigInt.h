@@ -10,6 +10,7 @@
 #include <time.h>
 #include <chrono>
 #include <cmath>
+#include <MinaStringOperations.h>
 //bara för debug
 /*
 class MrBigInt
@@ -499,11 +500,17 @@ private:
 		{
 			for (int j = UNIT_BITS-1; j >= 0; j--)
 			{
+				//DEBUG GREJER !!!
+				MrBigInt DebugOutRemainderCopy(OutRemainder);
 				OutRemainder = OutRemainder << 1;
+				assert(DebugOutRemainderCopy * 2 == OutRemainder);
 				OutRemainder += (InternalUnits[i]>>j)&1;
 				if (Divident <= OutRemainder)
 				{
+					//DEBUG GREJER !!!
+					MrBigInt DebugOutRemainderCopy2(OutRemainder);
 					OutRemainder -= Divident;
+					assert(OutRemainder + Divident == DebugOutRemainderCopy2);
 					OutQuotient += MrBigInt(1) << ((i * UNIT_BITS) + j);
 				}
 			}
@@ -647,11 +654,8 @@ public:
 	}
 	MrBigInt Pow(unsigned int Exponent)
 	{
-		MrBigInt ReturnValue = MrBigInt(1);
-		for (size_t i = 0; i < Exponent; i++)
-		{
-			ReturnValue *= *this;
-		}
+		MrBigInt ReturnValue;
+		Pow(*this, Exponent, ReturnValue);
 		return(ReturnValue);
 	}
 	unsigned int GetNumberOfUnits()
@@ -1086,16 +1090,17 @@ public:
 	}
 	std::string GetString() const
 	{
-		MrBigInt TenthPotens = 1;
 		std::string Temp = "";
 		//clock_t TotalTimeTimer = clock();
 		double TotalDivideTime = 0;
-		while (TenthPotens < (*this))
+		MrBigInt NumberToDivide = MrBigInt(*this)*10;
+		MrBigInt Ten = MrBigInt(10);
+		MrBigInt Quotient;
+		MrBigInt Remainder;
+		while (NumberToDivide >= Ten)
 		{
-			MrBigInt Quotient;
-			MrBigInt Remainder;
 			//clock_t DivideTimer = clock();
-			UnsignedDivide(TenthPotens, *&Remainder, *&Quotient);
+			NumberToDivide.UnsignedDivide(Ten, Remainder, Quotient);
 			//TotalDivideTime += (clock() - DivideTimer) / (double)CLOCKS_PER_SEC;
 			unsigned int ModTen = 0;
 			unsigned int ModMultiplier = 1;
@@ -1105,9 +1110,10 @@ public:
 				ModTen += (Quotient.InternalUnits[i] % 10)*ModMultiplier;
 				ModMultiplier = (ModMultiplier * 6) % 10;
 				assert(ModTen >= DebugModTen);
+				assert(ModMultiplier == 1 || ModMultiplier == 6);
 			}
 			Temp += std::to_string(ModTen%10);
-			TenthPotens = TenthPotens * 10;
+			NumberToDivide = Quotient;
 		}
 		std::string ReturnValue = "";
 		for (size_t i = 0; i < Temp.size(); i++)
@@ -1120,6 +1126,20 @@ public:
 		}
 		//double TotalTime = (clock() - TotalTimeTimer) / (double)CLOCKS_PER_SEC;
 		//std::cout << "Total time is: " << TotalTime << std::endl << "Total divide Time: " << TotalDivideTime << std::endl << "Percentege divie: " << TotalDivideTime / TotalTime << std::endl;
+		return(ReturnValue);
+	}
+	std::string GetHexEncodedString()
+	{
+		std::string ReturnValue = "";
+		for (int i = InternalUnits.size()-1; i >= 0; i--)
+		{
+			std::string HexEncodedUnit = "";
+			for (size_t j = 0; j < UNIT_BITS/8; j++)
+			{
+				HexEncodedUnit += HexEncodeByte(InternalUnits[i] >> (UNIT_BITS - ((j + 1)*8)));
+			}
+			ReturnValue += HexEncodedUnit;
+		}
 		return(ReturnValue);
 	}
 };

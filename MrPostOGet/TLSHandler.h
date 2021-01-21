@@ -586,7 +586,23 @@ public:
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
 	void SendClientChangeCipherMessage(MBSockets::ConnectSocket* SocketToConnect);
 	void GenerateKeys();
-	std::string GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt);
+	std::string GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt,void* PreDeterminedIV = nullptr);
+	std::string TestEncryptRecord(void* IV,uint64_t RecordNumber ,std::string ClientWriteMacKey, std::string ClientWriteKey, TLS1_2::TLS1_2GenericRecord& RecordToEncrypt)
+	{
+		std::string PreviousWriteMacKey = ConnectionParameters.client_write_MAC_Key;
+		std::string PreviousWriteKey = ConnectionParameters.client_write_Key;
+		uint64_t PreviousRecordNumber = ConnectionParameters.ClientSequenceNumber;
+		
+		ConnectionParameters.ClientSequenceNumber = RecordNumber;
+		ConnectionParameters.client_write_MAC_Key = ClientWriteMacKey;
+		ConnectionParameters.client_write_Key = ClientWriteKey;
+		std::string EncryptedRecord = GetEncryptedRecord(RecordToEncrypt,IV);
+
+		ConnectionParameters.client_write_MAC_Key = PreviousWriteMacKey;
+		ConnectionParameters.client_write_Key = PreviousWriteKey;
+		ConnectionParameters.ClientSequenceNumber = PreviousRecordNumber;
+		return(EncryptedRecord);
+	}
 	std::string GenerateVerifyDataMessage();
 	void InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
 	bool VerifyFinishedMessage(std::string DataToVerify);
