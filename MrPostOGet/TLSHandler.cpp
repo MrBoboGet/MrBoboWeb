@@ -766,6 +766,7 @@ std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordTo
 	TotalRecordData += IVString;
 	TotalRecordData += EncryptedData;
 	std::cout << std::endl;
+	std::cout << "IV used: " << std::endl << HexEncodeString(std::string((char*)IV, 16));
 	std::cout << "sequence number: "<<std::endl << ConnectionParameters.ClientSequenceNumber << std::endl;
 	std::cout << "client write mac key:" << std::endl << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
 	std::cout << "client write key:" << std::endl << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
