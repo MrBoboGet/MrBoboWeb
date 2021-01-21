@@ -765,7 +765,17 @@ std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordTo
 	TotalRecordData += char(LengthOfCipherBlock%256);
 	TotalRecordData += IVString;
 	TotalRecordData += EncryptedData;
-
+	std::cout << std::endl;
+	std::cout << "sequence number: "<<std::endl << ConnectionParameters.ClientSequenceNumber << std::endl;
+	std::cout << "client write mac key:" << std::endl << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
+	std::cout << "client write key:" << std::endl << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
+	std::cout << "Record to encrypt:" << std::endl;
+	std::cout << HexEncodeString(RecordToEncrypt.Data) << std::endl;
+	std::cout << "Encrypted Record:" << std::endl;
+	std::cout << HexEncodeString(TotalRecordData) << std::endl;
+	std::cout << std::endl;
+	//debuggrej
+	//TotalRecordData.back() = char(0);
 	//std::cout << "Client write key" << std::endl;
 	//std::cout << ReplaceAll(HexEncodeString(ConnectionParameters.client_write_Key), " ", "") << std::endl;
 	//std::cout << "IV used" << std::endl;
