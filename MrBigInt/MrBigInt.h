@@ -612,7 +612,7 @@ public:
 		for (size_t i = 0; i < Exponent; i++)
 		{
 			OutResult *= BaseCopy;
-			std::cout << "HexEncoded partial Result muliplication" << BaseCopy.GetHexEncodedString() << std::endl;
+			std::cout << "HexEncoded partial Result muliplication" << OutResult.GetHexEncodedString() << std::endl;
 		}
 		std::cout << "Base " << Base.GetString() << std::endl;
 		std::cout << "NumberOfRepititions " << NumberOfRepititions << std::endl;
