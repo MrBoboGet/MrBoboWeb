@@ -53,24 +53,13 @@ int main()
 
 	///*
 	
-	
-	//mrbigint test grejer
-	std::cout << UNIT_BITS << std::endl;
-	std::cout << UNIT_MAX << std::endl;
-	MrBigInt TestInt(256);
-	//std::cout << "256^256 " << std::endl << TestInt.Pow(256).GetString() << std::endl;
-	//std::cout << "123123^123%123321"<<std::endl<<MrBigInt(123123).PowM(MrBigInt(123), MrBigInt(123321)).GetString() << std::endl;
-	std::cout << MrBigInt(5).Pow(100).GetString() << std::endl;
 
 
 	MBSockets::Init();
-	std::cout << "Skapar socketen" << std::endl;
 	MBSockets::HTTPConnectSocket TestSocket("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
-	std::cout << "Börjar TLS connection" << std::endl;
 	TestSocket.Connect();
 	TestSocket.EstablishSecureConnetion();
-	std::cout << "Börjar Get Request" << std::endl;
-	std::cout<< TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
+		std::cout<< TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
 
 	//test kryptering
 	exit(0);

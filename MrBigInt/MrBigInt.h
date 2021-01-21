@@ -500,17 +500,11 @@ private:
 		{
 			for (int j = UNIT_BITS-1; j >= 0; j--)
 			{
-				//DEBUG GREJER !!!
-				MrBigInt DebugOutRemainderCopy(OutRemainder);
 				OutRemainder = OutRemainder << 1;
-				assert(DebugOutRemainderCopy * 2 == OutRemainder);
 				OutRemainder += (InternalUnits[i]>>j)&1;
 				if (Divident <= OutRemainder)
 				{
-					//DEBUG GREJER !!!
-					MrBigInt DebugOutRemainderCopy2(OutRemainder);
 					OutRemainder -= Divident;
-					assert(OutRemainder + Divident == DebugOutRemainderCopy2);
 					OutQuotient += MrBigInt(1) << ((i * UNIT_BITS) + j);
 				}
 			}
@@ -533,7 +527,6 @@ public:
 		unsigned int ExponentDivisorInt = 2;
 		MrBigInt ExponentDivisor = MrBigInt(ExponentDivisorInt);
 
-		std::cout << "Börjar PowM" << std::endl;
 		//unsigned int TimesInLoop = 0;
 		//unsigned int MultiplicationCount = 0;
 		//clock_t Timer = clock();
@@ -579,7 +572,6 @@ public:
 			//TotalDivisionTime += clock()-DeltaDivision;
 		}
 		OutResult = OutMultiple;
-		std::cout << "Avslutar PowM" << std::endl;
 		//TotalTime = (clock() - Timer);
 		//std::cout << "PowM Tog " << TotalTime/(double)CLOCKS_PER_SEC << std::endl;
 		//std::cout << "Times in loop " << TimesInLoop << std::endl;
@@ -597,7 +589,6 @@ public:
 		///*
 		unsigned int NumberOfRepititions = std::ceil(std::sqrt(Exponent));//Metod med konstant division, just nu snabbare med storleksordning 100ggr
 		unsigned int NumberBeforeDivisible = Exponent % NumberOfRepititions;
-		std::cout << "Exponent " << Exponent << std::endl;
 		for (size_t i = 0; i < NumberBeforeDivisible; i++)
 		{
 			OutResult *= Base;
@@ -606,18 +597,12 @@ public:
 		for (size_t i = 1; i < NumberOfRepititions; i++)
 		{
 			BaseCopy *= Base;
-			std::cout << "HexEncoded partial Base muliplication" << BaseCopy.GetHexEncodedString() << std::endl;
 		}
 		Exponent /= NumberOfRepititions;
 		for (size_t i = 0; i < Exponent; i++)
 		{
 			OutResult *= BaseCopy;
-			std::cout << "HexEncoded partial Result muliplication" << OutResult.GetHexEncodedString() << std::endl;
 		}
-		std::cout << "Base " << Base.GetString() << std::endl;
-		std::cout << "NumberOfRepititions " << NumberOfRepititions << std::endl;
-		std::cout << "NumberBeforeDivisible " << NumberBeforeDivisible << std::endl;
-		std::cout << "HexEncoded Reuslt " << OutResult.GetHexEncodedString() << std::endl;
 		//*/
 		//Metod med division för varje steg
 		
