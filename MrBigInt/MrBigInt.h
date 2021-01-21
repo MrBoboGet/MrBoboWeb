@@ -615,6 +615,7 @@ public:
 		std::cout << "Base " << Base.GetString() << std::endl;
 		std::cout << "NumberOfRepititions " << NumberOfRepititions << std::endl;
 		std::cout << "NumberBeforeDivisible " << NumberBeforeDivisible << std::endl;
+		std::cout << "HexEncoded Reuslt " << OutResult.GetHexEncodedString() << std::endl;
 		//*/
 		//Metod med division för varje steg
 		
