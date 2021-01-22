@@ -11,16 +11,16 @@ namespace MrPostOGet
 	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient,std::vector<RequestHandler> RequestHandlers,std::string ResourcesPath)
 	{
 		std::string RequestData;
-		//väldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
+		//vï¿½ldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
  		while ((RequestData = ConnectedClient->GetNextRequestData()) != "")
 		{
-			//vi kollar om request handlersen har någon åsikt om datan, annars låter vi våran default getrequest handlar sköta allt 
+			//vi kollar om request handlersen har nï¿½gon ï¿½sikt om datan, annars lï¿½ter vi vï¿½ran default getrequest handlar skï¿½ta allt 
 			bool HandlerHasHandled = false;
 			for (size_t i = 0; i < RequestHandlers.size(); i++)
 			{
 				if (RequestHandlers[i].RequestPredicate(RequestData))
 				{
-					//vi ska göra grejer med denna data, så vi tar och skapar stringen som vi sen ska skicka
+					//vi ska gï¿½ra grejer med denna data, sï¿½ vi tar och skapar stringen som vi sen ska skicka
 					std::string RequestResponse = RequestHandlers[i].RequestResponse(RequestData, ResourcesPath);
 					ConnectedClient->SendHTTPBody(RequestResponse);
 					HandlerHasHandled = true;
@@ -31,7 +31,7 @@ namespace MrPostOGet
 			{
 				continue;
 			}
-			//om våra handlers inte har handlat datan så gör vår default handler det. Denna funkar enbart för get, eftersom dem andra requestsen inte makar mycket sense i sammanhanget
+			//om vï¿½ra handlers inte har handlat datan sï¿½ gï¿½r vï¿½r default handler det. Denna funkar enbart fï¿½r get, eftersom dem andra requestsen inte makar mycket sense i sammanhanget
 			if (MBSockets::GetRequestType(RequestData) != "GET")
 			{
 				ConnectedClient->SendDataAsHTTPBody("Bad Request");
@@ -40,6 +40,7 @@ namespace MrPostOGet
 			{
 				std::string ResourceToGet = ResourcesPath + MBSockets::GetReqestResource(RequestData);
 				std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/"+ResourceToGet);
+				std::cout<<ResourceToGet<<std::endl;
 				if (std::filesystem::exists(ActualResourcePath))
 				{
 					if (ResourceToGet == ResourcesPath)
@@ -54,13 +55,30 @@ namespace MrPostOGet
 					}
 					else
 					{
-						TextReader Data(ResourceToGet);
-						std::string HTMLBody = "";
-						for (int i = 0; i < Data.Size(); i++)
+						std::string ChallengeFolder = "./ServerResources/MrBoboGet/HTMLResources/.well-known/acme-challenge/";
+						if(ResourceToGet.substr(0,ChallengeFolder.size()) == ChallengeFolder)
 						{
-							HTMLBody += Data[i] + "\n";
+							MBSockets::HTTPDocument NewDocument;
+							NewDocument.Type = MBSockets::HTTPDocumentType::OctetString;
+							std::string DocumentData = "";
+							TextReader Data(ResourceToGet);
+							for (int i = 0; i < Data.Size(); i++)
+							{
+								DocumentData += Data[i];
+							}
+							NewDocument.DocumentData = DocumentData;
+							ConnectedClient->SendHTTPDocument(NewDocument);
 						}
-						ConnectedClient->SendHTTPBody(HTMLBody);
+						else
+						{
+							TextReader Data(ResourceToGet);
+							std::string HTMLBody = "";
+							for (int i = 0; i < Data.Size(); i++)
+							{
+								HTMLBody += Data[i] + "\n";
+							}
+							ConnectedClient->SendHTTPBody(HTMLBody);
+						}
 					}
 				}
 				else
@@ -93,7 +111,7 @@ namespace MrPostOGet
 		}
 		void StartListening()
 		{
-			//huvud loopen som tar och faktiskt sköter hur allt funkar internt
+			//huvud loopen som tar och faktiskt skï¿½ter hur allt funkar internt
 			int NumberOfConnections = 0;
 			std::vector<std::thread*> CurrentActiveThreads = {};
 			ServerSocketen->Bind();

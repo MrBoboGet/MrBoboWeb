@@ -44,3 +44,7 @@ Thumbs.db
 CmakeInnanÄndringar
 BasicChatCmake
 /ServerResources/MrBoboGet/EncryptionResources/
+Makefile
+CMakeFiles
+cmake_install.cmake
+/ServerResources/MrBoboGet/HTMLResources/.well-known/

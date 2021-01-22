@@ -100,7 +100,7 @@ namespace MBSockets
 		//SocketType TypeOfSocket;
 		TraversalProtocol ProtocolForTraversal;
 
-		//borde finnas en variabel för att vissa att den är invalid
+		//borde finnas en variabel fï¿½r att vissa att den ï¿½r invalid
 		std::string GetLastError()
 		{
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
@@ -110,7 +110,7 @@ namespace MBSockets
 #endif
 		}
 	public:
-		//returnar en int för eventuellt framtida error hantering
+		//returnar en int fï¿½r eventuellt framtida error hantering
 		int SendData(const char* DataPointer, int DataLength)
 		{
 			int TotalDataSent = 0;
@@ -140,7 +140,7 @@ namespace MBSockets
 			char ActualAdress[100];
 			unsigned long DataReturned = 100;
 			//ErrorResults = WSAAddressToStringA((SOCKADDR*)&AddresData, sizeof(SOCKADDR), NULL, ActualAdress, &DataReturned);
-			//TODO fixa så det här fungerar
+			//TODO fixa sï¿½ det hï¿½r fungerar
 			std::string Result = inet_ntoa(AddresData.sin_addr);
 			return(std::string(ActualAdress));
 		}
@@ -217,7 +217,7 @@ namespace MBSockets
 			ErrorResults = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
 			if (ErrorResults != 0)
 			{
-				//error grejer, helst våra egna också
+				//error grejer, helst vï¿½ra egna ocksï¿½
 				printf("getaddrinfo failed: %d\n", ErrorResults);
 				std::cout << Adress << std::endl;
 			}
@@ -322,7 +322,7 @@ namespace MBSockets
 			// But for this simple example we just free the resources
 			// returned by getaddrinfo and print an error message
 
-			// vi vill nog egentligen spara detta så vi inte behöver göra det flera gånger
+			// vi vill nog egentligen spara detta sï¿½ vi inte behï¿½ver gï¿½ra det flera gï¿½nger
 			return(0);
 		}
 		ConnectSocket(std::string Adress, std::string Port, TraversalProtocol TraversalProto)
@@ -338,7 +338,7 @@ namespace MBSockets
 			ErrorResults = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
 			if (ErrorResults != 0)
 			{
-				//error grejer, helst våra egna också
+				//error grejer, helst vï¿½ra egna ocksï¿½
 				printf("getaddrinfo failed: %d\n", ErrorResults);
 				std::cout << Adress << std::endl;
 			}
@@ -420,7 +420,7 @@ namespace MBSockets
 			ErrorResults = getaddrinfo(NULL, Port.c_str(), &hints, &result);
 			if (ErrorResults != 0)
 			{
-				//error grejer, helst våra egna också
+				//error grejer, helst vï¿½ra egna ocksï¿½
 				printf("getaddrinfo failed: %d\n", ErrorResults);
 			}
 
@@ -555,6 +555,35 @@ namespace MBSockets
 		int FirstSpaceAfterSlash = RequestData.find(" ", FirstSlashPos);
 		return(RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1));	
 	}
+	enum class HTTPDocumentType
+	{
+		OctetString,
+		HTML,
+		Null
+	};
+	struct HTTPDocument
+	{
+		HTTPDocumentType Type = HTTPDocumentType::Null;
+		std::string DocumentData;
+	};
+	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
+	{
+		std::string Request = "";
+		Request += "HTTP/1.1 200 OK\n";
+		Request += "Content-Type: ";
+		if(DocumentToSend.Type == HTTPDocumentType::OctetString)
+		{
+			Request += "application/octet-stream\n";
+		}
+		else
+		{
+			Request += "text/html\n";
+		}
+		Request += "Accept-Ranges: bytes\n";
+		Request += "Content-Length: " + std::to_string(DocumentToSend.DocumentData.size()) + "\n\r\n";
+		Request += DocumentToSend.DocumentData;
+		return(Request);
+	}
 	inline std::string GenerateRequest(const std::string& HTMLBody)
 	{
 		/*
@@ -614,6 +643,11 @@ namespace MBSockets
 			std::string Request = GenerateRequest(Data);
 			SendData(Request.c_str(), Request.size());
 		}
+		void SendHTTPDocument(HTTPDocument const& DocumentToSend)
+		{
+			std::string DataToSend = GenerateRequest(DocumentToSend);
+			SendData(DataToSend.c_str(),DataToSend.size());
+		}
 	};
 	class ThreadPool;
 	class Worker;
@@ -624,7 +658,7 @@ namespace MBSockets
 		friend void WorkerThreadFunction(Worker*);
 	private:
 		std::mutex ObjectValuesMutex;
-		//tänkt för användning av enbart vår worker, manages annars av threadpoolen
+		//tï¿½nkt fï¿½r anvï¿½ndning av enbart vï¿½r worker, manages annars av threadpoolen
 		std::deque<std::function<void()>> TaskQueue = {};
 		std::condition_variable CanExecuteConditional;
 		std::thread WorkingThread;
@@ -685,7 +719,7 @@ namespace MBSockets
 			}
 			CanExecuteConditional.notify_all();
 			WorkingThread.join();
-			//resettar tråden till ursrpungs tillståndet
+			//resettar trï¿½den till ursrpungs tillstï¿½ndet
 			ShouldStop = false;
 			AllTasksFinished = true;
 		}
@@ -730,7 +764,7 @@ namespace MBSockets
 					ThreadsOnStandby.pop_front();
 				}
 			}
-			//om vi nu har en worker vi kan assigna arbete så gör vi det, annars så lägger vi till den i vår queue av grejer som behöver göras
+			//om vi nu har en worker vi kan assigna arbete sï¿½ gï¿½r vi det, annars sï¿½ lï¿½gger vi till den i vï¿½r queue av grejer som behï¿½ver gï¿½ras
 			if (WorkerToAssignWork != nullptr)
 			{
 				WorkerToAssignWork->AddTask(args...);
@@ -743,7 +777,7 @@ namespace MBSockets
 		}
 		void WaitForThreadsToFinish()
 		{
-			//vi har en wait variabel som vi väntar på och kollar huruvida våra grejer på standby är lika med antalet, då är det ju klart
+			//vi har en wait variabel som vi vï¿½ntar pï¿½ och kollar huruvida vï¿½ra grejer pï¿½ standby ï¿½r lika med antalet, dï¿½ ï¿½r det ju klart
 			std::unique_lock<std::mutex> Locken(ThreadPoolMutex);
 			while (ThreadsOnStandby.size() != AvailableWorkers.size())
 			{
@@ -805,7 +839,7 @@ namespace MBSockets
 		while (true)
 		{
 
-			//vi poppar det längst ner på listan, executar, tar en ny
+			//vi poppar det lï¿½ngst ner pï¿½ listan, executar, tar en ny
 			std::function<void()> TaskToExecute;
 			decltype(WorkerAttachedTo->TaskQueue) SeperateTaskQueue;
 			{
@@ -821,7 +855,7 @@ namespace MBSockets
 						}
 						else
 						{
-							//lägger till den i listan av grejer på standby
+							//lï¿½gger till den i listan av grejer pï¿½ standby
 							//assert(WorkerAttachedTo != nullptr);
 							WorkerAttachedTo->ConnectedThreadPool->ThreadsOnStandby.push_back(WorkerAttachedTo);
 						}
@@ -889,7 +923,7 @@ namespace MBSockets
 			}
 			if (ErrorResults != 0)
 			{
-				//error grejer, helst våra egna också
+				//error grejer, helst vï¿½ra egna ocksï¿½
 				printf("getaddrinfo failed: %d\n", ErrorResults);
 			}
 
@@ -922,7 +956,7 @@ namespace MBSockets
 			const int DefaultBodySize = 2024;
 			while ((LengthOfData = RecieveData(Buffer, MAXHEADERSIZE)) > 0 && BodySize == 0)
 			{
-				//nu har vi fått headern i buffer
+				//nu har vi fï¿½tt headern i buffer
 				HeaderContent = std::string(Buffer, LengthOfData);
 				std::string ContentLength = MBSockets::GetHeaderValue("Content-Length", HeaderContent);
 				if(RequestType == "HEAD")
@@ -949,7 +983,7 @@ namespace MBSockets
 				break;
 			}
 			std::cout << HeaderContent.size() << std::endl;
-			//nu har vi exakt hur lång vår request är, headerns storlek + bodysize
+			//nu har vi exakt hur lï¿½ng vï¿½r request ï¿½r, headerns storlek + bodysize
 			int RequestSize = HeaderContent.size() + BodySize;
 			int TotalSize = RequestSize;
 			int TotalRecievedSize = 0;
@@ -962,15 +996,15 @@ namespace MBSockets
 			}
 			while ((LengthOfData = RecieveData(&Buffer[TotalRecievedSize], RequestSize)) > 0)
 			{
-				//vi kollar huruvida vi får att datan kommer som chunked eller inte, gör den det behöver vi om allokera vår buffer data
+				//vi kollar huruvida vi fï¿½r att datan kommer som chunked eller inte, gï¿½r den det behï¿½ver vi om allokera vï¿½r buffer data
 				/*
 				std::string CurrentData = std::string(Buffer,)
 				if (MBSockets::GetHeaderValue("Transfer-Encoding",std::string(Buffer, HeaderContent.size())) == "chunked")
 				{
-					//vi reallocatar minnet så vi får plats med resten
-					//första raden med ett dubbel \n\n, sen börjar bodyn
+					//vi reallocatar minnet sï¿½ vi fï¿½r plats med resten
+					//fï¿½rsta raden med ett dubbel \n\n, sen bï¿½rjar bodyn
 
-					//nu vill vi ha hur mycket data som behövs
+					//nu vill vi ha hur mycket data som behï¿½vs
 					int Position =
 				}
 				
@@ -1013,7 +1047,7 @@ if (TransferEncoding == "chunked" || TransferIsChunked)
 
 break;
 			}
-			std::string ärde = std::string(Buffer, TotalRecievedSize);
+			std::string ï¿½rde = std::string(Buffer, TotalRecievedSize);
 			free(Buffer);
-			return(ReturVärde);
+			return(ReturVï¿½rde);
 */
