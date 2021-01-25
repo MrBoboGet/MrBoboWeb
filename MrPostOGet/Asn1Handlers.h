@@ -352,6 +352,7 @@ public:
     ASN1Extracter(uint8_t* ModifiyableData)
     {
         DataToModify = ModifiyableData;
+        DataToReadFrom = ModifiyableData;
     }
     ASN1Extracter(const uint8_t* DataToRead)
     {

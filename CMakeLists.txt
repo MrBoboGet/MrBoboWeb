@@ -125,9 +125,9 @@ set(PROJECT_NAME BasicChatCmake)
 set(no_group_source_files
     "Crawler/ExampleHeader.txt"
     "Crawler/FungerandeCrawlnna.txt"
-    "WebsiteResources/index.htm"
-    "WebsiteResources/RedirectToSearch.js"
-    "WebsiteResources/WebsidanStil.css"
+    #"WebsiteResources/index.htm"
+    #"WebsiteResources/RedirectToSearch.js"
+    #"WebsiteResources/WebsidanStil.css"
 )
 source_group("" FILES ${no_group_source_files})
 

@@ -7,6 +7,7 @@
 #include <picosha2.h>
 #include <plusaes.hpp>
 #include <MBErrorHandling.h>
+#include <filesystem>
 enum class TLSVersions
 {
 	TLS1_2,
@@ -28,11 +29,12 @@ namespace TLS1_2
 	enum ExtensionTypes : uint16_t
 	{
 		server_name = 0,
-		signature_algoritms = 13
+		signature_algoritms = 13,
+		Null
 	};
 	struct Extension
 	{
-		ExtensionTypes ExtensionType;
+		ExtensionTypes ExtensionType = ExtensionTypes::Null;
 		std::vector<uint8_t> ExtensionData = {}; //max 2^16-1 i längd
 	};
 	struct Certificate
@@ -162,6 +164,8 @@ namespace TLS1_2
 		std::vector<std::string> AllHandshakeMessages = std::vector<std::string>(0);
 		bool HandshakeFinished = false;
 		std::string SessionId = "";
+		bool IsHost = false;
+		std::string DomainName = "";
 	};
 
 	struct TLS1_2Alert {
@@ -282,6 +286,7 @@ namespace TLS1_2
 		NetWorkDataHandler(uint8_t* Array)
 		{
 			ArrayToFill = Array;
+			ArrayToReadFrom = Array;
 		}
 		NetWorkDataHandler(const uint8_t* Array)
 		{
@@ -417,6 +422,116 @@ namespace TLS1_2
 		uint16_t Length;
 		std::string Data;
 	};
+	inline Extension GetExtension(std::vector<Extension> const& Extensions,ExtensionTypes TypeToGet)
+	{
+		TLS1_2::Extension ExtensionToReturn;
+		for (size_t i = 0; i < Extensions.size(); i++)
+		{
+			if (Extensions[i].ExtensionType == TypeToGet)
+			{
+				ExtensionToReturn = Extensions[i];
+				break;
+			}
+		}
+		return(ExtensionToReturn);
+	}
+	inline unsigned char Base64CharToBinary(unsigned char CharToDecode)
+	{
+		if (CharToDecode >= 65 && CharToDecode <= 90)
+		{
+			return(CharToDecode - 65);
+		}
+		if (CharToDecode >= 97 && CharToDecode <= 122)
+		{
+			return(CharToDecode - 71);
+		}
+		if (CharToDecode >= 48 && CharToDecode <= 57)
+		{
+			return(CharToDecode + 4);
+		}
+		if (CharToDecode == '+')
+		{
+			return(62);
+		}
+		if (CharToDecode == '/')
+		{
+			return(63);
+		}
+		assert(false);
+	}
+	inline std::string Base64ToBinary(std::string const& Base64Data)
+	{
+		std::string ReturnValue = "";
+		unsigned int Base64DataSize = Base64Data.size();
+		unsigned int Offset = 0;
+		while (Offset < Base64DataSize)
+		{
+			unsigned int NewBytes = 0;
+			char CharactersProcessed = 0;
+			for (size_t i = 0; i < 4; i++)
+			{
+				NewBytes += Base64CharToBinary(Base64Data[Offset]) << (18 - 6 * i);
+				Offset += 1;
+				CharactersProcessed += 1;
+				if (Offset == Base64DataSize)
+				{
+					break;
+				}
+				if (Base64Data[Offset] == '=')
+				{
+					break;
+				}
+			}
+			for (size_t i = 0; i < CharactersProcessed-1; i++)
+			{
+				ReturnValue += char(NewBytes >> (16 - (i * 8)));
+			}
+			if (CharactersProcessed < 4)
+			{
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+	inline std::string PemToBinary(std::string const& Filepath)	
+	{
+		std::string PemFilePath = Filepath;
+		std::ifstream t(PemFilePath, std::ifstream::in | std::ifstream::binary);
+		size_t size = std::filesystem::file_size(PemFilePath);
+		std::string PemFileBuffer(size, ' ');
+		t.read(&PemFileBuffer[0], size);
+		size_t ReadCharacters = t.gcount();
+		std::string PemFile(PemFileBuffer.c_str(), ReadCharacters);
+		PemFile = ReplaceAll(PemFile, "\n", "");
+		PemFile = ReplaceAll(PemFile, "\r", "");
+		//nu måste vi konvertera från detta till binär data
+		std::string BeginTag = "-----BEGIN RSA PRIVATE KEY-----";
+		std::string EndTag = "-----END RSA PRIVATE KEY-----";
+		std::string Base64Data = PemFile.substr(BeginTag.size(), PemFile.size() - BeginTag.size() - EndTag.size());
+		std::string BinaryData = Base64ToBinary(Base64Data);
+		return(BinaryData);
+	}
+	inline std::string Remove_PKCS1_v1_5_Padding(std::string const& PaddedString)
+	{
+		//TODO hardcoda inte modolun
+		assert(PaddedString[0] == 0x00 || PaddedString[1] == 0x02);
+		unsigned int OffsetToRealMessage = 1;
+		unsigned int PaddedStringSize = PaddedString.size();
+		for (size_t i = 2; i <PaddedStringSize; i++)
+		{
+			if (PaddedString[i] == 0)
+			{
+				if (OffsetToRealMessage == 2)
+				{
+					assert(false);
+				}
+				OffsetToRealMessage += 1;
+				break;
+			}
+			OffsetToRealMessage += 1;
+		}
+		return(PaddedString.substr(OffsetToRealMessage+1));
+	}
 }
 class TLS_RecordGenerator
 {
@@ -560,13 +675,18 @@ namespace MBSockets
 	class ConnectSocket;
 	class ServerSocket;
 }
+struct RSADecryptInfo
+{
+	MrBigInt PrivateExponent = MrBigInt(0);
+	MrBigInt PublicModulu = MrBigInt(0);
+};
 class TLSHandler
 {
 private:
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
 	MrBigInt RSAEP(TLSServerPublickeyInfo& RSAInfo, MrBigInt const& MessageRepresentative);
-	std::string I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString);
+	static std::string I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString);
 	std::string RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo, std::string& DataToEncrypt);
 	void SendClientKeyExchange(TLSServerPublickeyInfo& Data, MBSockets::Socket* SocketToConnect);
 	TLS1_2::SecurityParameters ConnectionParameters;
@@ -575,9 +695,15 @@ private:
 	std::string P_Hash(std::string Secret, std::string Seed, uint64_t AmountOfData);
 	std::string PRF(std::string Secret, std::string Label, std::string Seed, uint64_t AmountOfData);
 	std::string GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello);
-	std::string GenerateServerCertificateRecord();
+	std::string GenerateServerCertificateRecord(std::string const& ServerName);
 	TLS1_2::TLS1_2HelloClientStruct ParseClientHelloStruct(std::string const& ClientHelloData);
+	std::string GetServerNameFromExtensions(std::vector<TLS1_2::Extension> const& Extensions);
+	std::vector<TLS1_2::SignatureAndHashAlgoritm> GetSupportedSignatureAlgorithms(std::vector<TLS1_2::Extension> const& Extensions);
 	static std::string GenerateSessionId();
+	static std::string GetDomainResourcePath(std::string const& DomainName);
+	static std::string RSAES_PKCS1_v1_5_DecryptData(std::string const& DomainName, std::string const& PublicKeyEncryptedData);
+	static RSADecryptInfo GetRSADecryptInfo(std::string const& DomainName);
+	void ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord);
 public:
 	TLSHandler();
 	void EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect);

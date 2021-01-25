@@ -40,14 +40,16 @@ void WorkerTestFunction(int Id)
 }
 int main()
 {
+	std::cout << TLS1_2::Base64ToBinary("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") << std::endl;
+	//MrBigInt Test = MrBigInt(256).Pow(512);
 	MBSockets::Init();
 	MBSockets::HTTPConnectSocket TestSocket("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
 	TestSocket.Connect();
 	TestSocket.EstablishSecureConnetion();
 	std::cout<<TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
 
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
-	MrPostOGet::HTTPServer TestServer("./ServerResources/MrBoboGet/HTMLResources/", 80);
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	MrPostOGet::HTTPServer TestServer("./ServerResources/MrBoboGet/HTMLResources/", 443);
 	TestServer.AddRequestHandler(DefaultSearch);
 	TestServer.StartListening();
 	return(0);

@@ -120,6 +120,8 @@ namespace MrPostOGet
 			{
 				NumberOfConnections += 1;
 				ServerSocketen->Accept();
+				//TODO detecta huruvida det är http eller https
+				ServerSocketen->EstablishSecureConnection();
 				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
 				ServerSocketen->TransferConnectedSocket(*NewSocket);
 				std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket,ServerRequestHandlers, ContentPath);

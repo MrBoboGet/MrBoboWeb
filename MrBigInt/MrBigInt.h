@@ -338,11 +338,11 @@ private:
 		
 		//nu tar vi och faktiskt adderar dem som vanliga unsigned ints
 		char Carry = 0;
+		UnitType HighestBit = 1 << (UNIT_BITS - 1);
 		for (size_t i = 0; i < MaxComponents; i++)
 		{
 			char NewCarry = 0;
-			UnitType HighestBit = 1 << (UNIT_BITS - 1);
-			assert(i < InternalUnits.size());
+			//assert(i < InternalUnits.size());
 			UnitType ThisValue = InternalUnits[i];
 			UnitType RightValue = 0;
 			if (i < RightSize)
@@ -437,7 +437,11 @@ private:
 	void LongMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
 		OutResult = MrBigInt(0);
+		//reservar så den har plats med minst båda
+		OutResult.InternalUnits.reserve(RightInt.InternalUnits.size() + LeftInt.InternalUnits.size());
 		unsigned int RightSize = RightInt.InternalUnits.size();
+		MrBigInt LeftIntCopy(LeftInt);
+		unsigned int LastBitshiftIndex = 0;
 		for (size_t i = 0; i < RightSize; i++)
 		{
 			UnitType CurrentUnit = RightInt.InternalUnits[i];
@@ -446,10 +450,24 @@ private:
 				char CurrentBit = (CurrentUnit >> j)&1;
 				if (CurrentBit == 1)
 				{
-					OutResult += LeftInt << ((i* UNIT_BITS) + j);
+					//OutResult += LeftInt << ((i* UNIT_BITS) + j);
+					//MrBigInt LeftCopyCopy(LeftIntCopy);
+					//unsigned int PreviousShift = (((i * UNIT_BITS) + j) - LastBitshiftIndex);
+					//MrBigInt DebugInt = LeftIntCopy << (((i * UNIT_BITS) + j) - LastBitshiftIndex);
+					//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
+					LeftIntCopy <<= (((i * UNIT_BITS) + j) - LastBitshiftIndex);
+					//if (DebugInt != LeftIntCopy)
+					//{
+					//	LeftCopyCopy <<= PreviousShift;
+					//	DebugInt == LeftIntCopy;
+					//}
+					LastBitshiftIndex = ((i * UNIT_BITS) + j);
+					OutResult +=LeftIntCopy;
+					//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
 				}
 			}
 		}
+		//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
 	}
 	void KaratsubaMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
@@ -500,87 +518,89 @@ private:
 		{
 			for (int j = UNIT_BITS-1; j >= 0; j--)
 			{
-				OutRemainder = OutRemainder << 1;
-				OutRemainder += (InternalUnits[i]>>j)&1;
+				//MrBigInt DebugCopy(OutRemainder);
+				OutRemainder <<= 1;
+				//if (DebugCopy*2 != OutRemainder)
+				//{
+				//	MrBigInt DebugCopy2 = DebugCopy * 2;
+				//	MrBigInt DebugCopy3 = DebugCopy << 1;
+				//	assert(false);
+				//}
+				OutRemainder.SetBitByIndex(0,(InternalUnits[i]>>j)&1);
 				if (Divident <= OutRemainder)
 				{
+					//MrBigInt DebugDividentCopy(OutRemainder);
 					OutRemainder -= Divident;
-					OutQuotient += MrBigInt(1) << ((i * UNIT_BITS) + j);
+					//assert(OutRemainder + Divident == DebugDividentCopy);
+					//OutQuotient += MrBigInt(1) << ((i * UNIT_BITS) + j);
+					OutQuotient.SetBitByIndex((i * UNIT_BITS) + j,1);
 				}
 			}
 		}
 	}
 public:
+	void SetBitByIndex(unsigned int Index,char BitValue)
+	{
+		unsigned int UnitIndex = Index / UNIT_BITS;
+		unsigned int BitIndex = Index % UNIT_BITS;
+		if (UnitIndex >= InternalUnits.size())
+		{
+			unsigned int NewUnitsNeeded = UnitIndex+1 - InternalUnits.size();
+			for (size_t i = 0; i < NewUnitsNeeded; i++)
+			{
+				InternalUnits.push_back(0);
+			}
+		}
+		InternalUnits[UnitIndex] &= ~((BitValue&1) << BitIndex);
+		InternalUnits[UnitIndex] += ((BitValue & 1) << BitIndex);
+	}
+	unsigned int GetBitByIndex(unsigned int Index)
+	{
+		unsigned int UnitIndex = Index / UNIT_BITS;
+		unsigned int UnitBitIndex = Index % UNIT_BITS;
+		if (UnitIndex > InternalUnits.size() - 1)
+		{
+			return(0);
+		}
+		return((InternalUnits[UnitIndex] >> (UnitBitIndex)) & 1);
+	}
 	static void PowM(MrBigInt const& Base, MrBigInt const& Exponent, MrBigInt const& Mod,MrBigInt& OutResult)
 	{
+		//itererar över exponentsens bits
+		unsigned int ExponentBitSize = UNIT_BITS * Exponent.InternalUnits.size();
 		OutResult = MrBigInt(1);
-		MrBigInt CurrentBase = MrBigInt(Base);
-		MrBigInt CurrentExponent = MrBigInt(Exponent);
-		MrBigInt Zero = MrBigInt(0);
-		MrBigInt One = MrBigInt(1);
-		MrBigInt OutMultiple = MrBigInt(1);
-		//en idealiserad och aningen avrundad bild av förhållandet visar att om vi betraktar exponentdivisor som x och exponenten som den andra variabeln
-		//har vi att exponentdivisor som optimalast är konstant för olika värden på expoenenten givet ett förhållande mellan multiplikationen och divisionen
-		//2 har givit bäst resualt än så länge, så vi har kvar den på 2. Kan en annan formula vara mer effektiv?
-		//idealiserad tidskomplexitet som bara beror på exponenten och exponent divisor samt förhållandet:
-		//Q*Log(ExpDiv,Exp)+ExpDiv*Log(ExpDiv,Exp)+(ExpDiv-Konstant)*Log(ExpDiv,Exp) Kosntanten ska vara en funjktiin och ska vara floor och ceil inblandat
-		unsigned int ExponentDivisorInt = 2;
-		MrBigInt ExponentDivisor = MrBigInt(ExponentDivisorInt);
-
-		//unsigned int TimesInLoop = 0;
-		//unsigned int MultiplicationCount = 0;
-		//clock_t Timer = clock();
-		//clock_t DeltaDivision = clock();
-		//clock_t DeltaMultiplication = clock();
-		//clock_t TotalDivisionTime = 0;
-		//clock_t TotalMultiplicationTime = 0;
-		//clock_t TotalTime;
-		while (Zero < CurrentExponent)
+		MrBigInt BaseCopy(Base);
+		MrBigInt ExponentCopy(Exponent);
+		clock_t TotaltTimeTimer = clock();
+		clock_t TempTimer = 0;
+		double TotalDivisionTime = 0;
+		double TotalMultiplicationTime = 0;
+		if (ExponentCopy.GetBitByIndex(0) == 1)
 		{
-			//TimesInLoop++;
-			//DeltaDivision = clock();
-			unsigned int TimesBeforDivisible = (CurrentExponent % MrBigInt(ExponentDivisor)).GetLowestTerm();
-			//TotalDivisionTime += clock() - DeltaDivision;
-			for (size_t i = 0; i < TimesBeforDivisible; i++)
-			{
-				//DeltaMultiplication = clock();
-				OutMultiple *= CurrentBase;
-				CurrentExponent -= One;
-				//MultiplicationCount += 1;
-				//TotalMultiplicationTime += clock() - DeltaMultiplication;
-			}
- 			if (CurrentExponent == MrBigInt(0))
-			{
-				CurrentBase %= Mod;
-				OutMultiple %= Mod;
-				break;
-			}
-			//DeltaDivision = clock();
-			CurrentExponent /= ExponentDivisor;
-			//TotalDivisionTime += clock() - DeltaDivision;
-			MrBigInt BaseCopy = MrBigInt(CurrentBase);
-			for (size_t i = 0; i < ExponentDivisorInt-1; i++)
-			{
-				//DeltaMultiplication = clock();
-				CurrentBase *= BaseCopy;
-				//MultiplicationCount += 1;
-				//TotalMultiplicationTime += clock() - DeltaMultiplication;
-			}
-			//DeltaDivision = clock();
-			CurrentBase %= Mod;
-			OutMultiple %= Mod;
-			//TotalDivisionTime += clock()-DeltaDivision;
+			OutResult = Base;
 		}
-		OutResult = OutMultiple;
-		//TotalTime = (clock() - Timer);
-		//std::cout << "PowM Tog " << TotalTime/(double)CLOCKS_PER_SEC << std::endl;
-		//std::cout << "Times in loop " << TimesInLoop << std::endl;
-		//std::cout << "MultiplicationCount " << MultiplicationCount << std::endl;
-		//std::cout << "Exponent Number " << Exponent.GetString() << std::endl;
-		//std::cout << "Division time " << TotalDivisionTime/(double)CLOCKS_PER_SEC << std::endl;
-		//std::cout << "multiplication time " << TotalMultiplicationTime/(double)CLOCKS_PER_SEC << std::endl;
-		//std::cout << "Division ratio " << TotalDivisionTime / (double)TotalTime << std::endl;
-		//std::cout << "Multiplication Ratio " << TotalMultiplicationTime / (double)TotalTime << std::endl;
+		for (size_t i = 1; i < ExponentBitSize; i++)
+		{
+			TempTimer = clock();
+			BaseCopy *= BaseCopy;
+			TotalMultiplicationTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+			TempTimer = clock();
+			BaseCopy %= Mod;
+			TotalDivisionTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+			if (ExponentCopy.GetBitByIndex(i) == 1)
+			{
+				TempTimer = clock();
+				OutResult *= BaseCopy;
+				TotalMultiplicationTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+				TempTimer = clock();
+				OutResult %= Mod;
+				TotalDivisionTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+			}
+		}
+		double TotalTime = (clock() - TotaltTimeTimer) / double(CLOCKS_PER_SEC);
+		std::cout << "Total time: " << TotalTime <<std::endl;
+		std::cout << "Total multiplication time: " << TotalMultiplicationTime << " Percentage: "<<TotalMultiplicationTime/TotalTime << std::endl;;
+		std::cout << "Total division time: "<< TotalDivisionTime << " Percentage: " << TotalDivisionTime / TotalTime << std::endl;;
 	}
 	static void Pow(MrBigInt const& Base,unsigned int Exponent,MrBigInt& OutResult)
 	{
@@ -601,6 +621,7 @@ public:
 		Exponent /= NumberOfRepititions;
 		for (size_t i = 0; i < Exponent; i++)
 		{
+			assert(OutResult.InternalUnits.back() != 0);
 			OutResult *= BaseCopy;
 		}
 		//*/
@@ -748,7 +769,118 @@ public:
 	}
 
 
-
+	MrBigInt& operator<<=(unsigned int BitsToShift)
+	{
+		if (BitsToShift == 0)
+		{
+			return(*this);
+		}
+		//MrBigInt NewInt;
+		unsigned int NewZeroUnits = BitsToShift / UNIT_BITS;
+		unsigned int SingleBitsToShift = BitsToShift % UNIT_BITS;
+		//unsigned int OldIntSize = InternalUnits.size();
+		unsigned int OverFlowBytes = 0;
+		unsigned int StartIndexOffset = 0;
+		//kollar huruvida den enskilda biten på slutet av den första kommer overflowa, då behöver vi en till unit
+		///*
+		OverFlowBytes = InternalUnits.back() >> (UNIT_BITS - SingleBitsToShift);
+		for (size_t i = 0; i < NewZeroUnits; i++)
+		{
+			InternalUnits.push_back(0);
+		}
+		if (SingleBitsToShift != 0)
+		{
+			//unsigned int DebugGrejer = InternalUnits.back();
+			//unsigned int DebugGrejer2 = UNIT_BITS - SingleBitsToShift;
+			//unsigned int DebugGrejer3 = DebugGrejer >> DebugGrejer2;
+			if (OverFlowBytes != 0)
+			{
+				InternalUnits.push_back(OverFlowBytes);
+				StartIndexOffset += 1;
+			}
+		}
+		//*/
+		unsigned int NewIntSize = InternalUnits.size();
+		//int SizeDifference = NewIntSize - OldIntSize;
+		UnitType PreviousUnit = 0;
+		if (SingleBitsToShift == 0)
+		{
+			for (int i = NewIntSize - 1 - StartIndexOffset; i >= NewZeroUnits; i--)
+			{
+				//UnitType NewPreviousUnit = InternalUnits[i - NewZeroUnits];
+				InternalUnits[i] = InternalUnits[i - NewZeroUnits];
+			}
+		}
+		else
+		{
+			for (int i = NewIntSize-1-StartIndexOffset; i >= NewZeroUnits+1; i--)
+			{
+				UnitType FirstUnit = InternalUnits[i - NewZeroUnits];
+				UnitType SecondUnit = InternalUnits[i - NewZeroUnits - 1];
+				InternalUnits[i] = FirstUnit << SingleBitsToShift;
+				InternalUnits[i] += SecondUnit >> (UNIT_BITS - SingleBitsToShift);
+			}
+			InternalUnits[NewZeroUnits] = InternalUnits[0] << SingleBitsToShift;
+		}
+		for (size_t i = 0; i < NewZeroUnits; i++)
+		{
+			InternalUnits[i] = 0;
+		}
+		//går baklänges och lägger till grejer
+		/*
+		UnitType PreviousOriginalUnitValue = InternalUnits.back();
+		if (SingleBitsToShift == 0)
+		{
+			for (int i = NewIntSize-1; i >= SizeDifference; i--) 
+			{
+				InternalUnits[i] = InternalUnits[i - SizeDifference];
+			}
+			if (Overflowed == 1)
+			{
+				InternalUnits[SizeDifference - 1] = InternalUnits[SizeDifference - 1] << SingleBitsToShift;
+			}
+			for (size_t i = 0; i < SizeDifference-Overflowed; i++)
+			{
+				InternalUnits[i] = 0;
+			}
+		}
+		else
+		{
+			if (SizeDifference != 0)
+			{
+				for (int i = NewIntSize - 1; i >= SizeDifference; i--)
+				{
+					UnitType CurrentUnit = InternalUnits[i - SizeDifference];
+					InternalUnits[i] = CurrentUnit >> (UNIT_BITS - SingleBitsToShift);
+					InternalUnits[i] += PreviousOriginalUnitValue << SingleBitsToShift;
+					PreviousOriginalUnitValue = CurrentUnit;
+				}
+				if (Overflowed == 1)
+				{
+					InternalUnits[SizeDifference - 1] = InternalUnits[SizeDifference - 1] << SingleBitsToShift;
+				}
+				for (size_t i = 0; i < SizeDifference-Overflowed; i++)
+				{
+					InternalUnits[i] = 0;
+				}
+			}
+			else
+			{
+				UnitType PreviousBits = 0;
+				for (size_t i = 0; i < NewIntSize; i++)
+				{
+					UnitType CurrentUnit = InternalUnits[i];
+					InternalUnits[i] <<= SingleBitsToShift;
+					InternalUnits[i] += PreviousBits;
+					PreviousBits = CurrentUnit >> (UNIT_BITS - SingleBitsToShift);
+				}
+			}
+		}
+		*/
+		//NewInt.InternalUnits = std::vector<UnitType>(InternalUnits.size() + NewZeroUnits, 0);
+		//assert(InternalUnits.back() != 0 || InternalUnits.size() == 1);
+		return(*this);
+	}
 	MrBigInt operator<<(unsigned int BitsToShift) const
 	{
 		if (BitsToShift == 0)

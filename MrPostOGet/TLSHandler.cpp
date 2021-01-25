@@ -5,6 +5,7 @@
 #include <math.h>
 #include <MBRandom.h>
 #include <MinaStringOperations.h>
+#include <filesystem>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 namespace TLS1_2
 {
@@ -425,6 +426,7 @@ std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
 	MrBigInt MaxValueOfInteger(0);
 
 	MrBigInt::Pow(256, LengthOfString, MaxValueOfInteger);
+	//std::cout << MaxValueOfInteger.GetString() << std::endl;
 	if (NumberToConvert > MaxValueOfInteger)
 	{
 		std::cout << "Number to conver " << NumberToConvert.GetString() << std::endl;
@@ -980,9 +982,69 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	std::string ServerHelloRecord = GenerateServerHello(ClientHelloStruct);
 	SocketToConnect->SendData(ServerHelloRecord.data(), ServerHelloRecord.size());
 	//test grej
-	std::string ServerCertificateRecord = GenerateServerCertificateRecord();
-
+	std::string ServerCertificateRecord = GenerateServerCertificateRecord(ConnectionParameters.DomainName);
+	SocketToConnect->SendData(ServerCertificateRecord.c_str(),ServerCertificateRecord.size());
+	//server done record
+	TLS_RecordGenerator ServerHelloDoneRecord;
+	ServerHelloDoneRecord.SetContentType(TLS1_2::ContentType::handshake);
+	ServerHelloDoneRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello_done);
+	std::string ServerHelloDoneMessage = ServerHelloDoneRecord.GetHandShakeRecord();
+	SocketToConnect->SendData(ServerHelloDoneMessage.c_str(), ServerHelloDoneMessage.size());
+	std::vector<std::string> ClientResponse = {};
+	while (ClientResponse.size() != 3)
+	{
+		std::vector<std::string> NewRecords = GetNextPlaintextRecords(SocketToConnect);
+		for (size_t i = 0; i < NewRecords.size(); i++)
+		{
+			ClientResponse.push_back(NewRecords[i]);
+		}
+	}
+	//för så tar vi och decrypter premasterkeyn från dens första svar
+	ServerHandleKeyExchange(ClientResponse[0]);
 	return(ErrorToReturn);
+}
+void TLSHandler::ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord)
+{
+	std::string PreMasterSecret = RSAES_PKCS1_v1_5_DecryptData(ConnectionParameters.DomainName, ClientKeyExchangeRecord.substr(11));
+}
+RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
+{
+	RSADecryptInfo ReturnValue;
+	std::string KeyBinaryInfo = TLS1_2::PemToBinary(TLSHandler::GetDomainResourcePath(DomainName)+"EncryptionResources/DomainKeyfile.key");
+	ASN1Extracter Parser = ASN1Extracter((uint8_t*)KeyBinaryInfo.c_str());
+	Parser.ExtractTagData();
+	Parser.ExtractLengthOfType();
+	Parser.SkipToNextField();
+	//nu är vi vid public modolun
+	Parser.ExtractTagData();
+	unsigned int LengthOfModolu = Parser.ExtractLengthOfType();
+	ReturnValue.PublicModulu.SetFromBigEndianArray(&KeyBinaryInfo[Parser.GetOffset()], LengthOfModolu);
+	Parser.SetOffset(Parser.GetOffset() + LengthOfModolu);
+	Parser.SkipToNextField();
+	//inne i piravet exponent fieldet
+	Parser.ExtractTagData();
+	unsigned int LengthOfPrivateExponent = Parser.ExtractLengthOfType();
+	ReturnValue.PrivateExponent.SetFromBigEndianArray(&KeyBinaryInfo[Parser.GetOffset()], LengthOfPrivateExponent);
+
+	return(ReturnValue);
+}
+std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(std::string const& DomainName, std::string const& PublicKeyEncryptedData)
+{
+	RSADecryptInfo DecryptInfo = TLSHandler::GetRSADecryptInfo(DomainName);
+	//debug
+	MrBigInt CipherText;
+	uint8_t* DebugPointer =(uint8_t*) PublicKeyEncryptedData.c_str();
+	CipherText.SetFromBigEndianArray(PublicKeyEncryptedData.c_str(), PublicKeyEncryptedData.size());
+	MrBigInt PaddedPlaintextMessageRepresentative;
+	MrBigInt::PowM(CipherText, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, PaddedPlaintextMessageRepresentative);
+	std::string PaddedPlainTextMessage = I2OSP(PaddedPlaintextMessageRepresentative, 512);
+	std::string PlaintextMessage = TLS1_2::Remove_PKCS1_v1_5_Padding(PaddedPlainTextMessage);
+	std::cout << HexEncodeString(PlaintextMessage) << std::endl;
+	std::cout << PlaintextMessage.size() << std::endl;
+	assert(PlaintextMessage.size() == 48);
+	std::cout << DecryptInfo.PublicModulu.GetHexEncodedString() << std::endl;
+	std::cout << DecryptInfo.PrivateExponent.GetHexEncodedString() << std::endl;
+	return("Fel");
 }
 TLS1_2::TLS1_2HelloClientStruct TLSHandler::ParseClientHelloStruct(std::string const& ClientHelloData)
 {
@@ -1049,6 +1111,23 @@ TLS1_2::TLS1_2HelloClientStruct TLSHandler::ParseClientHelloStruct(std::string c
 	}
 	return(ReturnValue);
 }
+std::vector<TLS1_2::SignatureAndHashAlgoritm> TLSHandler::GetSupportedSignatureAlgorithms(std::vector<TLS1_2::Extension> const& Extensions)
+{
+	std::vector<TLS1_2::SignatureAndHashAlgoritm> ReturnValue = {};
+	TLS1_2::Extension SignatureExtension =  TLS1_2::GetExtension(Extensions, TLS1_2::ExtensionTypes::signature_algoritms);
+	TLS1_2::NetWorkDataHandler Parser(&SignatureExtension.ExtensionData[0]);
+	unsigned int ExtensionByteSize = Parser.Extract16();
+	unsigned int ExtractedBytes = 0;
+	while (ExtractedBytes != ExtensionByteSize)
+	{
+		TLS1_2::SignatureAndHashAlgoritm NewAlgorithm;
+		NewAlgorithm.Hash = (TLS1_2::HashAlgorithm) Parser.Extract8();
+		NewAlgorithm.Signature = (TLS1_2::SignatureAlgorithm) Parser.Extract8();
+		ReturnValue.push_back(NewAlgorithm);
+		ExtractedBytes += 2;
+	}
+	return(ReturnValue);
+}
 std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello)
 {
 	TLS_RecordGenerator NewRecord;
@@ -1073,16 +1152,73 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 	{
 		std::cout << HexEncodeByte(ClientHello.CipherSuites[i].Del1) << " " << HexEncodeByte(ClientHello.CipherSuites[i].Del2) << std::endl;
 	}
+	std::vector<TLS1_2::SignatureAndHashAlgoritm> SupportedAlgorithms = GetSupportedSignatureAlgorithms(ClientHello.OptionalExtensions);
+	std::cout << "Supported Algorithms: " << std::endl;
+	for (size_t i = 0; i < SupportedAlgorithms.size(); i++)
+	{
+		std::cout << HexEncodeByte(SupportedAlgorithms[i].Hash) << " " << HexEncodeByte(SupportedAlgorithms[i].Signature) << std::endl;
+	}
 	NewRecord.AddUINT8(0);
 	NewRecord.AddUINT8(0x2f);
 	//uppdatera compressions algorithmen
 	ConnectionParameters.compression_algorithm = TLS1_2::nullCompressionMethod;
 	NewRecord.AddUINT8(0);
+	ConnectionParameters.DomainName = GetServerNameFromExtensions(ClientHello.OptionalExtensions);
 	return(NewRecord.GetHandShakeRecord());
 }
-std::string TLSHandler::GenerateServerCertificateRecord()
+std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 {
-	return("");
+	return("./ServerResources/" + DomainName+"/");
+}
+std::string TLSHandler::GenerateServerCertificateRecord(std::string const& DomainName)
+{
+	TLS_RecordGenerator NewRecord;
+	std::string CertificatePath = TLSHandler::GetDomainResourcePath(DomainName)+"EncryptionResources/SignedCertificate.der";
+	
+	std::ifstream t(CertificatePath,std::ifstream::in|std::ifstream::binary);
+	size_t size = std::filesystem::file_size(CertificatePath);
+	std::string CertificateDataBuffer(size, ' ');
+	t.read(&CertificateDataBuffer[0], size);
+	size_t ReadCharacters = t.gcount();
+	std::string CertificateData(CertificateDataBuffer.c_str(), ReadCharacters);
+	CertificateData = TLS_RecordGenerator::GetNetworkUINT24(CertificateData.size()) + CertificateData;
+	NewRecord.SetContentType(TLS1_2::ContentType::handshake);
+	NewRecord.SetHandshakeType(TLS1_2::HandshakeType::certificate);
+	NewRecord.AddOpaqueArray(CertificateData, 3);
+	return(NewRecord.GetHandShakeRecord());
+}
+std::string TLSHandler::GetServerNameFromExtensions(std::vector<TLS1_2::Extension> const& Extensions)
+{
+	TLS1_2::Extension NameExtension;
+	for (size_t i = 0; i < Extensions.size(); i++)
+	{
+		if (Extensions[i].ExtensionType == TLS1_2::ExtensionTypes::server_name)
+		{
+			NameExtension = Extensions[i];
+			break;
+		}
+	}
+	if (NameExtension.ExtensionType == TLS1_2::ExtensionTypes::Null)
+	{
+		return("");
+	}
+	TLS1_2::NetWorkDataHandler Parser(&NameExtension.ExtensionData[0]);
+	
+	unsigned int NumberOfNames = Parser.Extract16();
+	for (size_t i = 0; i < NumberOfNames; i++)
+	{
+		unsigned int NameType = Parser.Extract8();
+		unsigned int NameLength = Parser.Extract16();
+		std::string NameData = "";
+		for (size_t i = 0; i < NameLength; i++)
+		{
+			NameData += Parser.Extract8();
+		}
+		if (NameType == TLS1_2::host_name)
+		{
+			return(NameData);
+		}
+	}
 }
 std::string TLSHandler::GenerateSessionId()
 {
