@@ -44,7 +44,10 @@ Thumbs.db
 CmakeInnanÄndringar
 BasicChatCmake
 /ServerResources/mrboboget.se/EncryptionResources/
+/ServerResources/MrBoboGet/EncryptionResources/
 Makefile
 CMakeFiles
 cmake_install.cmake
 /ServerResources/mrboboget.se/HTMLResources/.well-known/
+/CMakeCache.txt
+/ServerResources/..gitignore.swp

@@ -42,7 +42,7 @@ int main()
 {
 	//karatsuba test
 	//hash tester
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	char Data[48];
 	std::ifstream TestFil("DebugHmac21");
 	std::cout << TestFil.is_open() << std::endl;
