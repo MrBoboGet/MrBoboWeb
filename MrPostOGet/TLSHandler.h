@@ -14,6 +14,29 @@ enum class TLSVersions
 	TLS1_3,
 	NullVersion
 };
+class TLSHashObject
+{
+private:
+	std::string(*HashFunction)(std::string const& StringToHash);
+	unsigned int HashOutputSize = 0;
+	unsigned int HashBlockSize = 0;
+public:
+	std::string Hash(std::string const& StringToHash) { return(HashFunction(StringToHash)); };
+	TLSHashObject(std::string(*NewHashFunction)(std::string const& StringToHash), unsigned int NewHashOutputSize, unsigned int NewHashBlockSize)
+	{
+		HashFunction = NewHashFunction;
+		HashOutputSize = NewHashOutputSize;
+		HashBlockSize = NewHashBlockSize;
+	}
+	unsigned int GetHashOutputSize()
+	{
+		return(HashOutputSize);
+	}
+	unsigned int GetHashBlockSize()
+	{
+		return(HashBlockSize);
+	}
+};
 namespace TLS1_2
 {
 	struct Random
@@ -152,6 +175,7 @@ namespace TLS1_2
 		uint8_t					master_secret[48];
 		uint8_t					client_random[32];
 		uint8_t					server_random[32];
+		TLSHashObject HashAlgorithm = TLSHashObject(nullptr,0,0);
 		std::string client_write_MAC_Key = "";
 		std::string server_write_MAC_Key = "";
 		std::string client_write_Key = "";
@@ -533,6 +557,14 @@ namespace TLS1_2
 		return(PaddedString.substr(OffsetToRealMessage+1));
 	}
 }
+//Hashalgoritmer vi behöver
+inline std::string MBSha256(std::string const& StringToHash)
+{
+	std::string ReturnValue = std::string(picosha2::k_digest_size, 0);
+	picosha2::hash256(StringToHash, ReturnValue);
+	return(ReturnValue);
+}
+std::string MBSha1(std::string const& StringToHash);
 class TLS_RecordGenerator
 {
 private:
@@ -683,6 +715,7 @@ struct RSADecryptInfo
 class TLSHandler
 {
 private:
+	TLSHashObject Sha256HashObject = TLSHashObject(MBSha256, 32, 64);
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
 	MrBigInt RSAEP(TLSServerPublickeyInfo& RSAInfo, MrBigInt const& MessageRepresentative);
@@ -691,13 +724,14 @@ private:
 	void SendClientKeyExchange(TLSServerPublickeyInfo& Data, MBSockets::Socket* SocketToConnect);
 	TLS1_2::SecurityParameters ConnectionParameters;
 	std::string XORedString(std::string String1, std::string String2);
-	std::string HMAC_SHA256(std::string Secret, std::string Seed);
+	std::string HMAC(std::string Secret, std::string Seed);
 	std::string P_Hash(std::string Secret, std::string Seed, uint64_t AmountOfData);
 	std::string PRF(std::string Secret, std::string Label, std::string Seed, uint64_t AmountOfData);
 	std::string GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello);
 	std::string GenerateServerCertificateRecord(std::string const& ServerName);
 	TLS1_2::TLS1_2HelloClientStruct ParseClientHelloStruct(std::string const& ClientHelloData);
 	std::string GetServerNameFromExtensions(std::vector<TLS1_2::Extension> const& Extensions);
+	void GenerateMasterSecret(std::string const& PremasterSecret);
 	std::vector<TLS1_2::SignatureAndHashAlgoritm> GetSupportedSignatureAlgorithms(std::vector<TLS1_2::Extension> const& Extensions);
 	static std::string GenerateSessionId();
 	static std::string GetDomainResourcePath(std::string const& DomainName);
@@ -710,7 +744,7 @@ public:
 	MBError EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect);
 	std::string GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect);
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
-	void SendClientChangeCipherMessage(MBSockets::ConnectSocket* SocketToConnect);
+	void SendChangeCipherMessage(MBSockets::Socket* SocketToConnect);
 	void GenerateKeys();
 	std::string GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt,void* PreDeterminedIV = nullptr);
 	std::string TestEncryptRecord(void* IV,uint64_t RecordNumber ,std::string ClientWriteMacKey, std::string ClientWriteKey, TLS1_2::TLS1_2GenericRecord& RecordToEncrypt)
@@ -729,12 +763,13 @@ public:
 		ConnectionParameters.ClientSequenceNumber = PreviousRecordNumber;
 		return(EncryptedRecord);
 	}
+	bool EstablishedSecureConnection() { return(ConnectionParameters.HandshakeFinished); };
 	std::string GenerateVerifyDataMessage();
 	void InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
 	bool VerifyFinishedMessage(std::string DataToVerify);
 	bool VerifyMac(std::string Hash, TLS1_2::TLS1_2GenericRecord RecordToEncrypt);
 	std::string DecryptBlockcipherRecord(std::string Data);
-	void SendDataAsRecord(std::string& Data, MBSockets::Socket* AssociatedSocket);
+	void SendDataAsRecord(std::string const& Data, MBSockets::Socket* AssociatedSocket);
 	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket);
 	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect);
 	~TLSHandler();

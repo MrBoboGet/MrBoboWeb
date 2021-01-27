@@ -330,25 +330,29 @@ private:
 	}
 	void AddUnsigned(MrBigInt const& NumberToAdd)
 	{
+		if (NumberToAdd.InternalUnits.size() == 1 && NumberToAdd.InternalUnits[0] == 0)
+		{
+			return;
+		}
 		UnitType LeftSize = InternalUnits.size();
 		UnitType RightSize = NumberToAdd.InternalUnits.size();
-		unsigned int MaxComponents = std::max(LeftSize, RightSize);
-		ChangeInternalUnitsNumber(MaxComponents);
+		int MaxComponents = std::max(LeftSize, RightSize);
+		//ChangeInternalUnitsNumber(MaxComponents);
 		//NumberToAdd.ChangeInternalUnitsNumber(MaxComponents);
-		
+		InternalUnits.reserve(MaxComponents);
+		for (int i = 0; i <MaxComponents-int(LeftSize); i++)
+		{
+			InternalUnits.push_back(0);
+		}
+		LeftSize = InternalUnits.size();
 		//nu tar vi och faktiskt adderar dem som vanliga unsigned ints
 		char Carry = 0;
-		UnitType HighestBit = 1 << (UNIT_BITS - 1);
-		for (size_t i = 0; i < MaxComponents; i++)
+		for (size_t i = 0; i < RightSize; i++)
 		{
 			char NewCarry = 0;
 			//assert(i < InternalUnits.size());
 			UnitType ThisValue = InternalUnits[i];
-			UnitType RightValue = 0;
-			if (i < RightSize)
-			{
-				RightValue = NumberToAdd.InternalUnits[i];
-			}
+			UnitType RightValue = NumberToAdd.InternalUnits[i];
 			if ((UnitType)(ThisValue + RightValue+Carry) < ThisValue || (UnitType)(ThisValue + RightValue + Carry) < RightValue)
 			{
 				NewCarry = 1;
@@ -358,7 +362,28 @@ private:
 		}
 		if (Carry == 1)
 		{
-			InternalUnits.push_back(1);
+			//fortsätter addera tills carryn inte är 0
+			unsigned int ThisUnitIndex = RightSize;
+			if (ThisUnitIndex >= InternalUnits.size())
+			{
+				InternalUnits.push_back(1);
+			}
+			else
+			{
+				while (ThisUnitIndex < LeftSize && InternalUnits[ThisUnitIndex] == UNIT_MAX)
+				{
+					InternalUnits[ThisUnitIndex] = 0;
+					ThisUnitIndex += 1;
+				}
+				if (ThisUnitIndex == LeftSize)
+				{
+					InternalUnits.push_back(1);
+				}
+				else
+				{
+					InternalUnits[ThisUnitIndex] += 1;
+				}
+			}
 		}
 	}
 	void SubtractUnsigned(MrBigInt const& NumberToSubtract)
@@ -416,13 +441,7 @@ private:
 			Carry = NewCarry;
 		}
 		//TODO borde man ta bort leading nollor för att göra det aningen mer minnes effektivt och ha färre special fall?
-		for (int i = InternalUnits.size()-1; i >= 1; i--)
-		{
-			if (InternalUnits[i] == 0)
-			{
-				InternalUnits.pop_back();
-			}
-		}
+		Normalize();
 	}
 	void NaiveMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
@@ -433,75 +452,6 @@ private:
 			OutResult += (*this);
 			Iterator += MrBigInt(1);
 		}
-	}
-	void LongMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
-	{
-		OutResult = MrBigInt(0);
-		//reservar så den har plats med minst båda
-		OutResult.InternalUnits.reserve(RightInt.InternalUnits.size() + LeftInt.InternalUnits.size());
-		unsigned int RightSize = RightInt.InternalUnits.size();
-		MrBigInt LeftIntCopy(LeftInt);
-		unsigned int LastBitshiftIndex = 0;
-		for (size_t i = 0; i < RightSize; i++)
-		{
-			UnitType CurrentUnit = RightInt.InternalUnits[i];
-			for (size_t j = 0; j < UNIT_BITS; j++)
-			{
-				char CurrentBit = (CurrentUnit >> j)&1;
-				if (CurrentBit == 1)
-				{
-					//OutResult += LeftInt << ((i* UNIT_BITS) + j);
-					//MrBigInt LeftCopyCopy(LeftIntCopy);
-					//unsigned int PreviousShift = (((i * UNIT_BITS) + j) - LastBitshiftIndex);
-					//MrBigInt DebugInt = LeftIntCopy << (((i * UNIT_BITS) + j) - LastBitshiftIndex);
-					//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
-					LeftIntCopy <<= (((i * UNIT_BITS) + j) - LastBitshiftIndex);
-					//if (DebugInt != LeftIntCopy)
-					//{
-					//	LeftCopyCopy <<= PreviousShift;
-					//	DebugInt == LeftIntCopy;
-					//}
-					LastBitshiftIndex = ((i * UNIT_BITS) + j);
-					OutResult +=LeftIntCopy;
-					//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
-				}
-			}
-		}
-		//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
-	}
-	void KaratsubaMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
-	{
-		MrBigInt B = MrBigInt(1) << (UNIT_BITS);
-		unsigned int MaxSize = std::max(LeftInt.InternalUnits.size(), RightInt.InternalUnits.size());
-		unsigned int m = MaxSize / 2;
-		if (MaxSize%2 == 1)
-		{
-			m += 1;
-		}
-		unsigned int LeftSize = LeftInt.InternalUnits.size();
-		unsigned int RightSize = RightInt.InternalUnits.size();
-		MrBigInt x0;
-		MrBigInt x1;
-		MrBigInt y0;
-		MrBigInt y1;
-		for (size_t i = 0; i < m; i++)
-		{
-			if (i < x0.InternalUnits.size())
-			{
-				x0.InternalUnits[i] = LeftInt.InternalUnits[i];
-			}
-			else
-			{
-				x0.InternalUnits.push_back(LeftInt.InternalUnits[i]);
-			}
-
-		}
-
-
-
-		MrBigInt z2;
-		MrBigInt z1;
-		MrBigInt z0;
 	}
 	void UnsignedDivide(MrBigInt const& Divident, MrBigInt& OutRemainder,MrBigInt& OutQuotient) const
 	{
@@ -538,7 +488,150 @@ private:
 			}
 		}
 	}
+	void Normalize()
+	{
+		//tar bort alla trailing nollor
+		unsigned int ThisSize = InternalUnits.size();
+		for (int i = ThisSize-1; i >=1 ; i--)
+		{
+			if (InternalUnits[i] == 0)
+			{
+				InternalUnits.erase(InternalUnits.begin() + i);
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+#define KARATSUBA_UNIT_COUNT 20
 public:
+	static void KaratsubaMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
+	{
+		//bas = 2^32
+		//MrBigInt B = MrBigInt(1) << (UNIT_BITS);
+		//MrBigInt B2(0);
+		//B2.SetBitByIndex(UNIT_BITS * 2, 1);
+		int LeftSize = LeftInt.InternalUnits.size();
+		int RightSize = RightInt.InternalUnits.size();
+		if ((LeftSize == 1 && LeftInt.InternalUnits[0] == 0) || (RightSize == 1 && RightInt.InternalUnits[0] == 0))
+		{
+			OutResult = MrBigInt(0);
+			return;
+		}
+		//if (LeftSize+RightSize <=2* KARATSUBA_UNIT_COUNT)
+		if (LeftInt.InternalUnits.size() < KARATSUBA_UNIT_COUNT && RightInt.InternalUnits.size() < KARATSUBA_UNIT_COUNT)
+		{
+			LongMultiplication(LeftInt, RightInt, OutResult);
+			return;
+		}
+		unsigned int MaxSize = std::max(LeftInt.InternalUnits.size(), RightInt.InternalUnits.size());
+		int m = (MaxSize) / 2;
+		if (MaxSize % 2 == 1)
+		{
+			m += 1;
+		}
+		MrBigInt x0;
+		MrBigInt x1;
+		MrBigInt y0;
+		MrBigInt y1;
+		unsigned int LeftSmallSize = std::min(LeftSize, m);
+		unsigned int RightSmallSize = std::min(RightSize, m);
+		unsigned int LeftBigSize = std::max(LeftSize - m, 0);
+		unsigned int RightBigSize = std::max(RightSize - m, 0);
+		x0.InternalUnits = std::vector<UnitType>(LeftSmallSize,0);
+		x1.InternalUnits = std::vector<UnitType>(LeftBigSize,0);
+		y0.InternalUnits = std::vector<UnitType>(RightSmallSize,0);
+		y1.InternalUnits = std::vector<UnitType>(RightBigSize,0);
+		if (LeftBigSize == 0)
+		{
+			x1.InternalUnits.push_back(0);
+		}
+		if (RightBigSize == 0)
+		{
+			y1.InternalUnits.push_back(0);
+		}
+		for (size_t i = 0; i < LeftSmallSize; i++)
+		{
+			x0.InternalUnits[i] = LeftInt.InternalUnits[i];
+		}
+		for (size_t i = 0; i < RightSmallSize; i++)
+		{
+			y0.InternalUnits[i] = RightInt.InternalUnits[i];
+		}
+		for (size_t i = 0; i < LeftBigSize; i++)
+		{
+			x1.InternalUnits[i] = LeftInt.InternalUnits[i+m];
+		}
+		for (size_t i = 0; i < RightBigSize; i++)
+		{
+			y1.InternalUnits[i] = RightInt.InternalUnits[i+m];
+		}
+		x1.Normalize();
+		x0.Normalize();
+		y0.Normalize();
+		y1.Normalize();
+		MrBigInt z2;
+		MrBigInt z1;
+		MrBigInt z0;
+		KaratsubaMultiplication(x1, y1, z2);
+		KaratsubaMultiplication(x0, y0, z0);
+		x1 += x0;
+		y1 += y0;
+		KaratsubaMultiplication(x1, y1, z1);
+		z1 -= z2;
+		z1 -= z0;
+		//räkna resultat
+		z2 <<= 2 *m*UNIT_BITS;
+		z1 <<= m*UNIT_BITS;
+		OutResult = MrBigInt(0);
+		OutResult += z2;
+		OutResult += z1;
+		OutResult += z0;
+		//assert(OutResult != 0);
+	}
+	static void LongMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
+	{
+		unsigned int RightSize = RightInt.InternalUnits.size();
+		MrBigInt LeftIntCopy(LeftInt);
+		MrBigInt RightIntCopy;
+		const MrBigInt* RightIntData = &RightInt;
+		if (&RightInt == &OutResult)
+		{
+			RightIntCopy = RightInt;
+			RightIntData = &RightIntCopy;
+		}
+		OutResult = MrBigInt(0);
+		//reservar så den har plats med minst båda
+		OutResult.InternalUnits.reserve(RightInt.InternalUnits.size() + LeftInt.InternalUnits.size());
+		unsigned int LastBitshiftIndex = 0;
+		for (size_t i = 0; i < RightSize; i++)
+		{
+			UnitType CurrentUnit = RightIntData->InternalUnits[i];
+			for (size_t j = 0; j < UNIT_BITS; j++)
+			{
+				char CurrentBit = (CurrentUnit >> j) & 1;
+				if (CurrentBit == 1)
+				{
+					//OutResult += LeftInt << ((i* UNIT_BITS) + j);
+					//MrBigInt LeftCopyCopy(LeftIntCopy);
+					//unsigned int PreviousShift = (((i * UNIT_BITS) + j) - LastBitshiftIndex);
+					//MrBigInt DebugInt = LeftIntCopy << (((i * UNIT_BITS) + j) - LastBitshiftIndex);
+					//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
+					LeftIntCopy <<= (((i * UNIT_BITS) + j) - LastBitshiftIndex);
+					//if (DebugInt != LeftIntCopy)
+					//{
+					//	LeftCopyCopy <<= PreviousShift;
+					//	DebugInt == LeftIntCopy;
+					//}
+					LastBitshiftIndex = ((i * UNIT_BITS) + j);
+					OutResult += LeftIntCopy;
+					//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
+				}
+			}
+		}
+		//assert(OutResult.InternalUnits.back() != 0 || OutResult.InternalUnits.size() == 1);
+	}
 	void SetBitByIndex(unsigned int Index,char BitValue)
 	{
 		unsigned int UnitIndex = Index / UNIT_BITS;
@@ -775,6 +868,10 @@ public:
 		{
 			return(*this);
 		}
+		if (InternalUnits.size() == 1 && InternalUnits[0] == 0)
+		{
+			return(*this);
+		}
 		//MrBigInt NewInt;
 		unsigned int NewZeroUnits = BitsToShift / UNIT_BITS;
 		unsigned int SingleBitsToShift = BitsToShift % UNIT_BITS;
@@ -929,9 +1026,27 @@ public:
 	}
 	MrBigInt& operator*=(const MrBigInt& RightInt)
 	{
-		MrBigInt Result;
-		LongMultiplication(*this, RightInt, Result);
-		std::swap(Result.InternalUnits, InternalUnits);
+		//MrBigInt Result;
+		//MrBigInt TestCopy(RightInt);
+		//MrBigInt TestCopyThis(*this);
+		//MrBigInt KaratsubaResult;
+		//MrBigInt LongResult;
+		//KaratsubaMultiplication(TestCopyThis, TestCopy, KaratsubaResult);
+		//LongMultiplication(TestCopyThis, TestCopy, LongResult);
+		//if (LongResult != KaratsubaResult)
+		//{
+		//	LongMultiplication(TestCopyThis, TestCopy, LongResult);
+		//	std::cout << "hej" << std::endl;
+		//}
+		if (RightInt.InternalUnits.size() > 70 || InternalUnits.size() > 70)
+		{
+			KaratsubaMultiplication(*this, RightInt, *this);
+		}
+		else
+		{
+			LongMultiplication(*this, RightInt, *this);
+		}
+		//std::swap(Result.InternalUnits, InternalUnits);
 		if (IsNegative == RightInt.IsNegative)
 		{
 			IsNegative = false;
@@ -1004,7 +1119,7 @@ public:
 		}
 		//MrBigInt RightIntCopy = MrBigInt(RightInt);
 		//RightIntCopy.NegateNumber();
-		//(*this) += RightIntCopy;
+		//(*this) += RightIntCopy;'
 		return(*this);
 	}
 	bool operator<=(MrBigInt const& OtherInt) const

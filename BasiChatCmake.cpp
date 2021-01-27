@@ -40,6 +40,46 @@ void WorkerTestFunction(int Id)
 }
 int main()
 {
+	//karatsuba test
+	//hash tester
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	char Data[48];
+	std::ifstream TestFil("DebugHmac21");
+	std::cout << TestFil.is_open() << std::endl;
+	unsigned int BitsRead = TestFil.read(Data, 48).gcount();
+	std::cout << BitsRead << std::endl;
+	std::cout << HexEncodeString(std::string(Data,48)) << std::endl;
+	std::cout << HexEncodeString(MBSha1(std::string(Data, 48))) << std::endl;
+	std::cout << HexEncodeString(MBSha1("123123")) << std::endl;
+	//exit(0);
+	MrBigInt Five(5);
+	MrBigInt CurrentNumber = 5;
+	std::cout << HexEncodeString(MBSha1("TestTest")) << std::endl;
+	for (size_t i = 0; i < 10; i++)
+	{
+		MrBigInt NewKaratsuba;
+		MrBigInt NewLong;
+		double KaratsubaTime = 0;
+		double LongTime = 0;
+		clock_t Timer = clock();
+		MrBigInt::KaratsubaMultiplication(CurrentNumber, CurrentNumber, NewKaratsuba);
+		if (i % 1 == 0)
+		{
+			std::cout << "Karatsuba time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+		}
+		Timer = clock();
+		MrBigInt::LongMultiplication(CurrentNumber, CurrentNumber, NewLong);
+		if (i % 1 == 0)
+		{
+			std::cout << "Long time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			std::cout << "Number size: " << CurrentNumber.GetNumberOfUnits() << std::endl;
+		}
+		if (NewKaratsuba != NewLong)
+		{
+			exit(0);
+		}
+		CurrentNumber = NewLong;
+	}
 	std::cout << TLS1_2::Base64ToBinary("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") << std::endl;
 	//MrBigInt Test = MrBigInt(256).Pow(512);
 	MBSockets::Init();
@@ -48,8 +88,7 @@ int main()
 	TestSocket.EstablishSecureConnetion();
 	std::cout<<TestSocket.GetDataFromRequest("GET", "/")<<std::endl;
 
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
-	MrPostOGet::HTTPServer TestServer("./ServerResources/MrBoboGet/HTMLResources/", 443);
+	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
 	TestServer.AddRequestHandler(DefaultSearch);
 	TestServer.StartListening();
 	return(0);

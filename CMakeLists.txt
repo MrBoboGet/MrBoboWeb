@@ -142,6 +142,7 @@ set(Header_Files
     "MrPostOGet/SearchEngineImplementation.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/TLSHandler.h"
     "SearchEngine/MBSearchEngine.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
 )
 source_group("Header Files" FILES ${Header_Files})
 
@@ -199,6 +200,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/PicoSHA2/;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/;"
     #"${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/plusaes/include/plusaes/"
 )
 ################################################################################

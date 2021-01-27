@@ -3,16 +3,96 @@
 #include <TextReader.h>
 namespace MrPostOGet 
 {
+	class HTTPServer;
 	struct RequestHandler
 	{
 		bool (*RequestPredicate)(const std::string& RequestData);
-		std::string (*RequestResponse)(const std::string& ResoureData,const std::string& ResourcePath);
+		std::string(*RequestResponse)(const std::string& ResoureData, const std::string& ResourcePath);
 	};
-	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient,std::vector<RequestHandler> RequestHandlers,std::string ResourcesPath)
+	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer);
+	class HTTPServer
+	{
+	private:
+		std::string ContentPath = "";
+		int Port = -1;
+		MBSockets::HTTPServerSocket* ServerSocketen;
+		MBSockets::TraversalProtocol TraversalProtocolet = MBSockets::TraversalProtocol::TCP;
+		std::vector<RequestHandler> ServerRequestHandlers = std::vector<RequestHandler>(0);
+		//std::mutex HTTPServerResourcesMutex;
+	public:
+		HTTPServer(std::string PathToResources, int PortToListenTo)
+		{
+			ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo), MBSockets::TraversalProtocol::TCP);
+			Port = PortToListenTo;
+			ContentPath = PathToResources;
+		}
+		std::string LoadWholeFile(std::string const& FilePath)
+		{
+			std::ifstream t(FilePath, std::ifstream::in | std::ifstream::binary);
+			size_t size = std::filesystem::file_size(FilePath);
+			std::string FileDataBuffer(size, ' ');
+			t.read(&FileDataBuffer[0], size);
+			size_t ReadCharacters = t.gcount();
+			std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
+			return(FileData);
+		}
+		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath)
+		{
+			MBSockets::HTTPDocument ReturnValue;
+			std::string ResourceExtension = ResourcePath.substr(ResourcePath.find_last_of("."));
+			if (ResourceExtension == "png")
+			{
+				ReturnValue.Type = MBSockets::HTTPDocumentType::png;
+			}
+			else if (ResourceExtension == "html" || ResourceExtension == "htm")
+			{
+				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			}
+			else if (ResourceExtension == "jpg")
+			{
+				ReturnValue.Type = MBSockets::HTTPDocumentType::jpg;
+			}
+			else
+			{
+				std::cout << ResourcePath.substr(ResourcePath.find_last_of(".")) << std::endl;
+			}
+			ReturnValue.DocumentData = LoadWholeFile(ResourcePath);
+			return(ReturnValue);
+		}
+		void AddRequestHandler(RequestHandler HandlerToAdd)
+		{
+			ServerRequestHandlers.push_back(HandlerToAdd);
+		}
+		void StartListening()
+		{
+			//huvud loopen som tar och faktiskt sk�ter hur allt funkar internt
+			int NumberOfConnections = 0;
+			std::vector<std::thread*> CurrentActiveThreads = {};
+			ServerSocketen->Bind();
+			ServerSocketen->Listen();
+			while (true)
+			{
+				NumberOfConnections += 1;
+				ServerSocketen->Accept();
+				//TODO detecta huruvida det är http eller https
+				ServerSocketen->EstablishSecureConnection();
+				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
+				ServerSocketen->TransferConnectedSocket(*NewSocket);
+				std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket,ServerRequestHandlers, ContentPath,this);
+				CurrentActiveThreads.push_back(NewThread);
+				std::cout << NumberOfConnections << std::endl;
+			}
+		}
+		~HTTPServer()
+		{
+		}
+	};
+	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
 	{
 		std::string RequestData;
+		std::cout << RequestData << std::endl;
 		//v�ldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
- 		while ((RequestData = ConnectedClient->GetNextRequestData()) != "")
+		while ((RequestData = ConnectedClient->GetNextRequestData()) != "")
 		{
 			//vi kollar om request handlersen har n�gon �sikt om datan, annars l�ter vi v�ran default getrequest handlar sk�ta allt 
 			bool HandlerHasHandled = false;
@@ -38,25 +118,29 @@ namespace MrPostOGet
 			}
 			else
 			{
+				std::cout << RequestData << std::endl;
 				std::string ResourceToGet = ResourcesPath + MBSockets::GetReqestResource(RequestData);
-				std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/"+ResourceToGet);
-				std::cout<<ResourceToGet<<std::endl;
+				std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/" + ResourceToGet);
+				std::cout << ResourceToGet << std::endl;
+				MBSockets::HTTPDocument DocumentToSend;
 				if (std::filesystem::exists(ActualResourcePath))
 				{
 					if (ResourceToGet == ResourcesPath)
 					{
-						TextReader Data(ResourcesPath + "index.htm");
-						std::string HTMLBody = "";
-						for (int i = 0; i < Data.Size(); i++)
-						{
-							HTMLBody += Data[i] + "\n";
-						}
-						ConnectedClient->SendHTTPBody(HTMLBody);
+						DocumentToSend = AssociatedServer->GetResource(ResourcesPath + "index.htm");
+						ConnectedClient->SendHTTPDocument(DocumentToSend);
+							//TextReader Data(ResourcesPath + "index.htm");
+							//std::string HTMLBody = "";
+							//for (int i = 0; i < Data.Size(); i++)
+							//{
+							//	HTMLBody += Data[i] + "\n";
+							//}
+							//ConnectedClient->SendHTTPBody(HTMLBody);
 					}
 					else
 					{
 						std::string ChallengeFolder = "./ServerResources/MrBoboGet/HTMLResources/.well-known/acme-challenge/";
-						if(ResourceToGet.substr(0,ChallengeFolder.size()) == ChallengeFolder)
+						if (ResourceToGet.substr(0, ChallengeFolder.size()) == ChallengeFolder)
 						{
 							MBSockets::HTTPDocument NewDocument;
 							NewDocument.Type = MBSockets::HTTPDocumentType::OctetString;
@@ -71,13 +155,15 @@ namespace MrPostOGet
 						}
 						else
 						{
-							TextReader Data(ResourceToGet);
-							std::string HTMLBody = "";
-							for (int i = 0; i < Data.Size(); i++)
-							{
-								HTMLBody += Data[i] + "\n";
-							}
-							ConnectedClient->SendHTTPBody(HTMLBody);
+							DocumentToSend = AssociatedServer->GetResource(ResourceToGet);
+							ConnectedClient->SendHTTPDocument(DocumentToSend);
+							//TextReader Data(ResourceToGet);
+							//std::string HTMLBody = "";
+							//for (int i = 0; i < Data.Size(); i++)
+							//{
+							//	HTMLBody += Data[i] + "\n";
+							//}
+							//ConnectedClient->SendHTTPBody(HTMLBody);
 						}
 					}
 				}
@@ -89,48 +175,4 @@ namespace MrPostOGet
 		}
 		delete ConnectedClient;
 	}
-	class HTTPServer
-	{
-	private:
-		std::string ContentPath = "";
-		int Port = -1;
-		MBSockets::HTTPServerSocket* ServerSocketen;
-		MBSockets::TraversalProtocol TraversalProtocolet = MBSockets::TraversalProtocol::TCP;
-		std::vector<RequestHandler> ServerRequestHandlers = std::vector<RequestHandler>(0);
-		//std::mutex HTTPServerResourcesMutex;
-	public:
-		HTTPServer(std::string PathToResources, int PortToListenTo)
-		{
-			ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo), MBSockets::TraversalProtocol::TCP);
-			Port = PortToListenTo;
-			ContentPath = PathToResources;
-		}
-		void AddRequestHandler(RequestHandler HandlerToAdd)
-		{
-			ServerRequestHandlers.push_back(HandlerToAdd);
-		}
-		void StartListening()
-		{
-			//huvud loopen som tar och faktiskt sk�ter hur allt funkar internt
-			int NumberOfConnections = 0;
-			std::vector<std::thread*> CurrentActiveThreads = {};
-			ServerSocketen->Bind();
-			ServerSocketen->Listen();
-			while (true)
-			{
-				NumberOfConnections += 1;
-				ServerSocketen->Accept();
-				//TODO detecta huruvida det är http eller https
-				ServerSocketen->EstablishSecureConnection();
-				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
-				ServerSocketen->TransferConnectedSocket(*NewSocket);
-				std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket,ServerRequestHandlers, ContentPath);
-				CurrentActiveThreads.push_back(NewThread);
-				std::cout << NumberOfConnections << std::endl;
-			}
-		}
-		~HTTPServer()
-		{
-		}
-	};
 }

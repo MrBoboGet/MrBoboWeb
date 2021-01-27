@@ -366,7 +366,9 @@ namespace MBSockets
 	{
 	private:
 		MB_OS_Socket ListenerSocket = MBInvalidSocket;
+	protected:
 		TLSHandler SocketTlsHandler = TLSHandler();
+		//bool SecureConnectionEstablished = false;
 	public:
 		int Bind()
 		{
@@ -392,6 +394,8 @@ namespace MBSockets
 		{
 			OtherSocket.ConnectedSocket = ConnectedSocket;
 			ConnectedSocket = MBInvalidSocket;
+			OtherSocket.SocketTlsHandler = SocketTlsHandler;
+			SocketTlsHandler = TLSHandler();
 		}
 		int Accept()
 		{
@@ -405,6 +409,10 @@ namespace MBSockets
 		MBError EstablishSecureConnection()
 		{
 			MBError ReturnValue = SocketTlsHandler.EstablishHostTLSConnection(this);
+			if (!ReturnValue)
+			{
+				std::cout << ReturnValue.ErrorMessage << std::endl;
+			}
 			return(ReturnValue);
 		}
 		ServerSocket(std::string Port, TraversalProtocol TraversalProto)
@@ -559,6 +567,8 @@ namespace MBSockets
 	{
 		OctetString,
 		HTML,
+		png,
+		jpg,
 		Null
 	};
 	struct HTTPDocument
@@ -575,9 +585,17 @@ namespace MBSockets
 		{
 			Request += "application/octet-stream\n";
 		}
-		else
+		else if(DocumentToSend.Type == HTTPDocumentType::HTML)
 		{
 			Request += "text/html\n";
+		}
+		else if (DocumentToSend.Type == HTTPDocumentType::png)
+		{
+			Request += "image/png";
+		}
+		else if (DocumentToSend.Type == HTTPDocumentType::jpg)
+		{
+			Request += "image/jpg";
 		}
 		Request += "Accept-Ranges: bytes\n";
 		Request += "Content-Length: " + std::to_string(DocumentToSend.DocumentData.size()) + "\n\r\n";
@@ -598,7 +616,18 @@ namespace MBSockets
 	}
 	class HTTPServerSocket : public ServerSocket
 	{
-	
+	private:
+		void SendWithTls(std::string const& DataToSend)
+		{
+			if (SocketTlsHandler.EstablishedSecureConnection() == true)
+			{
+				SocketTlsHandler.SendDataAsRecord(DataToSend, this);
+			}
+			else
+			{
+				SendData(DataToSend.c_str(), DataToSend.size());
+			}
+		}
 	public:
 		HTTPServerSocket(std::string Port, TraversalProtocol TraversalProto) : ServerSocket(Port, TraversalProto)
 		{
@@ -606,47 +635,56 @@ namespace MBSockets
 		}
 		std::string  GetNextRequestData()
 		{
-			int InitialBufferSize = 1000;
-			char* Buffer = (char*)malloc(InitialBufferSize);
-			int MaxRecieveSize = InitialBufferSize;
-			int LengthOfDataRecieved = 0;
-			int TotalLengthOfData = 0;
-			assert(Buffer != nullptr);
-			assert(sizeof(Buffer) != 8 * InitialBufferSize);
-			assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
-			while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData],MaxRecieveSize)) > 0)
+			std::string ReturnValue = "";
+			if (!SocketTlsHandler.EstablishedSecureConnection())
 			{
-				TotalLengthOfData += LengthOfDataRecieved;
-				if (LengthOfDataRecieved == MaxRecieveSize)
+				int InitialBufferSize = 1000;
+				char* Buffer = (char*)malloc(InitialBufferSize);
+				int MaxRecieveSize = InitialBufferSize;
+				int LengthOfDataRecieved = 0;
+				int TotalLengthOfData = 0;
+				assert(Buffer != nullptr);
+				assert(sizeof(Buffer) != 8 * InitialBufferSize);
+				assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
+				while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
 				{
-					MaxRecieveSize = 500;
-					Buffer = (char*)realloc(Buffer,TotalLengthOfData+500);
-					assert(Buffer != nullptr);
+					TotalLengthOfData += LengthOfDataRecieved;
+					if (LengthOfDataRecieved == MaxRecieveSize)
+					{
+						MaxRecieveSize = 500;
+						Buffer = (char*)realloc(Buffer, TotalLengthOfData + 500);
+						assert(Buffer != nullptr);
+					}
+					else
+					{
+						break;
+					}
 				}
-				else
-				{
-					break;
-				}
+				ReturnValue = std::string(Buffer, TotalLengthOfData);
+				free(Buffer);
 			}
-			std::string ReturnValue(Buffer, TotalLengthOfData);
-			free(Buffer);
+			else
+			{
+				ReturnValue = SocketTlsHandler.GetApplicationData(this);
+				//Kollar lite att det stämmer osv
+			}
 			return(ReturnValue);
 		}
 		void SendDataAsHTTPBody(const std::string& Data)
 		{
 			std::string Body = "<html>\n<body>\n" + Data + "</body>\n</html>";
 			std::string Request = GenerateRequest(Body);
-			SendData(Request.c_str(), Request.size());
+			SendWithTls(Request);
 		}
 		void SendHTTPBody(const std::string& Data)
 		{
 			std::string Request = GenerateRequest(Data);
-			SendData(Request.c_str(), Request.size());
+			SendWithTls(Request);
 		}
 		void SendHTTPDocument(HTTPDocument const& DocumentToSend)
 		{
 			std::string DataToSend = GenerateRequest(DocumentToSend);
-			SendData(DataToSend.c_str(),DataToSend.size());
+			SendWithTls(DataToSend);
 		}
 	};
 	class ThreadPool;
