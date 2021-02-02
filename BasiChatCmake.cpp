@@ -46,11 +46,7 @@ int main()
 #ifdef DNDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
-
-	UnitType Test1;
-	UnitType Test2;
-	MrBigInt::GetHighLowUnitMultiplication(2330272471, 679892852, Test1, Test2);
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	//exit(0);
 	//test PowM
 	//std::string NumberData = MBRandom::GetRandomBytes(1024);
