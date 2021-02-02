@@ -42,20 +42,37 @@ int main()
 {
 	//karatsuba test
 	//hash tester
+	///*
+#ifdef DNDEBUG
+	std::cout << "Is Debug" << std::endl;
+#endif // DEBUG
+
+	UnitType Test1;
+	UnitType Test2;
+	MrBigInt::GetHighLowUnitMultiplication(2330272471, 679892852, Test1, Test2);
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
-	char Data[48];
-	std::ifstream TestFil("DebugHmac21");
-	std::cout << TestFil.is_open() << std::endl;
-	unsigned int BitsRead = TestFil.read(Data, 48).gcount();
-	std::cout << BitsRead << std::endl;
-	std::cout << HexEncodeString(std::string(Data,48)) << std::endl;
-	std::cout << HexEncodeString(MBSha1(std::string(Data, 48))) << std::endl;
-	std::cout << HexEncodeString(MBSha1("123123")) << std::endl;
 	//exit(0);
+	//test PowM
+	//std::string NumberData = MBRandom::GetRandomBytes(1024);
+	std::string NumberData = std::string(1024,0);
+	std::ifstream TestData("BigIntTestData", std::ios::in | std::ios::binary);
+	TestData.read((char*)NumberData.c_str(), 1024);
+	//TestData << NumberData;
+	//exit(0);
+	MrBigInt NumberToPowM;
+	NumberToPowM.SetFromBigEndianArray(NumberData.c_str(), NumberData.size());
+	RSADecryptInfo DecryptInfo = TLSHandler::GetRSADecryptInfo("mrboboget.se");
+	MrBigInt Result;
+	MrBigInt::PowM(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, Result);
+	std::cout << Result.GetHexEncodedString() << std::endl;
+	//MrBigInt::PowM_SlidinWindow(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, Result);
+	//std::cout << Result.GetHexEncodedString() << std::endl;
+	//exit(0);
+	//*/
 	MrBigInt Five(5);
 	MrBigInt CurrentNumber = 5;
 	std::cout << HexEncodeString(MBSha1("TestTest")) << std::endl;
-	for (size_t i = 0; i < 10; i++)
+	for (size_t i = 0; i < 0; i++)
 	{
 		MrBigInt NewKaratsuba;
 		MrBigInt NewLong;
@@ -80,6 +97,7 @@ int main()
 		}
 		CurrentNumber = NewLong;
 	}
+	//exit(0);
 	std::cout << TLS1_2::Base64ToBinary("TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4=") << std::endl;
 	//MrBigInt Test = MrBigInt(256).Pow(512);
 	MBSockets::Init();

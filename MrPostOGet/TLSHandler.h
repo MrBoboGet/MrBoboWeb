@@ -736,10 +736,10 @@ private:
 	static std::string GenerateSessionId();
 	static std::string GetDomainResourcePath(std::string const& DomainName);
 	static std::string RSAES_PKCS1_v1_5_DecryptData(std::string const& DomainName, std::string const& PublicKeyEncryptedData);
-	static RSADecryptInfo GetRSADecryptInfo(std::string const& DomainName);
 	void ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord);
 public:
 	TLSHandler();
+	static RSADecryptInfo GetRSADecryptInfo(std::string const& DomainName);
 	void EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
 	MBError EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect);
 	std::string GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect);
