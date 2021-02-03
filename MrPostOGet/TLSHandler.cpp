@@ -7,7 +7,7 @@
 #include <MinaStringOperations.h>
 #include <filesystem>
 #include <Hash/src/sha1.h>
-
+#include <mutex>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 std::string MBSha1(std::string const& StringToHash)
 {
@@ -366,6 +366,12 @@ namespace TLS1_2
 		return(ReturnValue);
 	}
 };
+
+std::mutex CachedSessionsMutex;
+std::unordered_map<std::string, TLS1_2::SecurityParameters> CachedSessions = {};
+
+
+
 void FillArrayWithRandomBytes(uint8_t* ArrayToFill, int LengthOfArray)
 {
 	srand(time(0));
@@ -374,7 +380,6 @@ void FillArrayWithRandomBytes(uint8_t* ArrayToFill, int LengthOfArray)
 		ArrayToFill[i] = (uint8_t)rand();
 	}
 }
-
 RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString)
 {
 	RSAPublicKey ReturnValue;
@@ -712,16 +717,26 @@ void TLSHandler::GenerateKeys()
 	std::string MasterSecret = std::string(reinterpret_cast<char*>(ConnectionParameters.master_secret), 48);
 	std::string ServerRandom = std::string(reinterpret_cast<char*>(ConnectionParameters.server_random), 32);
 	std::string ClientRandom = std::string(reinterpret_cast<char*>(ConnectionParameters.client_random), 32);
+	
 	//std::cout << "Client radnom used: " << HexEncodeString(ClientRandom) << std::endl;
 	//std::cout << "Server random used: " << HexEncodeString(ServerRandom) << std::endl;
 	//std::cout << "Master secret used: " << HexEncodeString(MasterSecret) << std::endl;
+	
 	std::string GeneratedKeyData = PRF(MasterSecret, "key expansion", ServerRandom + ClientRandom, DataNeeded);
+	
+	//std::cout << "Generated PRF: " << HexEncodeString(GeneratedKeyData) << std::endl;
+	
 	ConnectionParameters.client_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *0, MacKeyLength);
 	ConnectionParameters.server_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *1, MacKeyLength);
 	ConnectionParameters.client_write_Key = GeneratedKeyData.substr(MacKeyLength*2+EncryptKeySize *0, EncryptKeySize);
 	ConnectionParameters.server_write_Key = GeneratedKeyData.substr(MacKeyLength * 2+EncryptKeySize *1, EncryptKeySize);
 	ConnectionParameters.client_write_IV = GeneratedKeyData.substr(EncryptKeySize *2, EncryptKeySize);
 	ConnectionParameters.server_write_IV = GeneratedKeyData.substr(EncryptKeySize *3, EncryptKeySize);
+
+	//std::cout << "Client_write_MAC_Key: " << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
+	//std::cout << "Server_write_MAC_Key: " << HexEncodeString(ConnectionParameters.server_write_MAC_Key) << std::endl;
+	//std::cout << "Client_write_Key: " << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
+	//std::cout << "Server_write_Key: " << HexEncodeString(ConnectionParameters.server_write_Key) << std::endl;
 }
 std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt,void* PreDeterminedIV)
 {
@@ -1013,6 +1028,7 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	assert(ServerVerifyDataResponse[1].size() >= 9);
 	assert(VerifyFinishedMessage(ServerVerifyDataResponse[1].substr(9)));
 	ConnectionParameters.ServerSequenceNumber = 1;
+	IsConnected = true;
  	int a = 0;
 }
 MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect)
@@ -1021,15 +1037,24 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	ConnectionParameters.IsHost = true;
 	MBError ErrorToReturn(true);
 	std::vector<std::string> ClientHello = GetNextPlaintextRecords(SocketToConnect);
+	ConnectionParameters.AllHandshakeMessages.push_back(ClientHello[0]);
+	TLS1_2::TLS1_2HelloClientStruct ClientHelloStruct = ParseClientHelloStruct(ClientHello[0]);
+	//om clienten skicker ett session id så vill vi ta och använda den sesssion id:n värden
+	if (ClientHelloStruct.SessionId.size() != 0)
+	{
+		std::string SessionID = std::string((char*)ClientHelloStruct.SessionId.data(), ClientHelloStruct.SessionId.size());
+		if ( TLSHandler::SessionIsSaved(SessionID))
+		{
+			ErrorToReturn = ResumeSession(std::string((char*)ClientHelloStruct.SessionId.data(), ClientHelloStruct.SessionId.size()),ClientHelloStruct, SocketToConnect);
+			return(ErrorToReturn);
+		}
+	}
 	assert(ClientHello.size() == 1);
 	if (ClientHello.size() != 1)
 	{
 		ErrorToReturn.ErrorMessage = "invalid client hello message";
 		return(ErrorToReturn);
 	}
-	ConnectionParameters.AllHandshakeMessages.push_back(ClientHello[0]);
-	TLS1_2::TLS1_2HelloClientStruct ClientHelloStruct = ParseClientHelloStruct(ClientHello[0]);
-	//std::cout << "Recieved Client Random: " << HexEncodeString(std::string((char*)ClientHelloStruct.RandomStruct.RandomBytes, 32)) << std::endl;
 	std::string ServerHelloRecord = GenerateServerHello(ClientHelloStruct);
 	SocketToConnect->SendData(ServerHelloRecord.data(), ServerHelloRecord.size());
 	ConnectionParameters.AllHandshakeMessages.push_back(ServerHelloRecord);
@@ -1051,6 +1076,12 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 		for (size_t i = 0; i < NewRecords.size(); i++)
 		{
 			ClientResponse.push_back(NewRecords[i]);
+		}
+		if (NewRecords.size() == 0)
+		{
+			ErrorToReturn.ErrorMessage = "Recieved fatal alert message";
+			ErrorToReturn = false;
+			return(ErrorToReturn);
 		}
 		if (NewRecords.back() == "FatalErrorOccured")
 		{
@@ -1080,6 +1111,8 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	ConnectionParameters.HandshakeFinished = true;
 	ConnectionParameters.ServerSequenceNumber = 1;
 	ConnectionParameters.ClientSequenceNumber = 1;
+	IsConnected = true;
+	CacheSession();
 	return(ErrorToReturn);
 }
 void TLSHandler::GenerateMasterSecret(std::string const& PremasterSecret)
@@ -1098,43 +1131,15 @@ void TLSHandler::GenerateMasterSecret(std::string const& PremasterSecret)
 }
 void TLSHandler::ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord)
 {
-	std::string PreMasterSecret = RSAES_PKCS1_v1_5_DecryptData(ConnectionParameters.DomainName, ClientKeyExchangeRecord.substr(11));
+	RSADecryptInfo DecryptInfo = GetRSADecryptInfo(ConnectionParameters.DomainName);
+	std::string PreMasterSecret = RSAES_PKCS1_v1_5_DecryptData(DecryptInfo, ClientKeyExchangeRecord.substr(11));
 	GenerateMasterSecret(PreMasterSecret);
-	//DEBUG grejer
-	/*
-	std::cout << "Enter Custom Master Secret:" << std::endl;
-	std::string HexEncodedMasterSecret;
-	std::cin >> HexEncodedMasterSecret;
-	std::string NewMasterSecret;
-	for (size_t i = 0; i < 96; i+=2)
-	{
-		char NewInteger = 0;
-		for (size_t j = 0; j < 2; j++)
-		{
-			char CurrentCharacter = HexEncodedMasterSecret[i + j];
-			if (CurrentCharacter >= 97 && CurrentCharacter <= 102)
-			{
-				NewInteger += (CurrentCharacter - 87) << (4 - 4 * j);
-			}
-			else
-			{
-				NewInteger += (CurrentCharacter - 48) << (4 - 4 * j);
-			}
-		}
-		NewMasterSecret += NewInteger;
-	}
-	std::cout << "New Master Secret: " << HexEncodeString(NewMasterSecret) << std::endl;
-	for (size_t i = 0; i < 48; i++)
-	{
-		ConnectionParameters.master_secret[i] = NewMasterSecret[i];
-	}
-	*/
 	GenerateKeys();
 }
 RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
 {
 	RSADecryptInfo ReturnValue;
-	std::string KeyBinaryInfo = TLS1_2::PemToBinary(TLSHandler::GetDomainResourcePath(DomainName)+"EncryptionResources/KeyfileRSA2096.key");
+	std::string KeyBinaryInfo = TLS1_2::PemToBinary(GetDomainResourcePath(DomainName)+"EncryptionResources/KeyfileRSA2096.key");
 	ASN1Extracter Parser = ASN1Extracter((uint8_t*)KeyBinaryInfo.c_str());
 	Parser.ExtractTagData();
 	Parser.ExtractLengthOfType();
@@ -1152,9 +1157,8 @@ RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
 
 	return(ReturnValue);
 }
-std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(std::string const& DomainName, std::string const& PublicKeyEncryptedData)
+std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& DecryptInfo, std::string const& PublicKeyEncryptedData)
 {
-	RSADecryptInfo DecryptInfo = TLSHandler::GetRSADecryptInfo(DomainName);
 	//debug
 	MrBigInt CipherText;
 	uint8_t* DebugPointer =(uint8_t*) PublicKeyEncryptedData.c_str();
@@ -1260,7 +1264,84 @@ std::vector<TLS1_2::SignatureAndHashAlgoritm> TLSHandler::GetSupportedSignatureA
 	}
 	return(ReturnValue);
 }
-std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello)
+void TLSHandler::CacheSession()
+{
+	std::lock_guard<std::mutex> Lock(CachedSessionsMutex);
+	CachedSessions[ConnectionParameters.SessionId] = ConnectionParameters;
+}
+bool TLSHandler::SessionIsSaved(std::string const& SessionID)
+{
+	std::lock_guard<std::mutex> Lock(CachedSessionsMutex);
+	return(CachedSessions.find(SessionID) != CachedSessions.end());
+}
+TLS1_2::SecurityParameters TLSHandler::GetCachedSession(std::string const& SessionID)
+{
+	std::lock_guard<std::mutex> Lock(CachedSessionsMutex);
+	return(CachedSessions[SessionID]);
+}
+MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2HelloClientStruct const& ClientHello ,MBSockets::Socket* SocketToConnect)
+{
+	//std::cout<<HexEncodeString(SessionID)<<std::endl;
+	MBError ErrorToReturn(true);
+	std::string ServerHelloMessage = GenerateServerHello(ClientHello, SessionID);
+	SocketToConnect->SendData(ServerHelloMessage.data(), ServerHelloMessage.size());
+	std::vector<std::string> CurrentHandshakeRecords = ConnectionParameters.AllHandshakeMessages;
+	CurrentHandshakeRecords.push_back(ServerHelloMessage);
+	std::string NewClientRandom = std::string((char*)ConnectionParameters.client_random,32);
+	std::string NewServerRandom = std::string((char*)ConnectionParameters.server_random, 32);
+	//TLS_RecordGenerator ServerHelloDoneRecord;
+	//ServerHelloDoneRecord.SetContentType(TLS1_2::ContentType::handshake);
+	//ServerHelloDoneRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello_done);
+	//std::string ServerHelloDoneMessage = ServerHelloDoneRecord.GetHandShakeRecord();
+	//SocketToConnect->SendData(ServerHelloDoneMessage.c_str(), ServerHelloDoneMessage.size());
+	//intressant att se vilken typ av data clientenskickar
+	//std::vector<std::string> ClientRespone = GetNextPlaintextRecords(SocketToConnect);
+	this->ConnectionParameters = TLSHandler::GetCachedSession(SessionID);
+	ConnectionParameters.AllHandshakeMessages = CurrentHandshakeRecords;
+	for (size_t i = 0; i < 32; i++)
+	{
+		ConnectionParameters.client_random[i] = NewClientRandom[i];
+		ConnectionParameters.server_random[i] = NewServerRandom[i];
+	}
+	ConnectionParameters.HandshakeFinished = false;
+	GenerateKeys();
+	SendChangeCipherMessage(SocketToConnect);
+	//är ju frågan om det ska vara 0 eller 1 recored sent?
+	std::string VerifyDataMessage = GenerateVerifyDataMessage();
+	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
+
+	std::vector<std::string> ClientVerifyDataMessage = GetNextPlaintextRecords(SocketToConnect);
+	while (ClientVerifyDataMessage.size() < 2)
+	{
+		std::vector<std::string> NewMessages = GetNextPlaintextRecords(SocketToConnect);
+		for (size_t i = 0; i < NewMessages.size(); i++)
+		{
+			ClientVerifyDataMessage.push_back(NewMessages[i]);
+		}
+		if (NewMessages.back() == "FatalErrorOccured" || NewMessages.size() == 0)
+		{
+			ErrorToReturn = false;
+			ErrorToReturn.ErrorMessage = "Error in recieving client response";
+			return(ErrorToReturn);
+		}
+	}
+	assert(ClientVerifyDataMessage.size() <= 2);
+	ConnectionParameters.ServerSequenceNumber = 0;
+	ConnectionParameters.ClientSequenceNumber = 0;
+	std::string ServerFinishedMessagePlaintext = DecryptBlockcipherRecord(ClientVerifyDataMessage[1]);
+	if (VerifyFinishedMessage(ServerFinishedMessagePlaintext.substr(9)) == false)
+	{
+		ErrorToReturn = false;
+		ErrorToReturn.ErrorMessage = "Failed to verify client finsihed message";
+		return(ErrorToReturn);
+	}
+	ConnectionParameters.HandshakeFinished = true;
+	ConnectionParameters.ServerSequenceNumber = 1;
+	ConnectionParameters.ClientSequenceNumber = 1;
+	IsConnected = true;
+	return(ErrorToReturn);
+}
+std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct const& ClientHello,std::string const& SpecifiedSeessionID)
 {
 	TLS_RecordGenerator NewRecord;
 	NewRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello);
@@ -1276,7 +1357,15 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 	}
 	NewRecord.AddOpaqueData(ServerRandom);
 	//vi Generar session id
-	std::string SessionId = TLSHandler::GenerateSessionId();
+	std::string SessionId;
+	if (SpecifiedSeessionID == "")
+	{
+		SessionId = TLSHandler::GenerateSessionId();
+	}
+	else
+	{
+		SessionId = SpecifiedSeessionID;
+	}
 	ConnectionParameters.SessionId = SessionId;
 	NewRecord.AddOpaqueArray(SessionId,1);
 	//0,0x3c enda cihpersuiten vi stödjer, egentligen ska vi ju ta och välja ut en beroende på etc
@@ -1301,13 +1390,37 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 }
 std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 {
-	return("./ServerResources/" + DomainName+"/");
+	std::string ActualDomainName;
+	if (DomainName != "")
+	{
+		ActualDomainName = DomainName.substr(DomainName.find_first_of(".") + 1);
+		if (ActualDomainName[0] == '.')
+		{
+			ActualDomainName = DomainName;
+		}
+	}
+	else
+	{
+		ActualDomainName = DefaultDomain;
+	}
+	return("./ServerResources/" + ActualDomainName +"/");
+}
+std::string TLSHandler::GetDefaultCertificate()
+{
+	return("./ServerResources/" + DefaultDomain + "/" + "EncryptionResources/SignedCertificateRSA2096.der");
 }
 std::string TLSHandler::GenerateServerCertificateRecord(std::string const& DomainName)
 {
 	TLS_RecordGenerator NewRecord;
-	std::string CertificatePath = TLSHandler::GetDomainResourcePath(DomainName)+"EncryptionResources/SignedCertificateRSA2096.der";
-	
+	std::string CertificatePath;
+	if (DomainName != "")
+	{
+		CertificatePath = TLSHandler::GetDomainResourcePath(DomainName) + "EncryptionResources/SignedCertificateRSA2096.der";
+	}
+	else
+	{
+		CertificatePath = TLSHandler::GetDefaultCertificate();
+	}
 	std::ifstream t(CertificatePath,std::ifstream::in|std::ifstream::binary);
 	size_t size = std::filesystem::file_size(CertificatePath);
 	std::string CertificateDataBuffer(size, ' ');
@@ -1357,7 +1470,13 @@ std::string TLSHandler::GetServerNameFromExtensions(std::vector<TLS1_2::Extensio
 std::string TLSHandler::GenerateSessionId()
 {
 	//TODO Fixa så det faktist ger ett session id på ett bra sätt
-	return(std::string(32, 1));
+	std::string NewSessionID = MBRandom::GetRandomBytes(32);
+	std::lock_guard<std::mutex> Lock(CachedSessionsMutex);
+	while (CachedSessions.find(NewSessionID) != CachedSessions.end())
+	{
+		NewSessionID = MBRandom::GetRandomBytes(32);
+	}
+	return(NewSessionID);
 }
 bool TLSHandler::VerifyFinishedMessage(std::string DataToVerify)
 {
@@ -1578,62 +1697,99 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 		//ConnectionParameters.ServerSequenceNumber += RawDataProtocols.size();
 		//Vi ska också ta att och processa datan så vi fpår plaintext
 		//RawDataToTLSPlaintext
-		if (RawData[0] == TLS1_2::application_data)
+		for (size_t i = 0; i < RawDataProtocols.size(); i++)
 		{
-			//HandleApplicationData
-			//RawData.erase(0, 5);
+			std::string RecordPlaintextData = RawDataProtocols[i];
+			if (RecordPlaintextData[0] == TLS1_2::application_data)
+			{
+				//HandleApplicationData
+				//RawData.erase(0, 5);
 
-			return(RawDataProtocols);
-		}
-		else if (RawData[0] == TLS1_2::alert)
-		{
-			/*
-			//borde kanske checka att protokollet överenstämmer
-			uint16_t LengthOfAlertData = std::stoi(RawData.substr(3, 2));
-			//kollar att längden av datan vi fått ska matcha med det vi förväntar oss, annars har vi ett error 
-			int TotalLengthOfData = 5 + LengthOfAlertData;
-			if (TotalLengthOfData != RawData.size())
-			{
-				//HMMMMMMMM
-				std::cout << "ErrorParsingAlertData" << std::endl;
-				return("ErrorParsingAlertData");
+				return(RawDataProtocols);
 			}
-			*/
-			uint8_t AlertLevel = RawData[5];
-			uint8_t ErrorMessage = RawData[6];
-			//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
-			std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
-			if (AlertLevel == TLS1_2::fatal)
+			else if (RecordPlaintextData[0] == TLS1_2::alert)
 			{
-				//fatal kod
-				//typ FatalErrorProcedure()
-				ReturnValue.push_back("FatalErrorOccured");
-				return(ReturnValue);
+				/*
+				//borde kanske checka att protokollet överenstämmer
+				uint16_t LengthOfAlertData = std::stoi(RawData.substr(3, 2));
+				//kollar att längden av datan vi fått ska matcha med det vi förväntar oss, annars har vi ett error
+				int TotalLengthOfData = 5 + LengthOfAlertData;
+				if (TotalLengthOfData != RawData.size())
+				{
+					//HMMMMMMMM
+					std::cout << "ErrorParsingAlertData" << std::endl;
+					return("ErrorParsingAlertData");
+				}
+				*/
+				uint8_t AlertLevel = RecordPlaintextData[5];
+				uint8_t ErrorMessage = RecordPlaintextData[6];
+				//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
+				std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
+				if (AlertLevel == TLS1_2::fatal)
+				{
+					//fatal kod
+					//typ FatalErrorProcedure()
+					ReturnValue.push_back("FatalErrorOccured");
+					IsConnected = false;
+					if (ErrorMessage == TLS1_2::close_notify)
+					{
+						SendCloseNotfiy(SocketToConnect);
+					}
+					return(ReturnValue);
+				}
+				else
+				{
+					//HandleNonFatalError();
+					//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
+				}
+			}
+			else if (RecordPlaintextData[0] == TLS1_2::handshake)
+			{
+				return(RawDataProtocols);
+			}
+			else if (RecordPlaintextData[0] == TLS1_2::change_cipher_spec)
+			{
+				//här ska vi helt enkelt ändra våra cipher grejer och kan fortsätta med våra grejer
+				//HandleCipherSpec
+				//do nothing
+				return(RawDataProtocols);
 			}
 			else
 			{
-				//HandleNonFatalError();
-				//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
+				//Unknown error, något har kajkat en del någonstans
+				assert(false);
 			}
-		}
-		else if (RawData[0] == TLS1_2::handshake)
-		{
-			return(RawDataProtocols);
-		}
-		else if (RawData[0] == TLS1_2::change_cipher_spec)
-		{
-			//här ska vi helt enkelt ändra våra cipher grejer och kan fortsätta med våra grejer
-			//HandleCipherSpec
-			//do nothing
-			return(RawDataProtocols);
-		}
-		else
-		{
-			//Unknown error, något har kajkat en del någonstans
-			assert(false);
 		}
 	}
 	return(ReturnValue);
+}
+void TLSHandler::SendCloseNotfiy(MBSockets::Socket* SocketToUse)
+{
+	//då ska vi också ta skicka att vi stänger av
+	std::string DataToSend = "";
+	if (ConnectionParameters.HandshakeFinished)
+	{
+		TLS1_2::TLS1_2GenericRecord CloseNotifyRecord;
+		CloseNotifyRecord.Protocol = { 3, 3 };
+		CloseNotifyRecord.Type = TLS1_2::alert;
+		std::string CloseNotifyData = "";
+		CloseNotifyData += char(1);
+		CloseNotifyData += char(0);
+		CloseNotifyRecord.Length = 2;
+		DataToSend = GetEncryptedRecord(CloseNotifyRecord);
+	}
+	else
+	{
+		DataToSend += char(TLS1_2::alert);
+		DataToSend += char(3);
+		DataToSend += char(3);
+		DataToSend += char(0);
+		DataToSend += char(2);
+		DataToSend += char(1);
+		DataToSend += char(0);
+		IsConnected = false;
+	}
+	SocketToUse->SendData(DataToSend.data(), DataToSend.size());
 }
 TLSHandler::~TLSHandler()
 {

@@ -99,7 +99,9 @@ namespace MBSockets
 		int ErrorResults = 0;
 		//SocketType TypeOfSocket;
 		TraversalProtocol ProtocolForTraversal;
-
+		bool Invalid = false;
+		bool ConnectionClosed = false;
+		std::string LastErrorMessage = "";
 		//borde finnas en variabel f�r att vissa att den �r invalid
 		std::string GetLastError()
 		{
@@ -109,7 +111,26 @@ namespace MBSockets
 			return(std::string(strerror(errno)));
 #endif
 		}
+		void HandleError(std::string const& ErrorMessage, bool IsLethal)
+		{
+			//DEBUG GREJER
+			std::cout << ErrorMessage << std::endl;
+			LastErrorMessage = ErrorMessage;
+			if (IsLethal == true)
+			{
+				Invalid = true;
+			}
+		}
+	private:
 	public:
+		bool IsValid()
+		{
+			return(!Invalid);
+		}
+		bool IsConnected()
+		{
+			return(!ConnectionClosed);
+		}
 		//returnar en int f�r eventuellt framtida error hantering
 		int SendData(const char* DataPointer, int DataLength)
 		{
@@ -119,8 +140,7 @@ namespace MBSockets
 				ErrorResults = send(ConnectedSocket, DataPointer, DataLength, 0);
 				if (ErrorResults == MBSocketError())
 				{
-					std::cout << "send failed "<<GetLastError();
-					MBCloseSocket(ConnectedSocket);
+					HandleError("send failed with error: "+GetLastError(),true);
 					return(0);
 				}
 				TotalDataSent += ErrorResults;
@@ -135,7 +155,8 @@ namespace MBSockets
 			ErrorResults = getpeername(ConnectedSocket, (sockaddr*)&AddresData, (socklen_t*)&SizeOfData);
 			if (ErrorResults == MBSocketError())
 			{
-				std::cout << "Get ip failed: " << GetLastError();
+				HandleError("Get ip failed: "+ GetLastError(),false);
+				return("");
 			}
 			char ActualAdress[100];
 			unsigned long DataReturned = 100;
@@ -154,18 +175,20 @@ namespace MBSockets
 			}
 			else if (ErrorResults == 0)
 			{
-				printf("Connection closed\n");
+				//printf("Connection closed\n");
+				ConnectionClosed = true;
 				return(ErrorResults);
 			}
 			else
 			{
-				std::cout << "recv failed: " << GetLastError();
+				HandleError("recv failed: " + GetLastError(),true);
 				return(ErrorResults);
 			}
 		}
 		std::string GetNextRequestData()
 		{
-			int InitialBufferSize = 1000;
+			//int InitialBufferSize = 1000;
+			int InitialBufferSize = 16500;
 			char* Buffer = (char*)malloc(InitialBufferSize);
 			int MaxRecieveSize = InitialBufferSize;
 			int LengthOfDataRecieved = 0;
@@ -218,8 +241,8 @@ namespace MBSockets
 			if (ErrorResults != 0)
 			{
 				//error grejer, helst v�ra egna ocks�
-				printf("getaddrinfo failed: %d\n", ErrorResults);
-				std::cout << Adress << std::endl;
+				HandleError("getaddrinfo on adress: " +Adress+ " failed with error: "+ GetLastError(),true);
+				return;
 			}
 
 			ConnectedSocket = MBInvalidSocket;
@@ -231,8 +254,9 @@ namespace MBSockets
 			if (ConnectedSocket == MBInvalidSocket)
 			{
 				//egen error hantering
-				std::cout << "Error at socket(): " << GetLastError();
-				freeaddrinfo(result);
+				HandleError("Error at socket(): " + GetLastError(),true);
+				//freeaddrinfo(result);
+				return;
 			}
 		}
 		void UDPSendData(std::string DataToSend, std::string HostAdress, int PortNumber)
@@ -244,9 +268,9 @@ namespace MBSockets
 			ErrorResults = sendto(ConnectedSocket, DataToSend.c_str(), DataToSend.size(), 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
 			if (ErrorResults == MBSocketError()) 
 			{
-				std::cout << "UDP send data failed with error: " << GetLastError() << std::endl;
-				freeaddrinfo(result);
-				MBCloseSocket(ConnectedSocket);
+				HandleError("UDP send data failed with error: " + GetLastError(),false);
+				//freeaddrinfo(result);
+				//MBCloseSocket(ConnectedSocket);
 			}
 		}
 		int Bind(int PortToAssociateWith)
@@ -258,9 +282,9 @@ namespace MBSockets
 			ErrorResults = bind(ConnectedSocket, (sockaddr*)&service, sizeof(service));
 			//ErrorResults = bind(ConnectedSocket, result->ai_addr, (int)result->ai_addrlen);
 			if (ErrorResults == MBSocketError()) {
-				std::cout << "Bind failed with error: " << GetLastError() << std::endl;
-				freeaddrinfo(result);
-				MBCloseSocket(ConnectedSocket);
+				HandleError("Bind failed with error: " + GetLastError(),true);
+				//freeaddrinfo(result);
+				//MBCloseSocket(ConnectedSocket);
 			}
 			return(0);
 		}
@@ -273,14 +297,18 @@ namespace MBSockets
 			//assert(Buffer != nullptr);
 			//assert(sizeof(Buffer) != 8 * InitialBufferSize);
 			//assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
+			std::string ReturnValue = "";
 			LengthOfDataRecieved = recvfrom(ConnectedSocket, Buffer, MaxRecieveSize,0,nullptr,0);
 			if (LengthOfDataRecieved == MBSocketError())
 			{
-				std::cout << "UDPgetdata failed with error: " << GetLastError() << std::endl;
-				freeaddrinfo(result);
-				MBCloseSocket(ConnectedSocket);
+				HandleError("UDPgetdata failed with error: " + GetLastError(),false);
+				//freeaddrinfo(result);
+				//MBCloseSocket(ConnectedSocket);
 			}
-			std::string ReturnValue(Buffer, LengthOfDataRecieved);
+			else
+			{
+				ReturnValue = std::string(Buffer, LengthOfDataRecieved);
+			}
 			free(Buffer);
 			return(ReturnValue);
 		}
@@ -296,8 +324,8 @@ namespace MBSockets
 			ErrorResults = listen(ConnectedSocket, SOMAXCONN);
 			if (ErrorResults == MBSocketError())
 			{
-				std::cout << "listen in UDP socket failed with error: " << GetLastError() << std::endl;
-				MBCloseSocket(ConnectedSocket);
+				HandleError("listen in UDP socket failed with error: " + GetLastError(),false);
+				//MBCloseSocket(ConnectedSocket);
 				//WSACleanup();
 			}
 		}
@@ -312,9 +340,9 @@ namespace MBSockets
 			ErrorResults = connect(ConnectedSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
 			if (ErrorResults == MBSocketError())
 			{
-				std::cout << "Error Att connecta "<<ErrorResults << std::endl;
-				MBCloseSocket(ConnectedSocket);
-				ConnectedSocket = MBInvalidSocket;
+				HandleError("Error Att connecta "+GetLastError(),false);
+				//MBCloseSocket(ConnectedSocket);
+				//ConnectedSocket = MBInvalidSocket;
 			}
 			// freeaddrinfo(result);
 			// Should really try the next address returned by getaddrinfo
@@ -339,8 +367,9 @@ namespace MBSockets
 			if (ErrorResults != 0)
 			{
 				//error grejer, helst v�ra egna ocks�
-				printf("getaddrinfo failed: %d\n", ErrorResults);
-				std::cout << Adress << std::endl;
+				HandleError("getaddrinfo with adress "+Adress+ " failed: "+ GetLastError(),true);
+				//std::cout << Adress << std::endl;
+				return;
 			}
 
 			ConnectedSocket = MBInvalidSocket;
@@ -352,8 +381,8 @@ namespace MBSockets
 			if (ConnectedSocket == MBInvalidSocket)
 			{
 				//egen error hantering
-				std::cout << "Error at socket(): " << GetLastError() << std::endl;
-				freeaddrinfo(result);
+				HandleError("Error at socket(): " + GetLastError(),true);
+				//freeaddrinfo(result);
 			}
 		}
 		~ConnectSocket()
@@ -374,9 +403,9 @@ namespace MBSockets
 		{
 			ErrorResults = bind(ListenerSocket, result->ai_addr, (int)result->ai_addrlen);
 			if (ErrorResults == MBSocketError()) {
-				std::cout << "bind failed with error: " << GetLastError() << std::endl;
-				freeaddrinfo(result);
-				MBCloseSocket(ConnectedSocket);
+				HandleError("bind failed with error: " + GetLastError(),false);
+				//freeaddrinfo(result);
+				//MBCloseSocket(ConnectedSocket);
 			}
 			return(0);
 		}
@@ -385,8 +414,8 @@ namespace MBSockets
 			ErrorResults = listen(ListenerSocket, SOMAXCONN);
 			if (ErrorResults == MBSocketError())
 			{
-				std::cout << "listen failed with error: " << GetLastError() << std::endl;
-				MBCloseSocket(ConnectedSocket);
+				HandleError("listen failed with error: " + GetLastError(),false);
+				//MBCloseSocket(ConnectedSocket);
 			}
 			return(0);
 		}
@@ -401,17 +430,27 @@ namespace MBSockets
 		{
 			ConnectedSocket = accept(ListenerSocket, NULL, NULL);
 			if (ConnectedSocket == MBInvalidSocket) {
-				std::cout << "accept failed with error: " << GetLastError() << std::endl;
-				MBCloseSocket(ConnectedSocket);
+				HandleError("accept failed with error: " + GetLastError(),true);
+				//MBCloseSocket(ConnectedSocket);
 			}
 			return(0);
 		}
 		MBError EstablishSecureConnection()
 		{
-			MBError ReturnValue = SocketTlsHandler.EstablishHostTLSConnection(this);
+			MBError ReturnValue(false);
+			try
+			{
+				ReturnValue = SocketTlsHandler.EstablishHostTLSConnection(this);
+			}
+			catch (const std::exception&)
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
+			}
 			if (!ReturnValue)
 			{
-				std::cout << ReturnValue.ErrorMessage << std::endl;
+				//om det fuckade vill vi reseta vårt tls object
+				SocketTlsHandler = TLSHandler();
 			}
 			return(ReturnValue);
 		}
@@ -429,7 +468,8 @@ namespace MBSockets
 			if (ErrorResults != 0)
 			{
 				//error grejer, helst v�ra egna ocks�
-				printf("getaddrinfo failed: %d\n", ErrorResults);
+				HandleError("getaddrinfo failed: "+ GetLastError(),true);
+				return;
 			}
 
 			ListenerSocket = MBInvalidSocket;
@@ -441,8 +481,8 @@ namespace MBSockets
 			if (ListenerSocket == MBInvalidSocket)
 			{
 				//egen error hantering
-				std::cout << "error at socket(): " << GetLastError() << std::endl;
-				freeaddrinfo(result);
+				HandleError("error at socket(): " + GetLastError(),true);
+				//freeaddrinfo(result);
 			}
 		}
 		~ServerSocket()
@@ -486,13 +526,23 @@ namespace MBSockets
 	public:
 		int HTTPSendData(std::string DataToSend)
 		{
-			if (UsingHTTPS)
+			if (IsValid())
 			{
-				TLSConnectionHandler.SendDataAsRecord(DataToSend,this);
-			}
-			else
-			{
-				SendData(DataToSend.c_str(), DataToSend.size());
+				if (UsingHTTPS)
+				{
+					if (TLSConnectionHandler.ConnectionIsActive())
+					{
+						TLSConnectionHandler.SendDataAsRecord(DataToSend, this);
+					}
+					else
+					{
+						Invalid = true;
+					}
+				}
+				else
+				{
+					SendData(DataToSend.c_str(), DataToSend.size());
+				}
 			}
 			return(0);
 		}
@@ -619,13 +669,23 @@ namespace MBSockets
 	private:
 		void SendWithTls(std::string const& DataToSend)
 		{
-			if (SocketTlsHandler.EstablishedSecureConnection() == true)
+			if (IsValid())
 			{
-				SocketTlsHandler.SendDataAsRecord(DataToSend, this);
-			}
-			else
-			{
-				SendData(DataToSend.c_str(), DataToSend.size());
+				if (SocketTlsHandler.EstablishedSecureConnection() == true)
+				{
+					if (SocketTlsHandler.ConnectionIsActive())
+					{
+						SocketTlsHandler.SendDataAsRecord(DataToSend, this);
+					}
+					else
+					{
+						Invalid = true;	
+					}
+				}
+				else
+				{
+					SendData(DataToSend.c_str(), DataToSend.size());
+				}
 			}
 		}
 	public:
@@ -934,158 +994,3 @@ namespace MBSockets
 		}
 	}
 };
-
-/*
-			ProtocolForTraversal = TraversalProto;
-			ZeroMemory(&hints, sizeof(hints));
-			if (SocketT == SocketType::Client)
-			{
-				hints.ai_family = AF_UNSPEC;
-				hints.ai_socktype = SOCK_STREAM;
-				hints.ai_protocol = IPPROTO_TCP;
-			}
-			else if (SocketT == SocketType::Server)
-			{
-				hints.ai_family = AF_INET;
-				hints.ai_socktype = SOCK_STREAM;
-				hints.ai_protocol = IPPROTO_TCP;
-				hints.ai_flags = AI_PASSIVE;
-			}
-			if (SocketT == SocketType::Client)
-			{
-				ErrorResults = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
-			}
-			else if (SocketT == SocketType::Server)
-			{
-				ErrorResults = getaddrinfo(NULL, Port.c_str(), &hints, &result);
-			}
-			if (ErrorResults != 0)
-			{
-				//error grejer, helst v�ra egna ocks�
-				printf("getaddrinfo failed: %d\n", ErrorResults);
-			}
-
-			ConnectedSocket = INVALID_SOCKET;
-
-			// Attempt to connect to the first address returned by
-			// the call to getaddrinfo
-			ptr = result;
-			// Create a SOCKET for connecting to server
-			ConnectedSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-			if (ConnectedSocket == INVALID_SOCKET)
-			{
-				//egen error hantering
-				printf("Error at socket(): %ld\n", WSAGetLastError());
-				freeaddrinfo(result);
-			}
-*/
-
-
-
-
-
-/*Gamla grejer
-			const int MAXHEADERSIZE = 1024;
-			Head(Resource);
-			char* Buffer = new char[MAXHEADERSIZE];
-			int LengthOfData;
-			int BodySize = 0;
-			std::string HeaderContent;
-			const int DefaultBodySize = 2024;
-			while ((LengthOfData = RecieveData(Buffer, MAXHEADERSIZE)) > 0 && BodySize == 0)
-			{
-				//nu har vi f�tt headern i buffer
-				HeaderContent = std::string(Buffer, LengthOfData);
-				std::string ContentLength = MBSockets::GetHeaderValue("Content-Length", HeaderContent);
-				if(RequestType == "HEAD")
-				{
-					delete[] Buffer;
-					return(HeaderContent);
-				}
-				if (ContentLength == "")
-				{
-					if (MBSockets::GetHeaderValue("Location",HeaderContent) != "")
-					{
-						delete[] Buffer;
-						return(HeaderContent);
-					}
-					else
-					{
-						BodySize = DefaultBodySize;
-					}
-				}
-				else
-				{
-					BodySize = std::stoi(ContentLength);
-				}
-				break;
-			}
-			std::cout << HeaderContent.size() << std::endl;
-			//nu har vi exakt hur l�ng v�r request �r, headerns storlek + bodysize
-			int RequestSize = HeaderContent.size() + BodySize;
-			int TotalSize = RequestSize;
-			int TotalRecievedSize = 0;
-			delete[] Buffer;
-			bool TransferIsChunked = false;
-			Buffer = (char*)malloc(RequestSize);
-			if (RequestType == "GET")
-			{
-				Get(Resource);
-			}
-			while ((LengthOfData = RecieveData(&Buffer[TotalRecievedSize], RequestSize)) > 0)
-			{
-				//vi kollar huruvida vi f�r att datan kommer som chunked eller inte, g�r den det beh�ver vi om allokera v�r buffer data
-				/*
-				std::string CurrentData = std::string(Buffer,)
-				if (MBSockets::GetHeaderValue("Transfer-Encoding",std::string(Buffer, HeaderContent.size())) == "chunked")
-				{
-					//vi reallocatar minnet s� vi f�r plats med resten
-					//f�rsta raden med ett dubbel \n\n, sen b�rjar bodyn
-
-					//nu vill vi ha hur mycket data som beh�vs
-					int Position =
-				}
-				
-if (LengthOfData == WSAEMSGSIZE)
-{
-	//assert(false);
-}
-TotalRecievedSize += LengthOfData;
-/*
-if (TransferIsChunked == false)
-{
-	HeaderContent = std::string(Buffer, LengthOfData);
-	std::string TransferEncoding = MBSockets::GetHeaderValue("Transfer-Encoding", HeaderContent);
-	ReplaceAll(&TransferEncoding, "\r", "");
-	if (TransferEncoding == "chunked")
-	{
-		TransferIsChunked = true;
-	}
-}
-
-if (LengthOfData == RequestSize)
-{
-	RequestSize = 500;
-	Buffer = (char*)realloc(Buffer, TotalRecievedSize + 500);
-	continue;
-}
-/*
-if (TransferEncoding == "chunked" || TransferIsChunked)
-{
-	TransferIsChunked = true;
-	int CRLNPosition = HeaderContent.find("\r");
-	int StartOfBody = HeaderContent.find("<");
-	std::string SizeInHexString = HeaderContent.substr(CRLNPosition + 2, StartOfBody - (CRLNPosition + 2));
-	int SizeInBytes = HexToDec(SizeInHexString);
-	RequestSize = SizeInBytes;
-	TotalSize += RequestSize;
-	realloc(Buffer, TotalSize);
-	continue;
-}
-
-break;
-			}
-			std::string �rde = std::string(Buffer, TotalRecievedSize);
-			free(Buffer);
-			return(ReturV�rde);
-*/

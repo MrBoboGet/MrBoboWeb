@@ -72,10 +72,15 @@ namespace MrPostOGet
 			ServerSocketen->Listen();
 			while (true)
 			{
-				NumberOfConnections += 1;
 				ServerSocketen->Accept();
 				//TODO detecta huruvida det är http eller https
-				ServerSocketen->EstablishSecureConnection();
+ 				//MBError ConnectionError =  ServerSocketen->EstablishSecureConnection();
+				//if (!ConnectionError)
+				//{
+				//	//error handla
+				//	continue;
+				//}
+				NumberOfConnections += 1;
 				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
 				ServerSocketen->TransferConnectedSocket(*NewSocket);
 				std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket,ServerRequestHandlers, ContentPath,this);
@@ -89,10 +94,11 @@ namespace MrPostOGet
 	};
 	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
 	{
+		ConnectedClient->EstablishSecureConnection();
 		std::string RequestData;
 		std::cout << RequestData << std::endl;
 		//v�ldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
-		while ((RequestData = ConnectedClient->GetNextRequestData()) != "")
+		while ((RequestData = ConnectedClient->GetNextRequestData()) != "" && ConnectedClient->IsConnected() && ConnectedClient->IsValid())
 		{
 			//vi kollar om request handlersen har n�gon �sikt om datan, annars l�ter vi v�ran default getrequest handlar sk�ta allt 
 			bool HandlerHasHandled = false;
@@ -118,10 +124,10 @@ namespace MrPostOGet
 			}
 			else
 			{
-				std::cout << RequestData << std::endl;
+				//std::cout << RequestData << std::endl;
 				std::string ResourceToGet = ResourcesPath + MBSockets::GetReqestResource(RequestData);
 				std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/" + ResourceToGet);
-				std::cout << ResourceToGet << std::endl;
+				//std::cout << ResourceToGet << std::endl;
 				MBSockets::HTTPDocument DocumentToSend;
 				if (std::filesystem::exists(ActualResourcePath))
 				{
@@ -129,16 +135,10 @@ namespace MrPostOGet
 					{
 						DocumentToSend = AssociatedServer->GetResource(ResourcesPath + "index.htm");
 						ConnectedClient->SendHTTPDocument(DocumentToSend);
-							//TextReader Data(ResourcesPath + "index.htm");
-							//std::string HTMLBody = "";
-							//for (int i = 0; i < Data.Size(); i++)
-							//{
-							//	HTMLBody += Data[i] + "\n";
-							//}
-							//ConnectedClient->SendHTTPBody(HTMLBody);
 					}
 					else
 					{
+						//väldigt ful undantagsfall för att få acme protokollet att fungera
 						std::string ChallengeFolder = "./ServerResources/MrBoboGet/HTMLResources/.well-known/acme-challenge/";
 						if (ResourceToGet.substr(0, ChallengeFolder.size()) == ChallengeFolder)
 						{
@@ -157,13 +157,6 @@ namespace MrPostOGet
 						{
 							DocumentToSend = AssociatedServer->GetResource(ResourceToGet);
 							ConnectedClient->SendHTTPDocument(DocumentToSend);
-							//TextReader Data(ResourceToGet);
-							//std::string HTMLBody = "";
-							//for (int i = 0; i < Data.Size(); i++)
-							//{
-							//	HTMLBody += Data[i] + "\n";
-							//}
-							//ConnectedClient->SendHTTPBody(HTMLBody);
 						}
 					}
 				}
@@ -173,6 +166,6 @@ namespace MrPostOGet
 				}
 			}
 		}
-		delete ConnectedClient;
+		//delete ConnectedClient;
 	}
 }
