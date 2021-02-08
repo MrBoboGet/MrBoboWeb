@@ -1393,7 +1393,7 @@ std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 	std::string ActualDomainName;
 	if (DomainName != "")
 	{
-		ActualDomainName = DomainName.substr(DomainName.find_first_of(".") + 1);
+		ActualDomainName = DomainName.substr(DomainName.find_first_of("."));
 		if (ActualDomainName[0] == '.')
 		{
 			ActualDomainName = DomainName;

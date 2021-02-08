@@ -18,9 +18,8 @@
 #ifdef _MSC_VER
 #include <intrin.h>
 #elif __GNUC__
-#include <x86intrin.h>
 #endif
-//bara för debug
+//bara fr debug
 /*
 class MrBigInt
 {
@@ -685,193 +684,165 @@ private:
 		//std::cout << DebugInt.GetBinaryString() << std::endl;
 		return(v3);
 	}
-	static void DoubleUnitDivide(UnitType Higher, UnitType Lower, UnitType Divisor, MrBigInt* OutQuotient, UnitType* OutRemainder,UnitType* DivisorReciprocalPointer = nullptr)
+	// förutsätter att ordet är normaliserat, high bit set
+	static void UnsignedDivide_AOP(MrBigInt& IntToDivide,MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient)
 	{
-		if (Higher == 0 && Lower < Divisor)
+		//inte destruktiv, så vi tar och kopierar dividenten och denna
+		//MrBigInt ThisCopy(*this);
+		//MrBigInt DividentCopy(Divident);
+		UnitType m = IntToDivide.InternalUnits.size() - Divident.InternalUnits.size();
+		//antar att dem är normaliserade
+		if (IntToDivide.InternalUnits.size() < Divident.InternalUnits.size())
 		{
-			OutQuotient->InternalUnits[1] = 0;
-			OutQuotient->InternalUnits[0] = 0;
-			OutRemainder[0] = Lower;
+			std::swap(OutRemainder.InternalUnits, IntToDivide.InternalUnits);
+			OutQuotient = MrBigInt(0);
 			return;
 		}
-		UnitType DivisorReciprocal;
-		if (DivisorReciprocalPointer != nullptr)
+		if (Divident.InternalUnits.size() == 1)
 		{
-			DivisorReciprocal = *DivisorReciprocalPointer;
-		}
-		else
-		{
-			DivisorReciprocal = ReciproalUnit32(Divisor);
-		}
-		//utifall att det inte går på det normaliserade sättet kör vi den andra metoden
-		if (Higher >= Divisor)
-		{
-			UnitType NewHigher;
-			MrBigInt HighQuotient;
-			if (OutQuotient->InternalUnits.size() < 2)
-			{
-				OutQuotient->InternalUnits.push_back(0);
-			}
-			DoubleUnitDivide(0, Higher, Divisor, &HighQuotient, &NewHigher,&DivisorReciprocal);
-			OutQuotient->InternalUnits[1] = HighQuotient.InternalUnits[0];
-			UnitType ModResult;
-			MrBigInt LowQuotient;
-			DoubleUnitDivide(NewHigher, Lower, Divisor, &LowQuotient, &ModResult, &DivisorReciprocal);
-			//OutQuotient->InternalUnits = std::vector<UnitType>(2,0);
-			OutQuotient->InternalUnits[1] = HighQuotient.InternalUnits[0];
-			OutQuotient->InternalUnits[0] = LowQuotient.InternalUnits[0];
-			*OutRemainder = ModResult;
-			//Debug grejer
-			MrBigInt DebugInt(Higher);
-			DebugInt <<= 32;
-			DebugInt += Lower;
-			//MrBigInt DebugRemainder;
-			//MrBigInt DebugQuotient;
-			//DebugInt.UnsignedDivide_MB(Divisor, DebugRemainder, DebugQuotient);
-			//assert(OutRemainder[0] == DebugRemainder.InternalUnits[0]);
-			//assert(DebugQuotient.InternalUnits[0] == OutQuotient->InternalUnits[0]);
-			//assert(DebugQuotient.InternalUnits[1] == OutQuotient->InternalUnits[1]);
+			SingleLimbDivision(&IntToDivide.InternalUnits[0], IntToDivide.InternalUnits.size(), Divident.InternalUnits[0], OutQuotient, OutRemainder.InternalUnits[0]);
+			OutRemainder.InternalUnits.resize(1);
 			return;
 		}
-		MrBigInt u;
-		u.InternalUnits = std::vector<UnitType>(2, 0);
-		u.InternalUnits[1] = Higher;
-		u.InternalUnits[0] = Lower;
-		
-		MrBigInt Temp = DivisorReciprocal;
-		Temp *= Higher;
-		
-		UnitType q = Temp.InternalUnits.back()+Higher;
-
-		MrBigInt p = q;
-		p *= Divisor;
-
-		assert(u >= p);
-		MrBigInt r = u - p;
-		r.IsNegative = false;
-		while(r.InternalUnits.size() >1 || r.InternalUnits[0] > Divisor)
+		//normaliserar dem
+		size_t PreviousSize = IntToDivide.InternalUnits.size();
+		MrBigInt d = MrBigInt(UNIT_MAX / Divident.InternalUnits.back());
+		IntToDivide *= d;
+		char WasAppended = 0;
+		if (PreviousSize == IntToDivide.InternalUnits.size())
 		{
-			q += 1;
-			r -= Divisor;
+			IntToDivide.InternalUnits.push_back(0);
+			WasAppended += 1;
 		}
-		OutQuotient->InternalUnits[0] = q;
-		assert(r.InternalUnits.size() == 1);
-		*OutRemainder = r.InternalUnits[0];
-		
-		//Debug grejer
-		//MrBigInt TestInt = Higher;
-		//TestInt <<= 32;
-		//TestInt += Lower;
-		//MrBigInt TestRemainder;
-		//MrBigInt TestQuotient;
-		//TestInt.UnsignedDivide_MB(Divisor, TestRemainder, TestQuotient);
-		//assert(OutRemainder[0] == TestRemainder.InternalUnits[0]);
-		//assert(OutQuotient[0] == TestQuotient.InternalUnits[0]);
-		return;
-#ifdef MB_USE_NATIVE_DIV
-		//Debug
-		unsigned __int64 HIgherCopy = Higher;
-		unsigned __int64 Modolu;
-		unsigned __int64 HighQuotient = 0;
-		//TODO optimera denna kod, suger röv, men har ingen aning om hur man ska få end 2xUnitype/1xUnitype att ge en 2xUnitType kvot
-		if (Higher>= Divisor)
+		UnitType n = Divident.InternalUnits.size();
+		MrBigInt q;
+		q.InternalUnits = std::vector<UnitType>(2, 0);
+		MrBigInt r;
+		MrBigInt b(1);
+		b <<= UNIT_BITS;
+		MrBigInt& u = IntToDivide;
+		MrBigInt const* DividentCopy = &Divident;
+		MrBigInt* DivTemp = nullptr;
+		if (d != 1)
 		{
-			HighQuotient = _udiv128(0, Higher, Divisor, &Modolu);
-			Higher = Modolu;
-			OutQuotient[1] = HighQuotient;
+			DivTemp = new MrBigInt(Divident);
+			*DivTemp *= d;
+			DividentCopy = DivTemp;
 		}
-		unsigned __int64 LowerQuotient = _udiv128(Higher, Lower, Divisor, &Modolu);
-		OutQuotient[0] = LowerQuotient;
-		*OutRemainder = Modolu;
+		MrBigInt const& v = *DividentCopy;
+		MrBigInt DivideInt = MrBigInt(0);
+		DivideInt.InternalUnits.push_back(1);
+		MrBigInt TempDivident = 0;
+		MrBigInt TempR;
+		TempR.InternalUnits = std::vector<UnitType>(2, 0);
+		MrBigInt Temp3;
+		MrBigInt Temp2;
+		MrBigInt TempOutQuotient;
+		TempOutQuotient.InternalUnits = std::vector<UnitType>(m + 1, 0);
 		
-		
-		//Debug grejer
-		//MrBigInt DebugInt = HIgherCopy;
-		//DebugInt <<= UNIT_BITS;
-		//DebugInt += Lower;
+		//OutQuotient.InternalUnits = std::vector<UnitType>(m + 1, 0);
+		//DEBUG GREJER
 		//MrBigInt DebugRemainder;
 		//MrBigInt DebugQuotient;
-		//DebugInt.UnsignedDivide_MB(Divisor, DebugRemainder, DebugQuotient);
-		//assert(DebugRemainder.InternalUnits[0] == *OutRemainder);
-		//assert(DebugQuotient.InternalUnits[0] == OutQuotient[0]);
-		//if (DebugQuotient.InternalUnits.size() == 2)
-		//{
-		//	assert(DebugQuotient.InternalUnits[1] == OutQuotient[1]);
-		//}
+		//UnsignedDivide_MB(Divident, DebugRemainder, DebugQuotient);
+		
 
-
-		//unsigned __int64 HighWord = 0;
-		//while (Higher >= Divisor)
-		//{
-		//	unsigned __int64 IntToSubtractHigh = 0;
-		//	unsigned __int64 IntToSubtractLow = _umul128(Quotient, Divisor,&IntToSubtractHigh);
-		//	unsigned __int64 LowerCopy = Lower;
-		//	Lower -= IntToSubtractLow;
-		//	if (Lower > IntToSubtractLow)
-		//	{
-		//		Higher -= 1;
-		//	}
-		//	Higher -= IntToSubtractHigh;
-		//	Quotient = _udiv128(Higher, Lower, Divisor, &Modolu);
-		//	HighWord = Quotient;
-		//}
-		//OutQuotient[1] = HighWord;
-#endif
-	}
-	static void SingleLimbDivision(UnitType* IntToDivideUnits,unsigned int NumberOfUnits, UnitType Divident,MrBigInt& OutQuotient,UnitType& OutRemainder)
-	{
-		//MrBigInt Temp;
-		//MrBigInt Temp2;
-		//Temp.InternalUnits.assign(IntToDivideUnits, IntToDivideUnits+NumberOfUnits);
-		//Temp.UnsignedDivide_MB(Divident, Temp2, OutQuotient);
-		//OutRemainder = Temp2.InternalUnits[0];
-		if (Divident == 1)
+		UnitType VDivisor = v.InternalUnits.back();
+		UnitType VReciprocal = ReciproalUnit32(v.InternalUnits.back());
+		for (int j = m; j >= 0; j--)
 		{
-			OutRemainder = 0;
-			OutQuotient.InternalUnits = std::vector<UnitType>(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
-			return;
+			//assert(ThisCopy.InternalUnits.size() >= this->InternalUnits.size());
+			//räkna ut på något sätt
+			//DoubleUnitDivide(u.InternalUnits[j + n], u.InternalUnits[j + n - 1], q, r);
+
+			//DivideInt.InternalUnits[1] = u.InternalUnits[j + n];
+			//DivideInt.InternalUnits[0] = u.InternalUnits[j + n - 1];
+			//TempDivident.InternalUnits[0] = v.InternalUnits.back();
+			//DivideInt.UnsignedDivide_MB(TempDivident, r, q);
+			if (r.InternalUnits.size() > 1)
+			{
+				r.InternalUnits.pop_back();
+			}
+			DoubleUnitDivide(u.InternalUnits[j + n], u.InternalUnits[j + n - 1], VDivisor, &q, &r.InternalUnits[0], &VReciprocal);
+
+			//Temp = (r << UNIT_BITS)+ u.InternalUnits[j + n - 2];
+			TempR.InternalUnits[1] = r.InternalUnits.front();
+			TempR.InternalUnits[0] = u.InternalUnits[j + n - 2];
+			Temp2 = q * v.InternalUnits[n - 2];
+			//if (q == b || Temp2 > Temp)
+			if (q == b || Temp2 > TempR)
+			{
+				//gör grejer
+				q -= 1;
+				r += v.InternalUnits.back();
+				if (r < b)
+				{
+					TempR.InternalUnits[1] = r.InternalUnits.front();
+					TempR.InternalUnits[0] = u.InternalUnits[j + n - 2];
+					if (q == b || (Temp2) > (TempR))
+					{
+						q -= 1;
+						r += v.InternalUnits.back();
+					}
+				}
+			}
+			//multiply and subtract
+			//assert(r.InternalUnits.size() == 1);
+			bool WasNegative = false;
+			if (UnsignedLesserThan(u, q, j + n, j))
+			{
+				WasNegative = true;
+			}
+			//assert(UnsignedLesserThan(u, q, j+n, j) == (u < q << (UNIT_BITS * j)));
+			TempOutQuotient.InternalUnits[j] = q.InternalUnits[0];
+			if (WasNegative == false)
+			{
+				//addback utgår jag ifrån bara resettar den, så vi subtraherar bara om vi vet att den behöva
+				//MrBigInt UCopy(u);
+				Temp3 = q * v;
+				SubtractWithOffset(u, Temp3, j + n + 1, j);
+				//asserta grejer för debug
+				//MrBigInt DebugResult = UCopy - (Temp << (UNIT_BITS * j));
+				//std::cout << u.GetHexEncodedString() << std::endl;
+				//std::cout << DebugResult.GetHexEncodedString() << std::endl;
+				//assert(DebugResult == u);
+			}
+			else
+			{
+				TempOutQuotient.InternalUnits[j] -= 1;
+			}
+			//if (j < 448)
+			//{
+			//	assert(OutQuotient.InternalUnits[j] == DebugQuotient.InternalUnits[j]);
+			//}
 		}
-		int j = NumberOfUnits-1;
-		UnitType r = 0;
-		MrBigInt TempResult;
-		UnitType NormalizedDivisor = UNIT_MAX / Divident;
-		//kopierar inten för att kunna normalisera den
-		MrBigInt IntToDivide;
-		IntToDivide.InternalUnits = std::vector<UnitType>(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
-		IntToDivide *= NormalizedDivisor;
-		Divident *= NormalizedDivisor;
-		TempResult.InternalUnits = std::vector<UnitType>(2, 0);
-		OutQuotient.InternalUnits = std::vector<UnitType>(j + 1, 0);
-		UnitType DividentReciprocal = ReciproalUnit32(NormalizedDivisor);
-		do
+		//assert(d == 1);
+		if (DivTemp != nullptr)
 		{
-			assert(r < IntToDivide.InternalUnits[j]);
-			DoubleUnitDivide(r, IntToDivide.InternalUnits[j], NormalizedDivisor, &TempResult, &r,&DividentReciprocal);
-			//assert(TempResult.InternalUnits[1] == 1);
-			OutQuotient.InternalUnits[j] = TempResult.InternalUnits[0];
-			j -= 1;
-		} while (j >= 0);
-		OutQuotient.Normalize();
-		OutRemainder = r;
-		//deub grejer
-		//MrBigInt DebugInt;
-		//MrBigInt TempQuot;
-		//MrBigInt TempRemainder;
-		//DebugInt.InternalUnits.assign(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
-		//DebugInt.UnsignedDivide_MB(Divident, TempRemainder, TempQuot);
-		//assert(OutQuotient == TempQuot);
-		//assert(OutRemainder == TempRemainder.InternalUnits[0]);
-
+			delete DivTemp;
+		}
+		TempOutQuotient.Normalize();
+		std::swap(TempOutQuotient, OutQuotient);
+		SingleLimbDivision(u.InternalUnits.data(), n, d.InternalUnits.back(), OutRemainder, Temp3.InternalUnits[0]);
+		//DEBUG GREJER
+		//if (DebugQuotient != OutQuotient)
+		//{
+		//	std::cout << "Fel i quotient" << std::endl;
+		//}
+		//if (DebugRemainder != OutRemainder)
+		//{
+		//	std::cout << "Fel i remainder" << std::endl;
+		//}
+		//unnormalize
 	}
-	// förutsätter att ordet är normaliserat, high bit set
 	void UnsignedDivide_AOP(MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient) const
 	{
 		//inte destruktiv, så vi tar och kopierar dividenten och denna
 		MrBigInt ThisCopy(*this);
-		MrBigInt DividentCopy(Divident);
-		UnitType m = ThisCopy.InternalUnits.size() - DividentCopy.InternalUnits.size();
+		//MrBigInt DividentCopy(Divident);
+		UnitType m = ThisCopy.InternalUnits.size() - Divident.InternalUnits.size();
 		//antar att dem är normaliserade
-		if (ThisCopy.InternalUnits.size() < DividentCopy.InternalUnits.size())
+		if (ThisCopy.InternalUnits.size() < Divident.InternalUnits.size())
 		{
 			std::swap(OutRemainder.InternalUnits, ThisCopy.InternalUnits);
 			OutQuotient = MrBigInt(0);
@@ -879,23 +850,30 @@ private:
 		}
 		//normaliserar dem
 		size_t PreviousSize =  ThisCopy.InternalUnits.size();
-		MrBigInt d = MrBigInt(UNIT_MAX / DividentCopy.InternalUnits.back());
+		MrBigInt d = MrBigInt(UNIT_MAX / Divident.InternalUnits.back());
 		ThisCopy *= d;
-		DividentCopy *= d;
 		char WasAppended = 0;
 		if (PreviousSize == ThisCopy.InternalUnits.size())
 		{
 			ThisCopy.InternalUnits.push_back(0);
 			WasAppended += 1;
 		}
-		UnitType n = DividentCopy.InternalUnits.size();
+		UnitType n = Divident.InternalUnits.size();
 		MrBigInt q;
 		q.InternalUnits = std::vector<UnitType>(2, 0);
 		MrBigInt r;
 		MrBigInt b(1);
 		b <<= UNIT_BITS;
 		MrBigInt& u = ThisCopy;
-		MrBigInt& v = DividentCopy;
+		MrBigInt const* DividentCopy = &Divident;
+		MrBigInt* DivTemp = nullptr;
+		if (d != 1)
+		{
+			DivTemp = new MrBigInt(Divident);
+			*DivTemp *= d;
+			DividentCopy = DivTemp;
+		}
+		MrBigInt const& v = *DividentCopy;
 		MrBigInt DivideInt = MrBigInt(0);
 		DivideInt.InternalUnits.push_back(1);
 		MrBigInt TempDivident = 0;
@@ -980,9 +958,12 @@ private:
 			//}
 		}
 		//assert(d == 1);
+		if (DivTemp != nullptr)
+		{
+			delete DivTemp;
+		}
 		OutQuotient.Normalize();
 		SingleLimbDivision(u.InternalUnits.data(), n, d.InternalUnits.back(), OutRemainder, Temp3.InternalUnits[0]);
-
 		//DEBUG GREJER
 		//if (DebugQuotient != OutQuotient)
 		//{
@@ -1033,7 +1014,15 @@ private:
 	}
 	void UnsignedDivide(MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient) const
 	{
-		UnsignedDivide_AOP(Divident, OutRemainder, OutQuotient);
+		if (Divident.InternalUnits.size() != 1)
+		{
+			UnsignedDivide_AOP(Divident, OutRemainder, OutQuotient);
+		}
+		else
+		{
+			SingleLimbDivision(&InternalUnits[0], InternalUnits.size(), Divident.InternalUnits[0], OutQuotient, OutRemainder.InternalUnits[0]);
+			OutRemainder.InternalUnits.resize(1);
+		}
 	}
 	void Normalize()
 	{
@@ -1053,6 +1042,195 @@ private:
 	}
 #define KARATSUBA_UNIT_COUNT 20
 public:
+	static void DoubleUnitDivide(UnitType Higher, UnitType Lower, UnitType Divisor, MrBigInt* OutQuotient, UnitType* OutRemainder, UnitType* DivisorReciprocalPointer = nullptr)
+	{
+		if (Higher == 0 && Lower < Divisor)
+		{
+			OutQuotient->InternalUnits[1] = 0;
+			OutQuotient->InternalUnits[0] = 0;
+			OutRemainder[0] = Lower;
+			return;
+		}
+		UnitType DivisorReciprocal;
+		if (DivisorReciprocalPointer != nullptr)
+		{
+			DivisorReciprocal = *DivisorReciprocalPointer;
+		}
+		else
+		{
+			DivisorReciprocal = ReciproalUnit32(Divisor);
+		}
+		//utifall att det inte går på det normaliserade sättet kör vi den andra metoden
+		if (Higher >= Divisor)
+		{
+			UnitType NewHigher;
+			MrBigInt HighQuotient;
+			if (OutQuotient->InternalUnits.size() < 2)
+			{
+				OutQuotient->InternalUnits.push_back(0);
+			}
+			DoubleUnitDivide(0, Higher, Divisor, &HighQuotient, &NewHigher, &DivisorReciprocal);
+			OutQuotient->InternalUnits[1] = HighQuotient.InternalUnits[0];
+			UnitType ModResult;
+			MrBigInt LowQuotient;
+			DoubleUnitDivide(NewHigher, Lower, Divisor, &LowQuotient, &ModResult, &DivisorReciprocal);
+			//OutQuotient->InternalUnits = std::vector<UnitType>(2,0);
+			OutQuotient->InternalUnits[1] = HighQuotient.InternalUnits[0];
+			OutQuotient->InternalUnits[0] = LowQuotient.InternalUnits[0];
+			*OutRemainder = ModResult;
+			//Debug grejer
+			MrBigInt DebugInt(Higher);
+			DebugInt <<= 32;
+			DebugInt += Lower;
+			//MrBigInt DebugRemainder;
+			//MrBigInt DebugQuotient;
+			//DebugInt.UnsignedDivide_MB(Divisor, DebugRemainder, DebugQuotient);
+			//assert(OutRemainder[0] == DebugRemainder.InternalUnits[0]);
+			//assert(DebugQuotient.InternalUnits[0] == OutQuotient->InternalUnits[0]);
+			//assert(DebugQuotient.InternalUnits[1] == OutQuotient->InternalUnits[1]);
+			return;
+		}
+		struct DoubleWord
+		{
+			UnitType High = 0;
+			UnitType Low = 0;
+		};
+		MrBigInt u;
+		u.InternalUnits = std::vector<UnitType>(2, 0);
+		u.InternalUnits[1] = Higher;
+		u.InternalUnits[0] = Lower;
+
+		DoubleWord Temp;
+		MrBigInt::GetHighLowUnitMultiplication(DivisorReciprocal, Higher, Temp.High, Temp.Low);
+		//assert(Temp.High != 0);
+		UnitType q = Temp.High + Higher;
+
+		//MrBigInt Temp = DivisorReciprocal;
+		//Temp *= Higher;
+		//UnitType q = Temp.InternalUnits.back() + Higher;
+
+		MrBigInt p = q;
+		p *= Divisor;
+
+		assert(u >= p);
+		MrBigInt r = u - p;
+		r.IsNegative = false;
+		while (r.InternalUnits.size() > 1 || r.InternalUnits[0] > Divisor)
+		{
+			q += 1;
+			r -= Divisor;
+		}
+		OutQuotient->InternalUnits[0] = q;
+		assert(r.InternalUnits.size() == 1);
+		*OutRemainder = r.InternalUnits[0];
+
+		//Debug grejer
+		//MrBigInt TestInt = Higher;
+		//TestInt <<= 32;
+		//TestInt += Lower;
+		//MrBigInt TestRemainder;
+		//MrBigInt TestQuotient;
+		//TestInt.UnsignedDivide_MB(Divisor, TestRemainder, TestQuotient);
+		//assert(OutRemainder[0] == TestRemainder.InternalUnits[0]);
+		//assert(OutQuotient[0] == TestQuotient.InternalUnits[0]);
+		return;
+#ifdef MB_USE_NATIVE_DIV
+		//Debug
+		unsigned __int64 HIgherCopy = Higher;
+		unsigned __int64 Modolu;
+		unsigned __int64 HighQuotient = 0;
+		//TODO optimera denna kod, suger röv, men har ingen aning om hur man ska få end 2xUnitype/1xUnitype att ge en 2xUnitType kvot
+		if (Higher >= Divisor)
+		{
+			HighQuotient = _udiv128(0, Higher, Divisor, &Modolu);
+			Higher = Modolu;
+			OutQuotient[1] = HighQuotient;
+		}
+		unsigned __int64 LowerQuotient = _udiv128(Higher, Lower, Divisor, &Modolu);
+		OutQuotient[0] = LowerQuotient;
+		*OutRemainder = Modolu;
+
+
+		//Debug grejer
+		//MrBigInt DebugInt = HIgherCopy;
+		//DebugInt <<= UNIT_BITS;
+		//DebugInt += Lower;
+		//MrBigInt DebugRemainder;
+		//MrBigInt DebugQuotient;
+		//DebugInt.UnsignedDivide_MB(Divisor, DebugRemainder, DebugQuotient);
+		//assert(DebugRemainder.InternalUnits[0] == *OutRemainder);
+		//assert(DebugQuotient.InternalUnits[0] == OutQuotient[0]);
+		//if (DebugQuotient.InternalUnits.size() == 2)
+		//{
+		//	assert(DebugQuotient.InternalUnits[1] == OutQuotient[1]);
+		//}
+
+
+		//unsigned __int64 HighWord = 0;
+		//while (Higher >= Divisor)
+		//{
+		//	unsigned __int64 IntToSubtractHigh = 0;
+		//	unsigned __int64 IntToSubtractLow = _umul128(Quotient, Divisor,&IntToSubtractHigh);
+		//	unsigned __int64 LowerCopy = Lower;
+		//	Lower -= IntToSubtractLow;
+		//	if (Lower > IntToSubtractLow)
+		//	{
+		//		Higher -= 1;
+		//	}
+		//	Higher -= IntToSubtractHigh;
+		//	Quotient = _udiv128(Higher, Lower, Divisor, &Modolu);
+		//	HighWord = Quotient;
+		//}
+		//OutQuotient[1] = HighWord;
+#endif
+	}
+	static void SingleLimbDivision(UnitType const* IntToDivideUnits, unsigned int NumberOfUnits, UnitType Divident, MrBigInt& OutQuotient, UnitType& OutRemainder)
+	{
+		//MrBigInt Temp;
+		//MrBigInt Temp2;
+		//Temp.InternalUnits.assign(IntToDivideUnits, IntToDivideUnits+NumberOfUnits);
+		//Temp.UnsignedDivide_MB(Divident, Temp2, OutQuotient);
+		//OutRemainder = Temp2.InternalUnits[0];
+		if (Divident == 1)
+		{
+			OutRemainder = 0;
+			OutQuotient.InternalUnits = std::vector<UnitType>(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
+			return;
+		}
+		int j = NumberOfUnits - 1;
+		UnitType r = 0;
+		MrBigInt TempResult;
+		UnitType NormalizedDivisor = UNIT_MAX / Divident;
+		//kopierar inten för att kunna normalisera den
+		MrBigInt IntToDivide;
+		IntToDivide.InternalUnits = std::vector<UnitType>(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
+		IntToDivide *= NormalizedDivisor;
+		Divident *= NormalizedDivisor;
+		TempResult.InternalUnits = std::vector<UnitType>(2, 0);
+		OutQuotient.InternalUnits = std::vector<UnitType>(j + 1, 0);
+		//UnitType DividentReciprocal = ReciproalUnit32(NormalizedDivisor);
+		UnitType DividentReciprocal = ReciproalUnit32(Divident);
+		do
+		{
+			assert(r < IntToDivide.InternalUnits[j]);
+			//DoubleUnitDivide(r, IntToDivide.InternalUnits[j], NormalizedDivisor, &TempResult, &r, &DividentReciprocal);
+			DoubleUnitDivide(r, IntToDivide.InternalUnits[j], Divident, &TempResult, &r, &DividentReciprocal);
+			//assert(TempResult.InternalUnits[1] == 1);
+			OutQuotient.InternalUnits[j] = TempResult.InternalUnits[0];
+			j -= 1;
+		} while (j >= 0);
+		OutQuotient.Normalize();
+		OutRemainder = r;
+		//deub grejer
+		//MrBigInt DebugInt;
+		//MrBigInt TempQuot;
+		//MrBigInt TempRemainder;
+		//DebugInt.InternalUnits.assign(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
+		//DebugInt.UnsignedDivide_MB(Divident, TempRemainder, TempQuot);
+		//assert(OutQuotient == TempQuot);
+		//assert(OutRemainder == TempRemainder.InternalUnits[0]);
+
+	}
 	static void KaratsubaMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
 	{
 		//bas = 2^32
@@ -1327,50 +1505,96 @@ public:
 	}
 	static void PowM_SlidinWindow(MrBigInt const& Base, MrBigInt const& Exponent, MrBigInt const& Mod, MrBigInt& OutResult)
 	{
+		//DEBUG GREJER
+		double TotalDivisionTime = 0;
+		double TotalMultiplicationTime = 0;
+		clock_t TempTimer = clock();
+
 		clock_t TotalTimeTimer = clock();
 		unsigned int K = 5;
-		unsigned int NumberOfIterations = (unsigned int)(std::pow(2, K - 1) - 1);
+		unsigned int NumberOfIterations = (1<<(K - 1)) - 1;
 		unsigned int t_ExponentBitLength = Exponent.GetBitLength();
-		std::vector<MrBigInt> GList = std::vector<MrBigInt>(NumberOfIterations*2+1);
+		std::vector<MrBigInt> GList = std::vector<MrBigInt>(NumberOfIterations*2+2);
 		//MrBigInt const& g = Base;
 		//MrBigInt const& g1 = Base;
 		//MrBigInt const& g2 = (g1 * g1)%Mod;
 		GList[1] = Base;
 		GList[2] = (GList[1]*GList[1])%Mod;
-		for (size_t i = 1; i <= NumberOfIterations; i+=2)
+		for (size_t i = 1; i <= NumberOfIterations; i+=1)
 		{
 			GList[i * 2 + 1] = (GList[2] * GList[i * 2 - 1]) % Mod;
 		}
-		MrBigInt A(1);
-		unsigned int i = t_ExponentBitLength;
+		OutResult =  MrBigInt(1);
+		int i = t_ExponentBitLength;
+		std::cout << "Klar med precomputation: " << (clock() - TotalTimeTimer) / double(CLOCKS_PER_SEC) << std::endl;
 		while (i >= 0)
 		{
 			if (Exponent.GetBitByIndex(i) == 0)
 			{
-				A *= A;
-				A %= Mod;
+				TempTimer = clock();
+				OutResult *= OutResult;
+				TotalMultiplicationTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+				TempTimer = clock();
+				OutResult %= Mod;
+				TotalDivisionTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
 				i -= 1;
 			}
 			else
 			{
 				//kalkylerar längden på bitstringen
-				unsigned int L = 2;
-				while ((i-1-L) <= K)
+				int L = i-K+1;
+				while ((i-1-L) <= K && L < i)
 				{
+					//L += 1;
+					if (Exponent.GetBitByIndex(L) == 1)
+					{
+						break;
+					}
 					L += 1;
 				}
-				i -= 1;
+				//räknar ut indexen i GListan som vi vill ha
+				UnitType TempIndex = L;
+				UnitType j = 0;
+				UnitType GListIndex = 0;
+				while (TempIndex <= i)
+				{
+					GListIndex += Exponent.GetBitByIndex(TempIndex) << j;
+					j += 1;
+					TempIndex += 1;
+				}
+				UnitType NumberOfSquare = i - L + 1;
+				for (size_t i = 0; i < NumberOfSquare; i++)
+				{
+					TempTimer = clock();
+					OutResult *= OutResult;
+					TotalMultiplicationTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+					TempTimer = clock();
+					OutResult %= Mod;
+					TotalDivisionTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+				}
+				assert(GListIndex % 2 == 1);
+				TempTimer = clock();
+				OutResult *= GList[GListIndex];
+				TotalMultiplicationTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+				TempTimer = clock();
+				OutResult %= Mod;
+				TotalDivisionTime += (clock() - TempTimer) / double(CLOCKS_PER_SEC);
+				assert(OutResult != 0);
+				i = L - 1;
 			}
 		}
-		std::cout << "Klar med precomputation: " << (clock() - TotalTimeTimer) / double(CLOCKS_PER_SEC) << std::endl;
-
-
-
-		std::cout << "Total time SlidinWindow: " << (clock() - TotalTimeTimer) / double(CLOCKS_PER_SEC);
+		double TotalTime = (clock() - TotalTimeTimer) / double(CLOCKS_PER_SEC);
+		double TotalOtherTime = TotalTime - TotalMultiplicationTime - TotalDivisionTime;
+		std::cout << "Total time SlidinWindow: " << TotalTime << std::endl;
+		std::cout << "Total Multiplication Time: " << TotalMultiplicationTime<<" Percent: "<<TotalMultiplicationTime/TotalTime << std::endl;
+		std::cout << "Total Division Time: " << TotalDivisionTime <<" Percent: "<<TotalDivisionTime/TotalTime <<std::endl;
+		std::cout << "Total other time: " << TotalOtherTime <<" Percent: "<< TotalOtherTime /TotalTime <<std::endl;
 	}
 	static void PowM(MrBigInt const& Base, MrBigInt const& Exponent, MrBigInt const& Mod,MrBigInt& OutResult)
 	{
 		//itererar över exponentsens bits
+		MrBigInt::PowM_SlidinWindow(Base, Exponent, Mod, OutResult);
+		return;
 		unsigned int ExponentBitSize = UNIT_BITS * Exponent.InternalUnits.size();
 		OutResult = MrBigInt(1);
 		MrBigInt BaseCopy(Base);
@@ -1463,7 +1687,7 @@ public:
 	MrBigInt PowM(MrBigInt const& Exponent, MrBigInt const& Mod)
 	{
 		MrBigInt ReturnValue;
-		MrBigInt::PowM(*this, Exponent, Mod, ReturnValue);
+		MrBigInt::PowM_SlidinWindow(*this, Exponent, Mod, ReturnValue);
 		return(ReturnValue);
 	}
 	MrBigInt Pow(unsigned int Exponent)
@@ -1719,7 +1943,7 @@ public:
 	{
 		MrBigInt Remainder;
 		MrBigInt Quotient;
-		UnsignedDivide(RightInt, Remainder, Quotient);
+		MrBigInt::UnsignedDivide_AOP(*this, RightInt, Remainder, Quotient);
 		IsNegative = false;
 		std::swap(Remainder.InternalUnits, InternalUnits);
 		return(*this);
@@ -1764,7 +1988,7 @@ public:
 		//långsam division, lång division
 		MrBigInt Remainder;
 		MrBigInt Quotient;
-		UnsignedDivide(RightInt, Remainder, Quotient);
+		MrBigInt::UnsignedDivide_AOP(*this, RightInt, Remainder, Quotient);
 		std::swap(InternalUnits, Quotient.InternalUnits);
 		if (IsNegative == RightInt.IsNegative)
 		{
