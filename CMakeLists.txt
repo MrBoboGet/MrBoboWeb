@@ -313,6 +313,8 @@ endif()
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "stdc++fs";
+        "${EXTLIBS_DIR}/SQLite/sqlite3.a"
+        "dl"
     )
 else()
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
