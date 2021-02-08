@@ -7,9 +7,19 @@ namespace MrPostOGet
 	struct RequestHandler
 	{
 		bool (*RequestPredicate)(const std::string& RequestData);
-		std::string(*RequestResponse)(const std::string& ResoureData, const std::string& ResourcePath);
+		std::string(*RequestResponse)(const std::string& ResoureData, HTTPServer* AssociatedServer);
 	};
 	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer);
+	
+	
+	
+	//convinience funktioner
+	inline std::string GetRequestContent(std::string const& RequestData)
+	{
+		size_t ContentStart = RequestData.find("\r\n\r\n")+4;
+		return(RequestData.substr(ContentStart));
+	}
+	
 	class HTTPServer
 	{
 	private:
@@ -25,6 +35,14 @@ namespace MrPostOGet
 			ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo), MBSockets::TraversalProtocol::TCP);
 			Port = PortToListenTo;
 			ContentPath = PathToResources;
+		}
+		std::string GenerateResponse(MBSockets::HTTPDocument const& Document)
+		{
+			return(MBSockets::GenerateRequest(Document));
+		}
+		std::string GetResourcePath(std::string const& DomainName)
+		{
+			return(ContentPath);
 		}
 		std::string LoadWholeFile(std::string const& FilePath)
 		{
@@ -92,14 +110,26 @@ namespace MrPostOGet
 		{
 		}
 	};
-	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
+	inline void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
 	{
-		ConnectedClient->EstablishSecureConnection();
+			MBError ConnectError = ConnectedClient->EstablishSecureConnection();
+		if (!ConnectError)
+		{
+			std::cout << ConnectError.ErrorMessage << std::endl;
+		}
 		std::string RequestData;
 		std::cout << RequestData << std::endl;
 		//v�ldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
-		while ((RequestData = ConnectedClient->GetNextRequestData()) != "" && ConnectedClient->IsConnected() && ConnectedClient->IsValid())
+		while ((RequestData = ConnectedClient->GetNextRequestData()) != "")
 		{
+			if (!ConnectedClient->IsConnected())
+			{
+				continue;
+			}
+			if (!ConnectedClient->IsValid())
+			{
+
+			}
 			//vi kollar om request handlersen har n�gon �sikt om datan, annars l�ter vi v�ran default getrequest handlar sk�ta allt 
 			bool HandlerHasHandled = false;
 			for (size_t i = 0; i < RequestHandlers.size(); i++)
@@ -107,8 +137,8 @@ namespace MrPostOGet
 				if (RequestHandlers[i].RequestPredicate(RequestData))
 				{
 					//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
-					std::string RequestResponse = RequestHandlers[i].RequestResponse(RequestData, ResourcesPath);
-					ConnectedClient->SendHTTPBody(RequestResponse);
+					std::string RequestResponse = RequestHandlers[i].RequestResponse(RequestData, AssociatedServer);
+					ConnectedClient->SendFullResponse(RequestResponse);
 					HandlerHasHandled = true;
 					break;
 				}

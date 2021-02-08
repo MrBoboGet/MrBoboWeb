@@ -1,0 +1,15 @@
+Higher = 1
+Lower = 1603210591
+Divisor = 3386463223
+DivisorReciprocal = 1152233178
+----------------------
+Higher = 2
+Lower = 1144821044
+Divisor = 3386463223
+DivisorReciprocal = 1152233178
+----------------------
+Higher = 2
+Lower = 1895557240
+Divisor = 3386463223
+DivisorReciprocal = 1152233178
+----------------------

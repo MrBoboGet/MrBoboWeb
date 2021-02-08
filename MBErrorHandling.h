@@ -11,6 +11,7 @@ public:
 	MBErrorType Type = MBErrorType::Null;
 	std::string ErrorMessage = "";
 	operator bool() const { return(Type == MBErrorType::OK); }
+	MBError& operator=(bool ValueToSet);
 	MBError(bool BoolInitialiser);
 	~MBError();
 };

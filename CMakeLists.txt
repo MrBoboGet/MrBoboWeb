@@ -106,15 +106,10 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 
 
-
-
-
-
-
-
-
-
-
+#Global variables
+set(EXTLIBS_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/"
+)
 
 
 set(PROJECT_NAME BasicChatCmake)
@@ -131,6 +126,15 @@ set(no_group_source_files
 )
 source_group("" FILES ${no_group_source_files})
 
+set(EXTLIBS_HEADER_FILES
+    "${EXTLIBS_DIR}/SQLite/sqlite3ext.h"
+    "${EXTLIBS_DIR}/SQLite/sqlite3.h"
+)
+set(EXTLIBS_SOURCE_FILES
+    #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
+    #"${EXTLIBS_DIR}/SQLite/shell.c"
+)
+
 set(Header_Files
     "Crawler/Crawler.h"
     "Crawler/StringGrejer.h"
@@ -143,18 +147,20 @@ set(Header_Files
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/TLSHandler.h"
     "SearchEngine/MBSearchEngine.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
+    "MrBoboDatabase/MPGMemeSite.h"
+    ${EXTLIBS_HEADER_FILES}
 )
 source_group("Header Files" FILES ${Header_Files})
 
 set(Source_Files
     "BasicChat/BasicChatMain.cpp"
-    "BasicChat/ClientSide.h"
-    "BasicChat/ServerSide.h"
-    "ClientSideWinsockSample.h"
     "BasiChatCmake.cpp"
     "MrPostOGet/TLSHandler.cpp"
-    "ServersideWinsockSample.h"
+    "MrBoboDatabase/MrBoboDatabase.cpp"
+    "MrBoboDatabase/MPGMemeSite.cpp"
+    #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
+message(${Source_Files})
 source_group("Source Files" FILES ${Source_Files})
 
 set(ALL_FILES
@@ -168,6 +174,12 @@ set(ALL_FILES
 ################################################################################
 add_executable(${PROJECT_NAME} ${ALL_FILES} "MrBoboChatt/MBChatConnection.h" "MrBoboChatt/MBCProtocols.h" "MrBoboChatt/MBCProtocols.cpp" "MrBoboChatt/MBChatConnection.cpp" "MBErrorHandling.h" "MBErrorHandling.cpp"  "MrBoboChatt/MrBoboChatt.cpp" "MBCertificateHandler/MBCertificateHandler.h")
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+
+
+#set_target_properties(${PROJECT_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}../../")
+#target_link_libraries(${PROJECT_NAME} "sqlite3")
+
+#target_sources(${PROJECT_NAME} PUBLIC ${EXTLIBS_SOURCE_FILES})
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -305,6 +317,7 @@ if(UNIX)
 else()
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "Ws2_32;"
+        "${EXTLIBS_DIR}/SQLite/sqlite3.lib"
     )
 endif()
 

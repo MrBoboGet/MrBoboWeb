@@ -12,6 +12,18 @@ MBError::MBError(bool BoolInitialiser)
 		Type = MBErrorType::Error;
 	}
 }
+MBError& MBError::operator=(bool BoolToSet)
+{
+	if (BoolToSet)
+	{
+		Type = MBErrorType::OK;
+	}
+	else
+	{
+		Type = MBErrorType::Error;
+	}
+	return(*this);
+}
 MBError::~MBError()
 {
 

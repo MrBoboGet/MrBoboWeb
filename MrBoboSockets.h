@@ -619,6 +619,7 @@ namespace MBSockets
 		HTML,
 		png,
 		jpg,
+		json,
 		Null
 	};
 	struct HTTPDocument
@@ -646,6 +647,10 @@ namespace MBSockets
 		else if (DocumentToSend.Type == HTTPDocumentType::jpg)
 		{
 			Request += "image/jpg";
+		}
+		else if (DocumentToSend.Type == HTTPDocumentType::json)
+		{
+			Request += "application/json";
 		}
 		Request += "Accept-Ranges: bytes\n";
 		Request += "Content-Length: " + std::to_string(DocumentToSend.DocumentData.size()) + "\n\r\n";
@@ -740,6 +745,10 @@ namespace MBSockets
 		{
 			std::string Request = GenerateRequest(Data);
 			SendWithTls(Request);
+		}
+		void SendFullResponse(std::string const& DataToSend)
+		{
+			SendWithTls(DataToSend);
 		}
 		void SendHTTPDocument(HTTPDocument const& DocumentToSend)
 		{
