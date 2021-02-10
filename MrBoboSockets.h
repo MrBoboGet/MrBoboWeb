@@ -620,6 +620,8 @@ namespace MBSockets
 		png,
 		jpg,
 		json,
+		ts,
+		m3u8,
 		Null
 	};
 	struct HTTPDocument
@@ -642,15 +644,23 @@ namespace MBSockets
 		}
 		else if (DocumentToSend.Type == HTTPDocumentType::png)
 		{
-			Request += "image/png";
+			Request += "image/png\n";
 		}
 		else if (DocumentToSend.Type == HTTPDocumentType::jpg)
 		{
-			Request += "image/jpg";
+			Request += "image/jpg\n";
 		}
 		else if (DocumentToSend.Type == HTTPDocumentType::json)
 		{
-			Request += "application/json";
+			Request += "application/json\n";
+		}
+		else if (DocumentToSend.Type == HTTPDocumentType::ts)
+		{
+			Request += "video/MP2T\n";
+		}
+		else if (DocumentToSend.Type == HTTPDocumentType::m3u8)
+		{
+			Request += "application/x-mpegURL\n";
 		}
 		Request += "Accept-Ranges: bytes\n";
 		Request += "Content-Length: " + std::to_string(DocumentToSend.DocumentData.size()) + "\n\r\n";

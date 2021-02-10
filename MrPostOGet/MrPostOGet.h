@@ -57,7 +57,7 @@ namespace MrPostOGet
 		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath)
 		{
 			MBSockets::HTTPDocument ReturnValue;
-			std::string ResourceExtension = ResourcePath.substr(ResourcePath.find_last_of("."));
+			std::string ResourceExtension = ResourcePath.substr(ResourcePath.find_last_of(".")+1);
 			if (ResourceExtension == "png")
 			{
 				ReturnValue.Type = MBSockets::HTTPDocumentType::png;
@@ -69,6 +69,14 @@ namespace MrPostOGet
 			else if (ResourceExtension == "jpg")
 			{
 				ReturnValue.Type = MBSockets::HTTPDocumentType::jpg;
+			}
+			else if (ResourceExtension == "ts")
+			{
+				ReturnValue.Type = MBSockets::HTTPDocumentType::ts;
+			}
+			else if (ResourceExtension == "m3u8")
+			{
+				ReturnValue.Type = MBSockets::HTTPDocumentType::m3u8;
 			}
 			else
 			{

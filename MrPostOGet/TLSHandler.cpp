@@ -1318,7 +1318,19 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 		{
 			ClientVerifyDataMessage.push_back(NewMessages[i]);
 		}
-		if (NewMessages.back() == "FatalErrorOccured" || NewMessages.size() == 0)
+		bool ErrorOccured = false;
+		if (NewMessages.size() == 0)
+		{
+			ErrorOccured = true;
+		}
+		else
+		{
+			if (NewMessages.back() == "FatalErrorOccured")
+			{
+				ErrorOccured = true;
+			}
+		}
+		if (ErrorOccured)
 		{
 			ErrorToReturn = false;
 			ErrorToReturn.ErrorMessage = "Error in recieving client response";
