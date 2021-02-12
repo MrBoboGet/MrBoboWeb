@@ -44,16 +44,16 @@ int main()
 	TestData.read((char*)NumberData.c_str(), 1024);
 	//TestData << NumberData;
 	//exit(0);
-	MrBigInt NumberToPowM;
-	NumberToPowM.SetFromBigEndianArray(NumberData.c_str(), NumberData.size());
-	RSADecryptInfo DecryptInfo = TLSHandler().GetRSADecryptInfo("mrboboget.se");
-	MrBigInt Result;
-	MrBigInt SlidingResult;
-	MrBigInt::PowM(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, Result);
-	MrBigInt::PowM_SlidinWindow(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, SlidingResult);
-	std::cout << Result.GetHexEncodedString() << std::endl;
-	std::cout << SlidingResult.GetHexEncodedString() << std::endl;
-	assert(SlidingResult == Result);
+	//MrBigInt NumberToPowM;
+	//NumberToPowM.SetFromBigEndianArray(NumberData.c_str(), NumberData.size());
+	//RSADecryptInfo DecryptInfo = TLSHandler().GetRSADecryptInfo("mrboboget.se");
+	//MrBigInt Result;
+	//MrBigInt SlidingResult;
+	//MrBigInt::PowM(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, Result);
+	//MrBigInt::PowM_SlidinWindow(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, SlidingResult);
+	//std::cout << Result.GetHexEncodedString() << std::endl;
+	//std::cout << SlidingResult.GetHexEncodedString() << std::endl;
+	//assert(SlidingResult == Result);
 	const char* TestDatabas = "./TestDatabas";
 	MBDB::MrBoboDatabase TestDatabase(TestDatabas,0);
 	auto TestQuerry = TestDatabase.GetAllRows("SELECT * FROM Memes");
@@ -63,6 +63,7 @@ int main()
 	//*/
 	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
 	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
+	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
 	TestServer.StartListening();
 	return(0);
 	//sqlite3_prepare("HejsanSvejsan");

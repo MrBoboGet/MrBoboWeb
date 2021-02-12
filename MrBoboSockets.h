@@ -102,6 +102,7 @@ namespace MBSockets
 		bool Invalid = false;
 		bool ConnectionClosed = false;
 		std::string LastErrorMessage = "";
+		//bool ChunksRemaining = true;
 		//borde finnas en variabel f�r att vissa att den �r invalid
 		std::string GetLastError()
 		{
@@ -203,6 +204,43 @@ namespace MBSockets
 				{
 					MaxRecieveSize = 500;
 					Buffer = (char*)realloc(Buffer, TotalLengthOfData + 500);
+					assert(Buffer != nullptr);
+				}
+				else
+				{
+					break;
+				}
+			}
+			std::string ReturnValue(Buffer, TotalLengthOfData);
+			free(Buffer);
+			return(ReturnValue);
+		}
+		std::string GetNextRequestData(int MaxNumberOfBytes)
+		{
+			//int InitialBufferSize = 1000;
+			int InitialBufferSize = std::min(16500,MaxNumberOfBytes);
+			char* Buffer = (char*)malloc(InitialBufferSize);
+			int MaxRecieveSize = InitialBufferSize;
+			int LengthOfDataRecieved = 0;
+			int TotalLengthOfData = 0;
+			//assert(Buffer != nullptr);
+			//assert(sizeof(Buffer) != 8 * InitialBufferSize);
+			//assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
+			while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
+			{
+				TotalLengthOfData += LengthOfDataRecieved;
+				if (TotalLengthOfData >= MaxNumberOfBytes)
+				{
+					break;
+				}
+				if (LengthOfDataRecieved == MaxRecieveSize)
+				{
+					MaxRecieveSize = InitialBufferSize;
+					if (TotalLengthOfData + MaxRecieveSize > MaxNumberOfBytes)
+					{
+						MaxRecieveSize = MaxNumberOfBytes - TotalLengthOfData;
+					}
+					Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
 					assert(Buffer != nullptr);
 				}
 				else
@@ -503,6 +541,20 @@ namespace MBSockets
 			return(HeaderContent.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
 		}
 	}
+	inline std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent)
+	{
+		std::vector<std::string> ReturnValue = {};
+		std::string StringToSearchFor = HeaderTag + ": ";
+		size_t StringPosition = HeaderContent.find(StringToSearchFor);
+		int FirstEndlineAfterContentPos = HeaderContent.find("\n", StringPosition);
+		while (StringPosition != HeaderContent.npos)
+		{
+			ReturnValue.push_back(HeaderContent.substr(StringPosition + StringToSearchFor.size(), FirstEndlineAfterContentPos - (StringPosition + StringToSearchFor.size())));
+			StringPosition = HeaderContent.find(StringToSearchFor,StringPosition+StringToSearchFor.size());
+			FirstEndlineAfterContentPos = HeaderContent.find("\n", StringPosition);
+		}
+		return(ReturnValue);
+	}
 	inline int HexToDec(std::string NumberToConvert)
 	{
 		int ReturnValue = 0;
@@ -629,39 +681,44 @@ namespace MBSockets
 		HTTPDocumentType Type = HTTPDocumentType::Null;
 		std::string DocumentData;
 	};
+	inline std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert)
+	{
+		std::string ReturnValue = "";
+		if (TypeToConvert == HTTPDocumentType::OctetString)
+		{
+			ReturnValue += "application/octet-stream";
+		}
+		else if (TypeToConvert == HTTPDocumentType::HTML)
+		{
+			ReturnValue += "text/html";
+		}
+		else if (TypeToConvert == HTTPDocumentType::png)
+		{
+			ReturnValue += "image/png";
+		}
+		else if (TypeToConvert == HTTPDocumentType::jpg)
+		{
+			ReturnValue += "image/jpg";
+		}
+		else if (TypeToConvert == HTTPDocumentType::json)
+		{
+			ReturnValue += "application/json";
+		}
+		else if (TypeToConvert == HTTPDocumentType::ts)
+		{
+			ReturnValue += "video/MP2T";
+		}
+		else if (TypeToConvert == HTTPDocumentType::m3u8)
+		{
+			ReturnValue += "application/x-mpegURL";
+		}
+		return(ReturnValue);
+	}
 	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
 	{
 		std::string Request = "";
 		Request += "HTTP/1.1 200 OK\n";
-		Request += "Content-Type: ";
-		if(DocumentToSend.Type == HTTPDocumentType::OctetString)
-		{
-			Request += "application/octet-stream\n";
-		}
-		else if(DocumentToSend.Type == HTTPDocumentType::HTML)
-		{
-			Request += "text/html\n";
-		}
-		else if (DocumentToSend.Type == HTTPDocumentType::png)
-		{
-			Request += "image/png\n";
-		}
-		else if (DocumentToSend.Type == HTTPDocumentType::jpg)
-		{
-			Request += "image/jpg\n";
-		}
-		else if (DocumentToSend.Type == HTTPDocumentType::json)
-		{
-			Request += "application/json\n";
-		}
-		else if (DocumentToSend.Type == HTTPDocumentType::ts)
-		{
-			Request += "video/MP2T\n";
-		}
-		else if (DocumentToSend.Type == HTTPDocumentType::m3u8)
-		{
-			Request += "application/x-mpegURL\n";
-		}
+		Request += "Content-Type: "+GetMIMEFromDocumentType(DocumentToSend.Type)+"\n";
 		Request += "Accept-Ranges: bytes\n";
 		Request += "Content-Length: " + std::to_string(DocumentToSend.DocumentData.size()) + "\n\r\n";
 		Request += DocumentToSend.DocumentData;
@@ -703,45 +760,183 @@ namespace MBSockets
 				}
 			}
 		}
+		bool ChunksRemaining = false;
+		bool RequestIsChunked = false;
+		int CurrentChunkSize = 0;
+		int CurrentChunkParsed = 0;
+		
+		int CurrentContentLength = 0;
+		int ParsedContentData = 0;
 	public:
+		bool DataIsAvailable()
+		{
+			if (ChunksRemaining || (ParsedContentData != CurrentContentLength))
+			{
+				return(true);
+			}
+			else
+			{
+				std::cout << "Nu blev det falskt " << std::endl;
+			}
+		}
 		HTTPServerSocket(std::string Port, TraversalProtocol TraversalProto) : ServerSocket(Port, TraversalProto)
 		{
 
 		}
-		std::string  GetNextRequestData()
+		int GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data,int& OutChunkDataBeginning)
+		{
+			int ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
+			std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
+			OutChunkDataBeginning = ChunkHeaderEnd + 2;
+			return(std::stoi(NumberOfChunkBytes));
+		}
+		std::string UpdateAndDeChunkData(std::string const& ChunkedData)
 		{
 			std::string ReturnValue = "";
-			if (!SocketTlsHandler.EstablishedSecureConnection())
+			int ChunkDataToReadPosition = 0;
+			if (CurrentChunkSize == 0)
 			{
-				int InitialBufferSize = 1000;
-				char* Buffer = (char*)malloc(InitialBufferSize);
-				int MaxRecieveSize = InitialBufferSize;
-				int LengthOfDataRecieved = 0;
-				int TotalLengthOfData = 0;
-				assert(Buffer != nullptr);
-				assert(sizeof(Buffer) != 8 * InitialBufferSize);
-				assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
-				while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
-				{
-					TotalLengthOfData += LengthOfDataRecieved;
-					if (LengthOfDataRecieved == MaxRecieveSize)
-					{
-						MaxRecieveSize = 500;
-						Buffer = (char*)realloc(Buffer, TotalLengthOfData + 500);
-						assert(Buffer != nullptr);
-					}
-					else
-					{
-						break;
-					}
-				}
-				ReturnValue = std::string(Buffer, TotalLengthOfData);
-				free(Buffer);
+				//detta innebär att vi är i den första chunken som innehåller headern
+				int NextChunkHeaderPosition = ChunkedData.find("\n\r\n") + 3;
+				ReturnValue += ChunkedData.substr(0, NextChunkHeaderPosition);
+				int ChunkHeaderEnd = ChunkedData.find("\r\n", NextChunkHeaderPosition);
+				std::string NumberOfChunkBytes = ChunkedData.substr(NextChunkHeaderPosition, ChunkHeaderEnd - NextChunkHeaderPosition);
+				CurrentChunkSize = std::stoi(NumberOfChunkBytes);
+				CurrentChunkParsed = 0;
+				
+				int ChunkDataToReadPosition = ChunkHeaderEnd + 2;
 			}
 			else
 			{
-				ReturnValue = SocketTlsHandler.GetApplicationData(this);
-				//Kollar lite att det stämmer osv
+				int ChunkDataToReadPosition = CurrentChunkParsed;
+
+			}
+			while (ChunkDataToReadPosition != ChunkedData.size() && CurrentChunkSize != 0)
+			{
+				int MaxByteToParse = CurrentChunkSize - CurrentChunkParsed;
+				int AvailableBytes = ChunkedData.size() - ChunkDataToReadPosition;
+				int BytesToRead = std::min(MaxByteToParse, AvailableBytes);
+				//vi antar alltid att chunked headers skickas i helhet
+				ReturnValue += ChunkedData.substr(ChunkDataToReadPosition, BytesToRead);
+				//nu header
+				CurrentChunkParsed += BytesToRead;
+				if (CurrentChunkParsed == CurrentChunkSize)
+				{
+					CurrentChunkSize = GetNextChunkSize(ChunkDataToReadPosition + BytesToRead, ChunkedData, ChunkDataToReadPosition);
+				}
+				if (CurrentChunkSize == 0)
+				{
+					ChunksRemaining = false;
+					RequestIsChunked = false;
+					CurrentChunkSize = 0;
+					CurrentChunkParsed = 0;
+				}
+			}
+			if (CurrentChunkSize != 0)
+			{
+				ChunksRemaining = true;
+				RequestIsChunked = true;
+			}
+			return(ReturnValue);
+		}
+		std::string  GetNextRequestData()
+		{
+			std::string ReturnValue = "";
+			std::string ContentLengthString = "NULL";
+			int ContentLength = 0;
+			int HeaderLength = 0;
+			int MaxDataInMemory = 1650000*2;
+			int TotalRecievedData = 0;
+			while (true)
+			{
+				if (!SocketTlsHandler.EstablishedSecureConnection())
+				{
+					//int InitialBufferSize = 16500;
+					//char* Buffer = (char*)malloc(InitialBufferSize);
+					//int MaxRecieveSize = InitialBufferSize;
+					//int LengthOfDataRecieved = 0;
+					//int TotalLengthOfData = 0;
+					//assert(Buffer != nullptr);
+					//assert(sizeof(Buffer) != 8 * InitialBufferSize);
+					//assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
+					//while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
+					//{
+					//	TotalLengthOfData += LengthOfDataRecieved;
+					//	if (LengthOfDataRecieved == MaxRecieveSize)
+					//	{
+					//		MaxRecieveSize = 16500;
+					//		Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
+					//		assert(Buffer != nullptr);
+					//	}
+					//	else
+					//	{
+					//		break;
+					//	}
+					//}
+					//ReturnValue += std::string(Buffer, TotalLengthOfData);
+					//free(Buffer);
+					ReturnValue += Socket::GetNextRequestData(MaxDataInMemory - TotalRecievedData);
+				}
+				else
+				{
+					ReturnValue += SocketTlsHandler.GetApplicationData(this,MaxDataInMemory-TotalRecievedData);
+					//Kollar lite att det stämmer osv
+				}
+				TotalRecievedData = ReturnValue.size();
+				if (CurrentContentLength == 0)
+				{
+					if (ContentLengthString == "NULL")
+					{
+						HeaderLength = ReturnValue.find("\r\n\r\n") + 4;
+						ContentLengthString = GetHeaderValue("Content-Length", ReturnValue);
+						if (ContentLengthString != "")
+						{
+							ContentLength = std::stoi(ContentLengthString);
+						}
+					}
+					if (ContentLengthString == "" || ReturnValue.size() - HeaderLength >= ContentLength)
+					{
+						break;
+					}
+					if (ReturnValue.size() > MaxDataInMemory)
+					{
+						if (ContentLength != 0)
+						{
+							CurrentContentLength = ContentLength;
+							ParsedContentData = ReturnValue.size() - HeaderLength;
+						}
+						break;
+					}
+				}
+				else
+				{
+					//ParsedContentData += ReturnValue.size();
+					if (ParsedContentData+ReturnValue.size() >= CurrentContentLength)
+					{
+						CurrentContentLength = 0;
+						ParsedContentData = 0;
+						break;
+					}
+					if (ReturnValue.size() > MaxDataInMemory)
+					{
+						ParsedContentData += ReturnValue.size();
+						break;
+					}
+				}
+			}
+			//kollar huruvida vi har en content-length tag, har vi det så appendearr vi den till det blir rätt
+			if (RequestIsChunked == false)
+			{
+				//innebär att detta är den första requesten, vilket innebär att vi vill se om den är hel eller chunked
+				std::vector<std::string> TransferEncodings = GetHeaderValues("Transfer-Encoding", ReturnValue);
+				for (size_t i = 0; i < TransferEncodings.size(); i++)
+				{
+					if (TransferEncodings[i] == "chunked")
+					{
+						RequestIsChunked = true;
+						break;
+					}
+				}
 			}
 			return(ReturnValue);
 		}
@@ -764,6 +959,19 @@ namespace MBSockets
 		{
 			std::string DataToSend = GenerateRequest(DocumentToSend);
 			SendWithTls(DataToSend);
+		}
+		std::string GetNextChunkData()
+		{
+			std::string NewData = GetNextRequestData();
+			if (RequestIsChunked)
+			{
+				std::string ReturnValue = UpdateAndDeChunkData(NewData);
+				return(ReturnValue);
+			}
+			else
+			{
+				return(NewData);
+			}
 		}
 	};
 	class ThreadPool;

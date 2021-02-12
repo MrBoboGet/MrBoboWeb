@@ -51,3 +51,5 @@ cmake_install.cmake
 /ServerResources/mrboboget.se/HTMLResources/.well-known/
 /CMakeCache.txt
 /ServerResources/..gitignore.swp
+/Ossian*
+/*BlueLobster*

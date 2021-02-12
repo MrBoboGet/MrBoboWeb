@@ -1646,9 +1646,9 @@ void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::Socket* Ass
 		}
 	}
 }
-std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket)
+std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket,int MaxNumberOfBytes)
 {
-	std::vector<std::string> ApplicationDataRecords = GetNextPlaintextRecords((MBSockets::ConnectSocket*)AssociatedSocket);
+	std::vector<std::string> ApplicationDataRecords = GetNextPlaintextRecords((MBSockets::ConnectSocket*)AssociatedSocket,MaxNumberOfBytes);
 	//nu så bara klistrat vi ihop datan och skickar tillbaka den
 	//OBS! Vi kan inte här se till att all data vi letar efter faktiskt är med, det får vi göra längre i call hierarkin
 	std::string SentApplicationData = "";
@@ -1658,7 +1658,7 @@ std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket)
 	}
 	return(SentApplicationData);
 }
-std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect)
+std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes)
 {
 	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
 	bool WaitingForApplicationData = true;
@@ -1666,32 +1666,62 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 	//processadata med typ protokoll grejer antar jag
 	while (WaitingForApplicationData)
 	{
-		std::string RawData = SocketToConnect->GetNextRequestData();
-		if (RawData == "")
+		//max är egentligen 2<<14+2048+5, men varför inte ha lite marginal
+		int MaxEncryptedRecordSize = (2 << 14) + 2048 + 100;
+		if (MaxNumberOfBytes < MaxEncryptedRecordSize)
+		{
+			MaxNumberOfBytes = MaxEncryptedRecordSize;
+		}
+		std::string RawData = RecieveDataState.CurrentRecordPreviousData;
+		int TotalRecievedData = RawData.size();
+		std::string NewData = SocketToConnect->GetNextRequestData(MaxNumberOfBytes-TotalRecievedData);
+		if (NewData == "")
 		{
 			return(ReturnValue);
 		}
+		RawData += NewData;
+		TotalRecievedData = RawData.size();
 		std::vector<std::string> RawDataProtocols = std::vector<std::string>(0);
 		uint64_t OffsetOfProcessedRecords = 0;
 		//när vi vet att datan vi fått är krytperad vill vi innan vi går vidare med rseten av logiken decryptera den
 		//Ny paradigm, vi går igenom vår data, kollar igenom och appendar alla hela records vi hittar, finns det kvar så slutar vi helt enkelt
 		while (true)
 		{
-			TLS1_2::NetWorkDataHandler DataReader(reinterpret_cast<const uint8_t*> (&RawData.c_str()[OffsetOfProcessedRecords]));
-			while(RawData.size()-OffsetOfProcessedRecords < 5)
+			while(RawData.size()-OffsetOfProcessedRecords < 5 && TotalRecievedData < MaxNumberOfBytes)
 			{
-				RawData += SocketToConnect->GetNextRequestData();
+				RawData += SocketToConnect->GetNextRequestData(MaxNumberOfBytes-TotalRecievedData);
+				TotalRecievedData = RawData.size();
 			}
+
+			if (TotalRecievedData >= MaxNumberOfBytes && RawData.size()-OffsetOfProcessedRecords < 5)
+			{
+				//avbryts mitt i, sparar nuvarande datan
+				RecieveDataState.CurrentRecordPreviousData = RawData.substr(OffsetOfProcessedRecords);
+				break;
+			}
+
+			TLS1_2::NetWorkDataHandler DataReader(reinterpret_cast<const uint8_t*> (&RawData.c_str()[OffsetOfProcessedRecords]));
 			DataReader.Extract24();
 			uint64_t LengthOfRecord = DataReader.Extract16();
-			while(RawData.size()-OffsetOfProcessedRecords-5 < LengthOfRecord)
+			while(RawData.size()-OffsetOfProcessedRecords-5 < LengthOfRecord && TotalRecievedData < MaxNumberOfBytes)
 			{
-				RawData += SocketToConnect->GetNextRequestData();
+				RawData += SocketToConnect->GetNextRequestData(MaxNumberOfBytes - TotalRecievedData);
+				TotalRecievedData = RawData.size();
 			}
+
+			if (TotalRecievedData >= MaxNumberOfBytes && RawData.size() - OffsetOfProcessedRecords - 5 < LengthOfRecord)
+			{
+				//avbryts mitt i, sparar nuvarande datan
+				RecieveDataState.CurrentRecordPreviousData = RawData.substr(OffsetOfProcessedRecords);
+				break;
+			}
+
 			RawDataProtocols.push_back(RawData.substr(OffsetOfProcessedRecords,5 + LengthOfRecord));
 			OffsetOfProcessedRecords += (5 + LengthOfRecord);
 			if (OffsetOfProcessedRecords == RawData.size())
 			{
+				//avbröts på ett clean sett, reverta staten av tcp grejen
+				RecieveDataState.CurrentRecordPreviousData = "";
 				break;
 			}
 		}

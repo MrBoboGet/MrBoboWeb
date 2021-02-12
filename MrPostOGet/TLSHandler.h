@@ -712,6 +712,13 @@ struct RSADecryptInfo
 	MrBigInt PrivateExponent = MrBigInt(0);
 	MrBigInt PublicModulu = MrBigInt(0);
 };
+struct TLS_TCP_State
+{
+	int CurrentRecordSize = 0;
+	int CurrentRecordParsed = 0;
+	std::string CurrentRecordPreviousData = "";
+	std::vector<std::string> StoredRecords = {};
+};
 class TLSHandler
 {
 private:
@@ -745,6 +752,7 @@ private:
 	TLS1_2::SecurityParameters GetCachedSession(std::string const& SessiondID);
 	bool IsConnected = false;
 	void SendCloseNotfiy(MBSockets::Socket* SocketToUse);
+	TLS_TCP_State RecieveDataState;
 public:
 	TLSHandler();
 	bool ConnectionIsActive() { return(IsConnected); };
@@ -779,7 +787,7 @@ public:
 	bool VerifyMac(std::string Hash, TLS1_2::TLS1_2GenericRecord RecordToEncrypt);
 	std::string DecryptBlockcipherRecord(std::string Data);
 	void SendDataAsRecord(std::string const& Data, MBSockets::Socket* AssociatedSocket);
-	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket);
-	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect);
+	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket,int MaxNumberOfBytes = 1000000);
+	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes = 1000000);
 	~TLSHandler();
 };

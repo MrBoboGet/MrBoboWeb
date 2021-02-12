@@ -7,7 +7,7 @@ namespace MrPostOGet
 	struct RequestHandler
 	{
 		bool (*RequestPredicate)(const std::string& RequestData);
-		std::string(*RequestResponse)(const std::string& ResoureData, HTTPServer* AssociatedServer);
+		MBSockets::HTTPDocument(*RequestResponse)(const std::string& ResoureData, HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedSocket);
 	};
 	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer);
 	
@@ -106,12 +106,15 @@ namespace MrPostOGet
 				//	//error handla
 				//	continue;
 				//}
-				NumberOfConnections += 1;
-				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
-				ServerSocketen->TransferConnectedSocket(*NewSocket);
-				std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket,ServerRequestHandlers, ContentPath,this);
-				CurrentActiveThreads.push_back(NewThread);
-				std::cout << NumberOfConnections << std::endl;
+				if (ServerSocketen->IsValid())
+				{
+					NumberOfConnections += 1;
+					MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
+					ServerSocketen->TransferConnectedSocket(*NewSocket);
+					std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket, ServerRequestHandlers, ContentPath, this);
+					CurrentActiveThreads.push_back(NewThread);
+					std::cout << NumberOfConnections << std::endl;
+				}
 			}
 		}
 		~HTTPServer()
@@ -120,7 +123,7 @@ namespace MrPostOGet
 	};
 	inline void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
 	{
-			MBError ConnectError = ConnectedClient->EstablishSecureConnection();
+		MBError ConnectError = ConnectedClient->EstablishSecureConnection();
 		if (!ConnectError)
 		{
 			std::cout << ConnectError.ErrorMessage << std::endl;
@@ -128,7 +131,7 @@ namespace MrPostOGet
 		std::string RequestData;
 		std::cout << RequestData << std::endl;
 		//v�ldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
-		while ((RequestData = ConnectedClient->GetNextRequestData()) != "")
+		while ((RequestData = ConnectedClient->GetNextChunkData()) != "")
 		{
 			if (!ConnectedClient->IsConnected())
 			{
@@ -145,13 +148,13 @@ namespace MrPostOGet
 				if (RequestHandlers[i].RequestPredicate(RequestData))
 				{
 					//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
-					std::string RequestResponse = RequestHandlers[i].RequestResponse(RequestData, AssociatedServer);
-					ConnectedClient->SendFullResponse(RequestResponse);
+					MBSockets::HTTPDocument RequestResponse = RequestHandlers[i].RequestResponse(RequestData, AssociatedServer,ConnectedClient);
+					ConnectedClient->SendHTTPDocument(RequestResponse);
 					HandlerHasHandled = true;
 					break;
 				}
 			}
-			if (HandlerHasHandled)
+				if (HandlerHasHandled)
 			{
 				continue;
 			}
