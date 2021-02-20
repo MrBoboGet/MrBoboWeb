@@ -674,13 +674,91 @@ namespace MBSockets
 		json,
 		ts,
 		m3u8,
+		mkv,
+		javascript,
+		css,
 		Null
 	};
 	struct HTTPDocument
 	{
 		HTTPDocumentType Type = HTTPDocumentType::Null;
 		std::string DocumentData;
+		std::string DocumentDataFileReference = "";
 	};
+	inline HTTPDocumentType DocumentTypeFromFileExtension(std::string const& FileExtension)
+	{
+		HTTPDocumentType ReturnValue = HTTPDocumentType::Null;
+		if (FileExtension == "png")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::png;
+		}
+		else if (FileExtension == "html" || FileExtension == "htm")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::HTML;
+		}
+		else if (FileExtension == "jpg")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::jpg;
+		}
+		else if (FileExtension == "ts")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::ts;
+		}
+		else if (FileExtension == "m3u8")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::m3u8;
+		}
+		else if (FileExtension == "mkv")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::mkv;
+		}
+		else if (FileExtension == "js")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::javascript;
+		}
+		else if (FileExtension == "css")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::css;
+		}
+		return(ReturnValue);
+	}
+	enum class MediaType
+	{
+		Video,
+		Audio,
+		Image,
+		Text,
+		PDf,
+		Null
+	};
+	inline MediaType GetMediaTypeFromExtension(std::string const& FileExtension)
+	{
+		if (FileExtension == "mp4")
+		{
+			return(MediaType::Video);
+		}
+		else if (FileExtension == "mkv")
+		{
+			return(MediaType::Video);
+		}
+		else if (FileExtension == "MOV")
+		{
+			return(MediaType::Video);
+		}
+		else if(FileExtension == "mp3")
+		{
+			return(MediaType::Video);
+		}
+		else if (FileExtension == "png")
+		{
+			return(MediaType::Image);
+		}
+		else if (FileExtension == "jpg")
+		{
+			return(MediaType::Image);
+		}
+		return(MediaType::Null);
+	}
 	inline std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert)
 	{
 		std::string ReturnValue = "";
@@ -712,6 +790,22 @@ namespace MBSockets
 		{
 			ReturnValue += "application/x-mpegURL";
 		}
+		else if (TypeToConvert == HTTPDocumentType::mkv)
+		{
+			ReturnValue += "video/x-matroska";
+		}
+		else if (TypeToConvert == HTTPDocumentType::javascript)
+		{
+			ReturnValue += "text/javascript";
+		}
+		else if (TypeToConvert == HTTPDocumentType::css)
+		{
+			ReturnValue += "text/css";
+		}
+		else
+		{
+			ReturnValue += "application/octet-stream";
+		}
 		return(ReturnValue);
 	}
 	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
@@ -720,8 +814,23 @@ namespace MBSockets
 		Request += "HTTP/1.1 200 OK\n";
 		Request += "Content-Type: "+GetMIMEFromDocumentType(DocumentToSend.Type)+"\n";
 		Request += "Accept-Ranges: bytes\n";
-		Request += "Content-Length: " + std::to_string(DocumentToSend.DocumentData.size()) + "\n\r\n";
-		Request += DocumentToSend.DocumentData;
+		Request += "Content-Length: ";
+		if (DocumentToSend.DocumentDataFileReference != "")
+		{
+			//datan är sparad som en referns istället
+			//Request += "Transfer-Encoding: chunked";
+			Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+		}
+		else
+		{
+			//Request += "Content-Length: ";
+			Request += std::to_string(DocumentToSend.DocumentData.size());
+		}
+		Request += "\n\r\n";
+		if (DocumentToSend.DocumentDataFileReference == "")
+		{
+			Request += DocumentToSend.DocumentData;
+		}
 		return(Request);
 	}
 	inline std::string GenerateRequest(const std::string& HTMLBody)
@@ -959,6 +1068,30 @@ namespace MBSockets
 		{
 			std::string DataToSend = GenerateRequest(DocumentToSend);
 			SendWithTls(DataToSend);
+			if (DocumentToSend.DocumentDataFileReference != "")
+			{
+				//vi ska skicka fildatan somn är där, och läser in den gradvis
+				std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
+				int ChunkSize = 16384;
+				size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+				size_t FileDataSent = 0;
+				while (FileDataSent < FileSize)
+				{
+					std::string NewDataToSend(ChunkSize, 0);
+					DocumentFile.read(NewDataToSend.data(), ChunkSize);
+					size_t BytesRead = DocumentFile.gcount();
+					NewDataToSend.resize(BytesRead);
+					//NewDataToSend = std::to_string(BytesRead) + "\r\n" + NewDataToSend+"\r\n";
+					FileDataSent += BytesRead;
+					SendWithTls(NewDataToSend);
+					if (BytesRead < ChunkSize)
+					{
+						break;
+					}
+				}
+				//SendWithTls("0\r\n\r\n");
+				int hej = 2;
+			}
 		}
 		std::string GetNextChunkData()
 		{

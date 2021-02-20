@@ -19,12 +19,122 @@ namespace MrPostOGet
 		size_t ContentStart = RequestData.find("\r\n\r\n")+4;
 		return(RequestData.substr(ContentStart));
 	}
-	
+	inline std::string LoadWholeFile(std::string const& FilePath)
+	{
+		std::ifstream t(FilePath, std::ifstream::in | std::ifstream::binary);
+		size_t size = std::filesystem::file_size(FilePath);
+		std::string FileDataBuffer(size, ' ');
+		t.read(&FileDataBuffer[0], size);
+		size_t ReadCharacters = t.gcount();
+		std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
+		return(FileData);
+	}
+	inline std::string ReplaceMPGVariables(std::string const& FileData, std::unordered_map<std::string, std::string> const& VariablesMap)
+	{
+		std::string ReturnValue = "";
+		size_t LastParsePosition = 0;
+		size_t ParsePosition = 0;
+		std::string StartSequence = "${";
+		std::string EndSequence = "}";
+		while (ParsePosition != FileData.npos)
+		{
+			LastParsePosition = ParsePosition;
+			ParsePosition = FileData.find(StartSequence, ParsePosition);
+			size_t NextEndSequence = FileData.find(EndSequence, ParsePosition);
+			//lägger till all data till vi komer till början
+			ReturnValue += FileData.substr(LastParsePosition, ParsePosition - LastParsePosition);
+			if (ParsePosition == FileData.npos)
+			{
+				break;
+			}
+			//nu kollar vi huruvida variabeln den beskriver finns i vår dictionary. Gör den inte det så tar vi och bara lägger in den råa strängen
+			if (NextEndSequence == FileData.npos)
+			{
+				ReturnValue += FileData.substr(ParsePosition);
+				break;
+			}
+			std::string VariableName = FileData.substr(ParsePosition + StartSequence.size(), NextEndSequence - (ParsePosition + StartSequence.size()));
+			if (VariablesMap.find(VariableName) != VariablesMap.end())
+			{
+				ReturnValue += VariablesMap.at(VariableName);
+				ParsePosition = NextEndSequence + 1;
+			}
+			else
+			{
+				ReturnValue += FileData.substr(ParsePosition, NextEndSequence - ParsePosition);
+				ParsePosition = NextEndSequence + 1;
+			}
+		}
+		return(ReturnValue);
+	}
+	inline std::string LoadFileWithVariables(std::string const& Filepath, std::unordered_map<std::string, std::string> const& VariablesMap)
+	{
+		std::string FileData = LoadWholeFile(Filepath);
+		return(ReplaceMPGVariables(FileData, VariablesMap));
+	}
+	inline std::string LoadFileWithPreprocessing(std::string const& Filepath, std::string const& ResourcesPath) 
+	{
+		std::string FileData = LoadWholeFile(Filepath);
+		std::string ReturnValue = "";
+		size_t LastParsePosition = 0;
+		size_t ParsePosition = 0;
+		std::string StartSequence = "#{";
+		std::string EndSequence = "}";
+		while (ParsePosition != FileData.npos)
+		{
+			LastParsePosition = ParsePosition;
+			ParsePosition = FileData.find(StartSequence, ParsePosition);
+			size_t NextEndSequence = FileData.find(EndSequence, ParsePosition);
+			//lägger till all data till vi komer till början
+			ReturnValue += FileData.substr(LastParsePosition, ParsePosition - LastParsePosition);
+			if (ParsePosition == FileData.npos)
+			{
+				break;
+			}
+			//nu kollar vi huruvida variabeln den beskriver finns i vår dictionary. Gör den inte det så tar vi och bara lägger in den råa strängen
+			if (NextEndSequence == FileData.npos)
+			{
+				ReturnValue += FileData.substr(ParsePosition);
+				ParsePosition = NextEndSequence + 1;
+				break;
+			}
+			size_t FirstParenthesesLocation = FileData.find("(", ParsePosition);
+			size_t SecondParenthesesLocation = FileData.find(")", ParsePosition);
+			std::string PreprocessingDirective = FileData.substr(ParsePosition + StartSequence.size(), FirstParenthesesLocation - (ParsePosition + StartSequence.size()));
+			std::string DirectiveArguments = FileData.substr(FirstParenthesesLocation + 1, SecondParenthesesLocation - (FirstParenthesesLocation + 1));
+			if (PreprocessingDirective == "include")
+			{
+				//vi copypastar filen med pre proccessing directives
+				//om filen inte finns continuear vi helt enkelt
+				if (!std::filesystem::exists(ResourcesPath + DirectiveArguments))
+				{
+					//filen finns inte, då tar vi bara och lägger till den parsade datan och contiunar
+					ReturnValue += FileData.substr(ParsePosition, NextEndSequence - ParsePosition+1);
+					ParsePosition = NextEndSequence + 1;
+					continue;
+				}
+				ReturnValue += LoadFileWithPreprocessing(ResourcesPath + DirectiveArguments, ResourcesPath);
+			}
+			ParsePosition = NextEndSequence + 1;
+		}
+		return(ReturnValue);
+	}
+	inline std::string GetFileExtension(std::string const& StringData)
+	{
+		std::string ReturnValue = "";
+		size_t DotPosition = StringData.find_last_of(".");
+		if (DotPosition != StringData.npos)
+		{
+			ReturnValue = StringData.substr(DotPosition + 1);
+		}
+		return(ReturnValue);
+	}
 	class HTTPServer
 	{
 	private:
 		std::string ContentPath = "";
 		int Port = -1;
+		size_t MaxDocumentInMemorySize = 100000;
 		MBSockets::HTTPServerSocket* ServerSocketen;
 		MBSockets::TraversalProtocol TraversalProtocolet = MBSockets::TraversalProtocol::TCP;
 		std::vector<RequestHandler> ServerRequestHandlers = std::vector<RequestHandler>(0);
@@ -57,32 +167,24 @@ namespace MrPostOGet
 		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath)
 		{
 			MBSockets::HTTPDocument ReturnValue;
+			if (!std::filesystem::exists(ResourcePath))
+			{
+				std::cout << "get file doesnt exist" << std::endl;
+			}
 			std::string ResourceExtension = ResourcePath.substr(ResourcePath.find_last_of(".")+1);
-			if (ResourceExtension == "png")
+			ReturnValue.Type = MBSockets::DocumentTypeFromFileExtension(ResourceExtension);
+			if(ReturnValue.Type == MBSockets::HTTPDocumentType::Null)
 			{
-				ReturnValue.Type = MBSockets::HTTPDocumentType::png;
+				std::cout << ResourceExtension << std::endl;
 			}
-			else if (ResourceExtension == "html" || ResourceExtension == "htm")
+			if (std::filesystem::file_size(ResourcePath) > MaxDocumentInMemorySize)
 			{
-				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
-			}
-			else if (ResourceExtension == "jpg")
-			{
-				ReturnValue.Type = MBSockets::HTTPDocumentType::jpg;
-			}
-			else if (ResourceExtension == "ts")
-			{
-				ReturnValue.Type = MBSockets::HTTPDocumentType::ts;
-			}
-			else if (ResourceExtension == "m3u8")
-			{
-				ReturnValue.Type = MBSockets::HTTPDocumentType::m3u8;
+				ReturnValue.DocumentDataFileReference = ResourcePath;
 			}
 			else
 			{
-				std::cout << ResourcePath.substr(ResourcePath.find_last_of(".")) << std::endl;
+				ReturnValue.DocumentData = LoadWholeFile(ResourcePath);
 			}
-			ReturnValue.DocumentData = LoadWholeFile(ResourcePath);
 			return(ReturnValue);
 		}
 		void AddRequestHandler(RequestHandler HandlerToAdd)
@@ -154,7 +256,7 @@ namespace MrPostOGet
 					break;
 				}
 			}
-				if (HandlerHasHandled)
+			if (HandlerHasHandled)
 			{
 				continue;
 			}
@@ -167,6 +269,7 @@ namespace MrPostOGet
 			{
 				//std::cout << RequestData << std::endl;
 				std::string ResourceToGet = ResourcesPath + MBSockets::GetReqestResource(RequestData);
+				std::string ResourceExtension = GetFileExtension(ResourceToGet);
 				std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/" + ResourceToGet);
 				//std::cout << ResourceToGet << std::endl;
 				MBSockets::HTTPDocument DocumentToSend;
@@ -196,8 +299,19 @@ namespace MrPostOGet
 						}
 						else
 						{
-							DocumentToSend = AssociatedServer->GetResource(ResourceToGet);
-							ConnectedClient->SendHTTPDocument(DocumentToSend);
+							//undantagsfall utifall det är ett hmtl dokument, då vill vi ta och skicka den med includes
+							if (ResourceExtension == "html" || ResourceExtension == "htm")
+							{
+								DocumentToSend.Type = MBSockets::HTTPDocumentType::HTML;
+								//TODO fixa så att hosten faktiskt är en del av detta, nu hardcodas det
+								DocumentToSend.DocumentData = LoadFileWithPreprocessing(ResourceToGet, AssociatedServer->GetResourcePath("mrboboget.se"));
+								ConnectedClient->SendHTTPDocument(DocumentToSend);
+							}
+							else
+							{
+								DocumentToSend = AssociatedServer->GetResource(ResourceToGet);
+								ConnectedClient->SendHTTPDocument(DocumentToSend);
+							}
 						}
 					}
 				}
@@ -208,5 +322,5 @@ namespace MrPostOGet
 			}
 		}
 		//delete ConnectedClient;
-	}
+		}
 }

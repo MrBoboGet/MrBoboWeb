@@ -9,7 +9,15 @@
 #include <MrBoboChatt/MrBoboChatt.h>
 #include <MrBoboDatabase/MrBoboDatabase.h>
 #include <MrBoboDatabase/MPGMemeSite.h>
+#include <MrBoboMedia/MBMedia.h>
 #include <time.h>
+
+//#include <string>
+//#include <iostream>
+//#include <fstream>
+//#include <filesystem>
+//#include <Hash/src/sha1.h>
+
 int main()
 {
 #ifdef DNDEBUG
@@ -18,6 +26,14 @@ int main()
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
 	///*
+	//test för att använda system
+
+	//CreateHLSStream("./MBDBResources/","./Ep1",10);
+	//test för att transcoda
+	std::string StringToHash = std::string(std::filesystem::file_size("DebugHash.txt"), 0);
+	std::ifstream DebugHash("DebugHash.txt", std::ios::in|std::ios::binary);
+	DebugHash.read(&StringToHash.data()[0], std::filesystem::file_size("DebugHash.txt"));
+	std::cout << ReplaceAll(HexEncodeString(MBSha1(StringToHash))," ","") << std::endl<<std::endl;
 	UnitType DebugRemainder;
 	MrBigInt DebugQuot;
 	//MrBigInt::divi
@@ -64,6 +80,9 @@ int main()
 	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
 	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
 	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBGet_Predicate,DBGet_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBViewer_Predicate,DBViewer_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBViewEmbedd_Predicate,DBViewEmbedd_ResponseGenerator });
 	TestServer.StartListening();
 	return(0);
 	//sqlite3_prepare("HejsanSvejsan");

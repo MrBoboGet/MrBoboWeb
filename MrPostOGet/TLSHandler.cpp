@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <Hash/src/sha1.h>
 #include <mutex>
+#include <MrPostOGet/TinySha1.h>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 std::string MBSha1(std::string const& StringToHash)
 {
@@ -15,6 +16,11 @@ std::string MBSha1(std::string const& StringToHash)
 	Hasher.addData(StringToHash.c_str(), StringToHash.size());
 	Hasher.finalize();
 	return(std::string((char*)&Hasher.toArray()[0],20));
+	//sha1::SHA1 Sha1;
+	//Sha1.processBytes(StringToHash.data(), StringToHash.size());
+	//std::string ReturnValue(20, 0);
+	//Sha1.getDigestBytes((uint8_t*)ReturnValue.data());
+	//return(ReturnValue);
 }
 namespace TLS1_2
 {
@@ -562,7 +568,7 @@ std::string TLSHandler::XORedString(std::string String1, std::string String2)
 	}
 	return(Returnvalue);
 }
-//unsigned int MacIndexUsed = 0;
+unsigned int MacIndexUsed = 0;
 std::string TLSHandler::HMAC(std::string Secret, std::string Seed)
 {
 	uint64_t BlockLength = ConnectionParameters.HashAlgorithm.GetHashBlockSize(); //sha256
@@ -588,8 +594,12 @@ std::string TLSHandler::HMAC(std::string Secret, std::string Seed)
 	std::string InsideOfFirstHash = XORedString(AppendedSecret, Ipad) + Seed;
 
 	std::string FirstHashData = ConnectionParameters.HashAlgorithm.Hash(InsideOfFirstHash);
+	//std::ofstream DebugHash("DebugHash", std::ios::out | std::ios::binary);
+	//DebugHash << InsideOfFirstHash;
+	//std::cout << HexEncodeString(FirstHashData)<<std::endl;
+
 	std::string FinalHashData = ConnectionParameters.HashAlgorithm.Hash(LeftMostAppend + FirstHashData);
-	//std::ofstream DebugFile("DebugHmac" + std::to_string(MacIndexUsed));
+	//std::ofstream DebugFile("DebugHmac" + std::to_string(MacIndexUsed),std::ios::out|std::ios::binary);
 	//DebugFile << Seed;
 	//std::cout << "Hmac " << MacIndexUsed << " Used: " << ReplaceAll(HexEncodeString(Secret), " ", "") << std::endl;
 	//std::cout << "Hmac " << MacIndexUsed << " Result: " << ReplaceAll(HexEncodeString(FinalHashData), " ", "") << std::endl;
@@ -1541,6 +1551,13 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 	LengthOfRecord += RecordToEncrypt.Length % 256;
 	std::string MACStringInput = SequenceNumber + char(RecordToEncrypt.Type) + char(RecordToEncrypt.Protocol.Major) + char(RecordToEncrypt.Protocol.Minor) + LengthString + RecordToEncrypt.Data;
 	std::string MAC = HMAC(WriteMACKey, MACStringInput);
+	if (MAC != Hash)
+	{
+		std::cout << HexEncodeString(MAC) << std::endl;
+		std::cout << HexEncodeString(Hash) << std::endl;
+		std::cout << HexEncodeString(std::string((char*)ConnectionParameters.master_secret,48)) << std::endl;
+		std::cout << "uh oh" << std::endl;
+	}
 	return(MAC == Hash);
 }
 std::string TLSHandler::DecryptBlockcipherRecord(std::string Data)

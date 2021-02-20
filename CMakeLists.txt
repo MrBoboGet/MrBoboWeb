@@ -129,6 +129,7 @@ source_group("" FILES ${no_group_source_files})
 set(EXTLIBS_HEADER_FILES
     "${EXTLIBS_DIR}/SQLite/sqlite3ext.h"
     "${EXTLIBS_DIR}/SQLite/sqlite3.h"
+    "${EXTLIBS_DIR}/ffmpeg/libavutil/avconfig.h"
 )
 set(EXTLIBS_SOURCE_FILES
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
@@ -148,6 +149,7 @@ set(Header_Files
     "SearchEngine/MBSearchEngine.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
     "MrBoboDatabase/MPGMemeSite.h"
+    "MrBoboMedia/MBMedia.h"
     ${EXTLIBS_HEADER_FILES}
 )
 source_group("Header Files" FILES ${Header_Files})
@@ -158,6 +160,7 @@ set(Source_Files
     "MrPostOGet/TLSHandler.cpp"
     "MrBoboDatabase/MrBoboDatabase.cpp"
     "MrBoboDatabase/MPGMemeSite.cpp"
+    "MrBoboMedia/MBMedia.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
 message(${Source_Files})
@@ -206,6 +209,7 @@ endif()
 #testar att ha olika beroende på om det är windows eller inte
 target_include_directories(${PROJECT_NAME} PUBLIC
     #"${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
+    "${EXTLIBS_DIR}/ffmpeg/"
     "${CMAKE_CURRENT_SOURCE_DIR}/.;"
     "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
     "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
@@ -310,16 +314,33 @@ endif()
 # Dependencies
 ################################################################################
 #windows
+set (FFMPEG_LIBS
+    "${EXTLIBS_DIR}/ffmpeg/libavcodec/libavcodec.a"
+    "${EXTLIBS_DIR}/ffmpeg/libavdevice/libavdevice.a"
+    "${EXTLIBS_DIR}/ffmpeg/libavfilter/libavfilter.a"
+    "${EXTLIBS_DIR}/ffmpeg/libavformat/libavformat.a"
+    "${EXTLIBS_DIR}/ffmpeg/libavutil/libavutil.a"
+    "${EXTLIBS_DIR}/ffmpeg/libswresample/libswresample.a"
+    "${EXTLIBS_DIR}/ffmpeg/libswscale/libswscale.a"
+)
+
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "stdc++fs";
         "${EXTLIBS_DIR}/SQLite/sqlite3.a"
         "dl"
+        "${FFMPEG_LIBS}"
     )
 else()
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "Ws2_32;"
+        "Secur32.lib"
+        "Bcrypt.lib"
+        "Mfplat.lib"
+        "Mfuuid.lib"
+        "Strmiids.lib"
         "${EXTLIBS_DIR}/SQLite/sqlite3.lib"
+        "${FFMPEG_LIBS}"
     )
 endif()
 

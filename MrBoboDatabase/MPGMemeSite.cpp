@@ -27,7 +27,8 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 	MBSockets::HTTPDocument NewDocument;
 	if (RequestType == "GET")
 	{
-		NewDocument = AssociatedServer->GetResource(AssociatedServer->GetResourcePath("mrboboget.se")+ "/DBSite.html");
+		NewDocument.Type = MBSockets::HTTPDocumentType::HTML;
+		NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se")+ "/DBSite.html",AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
 	else if(RequestType == "POST")
 	{
@@ -136,4 +137,159 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	std::cout << "Total data written: " << TotalDataWritten << std::endl;
 	std::cout << "Total time: " << (clock() - WriteTimer) / double(CLOCKS_PER_SEC) << std::endl;
 	return(NewDocument);
+}
+
+bool DBGet_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DB")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	std::string DatabaseResourcePath = "./MBDBResources/";
+	std::string URLResource = MBSockets::GetReqestResource(RequestData);
+	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
+	MBSockets::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath+DatabaseResourceToGet);
+	return(ReturnValue);
+}
+std::string GetEmbeddedVideo(std::string const& VideoPath, std::string const& WebsiteResourcePath)
+{
+	/*
+			<video id = "video" src="./Ep1/720p.m3u8" controls></video>
+			<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+			<video id="video"></video>
+			<script>
+			var video = document.getElementById('video');
+			var videoSrc = './Ep1/720p.m3u8';
+			if (video.canPlayType('application/vnd.apple.mpegurl'))
+			{
+				video.src = videoSrc;
+			}
+			else if (Hls.isSupported())
+			{
+				var hls = new Hls();
+				hls.loadSource(videoSrc);
+				hls.attachMedia(video);
+			}
+			</script>
+	*/
+	//std::string ResourceExtension = VideoPath.substr(VideoPath.find_last_of(".") + 1);
+	//std::string ElementID = VideoPath;
+	//std::string ReturnValue = "<video id=\"" + ElementID + "\" src=\"" + VideoPath + "_Stream/MasterPlaylist" + "\" controls></video>\n";
+	//ReturnValue += "<script src=\"https:\/\/cdn.jsdelivr.net/npm/hls.js@latest\"></script>\n";
+	//ReturnValue += "<script>\n";
+	//ReturnValue += "var video = document.getElementById(\'" + ElementID + "\');";
+	//ReturnValue += 
+	std::unordered_map<std::string, std::string> VariableValues = {};
+	VariableValues["ElementID"] = VideoPath;
+	VariableValues["MediaType"] = "video";
+	VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
+	std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
+	return(ReturnValue);
+}
+std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath)
+{
+	std::unordered_map<std::string, std::string> VariableValues = {};
+	VariableValues["ElementID"] = VideoPath;
+	VariableValues["MediaType"] = "audio";
+	VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
+	std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
+	return(ReturnValue);
+}
+std::string GetEmbeddedImage(std::string const& ImagePath)
+{
+	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\"></image>";
+	return(ReturnValue);
+}
+bool DBViewer_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DBView")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBViewer_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	std::string EmbeddedElement = "";
+
+	std::string HandlerName = "DBView/";
+	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
+	std::string DBResourcesPath = "./MBDBResources/";
+	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
+	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
+	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	if (ResourceMedia == MBSockets::MediaType::Image)
+	{
+		EmbeddedElement = GetEmbeddedImage(DBResource);
+	}
+	else if (ResourceMedia == MBSockets::MediaType::Video)
+	{
+		EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+	}
+	else if (ResourceMedia == MBSockets::MediaType::Audio)
+	{
+		EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+	}
+
+	std::unordered_map<std::string, std::string> MapData = {};
+	MapData["EmbeddedMedia"] = EmbeddedElement;
+	std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
+	ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "DBViewTemplate.html", HTMLResourcePath), MapData);
+	//= AssociatedServer->GetResource(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBViewTemplate.html");
+
+	return(ReturnValue);
+}
+
+bool DBViewEmbedd_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DBViewEmbedd")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBViewEmbedd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	MBSockets::HTTPDocument ReturnValue = MBSockets::HTTPDocument();
+	std::string HandlerName = "DBViewEmbedd/";
+	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
+	std::string DBResourcesPath = "./MBDBResources/";
+	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
+	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
+	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	ReturnValue.Type = MBSockets::DocumentTypeFromFileExtension(ResourceExtension);
+	if (ResourceMedia == MBSockets::MediaType::Image)
+	{
+		ReturnValue.DocumentData = GetEmbeddedImage(DBResource);
+	}
+	else if (ResourceMedia == MBSockets::MediaType::Video)
+	{
+		ReturnValue.DocumentData = GetEmbeddedVideo(DBResource,AssociatedServer->GetResourcePath("mrboboget.se"));
+	}
+	else if (ResourceMedia == MBSockets::MediaType::Audio)
+	{
+		ReturnValue.DocumentData = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+	}
+	return(ReturnValue);
 }

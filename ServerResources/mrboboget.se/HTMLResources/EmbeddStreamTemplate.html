@@ -1,0 +1,18 @@
+
+<${MediaType} id = "${ElementID}" src="${PlaylistPath}" controls></${MediaType}>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+    console.log("vi attachar HLS.js");
+    var video = document.getElementById('${ElementID}');
+    var videoSrc = '${PlaylistPath}';
+    if (video.canPlayType('application/vnd.apple.mpegurl')) 
+    {
+        video.src = videoSrc;
+    } 
+    else if (Hls.isSupported()) 
+    {
+        var hls = new Hls();
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+    }
+</script>
