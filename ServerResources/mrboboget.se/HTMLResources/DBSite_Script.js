@@ -6,19 +6,7 @@ validate(e);
 }
 });
 
-function CreateTableRow(RowValues)
-{
-  var ReturnValue = document.createElement("tr");
-  var RowSize = RowValues.length;
-  for(var i = 0; i < RowSize;i++)
-  {
-    var NewRowValue = document.createElement("td");
-    NewRowValue.innerHTML = RowValues[i];
-    ReturnValue.appendChild(NewRowValue); 
-  }
-  return(ReturnValue);
-}
-  function validate(e) 
+function validate(e) 
 {
 //validation of the input...
      fetch("/DBSite", 
@@ -48,7 +36,14 @@ function CreateTableRow(RowValues)
     var TableValues = []
     for(j = 0;j < ObjectKeys.length;j++)
     {
-      TableValues.push(SQLRows[i][ObjectKeys[j]]);
+      if(SQLRows[i][ObjectKeys[j]] != null)
+      {
+        TableValues.push(SQLRows[i][ObjectKeys[j]]);
+      }
+      else
+      {
+        TableValues.push("Null");
+      }
     }
     TableToModify.appendChild(CreateTableRow(TableValues));
     console.log("Appended row: ",TableValues,i,SQLRowsLength);

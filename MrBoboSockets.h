@@ -745,6 +745,10 @@ namespace MBSockets
 		{
 			return(MediaType::Video);
 		}
+		else if (FileExtension == "mov")
+		{
+			return(MediaType::Video);
+		}
 		else if(FileExtension == "mp3")
 		{
 			return(MediaType::Video);

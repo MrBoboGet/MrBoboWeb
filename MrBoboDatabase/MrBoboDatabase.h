@@ -92,9 +92,39 @@ namespace MBDB
 			T ValueToReturn = *((T*)RawColumnData[ColumnIndex]);
 			return(ValueToReturn);
 		}
+		MBDB_ColumnValueTypes GetColumnValueType(int ColumnIndex);
+		bool ColumnValueIsNull(int ColumnIndex);
 	};
 	void swap(MBDB::MBDB_RowData& Row1, MBDB::MBDB_RowData& Row2);
 
+	enum class ColumnSQLType
+	{
+		varchar,
+		Int,
+		Null
+	};
+
+	struct ColumnInfo
+	{
+		std::string ColumnName = "";
+		ColumnSQLType ColumnType = ColumnSQLType::Null;
+		bool Nullable = false;
+		int PrimaryKeyIndex = 0;
+	};
+	inline ColumnSQLType ColumnTypeFromString(std::string const& StringToConvert)
+	{
+		//ColumnSQLType ReturnValue = ColumnSQLType::Null;
+		std::string VarChar = "varchar";
+		if (StringToConvert == "int")
+		{
+			return(ColumnSQLType::Int);
+		}
+		else if (StringToConvert.substr(0,VarChar.size()) == "varchar")
+		{
+			return(ColumnSQLType::varchar);
+		}
+		return(ColumnSQLType::Null);
+	}
 	class MBDB_ResultIterator
 	{
 	private:
@@ -111,6 +141,30 @@ namespace MBDB
 	public:
 		MrBoboDatabase(std::string const& DatabaseFile,unsigned int Options);
 		std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn = nullptr);
+		std::vector<std::string> GetAllTableNames();
+		std::vector<ColumnInfo> GetColumnInfo(std::string const& TableName);
 		MBDB_ResultIterator GetResultIterator(std::string const& SQLQuerry, MBError* ErrorToReturn = nullptr);
 	};
+	std::string ToJason(bool ValueTojason);
+	std::string ToJason(ColumnSQLType ValueToJason);
+	std::string ToJason(std::string const& ValueToJason);
+	std::string ToJason(long long ValueToJason);
+	std::string ToJason(MBDB::ColumnInfo const& ValueToJason);
+
+	template<typename T>
+	std::string MakeJasonArray(std::vector<T> ValuesToConvert,std::string ArrayName)
+	{
+		std::string JsonRespone = "{\""+ArrayName+"\":[";
+		size_t TableNamesSize = ValuesToConvert.size();
+		for (size_t i = 0; i < TableNamesSize; i++)
+		{
+			JsonRespone += MBDB::ToJason(ValuesToConvert[i]);
+			if (i + 1 < TableNamesSize)
+			{
+				JsonRespone += ",";
+			}
+		}
+		JsonRespone += "]}";
+		return(JsonRespone);
+	}
 }

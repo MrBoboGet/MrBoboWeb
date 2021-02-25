@@ -129,7 +129,7 @@ source_group("" FILES ${no_group_source_files})
 set(EXTLIBS_HEADER_FILES
     "${EXTLIBS_DIR}/SQLite/sqlite3ext.h"
     "${EXTLIBS_DIR}/SQLite/sqlite3.h"
-    "${EXTLIBS_DIR}/ffmpeg/libavutil/avconfig.h"
+    #"${EXTLIBS_DIR}/ffmpeg/libavutil/avconfig.h"
 )
 set(EXTLIBS_SOURCE_FILES
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
@@ -329,7 +329,7 @@ if(UNIX)
         "stdc++fs";
         "${EXTLIBS_DIR}/SQLite/sqlite3.a"
         "dl"
-        "${FFMPEG_LIBS}"
+        #"${FFMPEG_LIBS}"
     )
 else()
     set(ADDITIONAL_LIBRARY_DEPENDENCIES
@@ -340,7 +340,7 @@ else()
         "Mfuuid.lib"
         "Strmiids.lib"
         "${EXTLIBS_DIR}/SQLite/sqlite3.lib"
-        "${FFMPEG_LIBS}"
+        #"${FFMPEG_LIBS}"
     )
 endif()
 

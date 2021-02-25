@@ -22,11 +22,21 @@ table
     table-layout: fixed ;
 }
 td {
-    text-align: center
+    text-align: center;
 }
 .CenterChildren 
 {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+.SQLTable
+{
+    width:100%
+}
+.ResizeableTableCell
+{
+    resize:both;
+    overflow: scroll;
+    border: 1px solid black;
 }

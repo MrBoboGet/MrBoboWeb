@@ -23,8 +23,9 @@ int main()
 #ifdef DNDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
+	InitDatabase();
 	///*
 	//test för att använda system
 
@@ -49,10 +50,10 @@ int main()
 
 
 	//test att connecta till amazon
-	MBSockets::HTTPConnectSocket AmazonConnectTest("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
-	AmazonConnectTest.Connect();
-	AmazonConnectTest.EstablishSecureConnetion();
-	std::cout << AmazonConnectTest.GetDataFromRequest("GET", "/") << std::endl;
+	//MBSockets::HTTPConnectSocket AmazonConnectTest("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+	//AmazonConnectTest.Connect();
+	//AmazonConnectTest.EstablishSecureConnetion();
+	//std::cout << AmazonConnectTest.GetDataFromRequest("GET", "/") << std::endl;
 
 	//std::cout << std::filesystem::current_path() << std::endl;
 	std::string NumberData = std::string(1024, 0);
@@ -81,8 +82,10 @@ int main()
 	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
 	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBGet_Predicate,DBGet_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBViewer_Predicate,DBViewer_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBView_Predicate,DBView_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBViewEmbedd_Predicate,DBViewEmbedd_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBAdd_Predicate,DBAdd_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBGeneralAPI_Predicate,DBGeneralAPI_ResponseGenerator });
 	TestServer.StartListening();
 	return(0);
 	//sqlite3_prepare("HejsanSvejsan");

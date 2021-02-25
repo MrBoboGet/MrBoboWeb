@@ -277,7 +277,8 @@ namespace MrPostOGet
 				{
 					if (ResourceToGet == ResourcesPath)
 					{
-						DocumentToSend = AssociatedServer->GetResource(ResourcesPath + "index.htm");
+						DocumentToSend.Type = MBSockets::HTTPDocumentType::HTML;
+						DocumentToSend.DocumentData = LoadFileWithPreprocessing(ResourcesPath + "index.htm",AssociatedServer->GetResourcePath("mrboboget.se"));
 						ConnectedClient->SendHTTPDocument(DocumentToSend);
 					}
 					else

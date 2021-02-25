@@ -96,7 +96,19 @@ namespace MBDB
 		{
 			ReturnValue += "\""+*(std::string*)RawData+"\"";
 		}
+		else if (DataType == MBDB_ColumnValueTypes::Null)
+		{
+			ReturnValue += "null";
+		}
 		return(ReturnValue);
+	}
+	MBDB_ColumnValueTypes MBDB_RowData::GetColumnValueType(int ColumnIndex)
+	{
+		return(ColumnValueTypes[ColumnIndex]);
+	}
+	bool MBDB_RowData::ColumnValueIsNull(int ColumnIndex)
+	{
+		return(RawColumnData[ColumnIndex] == nullptr);
 	}
 	std::string MBDB_RowData::ToJason()
 	{
@@ -193,18 +205,49 @@ namespace MBDB
 			MBDB_ColumnValueTypes NewColumnType = MBDB_ColumnValueTypes::Null;
 			int SQLite3_ColumnType = sqlite3_column_type(StatementToInterpret, i);
 			NewColumnType = SQLite3TypeToMBType(SQLite3_ColumnType);
-			if (NewColumnType != MBDB_ColumnValueTypes::Null)
+			NewRow.ColumnValueTypes.push_back(NewColumnType);
+			if(NewColumnType != MBDB_ColumnValueTypes::Null)
 			{
-				NewRow.ColumnValueTypes.push_back(NewColumnType);
 				NewRow.RawColumnData.push_back(CopySQLite3Data(StatementToInterpret, i, SQLite3_ColumnType));
 			}
 			else
 			{
-				continue;
-				//assert(false);
+				NewRow.RawColumnData.push_back(nullptr);
 			}
 		}
 		return(NewRow);
+	}
+	std::vector<std::string> MrBoboDatabase::GetAllTableNames()
+	{
+		std::vector<std::string> ReturnValue = {};
+		//sqlite dependant
+		std::vector<MBDB_RowData> Names =  GetAllRows("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name;");
+		for (size_t i = 0; i < Names.size(); i++)
+		{
+			ReturnValue.push_back(Names[i].GetColumnData<std::string>(i));
+		}
+		return(ReturnValue);
+	}
+	std::vector<ColumnInfo> MrBoboDatabase::GetColumnInfo(std::string const& TableName)
+	{
+		//just nu är det en SQLITE3 databas så vi använder dess
+		std::vector<ColumnInfo> ReturnValue = {};
+		std::vector<MBDB_RowData> TableInfo =  GetAllRows("SELECT * FROM pragma_table_info('" + TableName + "');");
+		size_t TableInfoSize = TableInfo.size();
+		for (size_t i = 0; i < TableInfoSize; i++)
+		{
+			ColumnInfo NewColumnInfo;
+			NewColumnInfo.ColumnName = TableInfo[i].GetColumnData<std::string>(1);
+			NewColumnInfo.ColumnType = ColumnTypeFromString(TableInfo[i].GetColumnData<std::string>(2));
+			//Detta är prolly fel, relevant om vi komerm behöva använda det
+			NewColumnInfo.Nullable = (TableInfo[i].GetColumnData<int>(3) == 0);
+			//TODO detta kan enkelt ge undefined behavior om vi har olika datatyper som vi sparar i columntypen och som vi accessar.
+			//borde göra en typedef för vilken integertype jag använder för att spara datan
+			NewColumnInfo.PrimaryKeyIndex = TableInfo[i].GetColumnData<int>(5);
+			ReturnValue.push_back(NewColumnInfo);
+		}
+
+		return(ReturnValue);
 	}
 	std::vector<MBDB_RowData> MrBoboDatabase::GetAllRows(std::string const& SQLQuerry,MBError* OutError)
 	{
@@ -255,5 +298,52 @@ namespace MBDB
 	{
 		std::swap(Row1.RawColumnData, Row2.RawColumnData);
 		std::swap(Row1.ColumnValueTypes, Row2.ColumnValueTypes);
+	}
+	std::string ColumnSQLTypeToString(ColumnSQLType ValueToConvert)
+	{
+		if (ValueToConvert == ColumnSQLType::Int)
+		{
+			return("int");
+		}
+		else if (ValueToConvert == ColumnSQLType::varchar)
+		{
+			return("varchar");
+		}
+		else if(ValueToConvert == ColumnSQLType::Null)
+		{
+			return("null");
+		}
+	}
+	std::string ToJason(bool ValueTojason)
+	{
+		if (ValueTojason == true)
+		{
+			return("true");
+		}
+		else
+		{
+			return("false");
+		}
+	}
+	std::string ToJason(ColumnSQLType ValueToJason)
+	{
+		return("\""+ColumnSQLTypeToString(ValueToJason)+"\"");
+	}
+	std::string ToJason(std::string const& ValueToJason)
+	{
+		return("\"" + ValueToJason + "\"");
+	}
+	std::string ToJason(long long ValueToJason)
+	{
+		return(std::to_string(ValueToJason));
+	}
+	std::string ToJason(MBDB::ColumnInfo const& ValueToJason)
+	{
+		std::string ReturnValue = "{";
+		ReturnValue += "\"ColumnName\":" + ToJason(ValueToJason.ColumnName)+",";
+		ReturnValue += "\"ColumnType\":" + ToJason(ValueToJason.ColumnType) + ",";
+		ReturnValue += "\"IsNullable\":" + ToJason(ValueToJason.Nullable) + ",";
+		ReturnValue += "\"PrimaryKeyIndex\":" + ToJason((long long)ValueToJason.PrimaryKeyIndex) + "}";
+		return(ReturnValue);
 	}
 }

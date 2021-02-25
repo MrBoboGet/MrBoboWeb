@@ -7,6 +7,7 @@
 #include <MrBoboMedia/MBMedia.h>
 #include <iostream>
 #include <filesystem>
+/*
 extern "C"
 {
 	#include <ffmpeg/libavcodec/avcodec.h>
@@ -384,3 +385,4 @@ MBError CreateHLSStream(std::string InputFilePath,std::string OutputFolderName, 
 	std::cout << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 	return(MBError(false));
 }
+*/

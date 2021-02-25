@@ -16,13 +16,18 @@ bool DBSite_Predicate(std::string const& RequestData)
 }
 std::mutex DatabaseMutex;
 //MBDB::MrBoboDatabase DBSite_Database("./TestDatabas",0);
-MBDB::MrBoboDatabase* DBSite_Database = nullptr;
+MBDB::MrBoboDatabase* WebsiteDatabase = nullptr;
+
+void InitDatabase()
+{
+	if (WebsiteDatabase == nullptr)
+	{
+		WebsiteDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 0);
+	}
+}
+
 MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
 {
-	if (DBSite_Database == nullptr)
-	{
-		DBSite_Database = new MBDB::MrBoboDatabase("./TestDatabas", 0);
-	}
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
 	MBSockets::HTTPDocument NewDocument;
 	if (RequestType == "GET")
@@ -41,7 +46,7 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 		std::vector<MBDB::MBDB_RowData> SQLResult = {};
 		{
 			std::lock_guard<std::mutex> Lock(DatabaseMutex);
-			SQLResult = DBSite_Database->GetAllRows(SQLCommand);
+			SQLResult = WebsiteDatabase->GetAllRows(SQLCommand);
 			if(!SQLError)
 			{
 				CommandSuccesfull = false;
@@ -209,7 +214,7 @@ std::string GetEmbeddedImage(std::string const& ImagePath)
 	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\"></image>";
 	return(ReturnValue);
 }
-bool DBViewer_Predicate(std::string const& RequestData)
+bool DBView_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -222,7 +227,7 @@ bool DBViewer_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBViewer_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	MBSockets::HTTPDocument ReturnValue;
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
@@ -291,5 +296,131 @@ MBSockets::HTTPDocument DBViewEmbedd_ResponseGenerator(std::string const& Reques
 	{
 		ReturnValue.DocumentData = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
+	return(ReturnValue);
+}
+
+bool DBAdd_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DBAdd")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBAdd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	//std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	//std::string TableName = RequestData.substr(RequestResource.find("DBAdd/") + 6);
+	//std::vector < std::string> ExistingTableNames = {};
+	//låter all denna kod köras i javascript, blir det enklaste
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
+	ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath+"DBAdd.html", ResourcePath);
+	return(ReturnValue);
+}
+
+bool DBGeneralAPI_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DBGeneralAPI")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+
+std::string DBGeneralAPIGetDirective(std::string const& RequestBody)
+{
+	size_t FirstSpace = RequestBody.find(" ");
+	std::string APIDirective = RequestBody.substr(0, FirstSpace);
+	return(APIDirective);
+}
+std::vector<std::string> DBGeneralAPIGetArguments(std::string const& RequestBody)
+{
+	size_t FirstSpace = RequestBody.find(" ");
+	std::vector<std::string> ReturnValue = Split(RequestBody.substr(FirstSpace + 1),",");
+	return(ReturnValue);
+}
+
+
+std::string GetTableNamesBody(std::vector<std::string> const& Arguments)
+{
+	std::vector<std::string> TableNames = {};
+	{
+		std::lock_guard<std::mutex> Lock(DatabaseMutex);
+		TableNames = WebsiteDatabase->GetAllTableNames();
+	}
+	std::string JsonResponse = MBDB::MakeJasonArray(TableNames, "TableNames");
+	//std::string JsonRespone = "{[";
+	//size_t TableNamesSize = TableNames.size();
+	//for (size_t i = 0; i < TableNamesSize; i++)
+	//{
+	//	JsonRespone += MBDB::ToJason(TableNames[i]);
+	//	if (i + 1 < TableNamesSize)
+	//	{
+	//		JsonRespone += ",";
+	//	}
+	//}
+	//JsonRespone += "]}";
+	return(JsonResponse);
+}
+std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
+{
+	//första argumentet är tablen vi vill ha
+	if (Arguments.size() == 0)
+	{
+		return("");
+	}
+	std::vector<MBDB::ColumnInfo> TableInfo = {};
+	{
+		std::lock_guard<std::mutex> Lock(DatabaseMutex);
+		TableInfo = WebsiteDatabase->GetColumnInfo(Arguments[0]);
+	}
+	return(MBDB::MakeJasonArray(TableInfo,"TableInfo"));
+}
+MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	std::string RequestType = MBSockets::GetRequestType(RequestData);
+	std::string RequestBody = MrPostOGet::GetRequestContent(RequestData);
+	MBSockets::HTTPDocument ReturnValue;
+	std::string Resourcepath = AssociatedServer->GetResourcePath("mrboboget.se");
+	if (RequestType == "POST")
+	{
+		//tar fram api funktionen
+		size_t FirstSpace = RequestBody.find(" ");
+		std::string APIDirective = DBGeneralAPIGetDirective(RequestBody);
+		std::vector<std::string> APIDirectiveArguments = DBGeneralAPIGetArguments(RequestBody);
+		if (APIDirective == "GetTableNames")
+		{
+			ReturnValue.Type = MBSockets::HTTPDocumentType::json;
+			ReturnValue.DocumentData = GetTableNamesBody(APIDirectiveArguments);
+		}
+		else if (APIDirective == "GetTableInfo")
+		{
+			ReturnValue.Type = MBSockets::HTTPDocumentType::json;
+			ReturnValue.DocumentData = GetTableInfoBody(APIDirectiveArguments);
+		}
+		else
+		{
+			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
+		}
+	}
+	else
+	{
+		ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath+"404.html", Resourcepath);
+	}
+	std::cout << ReturnValue.DocumentData << std::endl;
 	return(ReturnValue);
 }
