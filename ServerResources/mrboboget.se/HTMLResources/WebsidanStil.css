@@ -40,3 +40,10 @@ td {
     overflow: scroll;
     border: 1px solid black;
 }
+form
+{
+    display: inline-block;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}

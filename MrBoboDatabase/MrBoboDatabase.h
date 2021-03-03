@@ -8,6 +8,7 @@ class sqlite3;
 struct sqlite3_stmt;
 namespace MBDB
 {
+	typedef int MaxInt;
 	enum class MBDB_ColumnValueTypes
 	{
 		Float,
@@ -134,6 +135,21 @@ namespace MBDB
 		operator bool() { return(!IsFinished()); };
 		MBDB_RowData GetNextResult();
 	};
+	class MrBoboDatabase;
+	class SQLStatement
+	{
+	private:
+		friend MrBoboDatabase;
+		sqlite3_stmt* UnderlyingStatement = nullptr;
+		bool IsInvalid = false;
+		SQLStatement(std::string const& SQLCode,sqlite3* DBConnection);
+		std::vector<MBDB_RowData> GetAllRows(sqlite3* DBConnection,MBError* OutError);
+	public:
+		bool IsValid() { return(!IsInvalid); };
+		MBError BindString(std::string const& ParameterData, int ParameterIndex);
+		MBError BindInt(MaxInt, int ParameterIndex);
+		MBError FreeData();
+	};
 	class MrBoboDatabase
 	{
 	private:
@@ -141,8 +157,12 @@ namespace MBDB
 	public:
 		MrBoboDatabase(std::string const& DatabaseFile,unsigned int Options);
 		std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn = nullptr);
+		std::vector<MBDB_RowData> GetAllRows(SQLStatement*,MBError* ErrorToReturn = nullptr);
 		std::vector<std::string> GetAllTableNames();
 		std::vector<ColumnInfo> GetColumnInfo(std::string const& TableName);
+		SQLStatement* GetSQLStatement(std::string const& SQLCode);
+		MBError FreeSQLStatement(SQLStatement* StatementToFree);
+
 		MBDB_ResultIterator GetResultIterator(std::string const& SQLQuerry, MBError* ErrorToReturn = nullptr);
 	};
 	std::string ToJason(bool ValueTojason);

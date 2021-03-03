@@ -6,7 +6,7 @@ validate(e);
 }
 });
 
-function validate(e) 
+async function validate(e) 
 {
 //validation of the input...
      fetch("/DBSite", 
@@ -17,7 +17,7 @@ function validate(e)
     'Content-Type': 'text/plain'
     // 'Content-Type': 'application/x-www-form-urlencoded',
   },
-}).then(res => res.json()).then(Data =>{
+}).then(res => res.json()).then(async Data =>{
   console.log("Response is:",Data);  
   var SQLRows = Data.Rows;
   console.log("Request complete! response:", SQLRows);
@@ -36,9 +36,20 @@ function validate(e)
     var TableValues = []
     for(j = 0;j < ObjectKeys.length;j++)
     {
-      if(SQLRows[i][ObjectKeys[j]] != null)
+      let ColumnValue = SQLRows[i][ObjectKeys[j]];
+      if(ColumnValue != null)
       {
-        TableValues.push(SQLRows[i][ObjectKeys[j]]);
+        let ValueToAdd = ColumnValue;
+        if(StringIsUrl(String(ColumnValue)))
+        {
+          ValueToAdd = "<a href=\""+String(ValueToAdd+"\">"+String(ValueToAdd)+"</a>");
+        }
+        else if(StringIsPath(String(ColumnValue)))
+        {
+          console.log("Kommer hit");
+          ValueToAdd = await MBGetEmbeddedResource(ValueToAdd);
+        }
+        TableValues.push(ValueToAdd);
       }
       else
       {
@@ -46,7 +57,6 @@ function validate(e)
       }
     }
     TableToModify.appendChild(CreateTableRow(TableValues));
-    console.log("Appended row: ",TableValues,i,SQLRowsLength);
   }
 });
 }

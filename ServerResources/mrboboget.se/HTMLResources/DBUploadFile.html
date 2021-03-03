@@ -1,0 +1,22 @@
+<HTML>
+    <head>
+        <link rel="stylesheet" href="/WebsidanStil.css">
+    </head>
+    <BODY>
+#{include(TopMenu.html)}
+        <h1>
+            DBUploadFile
+        </h1>
+        <p id="DBUploadFile_Result" style="color:green;text-align:center"></p>
+        <input type="text" id="FileToUploadName" name="fname" style="width:50%" class = "center">
+        <div style="display: block;text-align: center;">
+            <form id="DBUploadFileForm" action="./UploadFile" method="post" enctype ="multipart/form-data" class="center">
+                <input type="file" id="FileToUpload" name="filename">
+                <input type="submit">
+            </form>
+        </div>
+        <script src=DBLibrary.js></script>
+        <script src="DBUploadFile.js">
+        </script>
+    </BODY>
+    </HTML>

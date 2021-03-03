@@ -3,7 +3,7 @@
 //operator bool() const { return(Type == MBErrorType::OK); }
 MBError::MBError(bool BoolInitialiser)
 {
-	if (true)
+	if (BoolInitialiser)
 	{
 		Type = MBErrorType::OK;
 	}

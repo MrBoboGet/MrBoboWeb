@@ -17,12 +17,17 @@ bool DBSite_Predicate(std::string const& RequestData)
 std::mutex DatabaseMutex;
 //MBDB::MrBoboDatabase DBSite_Database("./TestDatabas",0);
 MBDB::MrBoboDatabase* WebsiteDatabase = nullptr;
-
+std::mutex WritableDatabaseMutex;
+MBDB::MrBoboDatabase* WritableDatabase = nullptr;
 void InitDatabase()
 {
 	if (WebsiteDatabase == nullptr)
 	{
 		WebsiteDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 0);
+	}
+	if (WritableDatabase == nullptr)
+	{
+		WritableDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 1);
 	}
 }
 
@@ -113,7 +118,7 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	//hardcodat eftersom vi vet formtatet av formuläret
 	std::vector<std::string> FirstFieldValues = Split(FieldParameters, "; ");
 	std::string FileNameHeader = "filename=\"";
-	std::string FileName ="./"+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
+	std::string FileName ="./MBDBResources/"+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
 	int FilesWithSameName = 0;
 	while(std::filesystem::exists(FileName))
 	{
@@ -141,6 +146,10 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	}
 	std::cout << "Total data written: " << TotalDataWritten << std::endl;
 	std::cout << "Total time: " << (clock() - WriteTimer) / double(CLOCKS_PER_SEC) << std::endl;
+	
+	
+	NewDocument.Type = MBSockets::HTTPDocumentType::json;
+	NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"ok\"}";
 	return(NewDocument);
 }
 
@@ -233,7 +242,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
 	std::string EmbeddedElement = "";
 
-	std::string HandlerName = "DBView/";
+	std::string HandlerName = "DBView";
 	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
 	std::string DBResourcesPath = "./MBDBResources/";
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
@@ -345,10 +354,32 @@ std::string DBGeneralAPIGetDirective(std::string const& RequestBody)
 	std::string APIDirective = RequestBody.substr(0, FirstSpace);
 	return(APIDirective);
 }
-std::vector<std::string> DBGeneralAPIGetArguments(std::string const& RequestBody)
+std::vector<std::string> DBGeneralAPIGetArguments(std::string const& RequestBody,MBError* OutError = nullptr)
 {
 	size_t FirstSpace = RequestBody.find(" ");
-	std::vector<std::string> ReturnValue = Split(RequestBody.substr(FirstSpace + 1),",");
+	std::vector<std::string> ReturnValue = {};
+	size_t ParsePosition = FirstSpace + 1;
+	while (ParsePosition != std::string::npos && ParsePosition < RequestBody.size())
+	{
+		size_t SizeEnd = RequestBody.find(" ", ParsePosition);
+		size_t ArgumentSize = 0;
+		if (SizeEnd == std::string::npos)
+		{
+			break;
+		}
+		try
+		{
+			ArgumentSize = std::stoi(RequestBody.substr(ParsePosition, SizeEnd - ParsePosition));
+		}
+		catch (const std::exception&)
+		{
+			*OutError = MBError(false);
+			OutError->ErrorMessage = "Failed to parse argument size";
+		}
+		ReturnValue.push_back(RequestBody.substr(SizeEnd + 1, ArgumentSize));
+		ParsePosition = SizeEnd + 1 + ArgumentSize + 1;
+	}
+	//std::vector<std::string> ReturnValue = Split(RequestBody.substr(FirstSpace + 1),",");
 	return(ReturnValue);
 }
 
@@ -388,32 +419,106 @@ std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
 	}
 	return(MBDB::MakeJasonArray(TableInfo,"TableInfo"));
 }
+long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
+{
+	long long ReturnValue = 0;
+	try
+	{
+		ReturnValue = std::stoi(IntData);
+	}
+	catch (const std::exception&)
+	{
+		*OutError = MBError(false);
+		OutError->ErrorMessage = "Failed to parse int";
+	}
+	return(ReturnValue);
+}
+std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
+{
+	std::string ReturnValue = "";
+	std::string SQLCommand = "INSERT INTO " + Arguments[0]+" VALUES (";
+	for (size_t i = 1; i < Arguments.size(); i++)
+	{
+		SQLCommand += "?";
+		if (i + 1 < Arguments.size())
+		{
+			SQLCommand += ",";
+		}
+	}
+	SQLCommand += ")";
+	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+	MBError DataBaseError(true);
+	{
+		std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
+		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
+		std::vector<MBDB::ColumnInfo> TableColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
+		for (size_t i = 1; i < Arguments.size(); i++)
+		{
+			if (TableColumnInfo[i-1].ColumnType == MBDB::ColumnSQLType::Int)
+			{
+				MBDB::MaxInt NewInt = StringToInt(Arguments[i],&DataBaseError);
+				if (!DataBaseError)
+				{
+					break;
+				}
+				DataBaseError = NewStatement->BindInt(NewInt, i);
+			}
+			else
+			{
+				DataBaseError = NewStatement->BindString(Arguments[i], i);
+				if (!DataBaseError)
+				{
+					break;
+				}
+			}
+		}
+		if (DataBaseError)
+		{
+			QuerryResult = WritableDatabase->GetAllRows(NewStatement, &DataBaseError);
+		}
+	}
+	if (DataBaseError)
+	{
+		ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+	}
+	else
+	{
+		ReturnValue = "{\"MBDBAPI_Status\":" + MBDB::ToJason(DataBaseError.ErrorMessage) + "}";
+	}
+	return(ReturnValue);
+}
 MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
 	std::string RequestBody = MrPostOGet::GetRequestContent(RequestData);
 	MBSockets::HTTPDocument ReturnValue;
 	std::string Resourcepath = AssociatedServer->GetResourcePath("mrboboget.se");
+	ReturnValue.Type = MBSockets::HTTPDocumentType::json;
 	if (RequestType == "POST")
 	{
 		//tar fram api funktionen
+
+		//eftersom det kan vara svårt att parsa argument med godtycklig text har varje argument först hur många bytes argumentent är
 		size_t FirstSpace = RequestBody.find(" ");
 		std::string APIDirective = DBGeneralAPIGetDirective(RequestBody);
 		std::vector<std::string> APIDirectiveArguments = DBGeneralAPIGetArguments(RequestBody);
 		if (APIDirective == "GetTableNames")
 		{
-			ReturnValue.Type = MBSockets::HTTPDocumentType::json;
 			ReturnValue.DocumentData = GetTableNamesBody(APIDirectiveArguments);
 		}
 		else if (APIDirective == "GetTableInfo")
 		{
-			ReturnValue.Type = MBSockets::HTTPDocumentType::json;
 			ReturnValue.DocumentData = GetTableInfoBody(APIDirectiveArguments);
+		}
+		else if (APIDirective == "AddEntryToTable")
+		{
+			//Funktions prototyp TableNamn + ColumnName:stringcolumm data
+			ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
 		}
 		else
 		{
-			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
-			ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
+			ReturnValue.DocumentData = "{\"DBGAError\":\"UnknownCommand\"";
+			//ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
 		}
 	}
 	else

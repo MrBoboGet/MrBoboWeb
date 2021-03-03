@@ -3,6 +3,85 @@
 #include <iostream>
 namespace MBDB
 {
+	MBDB_ColumnValueTypes SQLite3TypeToMBType(int TypeToConvert)
+	{
+		MBDB_ColumnValueTypes ReturnValue = MBDB_ColumnValueTypes::Null;
+		if (TypeToConvert == SQLITE_FLOAT)
+		{
+			ReturnValue = MBDB_ColumnValueTypes::Double;
+		}
+		else if (TypeToConvert == SQLITE_INTEGER)
+		{
+			ReturnValue = MBDB_ColumnValueTypes::Int32;
+		}
+		else if (TypeToConvert == SQLITE_BLOB)
+		{
+			ReturnValue = MBDB_ColumnValueTypes::Blob;
+		}
+		else if (TypeToConvert == SQLITE3_TEXT)
+		{
+			ReturnValue = MBDB_ColumnValueTypes::Text;
+		}
+		else if (TypeToConvert == SQLITE_NULL)
+		{
+			ReturnValue = MBDB_ColumnValueTypes::Null;
+		}
+		return(ReturnValue);
+	}
+	void* CopySQLite3Data(sqlite3_stmt* StatementToInterpret, int ColumnIndex, int SQLite3Type)
+	{
+		void* ReturnValue = nullptr;
+		if (SQLite3Type == SQLITE_FLOAT)
+		{
+			ReturnValue = new double;
+			*(double*)ReturnValue = sqlite3_column_double(StatementToInterpret, ColumnIndex);
+		}
+		else if (SQLite3Type == SQLITE_INTEGER)
+		{
+			ReturnValue = new int;
+			*(int*)ReturnValue = sqlite3_column_int(StatementToInterpret, ColumnIndex);
+		}
+		else if (SQLite3Type == SQLITE_BLOB)
+		{
+			ReturnValue = new std::string();
+			size_t StringSize = sqlite3_column_bytes(StatementToInterpret, ColumnIndex);
+			*(std::string*)ReturnValue = std::string((char*)sqlite3_column_blob(StatementToInterpret, ColumnIndex), StringSize);
+		}
+		else if (SQLite3Type == SQLITE3_TEXT)
+		{
+			ReturnValue = new std::string();
+			size_t StringSize = sqlite3_column_bytes(StatementToInterpret, ColumnIndex);
+			const char* StringData = (char*)sqlite3_column_text(StatementToInterpret, ColumnIndex);
+			std::string NewString = std::string(StringData, StringSize);
+			*((std::string*)ReturnValue) = NewString;
+		}
+		else if (SQLite3Type == SQLITE_NULL)
+		{
+			assert(false);
+		}
+		return(ReturnValue);
+	}
+	MBDB_RowData CreateRowFromSQLiteStatement(sqlite3_stmt* StatementToInterpret)
+	{
+		int NumberOfRows = sqlite3_column_count(StatementToInterpret);
+		MBDB_RowData NewRow;
+		for (size_t i = 0; i < NumberOfRows; i++)
+		{
+			MBDB_ColumnValueTypes NewColumnType = MBDB_ColumnValueTypes::Null;
+			int SQLite3_ColumnType = sqlite3_column_type(StatementToInterpret, i);
+			NewColumnType = SQLite3TypeToMBType(SQLite3_ColumnType);
+			NewRow.ColumnValueTypes.push_back(NewColumnType);
+			if (NewColumnType != MBDB_ColumnValueTypes::Null)
+			{
+				NewRow.RawColumnData.push_back(CopySQLite3Data(StatementToInterpret, i, SQLite3_ColumnType));
+			}
+			else
+			{
+				NewRow.RawColumnData.push_back(nullptr);
+			}
+		}
+		return(NewRow);
+	}
 	void* CopyColumnData(MBDB_ColumnValueTypes TypeToCopy, void* DataToCopy)
 	{
 		void* NewData = nullptr;
@@ -94,7 +173,7 @@ namespace MBDB
 		}
 		else if (DataType == MBDB_ColumnValueTypes::Text)
 		{
-			ReturnValue += "\""+*(std::string*)RawData+"\"";
+			ReturnValue += ToJason(*(std::string*)RawData);
 		}
 		else if (DataType == MBDB_ColumnValueTypes::Null)
 		{
@@ -127,95 +206,131 @@ namespace MBDB
 		return(ReturnValue);
 	}
 
-
+	//SQLStatement
+	MBError SQLStatement::BindString(std::string const& ParameterData, int ParameterIndex)
+	{
+		MBError ReturnValue = MBError(true);
+		int Error = sqlite3_bind_text(UnderlyingStatement, ParameterIndex, ParameterData.c_str(), ParameterData.size(), SQLITE_TRANSIENT);
+		if (Error != SQLITE_OK)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = sqlite3_errstr(Error);
+		}
+		return(ReturnValue);
+	}
+	MBError SQLStatement::BindInt(MaxInt IntToBind, int ParameterIndex)
+	{
+		MBError ReturnValue = MBError(true);
+		int Error = sqlite3_bind_int(UnderlyingStatement, ParameterIndex, IntToBind);
+		if (Error != SQLITE_OK)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = sqlite3_errstr(Error);
+		}
+		return(ReturnValue);
+	}
+	MBError SQLStatement::FreeData()
+	{
+		MBError ReturnValue = MBError(true);
+		int Error = sqlite3_finalize(UnderlyingStatement);
+		if (!Error)
+		{
+			Error = false;
+			ReturnValue.ErrorMessage = sqlite3_errstr(Error);
+		}
+		return(Error);
+	}
+	std::vector<MBDB_RowData> SQLStatement::GetAllRows(sqlite3* DBConnection, MBError* ErrorToReturn = nullptr)
+	{
+		//statementen är fungerande
+		std::vector<MBDB_RowData> ReturnValue = {};
+		int StatementValue = 0;
+		if (IsValid())
+		{
+			while ((StatementValue = sqlite3_step(UnderlyingStatement)) != SQLITE_DONE)
+			{
+				if (StatementValue == SQLITE_ROW)
+				{
+					ReturnValue.push_back(CreateRowFromSQLiteStatement(UnderlyingStatement));
+				}
+				else if (StatementValue == SQLITE_ERROR)
+				{
+					std::string ErrorMessage = sqlite3_errmsg(DBConnection);
+					std::cout << ErrorMessage << std::endl;
+					if (ErrorToReturn != nullptr)
+					{
+						*ErrorToReturn = MBError(false);
+						ErrorToReturn->ErrorMessage = ErrorMessage;
+					}
+					break;
+				}
+				else if (StatementValue == SQLITE_MISUSE)
+				{
+					assert(false);
+				}
+				else if (StatementValue == SQLITE_BUSY)
+				{
+					assert(false);
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+		else
+		{
+			if (ErrorToReturn != nullptr)
+			{
+				*ErrorToReturn = MBError(false);
+				ErrorToReturn->ErrorMessage = "Statement was invalid";
+			}
+		}
+		return(ReturnValue);
+	}
+	SQLStatement::SQLStatement(std::string const& SQLQuerry, sqlite3* SQLiteConnection)
+	{
+		int ErrorCode;
+		const char* UnusedPortion;
+		ErrorCode = sqlite3_prepare_v2(SQLiteConnection, SQLQuerry.data(), SQLQuerry.size(), &UnderlyingStatement, &UnusedPortion);
+		if (ErrorCode != SQLITE_OK)
+		{
+			IsInvalid = true;
+			std::cout << sqlite3_errmsg(SQLiteConnection) << std::endl;
+			//assert(false);
+		}
+	}
 	//MrBoboDatabase
+	SQLStatement* MrBoboDatabase::GetSQLStatement(std::string const& SQLCode)
+	{
+		return(new SQLStatement(SQLCode,UnderlyingConnection));
+	}
+	MBError MrBoboDatabase::FreeSQLStatement(SQLStatement* StatementToFree)
+	{
+		delete StatementToFree;
+		return(MBError(true));
+	}
+	std::vector<MBDB_RowData> MrBoboDatabase::GetAllRows(SQLStatement* StatementToEvaluate, MBError* ErrorToReturn)
+	{
+		return(StatementToEvaluate->GetAllRows(UnderlyingConnection, ErrorToReturn));
+	}
 	MrBoboDatabase::MrBoboDatabase(std::string const& FilePath,unsigned int Options)
 	{
-		int ErrorCode = sqlite3_open_v2(FilePath.c_str(), &UnderlyingConnection, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nullptr);
+		int DatabaseOptions = SQLITE_OPEN_FULLMUTEX;
+		if ((Options & 1) == 0)
+		{
+			DatabaseOptions |= SQLITE_OPEN_READONLY;
+		}
+		else
+		{
+			DatabaseOptions |= SQLITE_OPEN_READWRITE;
+		}
+		int ErrorCode = sqlite3_open_v2(FilePath.c_str(), &UnderlyingConnection, DatabaseOptions, nullptr);
 		if (ErrorCode != SQLITE_OK)
 		{
 			std::cout << sqlite3_errmsg(UnderlyingConnection) << std::endl;
 			assert(false);
 		}
-	}
-	MBDB_ColumnValueTypes SQLite3TypeToMBType(int TypeToConvert)
-	{
-		MBDB_ColumnValueTypes ReturnValue = MBDB_ColumnValueTypes::Null;
-		if (TypeToConvert == SQLITE_FLOAT)
-		{
-			ReturnValue = MBDB_ColumnValueTypes::Double;
-		}
-		else if (TypeToConvert == SQLITE_INTEGER)
-		{
-			ReturnValue = MBDB_ColumnValueTypes::Int32;
-		}
-		else if (TypeToConvert == SQLITE_BLOB)
-		{
-			ReturnValue = MBDB_ColumnValueTypes::Blob;
-		}
-		else if (TypeToConvert == SQLITE3_TEXT)
-		{
-			ReturnValue = MBDB_ColumnValueTypes::Text;
-		}
-		else if(TypeToConvert == SQLITE_NULL)
-		{
-			ReturnValue = MBDB_ColumnValueTypes::Null;
-		}
-		return(ReturnValue);
-	}
-	void* CopySQLite3Data(sqlite3_stmt* StatementToInterpret, int ColumnIndex, int SQLite3Type)
-	{
-		void* ReturnValue = nullptr;
-		if (SQLite3Type == SQLITE_FLOAT)
-		{
-			ReturnValue = new double;
-			*(double*)ReturnValue = sqlite3_column_double(StatementToInterpret, ColumnIndex);
-		}
-		else if (SQLite3Type == SQLITE_INTEGER)
-		{
-			ReturnValue = new int;
-			*(int*)ReturnValue = sqlite3_column_int(StatementToInterpret, ColumnIndex);
-		}
-		else if (SQLite3Type == SQLITE_BLOB)
-		{
-			ReturnValue = new std::string();
-			size_t StringSize = sqlite3_column_bytes(StatementToInterpret, ColumnIndex);
-			*(std::string*)ReturnValue = std::string((char*)sqlite3_column_blob(StatementToInterpret, ColumnIndex),StringSize);
-		}
-		else if (SQLite3Type == SQLITE3_TEXT)
-		{
-			ReturnValue = new std::string();
-			size_t StringSize = sqlite3_column_bytes(StatementToInterpret, ColumnIndex);
-			const char* StringData = (char*)sqlite3_column_text(StatementToInterpret, ColumnIndex);
-			std::string NewString = std::string(StringData, StringSize);
-			*((std::string*)ReturnValue) = NewString;
-		}
-		else if(SQLite3Type == SQLITE_NULL)
-		{
-			assert(false);
-		}
-		return(ReturnValue);
-	}
-	MBDB_RowData CreateRowFromSQLiteStatement(sqlite3_stmt* StatementToInterpret)
-	{
-		int NumberOfRows = sqlite3_column_count(StatementToInterpret);
-		MBDB_RowData NewRow;
-		for (size_t i = 0; i < NumberOfRows; i++)
-		{
-			MBDB_ColumnValueTypes NewColumnType = MBDB_ColumnValueTypes::Null;
-			int SQLite3_ColumnType = sqlite3_column_type(StatementToInterpret, i);
-			NewColumnType = SQLite3TypeToMBType(SQLite3_ColumnType);
-			NewRow.ColumnValueTypes.push_back(NewColumnType);
-			if(NewColumnType != MBDB_ColumnValueTypes::Null)
-			{
-				NewRow.RawColumnData.push_back(CopySQLite3Data(StatementToInterpret, i, SQLite3_ColumnType));
-			}
-			else
-			{
-				NewRow.RawColumnData.push_back(nullptr);
-			}
-		}
-		return(NewRow);
 	}
 	std::vector<std::string> MrBoboDatabase::GetAllTableNames()
 	{
@@ -253,11 +368,12 @@ namespace MBDB
 	{
 		std::vector<MBDB_RowData> ReturnValue = {};
 		MBError ErrorToReturn(true);
-		sqlite3_stmt* NewStatement;
-		int ErrorCode;
-		const char* UnusedPortion;
-		ErrorCode = sqlite3_prepare_v2(UnderlyingConnection, SQLQuerry.data(), SQLQuerry.size(), &NewStatement,&UnusedPortion);
-		if (ErrorCode != SQLITE_OK)
+		SQLStatement NewStatement(SQLQuerry, UnderlyingConnection);
+		//sqlite3_stmt* NewStatement;
+		//int ErrorCode;
+		//const char* UnusedPortion;
+		//ErrorCode = sqlite3_prepare_v2(UnderlyingConnection, SQLQuerry.data(), SQLQuerry.size(), &NewStatement,&UnusedPortion);
+		if (!NewStatement.IsValid())
 		{
 			std::cout << sqlite3_errmsg(UnderlyingConnection) << std::endl;
 			//assert(false);
@@ -265,33 +381,9 @@ namespace MBDB
 		else
 		{
 			//statementen är fungerande
-			int StatementValue = 0;
-			while ((StatementValue = sqlite3_step(NewStatement)) != SQLITE_DONE)
-			{
-				if (StatementValue == SQLITE_ROW)
-				{
-					ReturnValue.push_back(CreateRowFromSQLiteStatement(NewStatement));
-				}
-				else if (StatementValue == SQLITE_ERROR)
-				{
-					std::cout << sqlite3_errmsg(UnderlyingConnection) << std::endl;
-					break;
-				}
-				else if(StatementValue == SQLITE_MISUSE)
-				{
-					assert(false);
-				}
-				else if (StatementValue == SQLITE_BUSY)
-				{
-					assert(false);
-				}
-				else
-				{
-					break;
-				}
-			}
+			ReturnValue = NewStatement.GetAllRows(UnderlyingConnection, OutError);
 		}
-		sqlite3_finalize(NewStatement);
+		NewStatement.FreeData();
 		return(ReturnValue);
 	}
 	void swap(MBDB::MBDB_RowData& Row1, MBDB::MBDB_RowData& Row2)
@@ -331,7 +423,43 @@ namespace MBDB
 	}
 	std::string ToJason(std::string const& ValueToJason)
 	{
-		return("\"" + ValueToJason + "\"");
+		std::string EscapedJasonString = "";
+		for (size_t i = 0; i < ValueToJason.size(); i++)
+		{
+			if (ValueToJason[i] == '"')
+			{
+				EscapedJasonString += "\\\"";
+			}
+			else if (ValueToJason[i] == '\\')
+			{
+				EscapedJasonString += "\\\\";
+			}
+			else if (ValueToJason[i] == '\b')
+			{
+				EscapedJasonString += "\\b";
+			}
+			else if (ValueToJason[i] == '\f')
+			{
+				EscapedJasonString += "\\f";
+			}
+			else if (ValueToJason[i] == '\n')
+			{
+				EscapedJasonString += "\\n";
+			}
+			else if (ValueToJason[i] == '\r')
+			{
+				EscapedJasonString += "\\r";
+			}
+			else if (ValueToJason[i] == '\t')
+			{
+				EscapedJasonString += "\\t";
+			}
+			else
+			{
+				EscapedJasonString += ValueToJason[i];
+			}
+		}
+		return("\"" + EscapedJasonString + "\"");
 	}
 	std::string ToJason(long long ValueToJason)
 	{

@@ -889,7 +889,8 @@ namespace MBSockets
 			}
 			else
 			{
-				std::cout << "Nu blev det falskt " << std::endl;
+				std::cout << "Data is not available " << std::endl;
+				return(false);
 			}
 		}
 		HTTPServerSocket(std::string Port, TraversalProtocol TraversalProto) : ServerSocket(Port, TraversalProto)
