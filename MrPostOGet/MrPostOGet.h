@@ -69,11 +69,19 @@ namespace MrPostOGet
 	}
 	inline std::string LoadFileWithVariables(std::string const& Filepath, std::unordered_map<std::string, std::string> const& VariablesMap)
 	{
+		if (!std::filesystem::exists(Filepath))
+		{
+			return("");
+		}
 		std::string FileData = LoadWholeFile(Filepath);
 		return(ReplaceMPGVariables(FileData, VariablesMap));
 	}
 	inline std::string LoadFileWithPreprocessing(std::string const& Filepath, std::string const& ResourcesPath) 
 	{
+		if (!std::filesystem::exists(Filepath))
+		{
+			return("");
+		}
 		std::string FileData = LoadWholeFile(Filepath);
 		std::string ReturnValue = "";
 		size_t LastParsePosition = 0;
@@ -190,7 +198,10 @@ namespace MrPostOGet
 			MBSockets::HTTPDocument ReturnValue;
 			if (!std::filesystem::exists(ResourcePath))
 			{
-				std::cout << "get file doesnt exist" << std::endl;
+				ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+				ReturnValue.DocumentData = "";
+				ReturnValue.DocumentDataFileReference = "";
+				std::cout << "get file doesnt exist "+ResourcePath << std::endl;
 			}
 
 			if (Byteranges.size() != 0)

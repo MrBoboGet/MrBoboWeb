@@ -847,6 +847,10 @@ namespace MBSockets
 		{
 			return("206 Partial Content");
 		}
+		else if (StatusToConvert == HTTPRequestStatus::NotFound)
+		{
+			return("404 Not Found");
+		}
 	}
 	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
 	{

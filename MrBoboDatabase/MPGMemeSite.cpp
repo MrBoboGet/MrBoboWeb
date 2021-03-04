@@ -280,7 +280,10 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 	std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
 	ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "DBViewTemplate.html", HTMLResourcePath), MapData);
 	//= AssociatedServer->GetResource(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBViewTemplate.html");
-
+	if (EmbeddedElement == "" || ReturnValue.DocumentData == "")
+	{
+		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+	}
 	return(ReturnValue);
 }
 
