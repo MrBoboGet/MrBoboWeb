@@ -12,6 +12,7 @@
 	#include <netdb.h>
 	#include <arpa/inet.h>
 	#include <pthread.h>
+	#include <csignal>
 	//#include <stdatomic.h>
 	//#include <sys\types.h>
 #endif
@@ -54,6 +55,8 @@ namespace MBSockets
 			printf("WSAStartup failed with error: %d\n", iResult);
 			return;
 		}
+#else
+		signal(SIGPIPE, SIG_IGN);
 #endif
 		return;
 	}
