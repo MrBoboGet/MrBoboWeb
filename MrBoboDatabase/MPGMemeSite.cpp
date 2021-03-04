@@ -171,7 +171,14 @@ MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, 
 	std::string DatabaseResourcePath = "./MBDBResources/";
 	std::string URLResource = MBSockets::GetReqestResource(RequestData);
 	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
-	
+	if (!std::filesystem::exists(DatabaseResourceToGet))
+	{
+		MBSockets::HTTPDocument Invalid;
+		Invalid.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+		Invalid.Type = MBSockets::HTTPDocumentType::HTML;
+		Invalid.DocumentData = "File not found";
+		return(Invalid);
+	}
 	std::string RangeData = MBSockets::GetHeaderValue("Range", RequestData);
 	std::string IntervallsData = RangeData.substr(RangeData.find_first_of("=") + 1);
 	ReplaceAll(&IntervallsData, "\r", "");
@@ -260,6 +267,14 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 	std::string DBResourcesPath = "./MBDBResources/";
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
+	if (!std::filesystem::exists(DBResourcesPath+DBResource))
+	{
+		MBSockets::HTTPDocument Invalid;
+		Invalid.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+		Invalid.Type = MBSockets::HTTPDocumentType::HTML;
+		Invalid.DocumentData = "File not found";
+		return(Invalid);
+	}
 	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
 	if (ResourceMedia == MBSockets::MediaType::Image)
 	{
