@@ -171,7 +171,7 @@ MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, 
 	std::string DatabaseResourcePath = "./MBDBResources/";
 	std::string URLResource = MBSockets::GetReqestResource(RequestData);
 	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
-	if (!std::filesystem::exists(DatabaseResourceToGet))
+	if (!std::filesystem::exists(DatabaseResourcePath+DatabaseResourceToGet))
 	{
 		MBSockets::HTTPDocument Invalid;
 		Invalid.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;

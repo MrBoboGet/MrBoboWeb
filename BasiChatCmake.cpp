@@ -23,7 +23,7 @@ int main()
 #ifdef DNDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
 	InitDatabase();
 	///*
