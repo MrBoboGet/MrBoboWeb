@@ -204,32 +204,31 @@ std::string GetEmbeddedVideo(std::string const& VideoPath, std::string const& We
 {
 	std::string ReturnValue = "";
 	std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
-	if (FileExtension == "mp4" || FileExtension == "mkv")
-	{
-		std::unordered_map<std::string, std::string> VariableValues = {};
-		VariableValues["ElementID"] = VideoPath;
-		VariableValues["MediaType"] = "video";
-		VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
-		VariableValues["FileType"] = FileExtension;
-		ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
-	}
-	else
-	{
-		std::unordered_map<std::string, std::string> VariableValues = {};
-		VariableValues["ElementID"] = VideoPath;
-		VariableValues["MediaType"] = "video";
-		VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
-		ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
-	}
+	std::unordered_map<std::string, std::string> VariableValues = {};
+	VariableValues["ElementID"] = VideoPath;
+	VariableValues["MediaType"] = "video";
+	VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
+	VariableValues["FileType"] = FileExtension;
+	ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
+	//else
+	//{
+	//	std::unordered_map<std::string, std::string> VariableValues = {};
+	//	VariableValues["ElementID"] = VideoPath;
+	//	VariableValues["MediaType"] = "video";
+	//	VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
+	//	ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
+	//}
 	return(ReturnValue);
 }
 std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath)
 {
 	std::unordered_map<std::string, std::string> VariableValues = {};
+	std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
 	VariableValues["ElementID"] = VideoPath;
 	VariableValues["MediaType"] = "audio";
-	VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
-	std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
+	VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
+	VariableValues["FileType"] = FileExtension;
+	std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
 	return(ReturnValue);
 }
 std::string GetEmbeddedImage(std::string const& ImagePath)

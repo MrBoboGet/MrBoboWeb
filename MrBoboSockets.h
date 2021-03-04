@@ -141,16 +141,24 @@ namespace MBSockets
 		//returnar en int f�r eventuellt framtida error hantering
 		int SendData(const char* DataPointer, int DataLength)
 		{
-			int TotalDataSent = 0;
-			while (TotalDataSent != DataLength)
+			try
 			{
-				ErrorResults = send(ConnectedSocket, DataPointer, DataLength, 0);
-				if (ErrorResults == MBSocketError())
+				int TotalDataSent = 0;
+				while (TotalDataSent != DataLength)
 				{
-					HandleError("send failed with error: "+GetLastError(),true);
-					return(0);
+					ErrorResults = send(ConnectedSocket, DataPointer, DataLength, 0);
+					if (ErrorResults == MBSocketError())
+					{
+						HandleError("send failed with error: " + GetLastError(), true);
+						return(0);
+					}
+					TotalDataSent += ErrorResults;
 				}
-				TotalDataSent += ErrorResults;
+			}
+			catch (const std::exception&)
+			{
+				HandleError("send failed with unknown error", true);
+				return(-1);
 			}
 			return(0);
 		}
