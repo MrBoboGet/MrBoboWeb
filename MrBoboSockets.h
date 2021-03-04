@@ -37,6 +37,12 @@ typedef SOCKET MB_OS_Socket;
 typedef int MB_OS_Socket;
 #endif
 
+struct FiledataIntervall
+{
+	int FirstByte = 0;
+	int LastByte = 0;
+};
+
 namespace MBSockets
 {
 	inline void Init()
@@ -677,11 +683,22 @@ namespace MBSockets
 		mkv,
 		javascript,
 		css,
+		mp4,
 		Null
+	};
+	enum class HTTPRequestStatus
+	{
+		OK = 200,
+		PartialContent = 206,
+		NotFound = 404,
 	};
 	struct HTTPDocument
 	{
 		HTTPDocumentType Type = HTTPDocumentType::Null;
+		HTTPRequestStatus RequestStatus = HTTPRequestStatus::OK;
+		std::vector<std::string> ExtraHeaders = {};
+		std::vector<FiledataIntervall> IntervallsToRead = {};
+
 		std::string DocumentData;
 		std::string DocumentDataFileReference = "";
 	};
@@ -719,6 +736,10 @@ namespace MBSockets
 		else if (FileExtension == "css")
 		{
 			ReturnValue = MBSockets::HTTPDocumentType::css;
+		}
+		else if (FileExtension == "mp4")
+		{
+			ReturnValue = MBSockets::HTTPDocumentType::mp4;
 		}
 		return(ReturnValue);
 	}
@@ -806,16 +827,31 @@ namespace MBSockets
 		{
 			ReturnValue += "text/css";
 		}
+		else if (TypeToConvert == HTTPDocumentType::mp4)
+		{
+			ReturnValue += "video/mp4";
+		}
 		else
 		{
 			ReturnValue += "application/octet-stream";
 		}
 		return(ReturnValue);
 	}
+	inline std::string HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert)
+	{
+		if (StatusToConvert == HTTPRequestStatus::OK)
+		{
+			return("200 OK");
+		}
+		else if (StatusToConvert == HTTPRequestStatus::PartialContent)
+		{
+			return("206 Partial Content");
+		}
+	}
 	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
 	{
 		std::string Request = "";
-		Request += "HTTP/1.1 200 OK\n";
+		Request += "HTTP/1.1 "+HTTPRequestStatusToString(DocumentToSend.RequestStatus)+"\n";
 		Request += "Content-Type: "+GetMIMEFromDocumentType(DocumentToSend.Type)+"\n";
 		Request += "Accept-Ranges: bytes\n";
 		Request += "Content-Length: ";
@@ -823,14 +859,43 @@ namespace MBSockets
 		{
 			//datan är sparad som en referns istället
 			//Request += "Transfer-Encoding: chunked";
-			Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+			if (DocumentToSend.IntervallsToRead.size() == 0)
+			{
+				Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+			}
+			else
+			{
+				size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+				int TotalIntervallSize = 0;
+				for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
+				{
+					if(DocumentToSend.IntervallsToRead[i].FirstByte == -1)
+					{
+						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte;
+					}
+					else if (DocumentToSend.IntervallsToRead[i].LastByte == -1)
+					{
+						TotalIntervallSize += FileSize - DocumentToSend.IntervallsToRead[i].FirstByte;
+					}
+					else
+					{
+						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte - DocumentToSend.IntervallsToRead[i].FirstByte+1;
+					}
+				}
+				Request += std::to_string(TotalIntervallSize);
+			}
 		}
 		else
 		{
 			//Request += "Content-Length: ";
 			Request += std::to_string(DocumentToSend.DocumentData.size());
 		}
-		Request += "\n\r\n";
+		Request += "\n";
+		for (size_t i = 0; i < DocumentToSend.ExtraHeaders.size(); i++)
+		{
+			Request += DocumentToSend.ExtraHeaders[i]+"\n";
+		}
+		Request += "\r\n";
 		if (DocumentToSend.DocumentDataFileReference == "")
 		{
 			Request += DocumentToSend.DocumentData;
@@ -1069,32 +1134,129 @@ namespace MBSockets
 		{
 			SendWithTls(DataToSend);
 		}
+
+		class FileIntervallExtracter
+		{
+		private:
+			std::ifstream FileToRead;
+			std::vector<FiledataIntervall> IntervallsToRead = {};
+			size_t FileSize = 0;
+			int IntervallIndex = 0;
+			int MaxDataInMemory = 10000000;
+			int TotalDataRead = 0;
+		public:
+			FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, int MaxDataInMemory)
+				: FileToRead(FilePath, std::ifstream::in | std::ifstream::binary)
+			{
+				IntervallsToRead = Intervalls;
+				FileSize = std::filesystem::file_size(FilePath);
+				this->MaxDataInMemory = MaxDataInMemory;
+			}
+			std::string GetNextIntervall()
+			{
+				if (IntervallIndex >= IntervallsToRead.size())
+				{
+					return("");
+				}
+				int NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte+1;
+				if (IntervallsToRead[IntervallIndex].LastByte == -1)
+				{
+					NumberOfBytesToRead = FileSize - IntervallsToRead[IntervallIndex].FirstByte;
+				}
+				int FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
+				if (FirstByteToReadPosition < 0)
+				{
+					NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
+					FirstByteToReadPosition = FileSize - NumberOfBytesToRead;
+				}
+
+				if (NumberOfBytesToRead >= MaxDataInMemory)
+				{
+					int BytesWantedToRead = NumberOfBytesToRead;
+					NumberOfBytesToRead = MaxDataInMemory;
+					IntervallsToRead[IntervallIndex].LastByte = FirstByteToReadPosition + BytesWantedToRead - 1;
+					IntervallsToRead[IntervallIndex].FirstByte = FirstByteToReadPosition + NumberOfBytesToRead;
+				}
+				else
+				{
+					IntervallIndex += 1;
+				}
+				std::string ReturnValue = std::string(NumberOfBytesToRead, 0);
+				FileToRead.seekg(FirstByteToReadPosition);
+				FileToRead.read(&ReturnValue[0], NumberOfBytesToRead);
+				TotalDataRead += NumberOfBytesToRead;
+				return(ReturnValue);
+			}
+			bool IsDone()
+			{
+				if (IntervallIndex >= IntervallsToRead.size())
+				{
+					return(true);
+				}
+				return(false);
+			}
+
+		};
 		void SendHTTPDocument(HTTPDocument const& DocumentToSend)
 		{
-			std::string DataToSend = GenerateRequest(DocumentToSend);
-			SendWithTls(DataToSend);
+			//TODO egentligen vill vi väll ha support för flera byta ranges (?) men det innebär att man kommer skicka dem som en multipart form, vilket inte är det vi vill
+			if (DocumentToSend.RequestStatus == HTTPRequestStatus::PartialContent)
+			{
+				//enkel range request med specifikt intervall
+				HTTPDocument NewDocument = DocumentToSend;
+				int StartByte = NewDocument.IntervallsToRead[0].FirstByte;
+				int LastByte = NewDocument.IntervallsToRead[0].LastByte;
+				size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
+				if (StartByte == -1)
+				{
+					StartByte = FileSize - LastByte;
+					LastByte = FileSize - 1;
+				}
+				if(LastByte == -1)
+				{
+					LastByte = FileSize - 1;
+				}
+				std::string ContentRangeHeader = "Content-Range: bytes " + std::to_string(StartByte)+"-"+std::to_string(LastByte)+"/"+std::to_string(FileSize);
+				NewDocument.ExtraHeaders.push_back(ContentRangeHeader);
+				std::string DataToSend = GenerateRequest(NewDocument);
+				SendWithTls(DataToSend);
+			}
+			else
+			{
+				std::string DataToSend = GenerateRequest(DocumentToSend);
+				SendWithTls(DataToSend);
+			}
 			if (DocumentToSend.DocumentDataFileReference != "")
 			{
 				//vi ska skicka fildatan somn är där, och läser in den gradvis
-				std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
-				int ChunkSize = 16384;
-				size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
-				size_t FileDataSent = 0;
-				while (FileDataSent < FileSize)
+				//std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
+				std::vector<FiledataIntervall> DocumentInterValls = DocumentToSend.IntervallsToRead;
+				int MaxChunkSize = 16384;
+				if (DocumentInterValls.size() == 0)
 				{
-					std::string NewDataToSend(ChunkSize, 0);
-					DocumentFile.read(NewDataToSend.data(), ChunkSize);
-					size_t BytesRead = DocumentFile.gcount();
-					NewDataToSend.resize(BytesRead);
-					//NewDataToSend = std::to_string(BytesRead) + "\r\n" + NewDataToSend+"\r\n";
-					FileDataSent += BytesRead;
-					SendWithTls(NewDataToSend);
-					if (BytesRead < ChunkSize)
+					//vi skapar intervall
+					int FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+					int CurrentOffset = 0;
+					while (true)
 					{
-						break;
+						FiledataIntervall NewIntervall = { CurrentOffset,CurrentOffset + MaxChunkSize - 1 };
+						CurrentOffset += MaxChunkSize;
+						if (NewIntervall.LastByte >= FileSize)
+						{
+							NewIntervall.LastByte = FileSize - 1;
+						}
+						DocumentInterValls.push_back(NewIntervall);
+						if (NewIntervall.LastByte == FileSize - 1)
+						{
+							break;
+						}
 					}
 				}
-				//SendWithTls("0\r\n\r\n");
+				FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
+				while (!DataExtracter.IsDone())
+				{
+					SendWithTls(DataExtracter.GetNextIntervall());
+				}
 				int hej = 2;
 			}
 		}

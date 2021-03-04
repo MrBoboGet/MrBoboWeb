@@ -164,25 +164,54 @@ namespace MrPostOGet
 			std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
 			return(FileData);
 		}
-		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath)
+		std::string LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges)
+		{
+			std::string ReturnValue = "";
+			std::ifstream FileToRead(FilePath, std::ifstream::in | std::ifstream::binary);
+			size_t LastBytePosition = std::filesystem::file_size(FilePath) - 1;
+			for (size_t i = 0; i < ByteRanges.size(); i++)
+			{
+				int NumberOfBytesToRead = ByteRanges[i].LastByte - ByteRanges[i].FirstByte;
+				if (NumberOfBytesToRead < 0)
+				{
+					NumberOfBytesToRead = LastBytePosition - ByteRanges[i].FirstByte+1;
+				}
+				int FirstByteToReadPosition = ByteRanges[i].FirstByte;
+				if (FirstByteToReadPosition < 0)
+				{
+					NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
+					
+				}
+				char* NewData = new char[500];
+			}
+		}
+		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges = {})
 		{
 			MBSockets::HTTPDocument ReturnValue;
 			if (!std::filesystem::exists(ResourcePath))
 			{
 				std::cout << "get file doesnt exist" << std::endl;
 			}
+
+			if (Byteranges.size() != 0)
+			{
+				ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::PartialContent;
+			}
+
 			std::string ResourceExtension = ResourcePath.substr(ResourcePath.find_last_of(".")+1);
 			ReturnValue.Type = MBSockets::DocumentTypeFromFileExtension(ResourceExtension);
 			if(ReturnValue.Type == MBSockets::HTTPDocumentType::Null)
 			{
 				std::cout << ResourceExtension << std::endl;
 			}
-			if (std::filesystem::file_size(ResourcePath) > MaxDocumentInMemorySize)
+			if (std::filesystem::file_size(ResourcePath) > MaxDocumentInMemorySize || Byteranges.size() != 0)
 			{
 				ReturnValue.DocumentDataFileReference = ResourcePath;
+				ReturnValue.IntervallsToRead = Byteranges;
 			}
 			else
 			{
+				std::string FileData = LoadWholeFile(ResourcePath);
 				ReturnValue.DocumentData = LoadWholeFile(ResourcePath);
 			}
 			return(ReturnValue);

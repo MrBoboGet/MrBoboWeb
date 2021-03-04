@@ -171,42 +171,56 @@ MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, 
 	std::string DatabaseResourcePath = "./MBDBResources/";
 	std::string URLResource = MBSockets::GetReqestResource(RequestData);
 	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
-	MBSockets::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath+DatabaseResourceToGet);
+	
+	std::string RangeData = MBSockets::GetHeaderValue("Range", RequestData);
+	std::string IntervallsData = RangeData.substr(RangeData.find_first_of("=") + 1);
+	ReplaceAll(&IntervallsData, "\r", "");
+	ReplaceAll(&IntervallsData, "\n", "");
+	std::vector<FiledataIntervall> ByteIntervalls = {};
+	if (RangeData != "")
+	{
+		std::vector<std::string> Intervalls = Split(ReplaceAll(IntervallsData," ",""), ",");
+		for (int i = 0; i < Intervalls.size(); i++)
+		{
+			FiledataIntervall NewIntervall = { -1,-1 };
+			std::vector<std::string> IntervallNumbers = Split(Intervalls[i], "-");
+			if (IntervallNumbers[0] != "")
+			{
+				NewIntervall.FirstByte = std::stoi(IntervallNumbers[0]);
+			}
+			if (IntervallNumbers[1] != "")
+			{
+				NewIntervall.FirstByte = std::stoi(IntervallNumbers[1]);
+			}
+			ByteIntervalls.push_back(NewIntervall);
+		}
+	}
+
+
+	MBSockets::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath+DatabaseResourceToGet,ByteIntervalls);
 	return(ReturnValue);
 }
 std::string GetEmbeddedVideo(std::string const& VideoPath, std::string const& WebsiteResourcePath)
 {
-	/*
-			<video id = "video" src="./Ep1/720p.m3u8" controls></video>
-			<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-			<video id="video"></video>
-			<script>
-			var video = document.getElementById('video');
-			var videoSrc = './Ep1/720p.m3u8';
-			if (video.canPlayType('application/vnd.apple.mpegurl'))
-			{
-				video.src = videoSrc;
-			}
-			else if (Hls.isSupported())
-			{
-				var hls = new Hls();
-				hls.loadSource(videoSrc);
-				hls.attachMedia(video);
-			}
-			</script>
-	*/
-	//std::string ResourceExtension = VideoPath.substr(VideoPath.find_last_of(".") + 1);
-	//std::string ElementID = VideoPath;
-	//std::string ReturnValue = "<video id=\"" + ElementID + "\" src=\"" + VideoPath + "_Stream/MasterPlaylist" + "\" controls></video>\n";
-	//ReturnValue += "<script src=\"https:\/\/cdn.jsdelivr.net/npm/hls.js@latest\"></script>\n";
-	//ReturnValue += "<script>\n";
-	//ReturnValue += "var video = document.getElementById(\'" + ElementID + "\');";
-	//ReturnValue += 
-	std::unordered_map<std::string, std::string> VariableValues = {};
-	VariableValues["ElementID"] = VideoPath;
-	VariableValues["MediaType"] = "video";
-	VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
-	std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
+	std::string ReturnValue = "";
+	std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
+	if (FileExtension == "mp4" || FileExtension == "mkv")
+	{
+		std::unordered_map<std::string, std::string> VariableValues = {};
+		VariableValues["ElementID"] = VideoPath;
+		VariableValues["MediaType"] = "video";
+		VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
+		VariableValues["FileType"] = FileExtension;
+		ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
+	}
+	else
+	{
+		std::unordered_map<std::string, std::string> VariableValues = {};
+		VariableValues["ElementID"] = VideoPath;
+		VariableValues["MediaType"] = "video";
+		VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
+		ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
+	}
 	return(ReturnValue);
 }
 std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath)
