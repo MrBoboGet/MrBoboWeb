@@ -95,6 +95,7 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 {
 	//Content-Type: multipart/form-data; boundary=---------------------------226143532618736951363968904467
 	MBSockets::HTTPDocument NewDocument;
+	NewDocument.Type = MBSockets::HTTPDocumentType::json;
 	std::string Boundary = "";
 	std::vector<std::string> ContentTypes = MBSockets::GetHeaderValues("Content-Type", RequestData);
 	std::string FormType = "multipart/form-data";
@@ -122,8 +123,8 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	int FilesWithSameName = 0;
 	while(std::filesystem::exists(FileName))
 	{
-		FileName += std::to_string(FilesWithSameName);
-		FilesWithSameName += 1;
+		NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"FileAlreadyExists\"}";
+		return(NewDocument);
 	}
 	int FileDataLocation = RequestData.find("\r\n\r\n", FirstFormParameterLocation) + 4;
 	std::ofstream NewFile(FileName, std::ios::out | std::ios::binary);
@@ -147,8 +148,6 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	std::cout << "Total data written: " << TotalDataWritten << std::endl;
 	std::cout << "Total time: " << (clock() - WriteTimer) / double(CLOCKS_PER_SEC) << std::endl;
 	
-	
-	NewDocument.Type = MBSockets::HTTPDocumentType::json;
 	NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"ok\"}";
 	return(NewDocument);
 }
@@ -240,7 +239,7 @@ std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& We
 }
 std::string GetEmbeddedImage(std::string const& ImagePath)
 {
-	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\"></image>";
+	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\" style=\"width:100%\"></image>";
 	return(ReturnValue);
 }
 bool DBView_Predicate(std::string const& RequestData)
@@ -467,7 +466,34 @@ long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
 std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 {
 	std::string ReturnValue = "";
-	std::string SQLCommand = "INSERT INTO " + Arguments[0]+" VALUES (";
+	std::string SQLCommand = "INSERT INTO " + Arguments[0] + "("; //VALUES (";
+	std::vector<std::string> ColumnNames = {};
+	std::vector<std::string> ColumnValues = {};
+	std::vector<int> ColumnIndex = {};
+	MBError DataBaseError(true);
+
+
+	for (size_t i = 1; i < Arguments.size(); i++)
+	{
+		int FirstColon = Arguments[i].find_first_of(":");
+		int SecondColon = Arguments[i].find(":", FirstColon + 1);
+		int NewColumnIndex = -1;
+		NewColumnIndex = StringToInt(Arguments[i].substr(FirstColon + 1, SecondColon - FirstColon),&DataBaseError);
+		if (!DataBaseError)
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":" + MBDB::ToJason(DataBaseError.ErrorMessage) + "}";
+			return(ReturnValue);
+		}
+		ColumnNames.push_back(Arguments[i].substr(0, FirstColon));
+		ColumnValues.push_back(Arguments[i].substr(SecondColon + 1));
+		ColumnIndex.push_back(NewColumnIndex);
+		SQLCommand += ColumnNames[i - 1];
+		if (i + 1 < Arguments.size())
+		{
+			SQLCommand += ",";
+		}
+	}
+	SQLCommand += ") VALUES(";
 	for (size_t i = 1; i < Arguments.size(); i++)
 	{
 		SQLCommand += "?";
@@ -476,27 +502,26 @@ std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 			SQLCommand += ",";
 		}
 	}
-	SQLCommand += ")";
+	SQLCommand += ");";
 	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
-	MBError DataBaseError(true);
 	{
 		std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
 		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
 		std::vector<MBDB::ColumnInfo> TableColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
-		for (size_t i = 1; i < Arguments.size(); i++)
+		for (size_t i = 0; i < ColumnValues.size(); i++)
 		{
-			if (TableColumnInfo[i-1].ColumnType == MBDB::ColumnSQLType::Int)
+			if (TableColumnInfo[ColumnIndex[i]].ColumnType == MBDB::ColumnSQLType::Int)
 			{
-				MBDB::MaxInt NewInt = StringToInt(Arguments[i],&DataBaseError);
+				MBDB::MaxInt NewInt = StringToInt(ColumnValues[i],&DataBaseError);
 				if (!DataBaseError)
 				{
 					break;
 				}
-				DataBaseError = NewStatement->BindInt(NewInt, i);
+				DataBaseError = NewStatement->BindInt(NewInt, i+1);
 			}
 			else
 			{
-				DataBaseError = NewStatement->BindString(Arguments[i], i);
+				DataBaseError = NewStatement->BindString(ColumnValues[i], i+1);
 				if (!DataBaseError)
 				{
 					break;

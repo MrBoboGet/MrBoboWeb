@@ -98,8 +98,10 @@ async function SubmitRow()
     for(let i = 0;i < SubmissionFields.length;i++)
     {
         //console.log(SubmissionFields[i].innerHTML);
-        //let NewSubbmissionValue = G_CurrentTableColumnNames[i]+":"+SubmissionFields[i].value;
-        let NewSubbmissionValue = SubmissionFields[i].value;
+        let ColumnIndex = SubmissionFields[i].getAttribute("data-inputcolumnindex");
+        console.log(ColumnIndex);
+        let NewSubbmissionValue = G_CurrentTableColumnNames[ColumnIndex]+":"+ ColumnIndex.toString()+":"+SubmissionFields[i].value;
+        //let NewSubbmissionValue = SubmissionFields[i].value;
         SubmissionValues.push(NewSubbmissionValue);
     }
     console.log(SubmissionValues);
@@ -159,7 +161,14 @@ async function DBAddMain()
         {
             ColumnNames.push(TableInfo[i].ColumnName);
             ColumnTypes.push(TableInfo[i].ColumnType);
-            InputFields.push(InputTemplate);
+            if(TableInfo[i].ColumnType == "int" && TableInfo[i].PrimaryKeyIndex == 1)
+            {
+                InputFields.push("<div>AutoIncrement</div>");
+            }
+            else
+            {
+                InputFields.push(InputTemplate);
+            }
         }
         //SÄTTER EN GLOBAL VARIABEL
         G_CurrentTableColumnNames = ColumnNames;
@@ -174,6 +183,7 @@ async function DBAddMain()
             //console.log(InputRow.childNodes[i]);
             InputRow.childNodes[i].childNodes[0].addEventListener("mousedown",MouseDownCheck);
             InputRow.childNodes[i].childNodes[0].addEventListener("mouseup",MouseUpCheck);
+            InputRow.childNodes[i].childNodes[0].setAttribute("data-inputcolumnindex",i);
         }
         NewTable.appendChild(InputRow);
         MainDiv.appendChild(NewTable);

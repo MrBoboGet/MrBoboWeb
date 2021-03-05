@@ -116,11 +116,16 @@ namespace MBDB
 	{
 		//ColumnSQLType ReturnValue = ColumnSQLType::Null;
 		std::string VarChar = "varchar";
-		if (StringToConvert == "int")
+		std::string LowerString = "";
+		for (size_t i = 0; i < StringToConvert.size(); i++)
+		{
+			LowerString += std::tolower(StringToConvert[i]);
+		}
+		if (LowerString.substr(0,3) == "int")
 		{
 			return(ColumnSQLType::Int);
 		}
-		else if (StringToConvert.substr(0,VarChar.size()) == "varchar")
+		else if (LowerString.substr(0,VarChar.size()) == "varchar")
 		{
 			return(ColumnSQLType::varchar);
 		}

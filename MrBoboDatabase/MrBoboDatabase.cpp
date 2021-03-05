@@ -339,7 +339,7 @@ namespace MBDB
 		std::vector<MBDB_RowData> Names =  GetAllRows("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name;");
 		for (size_t i = 0; i < Names.size(); i++)
 		{
-			ReturnValue.push_back(Names[i].GetColumnData<std::string>(i));
+			ReturnValue.push_back(Names[i].GetColumnData<std::string>(0));
 		}
 		return(ReturnValue);
 	}
