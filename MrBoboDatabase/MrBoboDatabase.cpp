@@ -406,72 +406,87 @@ namespace MBDB
 			return("null");
 		}
 	}
-	std::string ToJason(bool ValueTojason)
+}
+std::string ToJason(bool ValueTojason)
+{
+	if (ValueTojason == true)
 	{
-		if (ValueTojason == true)
+		return("true");
+	}
+	else
+	{
+		return("false");
+	}
+}
+std::string ToJason(MBDB::ColumnSQLType ValueToJason)
+{
+	return("\"" + ColumnSQLTypeToString(ValueToJason) + "\"");
+}
+std::string ToJason(std::string const& ValueToJason)
+{
+	std::string EscapedJasonString = "";
+	for (size_t i = 0; i < ValueToJason.size(); i++)
+	{
+		if (ValueToJason[i] == '"')
 		{
-			return("true");
+			EscapedJasonString += "\\\"";
+		}
+		else if (ValueToJason[i] == '\\')
+		{
+			EscapedJasonString += "\\\\";
+		}
+		else if (ValueToJason[i] == '\b')
+		{
+			EscapedJasonString += "\\b";
+		}
+		else if (ValueToJason[i] == '\f')
+		{
+			EscapedJasonString += "\\f";
+		}
+		else if (ValueToJason[i] == '\n')
+		{
+			EscapedJasonString += "\\n";
+		}
+		else if (ValueToJason[i] == '\r')
+		{
+			EscapedJasonString += "\\r";
+		}
+		else if (ValueToJason[i] == '\t')
+		{
+			EscapedJasonString += "\\t";
 		}
 		else
 		{
-			return("false");
+			EscapedJasonString += ValueToJason[i];
 		}
 	}
-	std::string ToJason(ColumnSQLType ValueToJason)
+	return("\"" + EscapedJasonString + "\"");
+}
+std::string ToJason(long long ValueToJason)
+{
+	return(std::to_string(ValueToJason));
+}
+std::string ToJason(MBDB::ColumnInfo const& ValueToJason)
+{
+	std::string ReturnValue = "{";
+	ReturnValue += "\"ColumnName\":" + ToJason(ValueToJason.ColumnName) + ",";
+	ReturnValue += "\"ColumnType\":" + ToJason(ValueToJason.ColumnType) + ",";
+	ReturnValue += "\"IsNullable\":" + ToJason(ValueToJason.Nullable) + ",";
+	ReturnValue += "\"PrimaryKeyIndex\":" + ToJason((long long)ValueToJason.PrimaryKeyIndex) + "}";
+	return(ReturnValue);
+}
+std::string CombineJSONObjects(std::vector<std::string> const& ObjectNames, std::vector<std::string> const& ObjectsData)
+{
+	std::string ReturnValue = "{";
+	for (size_t i = 0; i < ObjectNames.size(); i++)
 	{
-		return("\""+ColumnSQLTypeToString(ValueToJason)+"\"");
-	}
-	std::string ToJason(std::string const& ValueToJason)
-	{
-		std::string EscapedJasonString = "";
-		for (size_t i = 0; i < ValueToJason.size(); i++)
+		ReturnValue += ToJason(ObjectNames[i])+":";
+		ReturnValue += ObjectsData[i];
+		if (i < ObjectNames.size())
 		{
-			if (ValueToJason[i] == '"')
-			{
-				EscapedJasonString += "\\\"";
-			}
-			else if (ValueToJason[i] == '\\')
-			{
-				EscapedJasonString += "\\\\";
-			}
-			else if (ValueToJason[i] == '\b')
-			{
-				EscapedJasonString += "\\b";
-			}
-			else if (ValueToJason[i] == '\f')
-			{
-				EscapedJasonString += "\\f";
-			}
-			else if (ValueToJason[i] == '\n')
-			{
-				EscapedJasonString += "\\n";
-			}
-			else if (ValueToJason[i] == '\r')
-			{
-				EscapedJasonString += "\\r";
-			}
-			else if (ValueToJason[i] == '\t')
-			{
-				EscapedJasonString += "\\t";
-			}
-			else
-			{
-				EscapedJasonString += ValueToJason[i];
-			}
+			ReturnValue += ",";
 		}
-		return("\"" + EscapedJasonString + "\"");
 	}
-	std::string ToJason(long long ValueToJason)
-	{
-		return(std::to_string(ValueToJason));
-	}
-	std::string ToJason(MBDB::ColumnInfo const& ValueToJason)
-	{
-		std::string ReturnValue = "{";
-		ReturnValue += "\"ColumnName\":" + ToJason(ValueToJason.ColumnName)+",";
-		ReturnValue += "\"ColumnType\":" + ToJason(ValueToJason.ColumnType) + ",";
-		ReturnValue += "\"IsNullable\":" + ToJason(ValueToJason.Nullable) + ",";
-		ReturnValue += "\"PrimaryKeyIndex\":" + ToJason((long long)ValueToJason.PrimaryKeyIndex) + "}";
-		return(ReturnValue);
-	}
+	ReturnValue += "}";
+	return(ReturnValue);
 }

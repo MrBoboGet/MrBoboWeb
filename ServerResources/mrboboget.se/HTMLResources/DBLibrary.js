@@ -120,3 +120,15 @@ async function MBGetEmbeddedResource(ResourceToGet)
   await Result;
   return(ReturnValue)
 }
+
+function GetPathStem(PathToProcess)
+{
+  let PathEntries = PathToProcess.split("/");
+  for(let i = PathEntries.length-1; i >= 0;i--)
+  {
+    if(PathEntries[i] != "")
+    {
+      return(PathEntries[i]);
+    }
+  }
+}

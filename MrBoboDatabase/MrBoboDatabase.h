@@ -170,26 +170,44 @@ namespace MBDB
 
 		MBDB_ResultIterator GetResultIterator(std::string const& SQLQuerry, MBError* ErrorToReturn = nullptr);
 	};
-	std::string ToJason(bool ValueTojason);
-	std::string ToJason(ColumnSQLType ValueToJason);
-	std::string ToJason(std::string const& ValueToJason);
-	std::string ToJason(long long ValueToJason);
-	std::string ToJason(MBDB::ColumnInfo const& ValueToJason);
+}
 
-	template<typename T>
-	std::string MakeJasonArray(std::vector<T> ValuesToConvert,std::string ArrayName)
+std::string ToJason(bool ValueTojason);
+std::string ToJason(MBDB::ColumnSQLType ValueToJason);
+std::string ToJason(std::string const& ValueToJason);
+std::string ToJason(long long ValueToJason);
+std::string ToJason(MBDB::ColumnInfo const& ValueToJason);
+std::string CombineJSONObjects(std::vector<std::string> const& ObjectNames, std::vector<std::string> const& ObjectsData);
+
+template<typename T>
+std::string MakeJasonArray(std::vector<T> const& ValuesToConvert, std::string ArrayName)
+{
+	std::string JsonRespone = "{\"" + ArrayName + "\":[";
+	size_t TableNamesSize = ValuesToConvert.size();
+	for (size_t i = 0; i < TableNamesSize; i++)
 	{
-		std::string JsonRespone = "{\""+ArrayName+"\":[";
-		size_t TableNamesSize = ValuesToConvert.size();
-		for (size_t i = 0; i < TableNamesSize; i++)
+		JsonRespone += ToJason(ValuesToConvert[i]);
+		if (i + 1 < TableNamesSize)
 		{
-			JsonRespone += MBDB::ToJason(ValuesToConvert[i]);
-			if (i + 1 < TableNamesSize)
-			{
-				JsonRespone += ",";
-			}
+			JsonRespone += ",";
 		}
-		JsonRespone += "]}";
-		return(JsonRespone);
 	}
+	JsonRespone += "]}";
+	return(JsonRespone);
+}
+template<typename T>
+std::string MakeJasonArray(std::vector<T> const& ValuesToConvert)
+{
+	std::string JsonRespone = "[";
+	size_t TableNamesSize = ValuesToConvert.size();
+	for (size_t i = 0; i < TableNamesSize; i++)
+	{
+		JsonRespone += ToJason(ValuesToConvert[i]);
+		if (i + 1 < TableNamesSize)
+		{
+			JsonRespone += ",";
+		}
+	}
+	JsonRespone += "]";
+	return(JsonRespone);
 }

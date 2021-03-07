@@ -1,6 +1,11 @@
 #define NOMINMAX
 #include <MrBoboDatabase/MPGMemeSite.h>
 #include <MinaStringOperations.h>
+std::string MBDBGetResourceFolderPath()
+{
+	return("./MBDBResources/");
+}
+
 bool DBSite_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
@@ -274,29 +279,32 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 		Invalid.DocumentData = "File not found";
 		return(Invalid);
 	}
-	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
-	if (ResourceMedia == MBSockets::MediaType::Image)
+	if (!std::filesystem::is_directory(DBResourcesPath + DBResource) && DBResource != "")
 	{
-		EmbeddedElement = GetEmbeddedImage(DBResource);
+		MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+		if (ResourceMedia == MBSockets::MediaType::Image)
+		{
+			EmbeddedElement = GetEmbeddedImage(DBResource);
+		}
+		else if (ResourceMedia == MBSockets::MediaType::Video)
+		{
+			EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		}
+		else if (ResourceMedia == MBSockets::MediaType::Audio)
+		{
+			EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		}
+		std::unordered_map<std::string, std::string> MapData = {};
+		MapData["EmbeddedMedia"] = EmbeddedElement;
+		std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
+		ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "DBViewTemplate.html", HTMLResourcePath), MapData);
 	}
-	else if (ResourceMedia == MBSockets::MediaType::Video)
+	else
 	{
-		EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se")+"DBViewFolder.html", AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
-	else if (ResourceMedia == MBSockets::MediaType::Audio)
-	{
-		EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
-	}
-
-	std::unordered_map<std::string, std::string> MapData = {};
-	MapData["EmbeddedMedia"] = EmbeddedElement;
-	std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
-	ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "DBViewTemplate.html", HTMLResourcePath), MapData);
 	//= AssociatedServer->GetResource(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBViewTemplate.html");
-	if (EmbeddedElement == "" || ReturnValue.DocumentData == "")
-	{
-		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
-	}
 	return(ReturnValue);
 }
 
@@ -421,7 +429,7 @@ std::string GetTableNamesBody(std::vector<std::string> const& Arguments)
 		std::lock_guard<std::mutex> Lock(DatabaseMutex);
 		TableNames = WebsiteDatabase->GetAllTableNames();
 	}
-	std::string JsonResponse = MBDB::MakeJasonArray(TableNames, "TableNames");
+	std::string JsonResponse = MakeJasonArray(TableNames, "TableNames");
 	//std::string JsonRespone = "{[";
 	//size_t TableNamesSize = TableNames.size();
 	//for (size_t i = 0; i < TableNamesSize; i++)
@@ -447,7 +455,7 @@ std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
 		std::lock_guard<std::mutex> Lock(DatabaseMutex);
 		TableInfo = WebsiteDatabase->GetColumnInfo(Arguments[0]);
 	}
-	return(MBDB::MakeJasonArray(TableInfo,"TableInfo"));
+	return(MakeJasonArray(TableInfo,"TableInfo"));
 }
 long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
 {
@@ -481,7 +489,7 @@ std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 		NewColumnIndex = StringToInt(Arguments[i].substr(FirstColon + 1, SecondColon - FirstColon),&DataBaseError);
 		if (!DataBaseError)
 		{
-			ReturnValue = "{\"MBDBAPI_Status\":" + MBDB::ToJason(DataBaseError.ErrorMessage) + "}";
+			ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
 			return(ReturnValue);
 		}
 		ColumnNames.push_back(Arguments[i].substr(0, FirstColon));
@@ -539,10 +547,94 @@ std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 	}
 	else
 	{
-		ReturnValue = "{\"MBDBAPI_Status\":" + MBDB::ToJason(DataBaseError.ErrorMessage) + "}";
+		ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
 	}
 	return(ReturnValue);
 }
+//DBAPI_GetFolderContents
+enum class MBDirectoryEntryType
+{
+	Directory,
+	RegularFile,
+	Null
+};
+struct MBDirectoryEntry
+{
+	std::filesystem::path Path = "";
+	MBDirectoryEntryType Type = MBDirectoryEntryType::Null;
+};
+std::vector<MBDirectoryEntry> GetDirectoryEntries(std::string const& DirectoryPath)
+{
+	std::vector<MBDirectoryEntry> ReturnValue = {};
+	std::filesystem::directory_iterator DirectoryIterator(DirectoryPath);
+	while (DirectoryIterator != std::filesystem::end(DirectoryIterator))
+	{
+		MBDirectoryEntry NewDirectoryEntry;
+		NewDirectoryEntry.Path = DirectoryIterator->path();
+		if (DirectoryIterator->is_directory())
+		{
+			NewDirectoryEntry.Type = MBDirectoryEntryType::Directory;
+		}
+		else if(DirectoryIterator->is_regular_file())
+		{
+			NewDirectoryEntry.Type = MBDirectoryEntryType::RegularFile;
+		}
+		DirectoryIterator++;
+		ReturnValue.push_back(NewDirectoryEntry);
+	}
+	return(ReturnValue);
+}
+std::string MakePathRelative(std::filesystem::path const& PathToProcess, std::string DirectoryToMakeRelative)
+{
+	bool RelativeFolderTraversed = false;
+	std::filesystem::path::iterator PathIterator = PathToProcess.begin();
+	std::string ReturnValue = "";
+	while (PathIterator != PathToProcess.end())
+	{
+		if (RelativeFolderTraversed)
+		{
+			ReturnValue += "/"+PathIterator->generic_string();
+		}
+		if (PathIterator->generic_string() == DirectoryToMakeRelative)
+		{
+			RelativeFolderTraversed = true;
+		}
+		PathIterator++;
+	}
+	return(ReturnValue);
+}
+std::string MBDirectoryEntryTypeToString(MBDirectoryEntryType TypeToConvert)
+{
+	if (TypeToConvert == MBDirectoryEntryType::Directory)
+	{
+		return("Directory");
+	}
+	else if (TypeToConvert == MBDirectoryEntryType::RegularFile)
+	{
+		return("RegularFile");
+	}
+}
+std::string ToJason(MBDirectoryEntry const& EntryToEncode)
+{
+	std::string ReturnValue = "{\"Path\":" + ToJason(EntryToEncode.Path.generic_string())+",";
+	ReturnValue += "\"Type\":"+ToJason(MBDirectoryEntryTypeToString(EntryToEncode.Type))+"}";
+	return(ReturnValue);
+}
+//First argument is relative path in MBDBResources folder
+std::string DBAPI_GetFolderContents(std::vector<std::string> const& Arguments)
+{
+	std::string ReturnValue = "";
+	std::vector<MBDirectoryEntry> DirectoryEntries = GetDirectoryEntries(MBDBGetResourceFolderPath()+Arguments[0]);
+	for (size_t i = 0; i < DirectoryEntries.size(); i++)
+	{
+		DirectoryEntries[i].Path = MakePathRelative(DirectoryEntries[i].Path, "MBDBResources");
+	}
+	std::string ErrorPart = "\"MBDBAPI_Status\":\"ok\"";
+	std::string DirectoryPart = "\"DirectoryEntries\":"+MakeJasonArray<MBDirectoryEntry>(DirectoryEntries);
+	ReturnValue = "{" + ErrorPart + "," + DirectoryPart + "}";
+	return(ReturnValue);
+}
+//
 MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
@@ -571,9 +663,13 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 			//Funktions prototyp TableNamn + ColumnName:stringcolumm data
 			ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
 		}
+		else if (APIDirective == "GetFolderContents")
+		{
+			ReturnValue.DocumentData = DBAPI_GetFolderContents(APIDirectiveArguments);
+		}
 		else
 		{
-			ReturnValue.DocumentData = "{\"DBGAError\":\"UnknownCommand\"";
+			ReturnValue.DocumentData = "{\"DBAPI_Status\":\"UnknownCommand\"";
 			//ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
 		}
 	}
