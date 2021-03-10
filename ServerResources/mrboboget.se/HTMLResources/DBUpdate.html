@@ -1,0 +1,20 @@
+<HTML>
+    <head>
+        #{include(GeneralMetaTags)}
+        <link rel="stylesheet" href="/WebsidanStil.css">
+    </head>
+    <BODY>
+        #{include(TopMenu.html)}
+        <h1>
+            DBUpdate
+        </h1>
+        <div style="text-align:center;">
+            <input type="text" id="SearchBox" name="fname" style="width:100%">
+        </div>
+        <p id="DBStatus" style="color:green;text-align:center"></p>
+        <div id="DBUpdateMainDiv" class="CenterChildren center">
+        </div>
+        <script src="/DBLibrary.js"></script>
+        <script src="/DBUpdate.js"></script>
+    </BODY>
+</HTML>

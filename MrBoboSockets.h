@@ -695,6 +695,11 @@ namespace MBSockets
 		javascript,
 		css,
 		mp4,
+		PDF,
+		GIF,
+		mp3,
+		Text,
+		Wav,
 		Null
 	};
 	enum class HTTPRequestStatus
@@ -702,6 +707,72 @@ namespace MBSockets
 		OK = 200,
 		PartialContent = 206,
 		NotFound = 404,
+	};
+	enum class MediaType
+	{
+		Video,
+		Audio,
+		Image,
+		Text,
+		PDF,
+		Null
+	};
+	struct HTTPTypeTuple
+	{
+		HTTPDocumentType FileHTTPDocumentType = HTTPDocumentType::Null;
+		MediaType FileMediaType = MediaType::Null;
+		std::vector<std::string> FileExtensions = {};
+		std::string MIMEMediaString = "";
+	};
+	class HTTPTypesConnector
+	{
+	private:
+		std::vector<HTTPTypeTuple> SuppportedTupples =
+		{ 
+			{HTTPDocumentType::OctetString,MediaType::Null,{},"application/octet-stream"},
+			{HTTPDocumentType::png,	MediaType::Image,{"png"},"image/png"},
+			{HTTPDocumentType::jpg,MediaType::Image,{"jpg","jpeg"},"image/jpeg"},
+			{HTTPDocumentType::json,MediaType::Text,{"json"},"application/json"},
+			{HTTPDocumentType::ts,MediaType::Video,{"ts"},"video/MP2T"},
+			{HTTPDocumentType::m3u8,MediaType::Text,{"m3u8"},"application/x-mpegURL"},
+			{HTTPDocumentType::mkv,MediaType::Video,{"mkv"},"video/x-matroska"},
+			{HTTPDocumentType::javascript,MediaType::Text,{"js"},"text/javascript"},
+			{HTTPDocumentType::css,MediaType::Text,{"css"},"text/css"},
+			{HTTPDocumentType::mp4,MediaType::Video,{"mp4"},"video/mp4"},
+			{HTTPDocumentType::HTML,MediaType::Text,{"html","htm"},"text/html"},
+			{HTTPDocumentType::PDF,MediaType::PDF,{"pdf"},"application/pdf"},
+			{HTTPDocumentType::GIF,MediaType::Image,{"gif"},"image/gif"},
+			{HTTPDocumentType::mp3,MediaType::Audio,{"mp3"},"audio/mpeg"},
+			{HTTPDocumentType::Text,MediaType::Text,{"txt"},"text/plain"},
+			{HTTPDocumentType::Wav,MediaType::Audio,{"wav"},"audio/wav"},
+		};
+		HTTPTypeTuple NullTupple = { HTTPDocumentType::Null,MediaType::Null,{},""};
+	public:
+		HTTPTypeTuple GetTupleFromExtension(std::string const& Extension)
+		{
+			for (size_t i = 0; i < SuppportedTupples.size(); i++)
+			{
+				for (size_t j = 0; j < SuppportedTupples[i].FileExtensions.size(); j++)
+				{
+					if (SuppportedTupples[i].FileExtensions[j] == Extension)
+					{
+						return(SuppportedTupples[i]);
+					}
+				}
+			}
+			return(NullTupple);
+		}
+		HTTPTypeTuple GetTupleFromDocumentType(HTTPDocumentType DocumentType)
+		{
+			for (size_t i = 0; i < SuppportedTupples.size(); i++)
+			{
+				if (SuppportedTupples[i].FileHTTPDocumentType == DocumentType)
+				{
+					return(SuppportedTupples[i]);
+				}
+			}
+			return(NullTupple);
+		}
 	};
 	struct HTTPDocument
 	{
@@ -715,138 +786,21 @@ namespace MBSockets
 	};
 	inline HTTPDocumentType DocumentTypeFromFileExtension(std::string const& FileExtension)
 	{
-		HTTPDocumentType ReturnValue = HTTPDocumentType::Null;
-		if (FileExtension == "png")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::png;
-		}
-		else if (FileExtension == "html" || FileExtension == "htm")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::HTML;
-		}
-		else if (FileExtension == "jpg")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::jpg;
-		}
-		else if (FileExtension == "ts")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::ts;
-		}
-		else if (FileExtension == "m3u8")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::m3u8;
-		}
-		else if (FileExtension == "mkv")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::mkv;
-		}
-		else if (FileExtension == "js")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::javascript;
-		}
-		else if (FileExtension == "css")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::css;
-		}
-		else if (FileExtension == "mp4")
-		{
-			ReturnValue = MBSockets::HTTPDocumentType::mp4;
-		}
-		return(ReturnValue);
+		HTTPTypesConnector TypeConnector;
+		HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
+		return(DocumentTuple.FileHTTPDocumentType);
 	}
-	enum class MediaType
-	{
-		Video,
-		Audio,
-		Image,
-		Text,
-		PDf,
-		Null
-	};
 	inline MediaType GetMediaTypeFromExtension(std::string const& FileExtension)
 	{
-		if (FileExtension == "mp4")
-		{
-			return(MediaType::Video);
-		}
-		else if (FileExtension == "mkv")
-		{
-			return(MediaType::Video);
-		}
-		else if (FileExtension == "MOV")
-		{
-			return(MediaType::Video);
-		}
-		else if (FileExtension == "mov")
-		{
-			return(MediaType::Video);
-		}
-		else if(FileExtension == "mp3")
-		{
-			return(MediaType::Video);
-		}
-		else if (FileExtension == "png")
-		{
-			return(MediaType::Image);
-		}
-		else if (FileExtension == "jpg")
-		{
-			return(MediaType::Image);
-		}
-		return(MediaType::Null);
+		HTTPTypesConnector TypeConnector;
+		HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
+		return(DocumentTuple.FileMediaType);
 	}
 	inline std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert)
 	{
-		std::string ReturnValue = "";
-		if (TypeToConvert == HTTPDocumentType::OctetString)
-		{
-			ReturnValue += "application/octet-stream";
-		}
-		else if (TypeToConvert == HTTPDocumentType::HTML)
-		{
-			ReturnValue += "text/html";
-		}
-		else if (TypeToConvert == HTTPDocumentType::png)
-		{
-			ReturnValue += "image/png";
-		}
-		else if (TypeToConvert == HTTPDocumentType::jpg)
-		{
-			ReturnValue += "image/jpg";
-		}
-		else if (TypeToConvert == HTTPDocumentType::json)
-		{
-			ReturnValue += "application/json";
-		}
-		else if (TypeToConvert == HTTPDocumentType::ts)
-		{
-			ReturnValue += "video/MP2T";
-		}
-		else if (TypeToConvert == HTTPDocumentType::m3u8)
-		{
-			ReturnValue += "application/x-mpegURL";
-		}
-		else if (TypeToConvert == HTTPDocumentType::mkv)
-		{
-			ReturnValue += "video/x-matroska";
-		}
-		else if (TypeToConvert == HTTPDocumentType::javascript)
-		{
-			ReturnValue += "text/javascript";
-		}
-		else if (TypeToConvert == HTTPDocumentType::css)
-		{
-			ReturnValue += "text/css";
-		}
-		else if (TypeToConvert == HTTPDocumentType::mp4)
-		{
-			ReturnValue += "video/mp4";
-		}
-		else
-		{
-			ReturnValue += "application/octet-stream";
-		}
-		return(ReturnValue);
+		HTTPTypesConnector TypeConnector;
+		HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromDocumentType(TypeToConvert);
+		return(DocumentTuple.MIMEMediaString);
 	}
 	inline std::string HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert)
 	{

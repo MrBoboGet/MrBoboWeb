@@ -25,3 +25,6 @@ MBSockets::HTTPDocument DBAdd_ResponseGenerator(std::string const& RequestData, 
 
 bool DBGeneralAPI_Predicate(std::string const& RequestData);
 MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection);
+
+bool DBUpdate_Predicate(std::string const& RequestData);
+MBSockets::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection);

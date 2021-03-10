@@ -78,7 +78,7 @@ namespace MBDB
 
 		MBDB_RowData() {};
 
-		std::string ToJason();
+		std::string ToJason() const;
 
 		template<typename... Args>
 		std::tuple<Args...> GetTuple()
@@ -109,6 +109,7 @@ namespace MBDB
 	{
 		std::string ColumnName = "";
 		ColumnSQLType ColumnType = ColumnSQLType::Null;
+		MBDB_ColumnValueTypes ColumnDataType = MBDB_ColumnValueTypes::Null;
 		bool Nullable = false;
 		int PrimaryKeyIndex = 0;
 	};
@@ -153,6 +154,8 @@ namespace MBDB
 		bool IsValid() { return(!IsInvalid); };
 		MBError BindString(std::string const& ParameterData, int ParameterIndex);
 		MBError BindInt(MaxInt, int ParameterIndex);
+		MBError BindNull(int ParameterIndex);
+		MBError BindValues(std::vector<std::string> const& ValuesToBind, std::vector<ColumnSQLType> const& ValueTypes, int Offset);
 		MBError FreeData();
 	};
 	class MrBoboDatabase
@@ -174,6 +177,7 @@ namespace MBDB
 
 std::string ToJason(bool ValueTojason);
 std::string ToJason(MBDB::ColumnSQLType ValueToJason);
+std::string ToJason(MBDB::MBDB_RowData const& RowDataToEncode);
 std::string ToJason(std::string const& ValueToJason);
 std::string ToJason(long long ValueToJason);
 std::string ToJason(MBDB::ColumnInfo const& ValueToJason);

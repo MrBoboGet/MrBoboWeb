@@ -86,6 +86,7 @@ int main()
 	TestServer.AddRequestHandler({ DBViewEmbedd_Predicate,DBViewEmbedd_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBAdd_Predicate,DBAdd_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBGeneralAPI_Predicate,DBGeneralAPI_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBUpdate_Predicate,DBUpdate_ResponseGenerator });
 	TestServer.StartListening();
 	return(0);
 	//sqlite3_prepare("HejsanSvejsan");

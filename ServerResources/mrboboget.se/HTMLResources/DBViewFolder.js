@@ -27,7 +27,7 @@ async function UpdateFolderTable()
     {
         for(let i = 0; i<DirectoryEntries.DirectoryEntries.length;i++)
         {
-            let NewRowValue = "<a href="+"/DBView"+DirectoryEntries.DirectoryEntries[i].Path+">";
+            let NewRowValue = "<a href=\""+"/DBView"+DirectoryEntries.DirectoryEntries[i].Path+"\">";
             NewRowValue+=GetPathStem(DirectoryEntries.DirectoryEntries[i].Path);
             if(DirectoryEntries.DirectoryEntries[i].Type == "Directory")
             {

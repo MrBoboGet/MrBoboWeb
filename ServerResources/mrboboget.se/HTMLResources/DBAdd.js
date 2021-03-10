@@ -48,6 +48,8 @@ function GetTableMetadata()
 {
     return("Fel");
 }
+
+//Resize kod
 function ResizeRow(e)
 {
     var RowElement = e.target.parentElement.parentElement;
@@ -58,7 +60,6 @@ function ResizeRow(e)
     }
 }
 
-//Resize kod
 let MouseHold = false;
 var CurrentMouseElement = 0;
 function MouseUpCheck()

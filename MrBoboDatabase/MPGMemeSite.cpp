@@ -244,7 +244,7 @@ std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& We
 }
 std::string GetEmbeddedImage(std::string const& ImagePath)
 {
-	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\" style=\"width:100%\"></image>";
+	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\" style=\"max-width:100%\"></image>";
 	return(ReturnValue);
 }
 bool DBView_Predicate(std::string const& RequestData)
@@ -429,7 +429,7 @@ std::string GetTableNamesBody(std::vector<std::string> const& Arguments)
 		std::lock_guard<std::mutex> Lock(DatabaseMutex);
 		TableNames = WebsiteDatabase->GetAllTableNames();
 	}
-	std::string JsonResponse = MakeJasonArray(TableNames, "TableNames");
+	std::string JSONTableNames = "\"TableNames\":"+MakeJasonArray(TableNames);
 	//std::string JsonRespone = "{[";
 	//size_t TableNamesSize = TableNames.size();
 	//for (size_t i = 0; i < TableNamesSize; i++)
@@ -441,6 +441,7 @@ std::string GetTableNamesBody(std::vector<std::string> const& Arguments)
 	//	}
 	//}
 	//JsonRespone += "]}";
+	std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\"," + JSONTableNames + "}";
 	return(JsonResponse);
 }
 std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
@@ -455,9 +456,10 @@ std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
 		std::lock_guard<std::mutex> Lock(DatabaseMutex);
 		TableInfo = WebsiteDatabase->GetColumnInfo(Arguments[0]);
 	}
-	return(MakeJasonArray(TableInfo,"TableInfo"));
+	std::string JSONResponse = "{\"MBAPI_Status\":\"ok\",\"TableInfo\":" + MakeJasonArray(TableInfo) + "}";
+	return(JSONResponse);
 }
-long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
+inline long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
 {
 	long long ReturnValue = 0;
 	try
@@ -470,6 +472,42 @@ long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
 		OutError->ErrorMessage = "Failed to parse int";
 	}
 	return(ReturnValue);
+}
+std::vector<MBDB::MBDB_RowData> EvaluateBoundSQLStatement(std::string SQLCommand,std::vector<std::string> const& ColumnValues,
+	std::vector<int> ColumnIndex,std::string TableName,MBError* OutError)
+{
+	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+	std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
+	MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
+
+	std::vector<MBDB::ColumnInfo> TableColumnInfo = WritableDatabase->GetColumnInfo(TableName);
+	for (size_t i = 0; i < ColumnValues.size(); i++)
+	{
+		if (TableColumnInfo[ColumnIndex[i]].ColumnType == MBDB::ColumnSQLType::Int)
+		{
+			MBDB::MaxInt NewInt = StringToInt(ColumnValues[i], OutError);
+			if (!OutError)
+			{
+				break;
+			}
+			*OutError = NewStatement->BindInt(NewInt, i + 1);
+		}
+		else
+		{
+			*OutError = NewStatement->BindString(ColumnValues[i], i + 1);
+			if (!OutError)
+			{
+				break;
+			}
+		}
+	}
+	if (OutError)
+	{
+		QuerryResult = WritableDatabase->GetAllRows(NewStatement, OutError);
+	}
+	NewStatement->FreeData();
+	WritableDatabase->FreeSQLStatement(NewStatement);
+	return(QuerryResult);
 }
 std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 {
@@ -511,35 +549,82 @@ std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 		}
 	}
 	SQLCommand += ");";
+	std::vector<MBDB::MBDB_RowData> QuerryResult = EvaluateBoundSQLStatement(SQLCommand,ColumnValues,ColumnIndex,Arguments[0],&DataBaseError);
+	if (DataBaseError)
+	{
+		ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+	}
+	else
+	{
+		ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+	}
+	return(ReturnValue);
+}
+std::string DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
+{
+	//UPDATE table_name
+	//SET column1 = value1, column2 = value2, ...
+	//	WHERE condition;
+	std::string ReturnValue = "";
+	std::string SQLCommand = "UPDATE " + Arguments[0] + " SET "; //VALUES (";
+	std::vector<std::string> ColumnNames = {};
+	std::vector<std::string> OldColumnValues = {};
+	std::vector<std::string> NewColumnValues = {};
+	MBError DataBaseError(true);
+
+
+	for (size_t i = 1; i < Arguments.size(); i++)
+	{
+		if ((i % 3) == 1)
+		{
+			ColumnNames.push_back(Arguments[i]);
+		}
+		if ((i % 3) == 2)
+		{
+			OldColumnValues.push_back(Arguments[i]);
+		}
+		if ((i % 3) == 0)
+		{
+			NewColumnValues.push_back(Arguments[i]);
+		}
+	}
+	for (size_t i = 0; i < OldColumnValues.size(); i++)
+	{
+		SQLCommand += ColumnNames[i] + "=?";
+		if (i + 1 < OldColumnValues.size())
+		{
+			SQLCommand += ", ";
+		}
+	}
+	SQLCommand += " WHERE ";
+	for (size_t i = 0; i < ColumnNames.size(); i++)
+	{
+		SQLCommand += "("+ColumnNames[i] + "=?";
+		if (OldColumnValues[i] == "null")
+		{
+			SQLCommand += " OR "+ColumnNames[i]+ " IS NULL";
+		}
+		SQLCommand += ")";
+		if (i + 1 < ColumnNames.size())
+		{
+			SQLCommand += " AND ";
+		}
+	}
 	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
 	{
 		std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
 		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
-		std::vector<MBDB::ColumnInfo> TableColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
-		for (size_t i = 0; i < ColumnValues.size(); i++)
+		std::vector<MBDB::ColumnInfo> ColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
+		std::vector<MBDB::ColumnSQLType> ColumnTypes = {};
+		for (size_t i = 0; i < ColumnInfo.size(); i++)
 		{
-			if (TableColumnInfo[ColumnIndex[i]].ColumnType == MBDB::ColumnSQLType::Int)
-			{
-				MBDB::MaxInt NewInt = StringToInt(ColumnValues[i],&DataBaseError);
-				if (!DataBaseError)
-				{
-					break;
-				}
-				DataBaseError = NewStatement->BindInt(NewInt, i+1);
-			}
-			else
-			{
-				DataBaseError = NewStatement->BindString(ColumnValues[i], i+1);
-				if (!DataBaseError)
-				{
-					break;
-				}
-			}
+			ColumnTypes.push_back(ColumnInfo[i].ColumnType);
 		}
-		if (DataBaseError)
-		{
-			QuerryResult = WritableDatabase->GetAllRows(NewStatement, &DataBaseError);
-		}
+		NewStatement->BindValues(NewColumnValues, ColumnTypes, 0);
+		NewStatement->BindValues(OldColumnValues, ColumnTypes, NewColumnValues.size());
+		QuerryResult = WritableDatabase->GetAllRows(NewStatement,&DataBaseError);
+		NewStatement->FreeData();
+		WritableDatabase->FreeSQLStatement(NewStatement);
 	}
 	if (DataBaseError)
 	{
@@ -634,6 +719,28 @@ std::string DBAPI_GetFolderContents(std::vector<std::string> const& Arguments)
 	ReturnValue = "{" + ErrorPart + "," + DirectoryPart + "}";
 	return(ReturnValue);
 }
+std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments)
+{
+	//ett arguments som är WhereStringen, ghetto aff egetntligen men men,måste vara på en immutable table så vi inte fuckar grejer
+	std::string ReturnValue = "";
+	if (Arguments.size() < 2)
+	{
+		return("{\"MBDBAPI_Status\":\"Invalid number of arguments\"}");
+	}
+	std::vector<MBDB::MBDB_RowData> RowResponse = {};
+	MBError DatabaseError(true);
+	{
+		std::lock_guard<std::mutex> Lock(DatabaseMutex);
+		std::string SQlQuerry = "SELECT * FROM " + Arguments[0] + " " + Arguments[1];
+		RowResponse = WritableDatabase->GetAllRows(SQlQuerry, &DatabaseError);
+	}
+	if (!DatabaseError)
+	{
+		return("{\"MBDBAPI_Status\":"+ToJason(DatabaseError.ErrorMessage)+"}");
+	}
+	ReturnValue = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":" + MakeJasonArray(RowResponse)+"}";
+	return(ReturnValue);
+}
 //
 MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
@@ -667,6 +774,14 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 		{
 			ReturnValue.DocumentData = DBAPI_GetFolderContents(APIDirectiveArguments);
 		}
+		else if (APIDirective == "SearchTableWithWhere")
+		{
+			ReturnValue.DocumentData = DBAPI_SearchTableWithWhere(APIDirectiveArguments);
+		}
+		else if (APIDirective == "UpdateTableRow")
+		{
+			ReturnValue.DocumentData = DBAPI_UpdateTableRow(APIDirectiveArguments);
+		}
 		else
 		{
 			ReturnValue.DocumentData = "{\"DBAPI_Status\":\"UnknownCommand\"";
@@ -679,5 +794,26 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath+"404.html", Resourcepath);
 	}
 	std::cout << ReturnValue.DocumentData << std::endl;
+	return(ReturnValue);
+}
+bool DBUpdate_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DBUpdate")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
+	ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBUpdate.html", ResourcePath);
 	return(ReturnValue);
 }

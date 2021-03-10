@@ -189,10 +189,10 @@ namespace MBDB
 	{
 		return(RawColumnData[ColumnIndex] == nullptr);
 	}
-	std::string MBDB_RowData::ToJason()
+	std::string MBDB_RowData::ToJason() const
 	{
 		size_t NumberOfColumns = RawColumnData.size();
-		std::string ReturnValue = "{";
+		std::string ReturnValue = "{\"ColumnCount\":"+std::to_string(RawColumnData.size())+",";
 		for (size_t i = 0; i < NumberOfColumns; i++)
 		{
 			ReturnValue += "\"" + std::to_string(i) + "\"" + ":";
@@ -239,6 +239,61 @@ namespace MBDB
 			ReturnValue.ErrorMessage = sqlite3_errstr(Error);
 		}
 		return(Error);
+	}
+	inline long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
+	{
+		long long ReturnValue = 0;
+		try
+		{
+			ReturnValue = std::stoi(IntData);
+		}
+		catch (const std::exception&)
+		{
+			*OutError = MBError(false);
+			OutError->ErrorMessage = "Failed to parse int";
+		}
+		return(ReturnValue);
+	}
+	MBError SQLStatement::BindNull(int ParameterIndex)
+	{
+		MBError ReturnValue(true);
+		int Error = sqlite3_bind_null(UnderlyingStatement, ParameterIndex);
+		if (Error != SQLITE_OK)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = sqlite3_errstr(Error);
+		}
+		return(ReturnValue);
+	}
+	MBError SQLStatement::BindValues(std::vector<std::string> const& ValuesToBind, std::vector<ColumnSQLType> const& ValueTypes, int Offset)
+	{
+		MBError ReturnValue(true);
+		for (size_t i = 0; i < ValueTypes.size(); i++)
+		{
+			//if (ValuesToBind[i] == "null")
+			//{
+			//	ReturnValue = BindNull(i + 1 + Offset);
+			//	continue;
+			//}
+			if (ValueTypes[i] == ColumnSQLType::Int)
+			{
+				MBDB::MaxInt NewInt = StringToInt(ValuesToBind[i], &ReturnValue);
+				if (!ReturnValue)
+				{
+					break;
+				}
+				ReturnValue = BindInt(NewInt, i +1+Offset);
+			}
+			else
+			{
+				ReturnValue = BindString(ValuesToBind[i], i + 1+Offset);
+				if (!ReturnValue)
+				{
+					break;
+				}
+			}
+		}
+		return(ReturnValue);
 	}
 	std::vector<MBDB_RowData> SQLStatement::GetAllRows(sqlite3* DBConnection, MBError* ErrorToReturn = nullptr)
 	{
@@ -474,6 +529,10 @@ std::string ToJason(MBDB::ColumnInfo const& ValueToJason)
 	ReturnValue += "\"IsNullable\":" + ToJason(ValueToJason.Nullable) + ",";
 	ReturnValue += "\"PrimaryKeyIndex\":" + ToJason((long long)ValueToJason.PrimaryKeyIndex) + "}";
 	return(ReturnValue);
+}
+std::string ToJason(MBDB::MBDB_RowData const& ValueToJason)
+{
+	return(ValueToJason.ToJason());
 }
 std::string CombineJSONObjects(std::vector<std::string> const& ObjectNames, std::vector<std::string> const& ObjectsData)
 {
