@@ -6,6 +6,161 @@ std::string MBDBGetResourceFolderPath()
 	return("./MBDBResources/");
 }
 
+//username cookie = 
+//password cookie = 
+enum class DBPermissions
+{
+	Read,
+	Edit,
+	Upload,
+	Null,
+};
+std::mutex DatabaseMutex;
+//MBDB::MrBoboDatabase DBSite_Database("./TestDatabas",0);
+MBDB::MrBoboDatabase* WebsiteDatabase = nullptr;
+std::mutex WritableDatabaseMutex;
+MBDB::MrBoboDatabase* WritableDatabase = nullptr;
+std::mutex LoginDatabaseMutex;
+MBDB::MrBoboDatabase* LoginDatabase = nullptr;
+void InitDatabase()
+{
+	if (WebsiteDatabase == nullptr)
+	{
+		WebsiteDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 0);
+	}
+	if (WritableDatabase == nullptr)
+	{
+		WritableDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 1);
+	}
+	if (LoginDatabase == nullptr)
+	{
+		LoginDatabase = new MBDB::MrBoboDatabase("./MBGLoginDatabase", 0);
+	}
+}
+struct DBPermissionsList
+{
+	bool Read = false;
+	bool Edit = false;
+	bool Upload = false;
+	bool IsNull = true;
+};
+struct Cookie
+{
+	std::string Name = "";
+	std::string Value = "";
+};
+std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData)
+{
+	std::vector<Cookie> ReturnValue = {};
+	std::vector<std::string> Cookies = Split(MBSockets::GetHeaderValue("Cookie", RequestData), "; ");
+	for (size_t i = 0; i < Cookies.size(); i++)
+	{
+		size_t FirstEqualSignPos = Cookies[i].find_first_of("=");
+		std::string CookieName = Cookies[i].substr(0, FirstEqualSignPos);
+		std::string CookieValue = Cookies[i].substr(FirstEqualSignPos+1);
+		ReturnValue.push_back({ CookieName, CookieValue });
+	}
+	return(ReturnValue);
+}
+std::vector<MBDB::MBDB_RowData> DB_GetUser(std::string const& UserName, std::string const& PasswordHash)
+{
+	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=?;";
+	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+	{
+		std::lock_guard<std::mutex> Lock(LoginDatabaseMutex);
+		MBDB::SQLStatement* NewStatement = LoginDatabase->GetSQLStatement(SQLStatement);
+		NewStatement->BindString(UserName, 1);
+		QuerryResult = LoginDatabase->GetAllRows(NewStatement);
+		NewStatement->FreeData();
+		LoginDatabase->FreeSQLStatement(NewStatement);
+	}
+	return(QuerryResult);
+}
+DBPermissionsList GetConnectionPermissions(std::string const& RequestData)
+{
+	DBPermissionsList ReturnValue;
+	std::vector<Cookie> Cookies = GetCookiesFromRequest(RequestData);
+	std::string UserName = "";
+	std::string PasswordHash = "";
+	for (size_t i = 0; i < Cookies.size(); i++)
+	{
+		if (Cookies[i].Name == "DBUsername")
+		{
+			UserName = Cookies[i].Value;
+		}
+		if (Cookies[i].Name == "DBPassword")
+		{
+			PasswordHash = Cookies[i].Value;
+		}
+	}
+	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=?;";
+	std::vector<MBDB::MBDB_RowData> QuerryResult = DB_GetUser(UserName, PasswordHash);
+	if (QuerryResult.size() != 0)
+	{
+		std::tuple<int, std::string, std::string, int, int, int> UserInfo = QuerryResult[0].GetTuple<int, std::string, std::string, int, int, int>();
+		std::string RequestPassword = std::get<2>(UserInfo);
+		if (RequestPassword == PasswordHash)
+		{
+			ReturnValue.IsNull = false;
+			if (std::get<3>(UserInfo))
+			{
+				ReturnValue.Read = true;
+			}
+			if (std::get<4>(UserInfo))
+			{
+				ReturnValue.Edit = true;
+			}
+			if (std::get<5>(UserInfo))
+			{
+				ReturnValue.Upload = true;
+			}
+		}
+	}
+	return(ReturnValue);
+}
+std::string DBGetUsername(std::string const& RequestData)
+{
+	std::string ReturnValue = "";
+	std::vector<Cookie> Cookies = GetCookiesFromRequest(RequestData);
+	for (size_t i = 0; i < Cookies.size(); i++)
+	{
+		if (Cookies[i].Name == "DBUsername")
+		{
+			ReturnValue = Cookies[i].Value;
+			break;
+		}
+	}
+	return(ReturnValue);
+}
+bool DBLogin_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "DBLogin")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	std::string ServerResources = AssociatedServer->GetResourcePath("mrboboget.se");
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	std::unordered_map<std::string, std::string> FileVariables = {};
+	
+	FileVariables["LoginValue"] = DBGetUsername(RequestData);
+	if (FileVariables["LoginValue"] != "")
+	{
+		FileVariables["LoginValue"] = "Currently logged in as: " + FileVariables["LoginValue"];
+	}
+	ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(MrPostOGet::LoadFileWithPreprocessing(ServerResources + "DBLogin.html", ServerResources),FileVariables);
+	return(ReturnValue);
+}
+
 bool DBSite_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
@@ -18,22 +173,6 @@ bool DBSite_Predicate(std::string const& RequestData)
 		}
 	}
 	return(false);
-}
-std::mutex DatabaseMutex;
-//MBDB::MrBoboDatabase DBSite_Database("./TestDatabas",0);
-MBDB::MrBoboDatabase* WebsiteDatabase = nullptr;
-std::mutex WritableDatabaseMutex;
-MBDB::MrBoboDatabase* WritableDatabase = nullptr;
-void InitDatabase()
-{
-	if (WebsiteDatabase == nullptr)
-	{
-		WebsiteDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 0);
-	}
-	if (WritableDatabase == nullptr)
-	{
-		WritableDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 1);
-	}
 }
 
 MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
@@ -56,16 +195,16 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 		std::vector<MBDB::MBDB_RowData> SQLResult = {};
 		{
 			std::lock_guard<std::mutex> Lock(DatabaseMutex);
-			SQLResult = WebsiteDatabase->GetAllRows(SQLCommand);
+			SQLResult = WebsiteDatabase->GetAllRows(SQLCommand,&SQLError);
 			if(!SQLError)
 			{
 				CommandSuccesfull = false;
 			}
 		}
 		//std::vector<std::string> ColumnNames = { "MemeID","MemeSource","MemeTags" };
-		std::string JsonResponse = "{\"Rows\":[";
 		if (CommandSuccesfull)
 		{
+			std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":[";
 			size_t NumberOfRows = SQLResult.size();
 			for (size_t i = 0; i < NumberOfRows; i++)
 			{
@@ -75,10 +214,14 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 					JsonResponse += ",";
 				}
 			}
+			JsonResponse += "]}";
+			NewDocument.DocumentData = JsonResponse;
 		}
-		JsonResponse += "]}";
-		std::cout << "JsonResponse sent: " << JsonResponse << std::endl;
-		NewDocument.DocumentData = JsonResponse;
+		else
+		{
+			NewDocument.DocumentData = "{\"MBDBAPI_Status\":" + ToJason(SQLError.ErrorMessage) + ",\"Rows\":[]}";
+		}
+		//std::cout << "JsonResponse sent: " << JsonResponse << std::endl;
 	}
 	return(NewDocument);
 }
@@ -99,12 +242,18 @@ bool UploadFile_Predicate(std::string const& RequestData)
 MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	//Content-Type: multipart/form-data; boundary=---------------------------226143532618736951363968904467
+	DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
 	MBSockets::HTTPDocument NewDocument;
 	NewDocument.Type = MBSockets::HTTPDocumentType::json;
 	std::string Boundary = "";
 	std::vector<std::string> ContentTypes = MBSockets::GetHeaderValues("Content-Type", RequestData);
 	std::string FormType = "multipart/form-data";
 	std::string BoundaryHeader = "; boundary=";
+	if (!ConnectionPermissions.Upload)
+	{
+		NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permission to upload\"}";
+		return(NewDocument);
+	}
 	for (size_t i = 0; i < ContentTypes.size(); i++)
 	{
 		if (ContentTypes[i].substr(0, FormType.size()) == FormType)
@@ -292,7 +441,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 		}
 		else if (ResourceMedia == MBSockets::MediaType::Audio)
 		{
-			EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+			EmbeddedElement = GetEmbeddedAudio(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 		}
 		std::unordered_map<std::string, std::string> MapData = {};
 		MapData["EmbeddedMedia"] = EmbeddedElement;
@@ -341,7 +490,7 @@ MBSockets::HTTPDocument DBViewEmbedd_ResponseGenerator(std::string const& Reques
 	}
 	else if (ResourceMedia == MBSockets::MediaType::Audio)
 	{
-		ReturnValue.DocumentData = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		ReturnValue.DocumentData = GetEmbeddedAudio(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
 	return(ReturnValue);
 }
@@ -741,6 +890,19 @@ std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments
 	ReturnValue = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":" + MakeJasonArray(RowResponse)+"}";
 	return(ReturnValue);
 }
+std::string DBAPI_Login(std::vector<std::string> const& Arguments)
+{
+	if (Arguments.size() != 2)
+	{
+		return("{\"MBDBAPI_Status\":\"Invalid Function call\"}");
+	}
+	std::vector<MBDB::MBDB_RowData> UserResult = DB_GetUser(Arguments[0], Arguments[1]);
+	if (UserResult.size() == 0)
+	{
+		return("{\"MBDBAPI_Status\":\"Invalid UserName or Password\"}");
+	}
+	return("{\"MBDBAPI_Status\":\"ok\"}");
+}
 //
 MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
@@ -757,34 +919,83 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 		size_t FirstSpace = RequestBody.find(" ");
 		std::string APIDirective = DBGeneralAPIGetDirective(RequestBody);
 		std::vector<std::string> APIDirectiveArguments = DBGeneralAPIGetArguments(RequestBody);
+		DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
 		if (APIDirective == "GetTableNames")
 		{
-			ReturnValue.DocumentData = GetTableNamesBody(APIDirectiveArguments);
+			if (ConnectionPermissions.Read)
+			{
+				ReturnValue.DocumentData = GetTableNamesBody(APIDirectiveArguments);
+			}
+			else
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
+			}
 		}
 		else if (APIDirective == "GetTableInfo")
 		{
-			ReturnValue.DocumentData = GetTableInfoBody(APIDirectiveArguments);
+			if (ConnectionPermissions.Read)
+			{
+				ReturnValue.DocumentData = GetTableInfoBody(APIDirectiveArguments);
+			}
+			else
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
+			}
 		}
 		else if (APIDirective == "AddEntryToTable")
 		{
-			//Funktions prototyp TableNamn + ColumnName:stringcolumm data
-			ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
+			if (ConnectionPermissions.Upload)
+			{
+				//Funktions prototyp TableNamn + ColumnName:stringcolumm data
+				ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
+			}
+			else
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require Upload permissions\"}";
+			}
 		}
 		else if (APIDirective == "GetFolderContents")
 		{
-			ReturnValue.DocumentData = DBAPI_GetFolderContents(APIDirectiveArguments);
+			if (ConnectionPermissions.Read)
+			{
+				ReturnValue.DocumentData = DBAPI_GetFolderContents(APIDirectiveArguments);
+			}
+			else
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
+			}
 		}
 		else if (APIDirective == "SearchTableWithWhere")
 		{
-			ReturnValue.DocumentData = DBAPI_SearchTableWithWhere(APIDirectiveArguments);
+			if (ConnectionPermissions.Read)
+			{
+				ReturnValue.DocumentData = DBAPI_SearchTableWithWhere(APIDirectiveArguments);
+			}
+			else
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
+			}
 		}
 		else if (APIDirective == "UpdateTableRow")
 		{
-			ReturnValue.DocumentData = DBAPI_UpdateTableRow(APIDirectiveArguments);
+			if (ConnectionPermissions.Upload)
+			{
+				ReturnValue.DocumentData = DBAPI_UpdateTableRow(APIDirectiveArguments);
+			}
+			else
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to Edit\"}";
+			}
+		}
+		else if (APIDirective == "Login")
+		{
+			ReturnValue.DocumentData = DBAPI_Login(APIDirectiveArguments);
+			ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBUsername=" + APIDirectiveArguments[0]+"; Secure; "+"Max-Age=604800; Path=/");
+			ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBPassword=" + APIDirectiveArguments[1]+"; Secure; "+"Max-Age=604800; Path=/");
 		}
 		else
 		{
-			ReturnValue.DocumentData = "{\"DBAPI_Status\":\"UnknownCommand\"";
+			ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"UnknownCommand\"}";
 			//ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
 		}
 	}

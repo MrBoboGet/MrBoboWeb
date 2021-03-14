@@ -229,7 +229,10 @@ async function DBUpdate_SendUpdate(e)
         let NewValue = OldValue;
         if(SubmissionFields[CurrentSubmissionfieldIndex].getAttribute("data-inputcolumnindex") == i)
         {
-            NewValue = SubmissionFields[CurrentSubmissionfieldIndex].value;
+            if(SubmissionFields[CurrentSubmissionfieldIndex].value != "")
+            {
+                NewValue = SubmissionFields[CurrentSubmissionfieldIndex].value;
+            }
             CurrentSubmissionfieldIndex+=1;
         }
         SubmissionValues.push(NewColumnName);
@@ -249,7 +252,7 @@ async function DBUpdate_SendUpdate(e)
         ResultElement.innerHTML = "Successfully updated row!"
         ResultElement.style.color = "green";
         //uppdatera raderna som det är i databasen
-        for(let i = 0; i < OldValuesRow.cells.length; i++)
+        for(let i = 0; i < OldValuesRow.cells.length-1; i++)
         {
             OldValuesRow.cells[i].innerHTML = NewColumnValues[i];
         }

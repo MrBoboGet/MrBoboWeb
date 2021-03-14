@@ -20,12 +20,18 @@ async function validate(e)
 }).then(res => res.json()).then(async Data =>{
   console.log("Response is:",Data);  
   var SQLRows = Data.Rows;
-  console.log("Request complete! response:", SQLRows);
-  //vi uppdtaerar tablen
   var SQLRowsLength = SQLRows.length;
-  if(SQLRowsLength == 0)
+  //vi uppdtaerar tablen
+  let ErrorMessage = document.getElementById("DBStatus");
+  if(Data.MBDBAPI_Status != "ok")
   {
+    ErrorMessage.style.color = "red";
+    ErrorMessage.innerHTML = "Error in database: "+Data.MBDBAPI_Status;
     return;
+  }
+  else
+  {
+    ErrorMessage.innerHTML = "";
   }
   console.log("SQLRowslength", SQLRowsLength  );
   var TableToModify = document.getElementById("SQLResultTable");
@@ -36,6 +42,10 @@ async function validate(e)
     var TableValues = []
     for(j = 0;j < ObjectKeys.length;j++)
     {
+      if(ObjectKeys[j] == "ColumnCount")
+      {
+        continue;
+      }
       let ColumnValue = SQLRows[i][ObjectKeys[j]];
       if(ColumnValue != null)
       {

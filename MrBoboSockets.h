@@ -547,28 +547,30 @@ namespace MBSockets
 	};
 	inline std::string GetHeaderValue(std::string Header, const std::string& HeaderContent)
 	{
-		int HeaderPosition = HeaderContent.find(Header + ": ");
-		int FirstEndlineAfterContentPos = HeaderContent.find("\n", HeaderPosition);
+		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n")+4);
+		int HeaderPosition = HeaderData.find(Header + ": ");
+		int FirstEndlineAfterContentPos = HeaderData.find("\r\n", HeaderPosition);
 		if (HeaderPosition == HeaderContent.npos)
 		{
 			return("");
 		}
 		else
 		{
-			return(HeaderContent.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
+			return(HeaderData.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
 		}
 	}
 	inline std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent)
 	{
+		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
 		std::vector<std::string> ReturnValue = {};
 		std::string StringToSearchFor = HeaderTag + ": ";
-		size_t StringPosition = HeaderContent.find(StringToSearchFor);
-		int FirstEndlineAfterContentPos = HeaderContent.find("\n", StringPosition);
-		while (StringPosition != HeaderContent.npos)
+		size_t StringPosition = HeaderData.find(StringToSearchFor);
+		int FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
+		while (StringPosition != HeaderData.npos)
 		{
-			ReturnValue.push_back(HeaderContent.substr(StringPosition + StringToSearchFor.size(), FirstEndlineAfterContentPos - (StringPosition + StringToSearchFor.size())));
-			StringPosition = HeaderContent.find(StringToSearchFor,StringPosition+StringToSearchFor.size());
-			FirstEndlineAfterContentPos = HeaderContent.find("\n", StringPosition);
+			ReturnValue.push_back(HeaderData.substr(StringPosition + StringToSearchFor.size(), FirstEndlineAfterContentPos - (StringPosition + StringToSearchFor.size())));
+			StringPosition = HeaderData.find(StringToSearchFor,StringPosition+StringToSearchFor.size());
+			FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
 		}
 		return(ReturnValue);
 	}

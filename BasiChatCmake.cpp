@@ -79,6 +79,7 @@ int main()
 	std::cout << std::get<0>(MemeEntry)<<" "<< std::get<1>(MemeEntry)<<" " << std::get<2>(MemeEntry) << std::endl;
 	//*/
 	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
+	TestServer.AddRequestHandler({ DBLogin_Predicate,DBLogin_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
 	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBGet_Predicate,DBGet_ResponseGenerator });

@@ -430,8 +430,13 @@ namespace MBDB
 		//ErrorCode = sqlite3_prepare_v2(UnderlyingConnection, SQLQuerry.data(), SQLQuerry.size(), &NewStatement,&UnusedPortion);
 		if (!NewStatement.IsValid())
 		{
-			std::cout << sqlite3_errmsg(UnderlyingConnection) << std::endl;
 			//assert(false);
+			if (OutError != nullptr)
+			{
+				*OutError = false;
+				OutError->ErrorMessage = sqlite3_errmsg(UnderlyingConnection);
+				std::cout << OutError->ErrorMessage << std::endl;
+			}
 		}
 		else
 		{

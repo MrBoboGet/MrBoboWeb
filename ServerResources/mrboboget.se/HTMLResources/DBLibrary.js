@@ -44,6 +44,7 @@ function MBDBAPI_EncodeArguments(ArgumentStringArray)
       ReturnValue+=" ";
     }
   }
+  console.log(ReturnValue);
   return(ReturnValue);
 }
 
@@ -131,4 +132,12 @@ function GetPathStem(PathToProcess)
       return(PathEntries[i]);
     }
   }
+}
+
+function toHexString(byteArray) {
+  var s = '';
+  byteArray.forEach(function(byte) {
+    s += ('0' + (byte & 0xFF).toString(16)).slice(-2);
+  });
+  return s;
 }
