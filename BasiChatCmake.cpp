@@ -25,7 +25,7 @@ int main()
 #ifdef DNDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
 	InitDatabase();
 
@@ -35,12 +35,12 @@ int main()
 	MBUnicode::UnicodeString TestString(TestData3);
 	std::cout << TestString.GetHexRepresentation() << std::endl;
 
-	MBSearchEngine::MBIndex TestIndex;
-	TestIndex.IndexTextDocument("TestIndexFile.txt");
-	TestIndex.IndexTextDocument("BTestIndexFile.txt");
-	TestIndex.IndexTextDocument("ATestIndexFile.txt");
-	TestIndex.PrintIndex();
-	exit(0);
+	//MBSearchEngine::MBIndex TestIndex;
+	//TestIndex.IndexTextDocument("TestIndexFile.txt");
+	//TestIndex.IndexTextDocument("BTestIndexFile.txt");
+	//TestIndex.IndexTextDocument("ATestIndexFile.txt");
+	//TestIndex.PrintIndex();
+	//exit(0);
 	//MBUnicode::CreateCMacroCodepointArrayFromPropertySpec("./MBSearchEngine/GraphemeBreakProperty.txt", "./MBSearchEngine/GraphemeBreakPropertyMacro.txt");
 	//MBUnicode::CodepointRange TestRange[] = GraphemeBreakList;
 	//std::cout << TestRange[15].Higher << std::endl;
