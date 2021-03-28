@@ -151,6 +151,10 @@ set(Header_Files
     "MrBoboDatabase/MPGMemeSite.h"
     "MrBoboMedia/MBMedia.h"
     ${EXTLIBS_HEADER_FILES}
+    #search engine
+    "MBSearchEngine/MBSearchEngine.h"
+    "MBSearchEngine/MBUnicode.h"
+    "MBSearchEngine/MBUnicodeMacros.h"
 )
 source_group("Header Files" FILES ${Header_Files})
 
@@ -161,6 +165,8 @@ set(Source_Files
     "MrBoboDatabase/MrBoboDatabase.cpp"
     "MrBoboDatabase/MPGMemeSite.cpp"
     "MrBoboMedia/MBMedia.cpp"
+    "MBSearchEngine/MBSearchEngine.cpp"
+    "MBSearchEngine/MBUnicode.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
 message(${Source_Files})

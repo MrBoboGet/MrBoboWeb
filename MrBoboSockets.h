@@ -31,6 +31,7 @@
 #include <StringGrejer.h>
 #include <condition_variable>
 #include <MrPostOGet/TLSHandler.h>
+#include <MinaStringOperations.h>
 #include <math.h>
 #if defined(WIN32)
 typedef SOCKET MB_OS_Socket;
@@ -682,7 +683,20 @@ namespace MBSockets
 	{
 		int FirstSlashPos = RequestData.find("/");
 		int FirstSpaceAfterSlash = RequestData.find(" ", FirstSlashPos);
-		return(RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1));	
+		std::string ReturnValue = RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1);
+		int NextPercent = ReturnValue.find("%");
+		while (NextPercent != ReturnValue.npos)
+		{
+			std::string CharactersToDecode = ReturnValue.substr(NextPercent + 1, 2);
+			bool ParseError = true;
+			char NewCharacter = MBUtility::HexValueToByte(CharactersToDecode,&ParseError);
+			if (ParseError)
+			{
+				ReturnValue = ReturnValue.substr(0, NextPercent) + NewCharacter + ReturnValue.substr(NextPercent + 3);
+			}
+			NextPercent = ReturnValue.find("%", NextPercent + 1);
+		}
+		return(ReturnValue);	
 	}
 	enum class HTTPDocumentType
 	{

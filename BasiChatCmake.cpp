@@ -10,6 +10,8 @@
 #include <MrBoboDatabase/MrBoboDatabase.h>
 #include <MrBoboDatabase/MPGMemeSite.h>
 #include <MrBoboMedia/MBMedia.h>
+#include <MBSearchEngine/MBUnicode.h>
+#include <MBSearchEngine/MBSearchEngine.h>
 #include <time.h>
 
 //#include <string>
@@ -26,6 +28,24 @@ int main()
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
 	InitDatabase();
+
+	//std::string Input = "";
+	//std::getline(std::cin, Input);
+	char TestData3[] = { 0xe5,0xa4,0xa9,0xe7,0xa9,0xba,0xe3,0x81,0xae,0xe5,0xa4,0x9c,0xe6,0x98,0x8e,0xe3,0x81,0x91 };
+	MBUnicode::UnicodeString TestString(TestData3);
+	std::cout << TestString.GetHexRepresentation() << std::endl;
+
+	MBSearchEngine::MBIndex TestIndex;
+	TestIndex.IndexTextDocument("TestIndexFile.txt");
+	TestIndex.IndexTextDocument("BTestIndexFile.txt");
+	TestIndex.IndexTextDocument("ATestIndexFile.txt");
+	TestIndex.PrintIndex();
+	exit(0);
+	//MBUnicode::CreateCMacroCodepointArrayFromPropertySpec("./MBSearchEngine/GraphemeBreakProperty.txt", "./MBSearchEngine/GraphemeBreakPropertyMacro.txt");
+	//MBUnicode::CodepointRange TestRange[] = GraphemeBreakList;
+	//std::cout << TestRange[15].Higher << std::endl;
+	//exit(0);
+	
 	///*
 	//test för att använda system
 

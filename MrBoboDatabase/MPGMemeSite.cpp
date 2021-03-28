@@ -186,42 +186,50 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 	}
 	else if(RequestType == "POST")
 	{
-		NewDocument.Type = MBSockets::HTTPDocumentType::json;
-		//vi behöver parsa kroppen så vi får SQL koden som den enkoder i sin kropp
-		std::string SQLCommand = MrPostOGet::GetRequestContent(RequestData);
-		std::cout << SQLCommand << std::endl;
-		bool CommandSuccesfull = true;
-		MBError SQLError(true);
-		std::vector<MBDB::MBDB_RowData> SQLResult = {};
+		DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
+		if (!ConnectionPermissions.Read)
 		{
-			std::lock_guard<std::mutex> Lock(DatabaseMutex);
-			SQLResult = WebsiteDatabase->GetAllRows(SQLCommand,&SQLError);
-			if(!SQLError)
-			{
-				CommandSuccesfull = false;
-			}
-		}
-		//std::vector<std::string> ColumnNames = { "MemeID","MemeSource","MemeTags" };
-		if (CommandSuccesfull)
-		{
-			std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":[";
-			size_t NumberOfRows = SQLResult.size();
-			for (size_t i = 0; i < NumberOfRows; i++)
-			{
-				JsonResponse += SQLResult[i].ToJason();
-				if (i + 1 < NumberOfRows)
-				{
-					JsonResponse += ",";
-				}
-			}
-			JsonResponse += "]}";
-			NewDocument.DocumentData = JsonResponse;
+			NewDocument.DocumentData = "{\"MBDBAPI_Status\":Invalid permissions: Require permissions to read,\"Rows\":[]}";
 		}
 		else
 		{
-			NewDocument.DocumentData = "{\"MBDBAPI_Status\":" + ToJason(SQLError.ErrorMessage) + ",\"Rows\":[]}";
+			NewDocument.Type = MBSockets::HTTPDocumentType::json;
+			//vi behöver parsa kroppen så vi får SQL koden som den enkoder i sin kropp
+			std::string SQLCommand = MrPostOGet::GetRequestContent(RequestData);
+			std::cout << SQLCommand << std::endl;
+			bool CommandSuccesfull = true;
+			MBError SQLError(true);
+			std::vector<MBDB::MBDB_RowData> SQLResult = {};
+			{
+				std::lock_guard<std::mutex> Lock(DatabaseMutex);
+				SQLResult = WebsiteDatabase->GetAllRows(SQLCommand, &SQLError);
+				if (!SQLError)
+				{
+					CommandSuccesfull = false;
+				}
+			}
+			//std::vector<std::string> ColumnNames = { "MemeID","MemeSource","MemeTags" };
+			if (CommandSuccesfull)
+			{
+				std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":[";
+				size_t NumberOfRows = SQLResult.size();
+				for (size_t i = 0; i < NumberOfRows; i++)
+				{
+					JsonResponse += SQLResult[i].ToJason();
+					if (i + 1 < NumberOfRows)
+					{
+						JsonResponse += ",";
+					}
+				}
+				JsonResponse += "]}";
+				NewDocument.DocumentData = JsonResponse;
+			}
+			else
+			{
+				NewDocument.DocumentData = "{\"MBDBAPI_Status\":" + ToJason(SQLError.ErrorMessage) + ",\"Rows\":[]}";
+			}
+			//std::cout << "JsonResponse sent: " << JsonResponse << std::endl;
 		}
-		//std::cout << "JsonResponse sent: " << JsonResponse << std::endl;
 	}
 	return(NewDocument);
 }
@@ -396,6 +404,10 @@ std::string GetEmbeddedImage(std::string const& ImagePath)
 	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\" style=\"max-width:100%\"></image>";
 	return(ReturnValue);
 }
+std::string GetEmbeddedPDF(std::string const& ImagePath)
+{
+	return("<iframe src=\"/DB/" + ImagePath + "\" style=\"width: 100%; height: 100%;max-height: 100%; max-width: 100%;\"></iframe>");
+}
 bool DBView_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
@@ -408,6 +420,33 @@ bool DBView_Predicate(std::string const& RequestData)
 		}
 	}
 	return(false);
+}
+std::string GetEmbeddedResource(std::string const& MBDBResource,std::string const& ResourceFolder)
+{
+	if (!std::filesystem::exists(MBDBGetResourceFolderPath()+MBDBResource))
+	{
+		return("");
+	}
+	std::string ReturnValue = "";
+	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
+	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	if (ResourceMedia == MBSockets::MediaType::Image)
+	{
+		ReturnValue = GetEmbeddedImage(MBDBResource);
+	}
+	else if (ResourceMedia == MBSockets::MediaType::Video)
+	{
+		ReturnValue = GetEmbeddedVideo(MBDBResource, ResourceFolder);
+	}
+	else if (ResourceMedia == MBSockets::MediaType::Audio)
+	{
+		ReturnValue = GetEmbeddedAudio(MBDBResource, ResourceFolder);
+	}
+	else if (ResourceMedia == MBSockets::MediaType::PDF)
+	{
+		ReturnValue = GetEmbeddedPDF(MBDBResource);
+	}
+	return(ReturnValue);
 }
 MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
@@ -431,18 +470,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 	if (!std::filesystem::is_directory(DBResourcesPath + DBResource) && DBResource != "")
 	{
 		MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
-		if (ResourceMedia == MBSockets::MediaType::Image)
-		{
-			EmbeddedElement = GetEmbeddedImage(DBResource);
-		}
-		else if (ResourceMedia == MBSockets::MediaType::Video)
-		{
-			EmbeddedElement = GetEmbeddedVideo(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
-		}
-		else if (ResourceMedia == MBSockets::MediaType::Audio)
-		{
-			EmbeddedElement = GetEmbeddedAudio(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
-		}
+		EmbeddedElement = GetEmbeddedResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 		std::unordered_map<std::string, std::string> MapData = {};
 		MapData["EmbeddedMedia"] = EmbeddedElement;
 		std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
@@ -763,6 +791,16 @@ std::string DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
 	{
 		std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
 		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
+	
+		//DEBUG GREJER
+		MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
+		std::vector<MBDB::MBDB_RowData> DebugResult = WritableDatabase->GetAllRows(DebugStatement);
+		auto DebugTuple = DebugResult[0].GetTuple<int, std::string, std::string, std::string, std::string, std::string, std::string>();
+		std::ofstream DebugFile("./DebugDatabaseData.txt", std::ios::out|std::ios::binary);
+		std::ofstream DebugInput("./DebugInputData.txt", std::ios::out | std::ios::binary);
+		DebugFile << std::get<6>(DebugTuple);
+		DebugInput << Arguments[21];
+
 		std::vector<MBDB::ColumnInfo> ColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
 		std::vector<MBDB::ColumnSQLType> ColumnTypes = {};
 		for (size_t i = 0; i < ColumnInfo.size(); i++)

@@ -141,3 +141,9 @@ function toHexString(byteArray) {
   });
   return s;
 }
+
+function htmlDecode(input) {
+  var doc = new DOMParser().parseFromString(input, "text/html");
+  console.log("HTML Decode");
+  return doc.documentElement.textContent;
+}

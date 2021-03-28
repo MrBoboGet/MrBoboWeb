@@ -225,13 +225,13 @@ async function DBUpdate_SendUpdate(e)
     for(let i = 0;i < G_DBUpdate_TableInfo.TableInfo.length;i++)
     {
         let NewColumnName = G_DBUpdate_TableInfo.TableInfo[i].ColumnName;
-        let OldValue = OldValuesRow.cells[i].innerHTML;
+        let OldValue = htmlDecode(OldValuesRow.cells[i].innerHTML);
         let NewValue = OldValue;
         if(SubmissionFields[CurrentSubmissionfieldIndex].getAttribute("data-inputcolumnindex") == i)
         {
             if(SubmissionFields[CurrentSubmissionfieldIndex].value != "")
             {
-                NewValue = SubmissionFields[CurrentSubmissionfieldIndex].value;
+                NewValue = htmlDecode(SubmissionFields[CurrentSubmissionfieldIndex].value);
             }
             CurrentSubmissionfieldIndex+=1;
         }
