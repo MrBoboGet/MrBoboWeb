@@ -540,6 +540,17 @@ namespace MBSockets
 				HandleError("error at socket(): " + GetLastError(),true);
 				//freeaddrinfo(result);
 			}
+			else
+			{
+				//nu fixar vi specifika options, som bbland annat SO_REUSEADRR
+				//TODO Detta var copy pastat från stack overflow, men kan det vara så att det faktiskt beror på endianessen av ens dator?
+				int Enable = 1;
+				ErrorResults = setsockopt(ListenerSocket, SOL_SOCKET, SO_REUSEADDR,(const char*)&Enable, sizeof(int));
+				if (ErrorResults < 0)
+				{
+					HandleError("Error at socket() when setting SO_REUSEADDR:" + GetLastError(), true);
+				}
+			}
 		}
 		~ServerSocket()
 		{

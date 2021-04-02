@@ -1046,7 +1046,7 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	//förutsätter att vi redan connectat med TCP protokollet
 	ConnectionParameters.IsHost = true;
 	MBError ErrorToReturn(true);
-	std::vector<std::string> ClientHello = GetNextPlaintextRecords(SocketToConnect);
+	std::vector<std::string> ClientHello = GetNextPlaintextRecords(SocketToConnect,1,m_MaxBytesInMemory);
 	ConnectionParameters.AllHandshakeMessages.push_back(ClientHello[0]);
 	TLS1_2::TLS1_2HelloClientStruct ClientHelloStruct = ParseClientHelloStruct(ClientHello[0]);
 	//om clienten skicker ett session id så vill vi ta och använda den sesssion id:n värden
@@ -1059,7 +1059,7 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 			return(ErrorToReturn);
 		}
 	}
-	assert(ClientHello.size() == 1);
+	//assert(ClientHello.size() == 1);
 	if (ClientHello.size() != 1)
 	{
 		ErrorToReturn.ErrorMessage = "invalid client hello message";
@@ -1079,26 +1079,12 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	std::string ServerHelloDoneMessage = ServerHelloDoneRecord.GetHandShakeRecord();
 	SocketToConnect->SendData(ServerHelloDoneMessage.c_str(), ServerHelloDoneMessage.size());
 	ConnectionParameters.AllHandshakeMessages.push_back(ServerHelloDoneRecord.GetHandShakeRecord());
-	std::vector<std::string> ClientResponse = {};
-	while (ClientResponse.size() != 3)
+	std::vector<std::string> ClientResponse = GetNextPlaintextRecords(SocketToConnect,3,m_MaxBytesInMemory);
+	if (ClientResponse.size() != 3 || this->m_HandshakeIsValid == false)
 	{
-		std::vector<std::string> NewRecords = GetNextPlaintextRecords(SocketToConnect);
-		for (size_t i = 0; i < NewRecords.size(); i++)
-		{
-			ClientResponse.push_back(NewRecords[i]);
-		}
-		if (NewRecords.size() == 0)
-		{
-			ErrorToReturn.ErrorMessage = "Recieved fatal alert message";
-			ErrorToReturn = false;
-			return(ErrorToReturn);
-		}
-		if (NewRecords.back() == "FatalErrorOccured")
-		{
-			ErrorToReturn.ErrorMessage = "Recieved fatal alert message";
-			ErrorToReturn = false;
-			return(ErrorToReturn);
-		}
+		ErrorToReturn.ErrorMessage = "Error in establishing host tls connection";
+		ErrorToReturn = false;
+		return(ErrorToReturn);
 	}
 	//för så tar vi och decrypter premasterkeyn från dens första svar
 	//debug grejer
@@ -1320,41 +1306,14 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 	std::string VerifyDataMessage = GenerateVerifyDataMessage();
 	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
 
-	std::vector<std::string> ClientVerifyDataMessage = GetNextPlaintextRecords(SocketToConnect);
+	std::vector<std::string> ClientVerifyDataMessage = GetNextPlaintextRecords(SocketToConnect,2,m_MaxBytesInMemory);
 	while (ClientVerifyDataMessage.size() < 2)
 	{
-		std::vector<std::string> NewMessages = GetNextPlaintextRecords(SocketToConnect);
-		for (size_t i = 0; i < NewMessages.size(); i++)
-		{
-			ClientVerifyDataMessage.push_back(NewMessages[i]);
-		}
-		bool ErrorOccured = false;
-		if (NewMessages.size() == 0)
-		{
-			ErrorOccured = true;
-		}
-		else
-		{
-			if (NewMessages.back() == "FatalErrorOccured")
-			{
-				ErrorOccured = true;
-			}
-		}
-		if (ErrorOccured)
-		{
-			ErrorToReturn = false;
-			ErrorToReturn.ErrorMessage = "Error in recieving client response";
-			return(ErrorToReturn);
-		}
+		ErrorToReturn = false;
+		ErrorToReturn.ErrorMessage = "Error in recieving resuming session: Invalid Client Response";
+		return(ErrorToReturn);
 	}
-	if (!ClientVerifyDataMessage.size() <= 2)
-	{
-		std::ofstream DebugFile("./MBTLSDebugFile", std::ios::app);
-		std::cout << "ClientVerifyDataMessage.size() >=2";
-		DebugFile << "------------------\n";
-		DebugFile << ReplaceAll(HexEncodeString(ClientVerifyDataMessage[1]), " ", "");
-		std::cout << "\n";
-	}
+	assert(ClientVerifyDataMessage.size() <= 2);
 	ConnectionParameters.ServerSequenceNumber = 0;
 	ConnectionParameters.ClientSequenceNumber = 0;
 	std::string ServerFinishedMessagePlaintext = DecryptBlockcipherRecord(ClientVerifyDataMessage[1]);
@@ -1682,13 +1641,144 @@ std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket,i
 	}
 	return(SentApplicationData);
 }
+std::string TLSHandler::GetNextRawProtocol(MBSockets::Socket* SocketToConnect, int MaxBytesInMemory)
+{
+	if (MaxBytesInMemory < m_MaxRecordLength)
+	{
+		//orkar inte med edge cases, tar lite marginal
+		MaxBytesInMemory = m_MaxRecordLength+200;
+	}
+	if (RecieveDataState.StoredRecords.size() > 0)
+	{
+		std::string StoredRecord = RecieveDataState.StoredRecords.front();
+		RecieveDataState.StoredRecords.pop_front();
+		return(StoredRecord);
+	}
+	std::string NewRecordData = "";
+	std::swap(NewRecordData, RecieveDataState.CurrentRecordPreviousData);
+	//newrecord data kan aldrig vara komplett record
+	NewRecordData += SocketToConnect->GetNextRequestData(MaxBytesInMemory - NewRecordData.size());
+	if (NewRecordData.size() == 0)
+	{
+		return(NewRecordData);
+	}
+	if (NewRecordData.size() < 5)
+	{
+		//måste alltid kunna avgöra längden
+		NewRecordData += SocketToConnect->GetNextRequestData(MaxBytesInMemory - NewRecordData.size());
+	}
+	size_t RecievedDataOffset = 0;
+	bool NewRecordExtracted = false;
+	std::vector<std::string> NewRecords = {};
+	while (RecievedDataOffset < NewRecordData.size())
+	{
+		if (!NewRecordExtracted)
+		{
+			//vi vill alltid ha minst 1 nytt record, garanterat minst 5 i size
+			TLS1_2::NetWorkDataHandler LengthExtractor((const uint8_t*)&NewRecordData.c_str()[RecievedDataOffset]);
+			LengthExtractor.SetPosition(LengthExtractor.GetPosition() + 3);
+			int CurrentRecordSize = LengthExtractor.Extract16();
+			if (NewRecordData.size()-5 < CurrentRecordSize)
+			{
+				NewRecordData += SocketToConnect->GetNextRequestData(MaxBytesInMemory - NewRecordData.size());
+			}
+			if (NewRecordData.size() - 5 < CurrentRecordSize)
+			{
+				//socketen har slutat skicka eller något, nu kan vi inte få ett färdigt nytt record
+				std::cout << "Error in recieving new record: Incomplete data" << std::endl;
+				return("");
+			}
+			NewRecordExtracted = true;
+		}
+		if (NewRecordData.size() - RecievedDataOffset < 5)
+		{
+			RecieveDataState.CurrentRecordPreviousData = NewRecordData.substr(RecievedDataOffset);
+			break;
+		}
+		else
+		{
+			TLS1_2::NetWorkDataHandler LengthExtractor((const uint8_t*)&NewRecordData.c_str()[RecievedDataOffset]);
+			LengthExtractor.SetPosition(LengthExtractor.GetPosition() + 3);
+			int CurrentRecordSize = LengthExtractor.Extract16();
+			if (NewRecordData.size() - RecievedDataOffset >= 5 + CurrentRecordSize)
+			{
+				NewRecords.push_back(NewRecordData.substr(RecievedDataOffset, 5 + CurrentRecordSize));
+				RecievedDataOffset += 5 + CurrentRecordSize;
+			}
+			else
+			{
+				RecieveDataState.CurrentRecordPreviousData = NewRecordData.substr(RecievedDataOffset);
+				break;
+			}
+		}
+	}
+	//pushar alla records som var nya till vår stack av records som vi vill spara
+	for (size_t i = 1; i < NewRecords.size(); i++)
+	{
+		RecieveDataState.StoredRecords.push_back(NewRecords[i]);
+	}
+	return(NewRecords[0]);
+}
+bool TLSHandler::HandleAlertMessage(MBSockets::Socket* SocketToConnect,std::string const& DecryptedAlertRecord)
+{
+	uint8_t AlertLevel = DecryptedAlertRecord[5];
+	uint8_t ErrorMessage = DecryptedAlertRecord[6];
+	//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
+	std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
+	if (AlertLevel == TLS1_2::fatal)
+	{
+		IsConnected = false;
+		m_HandshakeIsValid = false;
+		if (ErrorMessage == TLS1_2::close_notify)
+		{
+			SendCloseNotfiy(SocketToConnect);
+		}
+		return(false);
+	}
+	else
+	{
+		//HandleNonFatalError();
+		//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
+		return(true);
+	}
+}
+std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory)
+{
+	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
+	int NumberOfRecievedRecords = 0;
+	while (NumberOfRecievedRecords < NumberOfRecordsToGet || NumberOfRecordsToGet == -1)
+	{
+		std::string NewRecord = GetNextRawProtocol(SocketToConnect, MaxBytesInMemory);
+		if (NewRecord == "")
+		{
+			break;
+		}
+		if (ConnectionParameters.HandshakeFinished)
+		{
+			NewRecord = DecryptBlockcipherRecord(NewRecord);
+		}
+		if (NewRecord[0] == TLS1_2::alert)
+		{
+			bool IsValid = HandleAlertMessage(SocketToConnect,NewRecord);
+			if (!IsValid)
+			{
+				break;
+			}
+		}
+		else
+		{
+			ReturnValue.push_back(NewRecord);
+			NumberOfRecievedRecords += 1;
+		}
+	}
+	return(ReturnValue);
+}
 std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes)
 {
 	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
-	bool WaitingForApplicationData = true;
 	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
 	//processadata med typ protokoll grejer antar jag
-	while (WaitingForApplicationData)
+	while (true)
 	{
 		//max är egentligen 2<<14+2048+5, men varför inte ha lite marginal
 		int MaxEncryptedRecordSize = (2 << 14) + 2048 + 100;
@@ -1775,26 +1865,12 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 			}
 			else if (RecordPlaintextData[0] == TLS1_2::alert)
 			{
-				/*
-				//borde kanske checka att protokollet överenstämmer
-				uint16_t LengthOfAlertData = std::stoi(RawData.substr(3, 2));
-				//kollar att längden av datan vi fått ska matcha med det vi förväntar oss, annars har vi ett error
-				int TotalLengthOfData = 5 + LengthOfAlertData;
-				if (TotalLengthOfData != RawData.size())
-				{
-					//HMMMMMMMM
-					std::cout << "ErrorParsingAlertData" << std::endl;
-					return("ErrorParsingAlertData");
-				}
-				*/
 				uint8_t AlertLevel = RecordPlaintextData[5];
 				uint8_t ErrorMessage = RecordPlaintextData[6];
 				//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
 				std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
 				if (AlertLevel == TLS1_2::fatal)
 				{
-					//fatal kod
-					//typ FatalErrorProcedure()
 					ReturnValue.push_back("FatalErrorOccured");
 					IsConnected = false;
 					if (ErrorMessage == TLS1_2::close_notify)
@@ -1815,9 +1891,6 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 			}
 			else if (RecordPlaintextData[0] == TLS1_2::change_cipher_spec)
 			{
-				//här ska vi helt enkelt ändra våra cipher grejer och kan fortsätta med våra grejer
-				//HandleCipherSpec
-				//do nothing
 				return(RawDataProtocols);
 			}
 			else

@@ -8,6 +8,7 @@
 #include <plusaes.hpp>
 #include <MBErrorHandling.h>
 #include <filesystem>
+#include <deque>
 enum class TLSVersions
 {
 	TLS1_2,
@@ -717,7 +718,7 @@ struct TLS_TCP_State
 	int CurrentRecordSize = 0;
 	int CurrentRecordParsed = 0;
 	std::string CurrentRecordPreviousData = "";
-	std::vector<std::string> StoredRecords = {};
+	std::deque<std::string> StoredRecords = {};
 };
 class TLSHandler
 {
@@ -751,8 +752,14 @@ private:
 	static bool SessionIsSaved(std::string const& SessionID);
 	TLS1_2::SecurityParameters GetCachedSession(std::string const& SessiondID);
 	bool IsConnected = false;
+	bool m_HandshakeIsValid = true;
 	void SendCloseNotfiy(MBSockets::Socket* SocketToUse);
+	int m_MaxRecordLength = 16384;
+	int m_MaxBytesInMemory = 200000000;
 	TLS_TCP_State RecieveDataState;
+	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory);
+	bool HandleAlertMessage(MBSockets::Socket* SocketToConnect,std::string const& DecryptedAlertRecord);
+	std::string GetNextRawProtocol(MBSockets::Socket* SocketToConnect, int MaxBytesInMemory);
 public:
 	TLSHandler();
 	bool ConnectionIsActive() { return(IsConnected); };
