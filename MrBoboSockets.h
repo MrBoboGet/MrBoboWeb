@@ -716,6 +716,7 @@ namespace MBSockets
 		mp3,
 		Text,
 		Wav,
+		WebP,
 		Null
 	};
 	enum class HTTPRequestStatus
@@ -761,6 +762,7 @@ namespace MBSockets
 			{HTTPDocumentType::mp3,MediaType::Audio,{"mp3"},"audio/mpeg"},
 			{HTTPDocumentType::Text,MediaType::Text,{"txt"},"text/plain"},
 			{HTTPDocumentType::Wav,MediaType::Audio,{"wav"},"audio/wav"},
+			{HTTPDocumentType::WebP,MediaType::Image,{"webp"},"image/webp"},
 		};
 		HTTPTypeTuple NullTupple = { HTTPDocumentType::Null,MediaType::Null,{},""};
 	public:

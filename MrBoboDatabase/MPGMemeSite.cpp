@@ -1,10 +1,6 @@
 #define NOMINMAX
 #include <MrBoboDatabase/MPGMemeSite.h>
 #include <MinaStringOperations.h>
-std::string MBDBGetResourceFolderPath()
-{
-	return("./MBDBResources/");
-}
 
 //username cookie = 
 //password cookie = 
@@ -22,20 +18,44 @@ std::mutex WritableDatabaseMutex;
 MBDB::MrBoboDatabase* WritableDatabase = nullptr;
 std::mutex LoginDatabaseMutex;
 MBDB::MrBoboDatabase* LoginDatabase = nullptr;
+
+std::mutex __MBTopResourceFolderMutex;
+std::string __MBTopResourceFolder = "./";
 void InitDatabase()
 {
+	//utgår från den foldern som programmet körs i
+	std::fstream MBDBConfigFile("./MBDBConfigFile");
+	std::string CurrentFileLine = "";
+	std::string ResourceFolderConfig = "MBDBTopFolder=";
+	if (MBDBConfigFile.is_open())
+	{
+		while (std::getline(MBDBConfigFile, CurrentFileLine))
+		{
+			if (CurrentFileLine.substr(0, ResourceFolderConfig.size()) == ResourceFolderConfig)
+			{
+				__MBTopResourceFolder = CurrentFileLine.substr(ResourceFolderConfig.size());
+			}
+		}
+	}
 	if (WebsiteDatabase == nullptr)
 	{
-		WebsiteDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 0);
+		WebsiteDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/TestDatabas", 0);
 	}
 	if (WritableDatabase == nullptr)
 	{
-		WritableDatabase = new MBDB::MrBoboDatabase("./TestDatabas", 1);
+		WritableDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/TestDatabas", 1);
 	}
 	if (LoginDatabase == nullptr)
 	{
-		LoginDatabase = new MBDB::MrBoboDatabase("./MBGLoginDatabase", 0);
+		LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/MBGLoginDatabase", 0);
 	}
+	//läser in mbdb config filen och initaliserar directoryn med rätt
+
+}
+std::string MBDBGetResourceFolderPath()
+{
+	std::lock_guard<std::mutex> Lock(__MBTopResourceFolderMutex);
+	return( __MBTopResourceFolder+"/MBDBResources/");
 }
 struct DBPermissionsList
 {
@@ -281,7 +301,7 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	//hardcodat eftersom vi vet formtatet av formuläret
 	std::vector<std::string> FirstFieldValues = Split(FieldParameters, "; ");
 	std::string FileNameHeader = "filename=\"";
-	std::string FileName ="./MBDBResources/"+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
+	std::string FileName =MBDBGetResourceFolderPath()+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
 	int FilesWithSameName = 0;
 	while(std::filesystem::exists(FileName))
 	{
@@ -329,7 +349,7 @@ bool DBGet_Predicate(std::string const& RequestData)
 }
 MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
-	std::string DatabaseResourcePath = "./MBDBResources/";
+	std::string DatabaseResourcePath = MBDBGetResourceFolderPath();
 	std::string URLResource = MBSockets::GetReqestResource(RequestData);
 	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
 	if (!std::filesystem::exists(DatabaseResourcePath+DatabaseResourceToGet))
@@ -456,7 +476,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 
 	std::string HandlerName = "DBView";
 	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
-	std::string DBResourcesPath = "./MBDBResources/";
+	std::string DBResourcesPath = MBDBGetResourceFolderPath();
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
 	if (!std::filesystem::exists(DBResourcesPath+DBResource))
@@ -503,7 +523,7 @@ MBSockets::HTTPDocument DBViewEmbedd_ResponseGenerator(std::string const& Reques
 	MBSockets::HTTPDocument ReturnValue = MBSockets::HTTPDocument();
 	std::string HandlerName = "DBViewEmbedd/";
 	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
-	std::string DBResourcesPath = "./MBDBResources/";
+	std::string DBResourcesPath = MBDBGetResourceFolderPath();
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
 	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
