@@ -37,6 +37,7 @@ void InitDatabase()
 			}
 		}
 	}
+	std::cout << __MBTopResourceFolder << std::endl;
 	if (WebsiteDatabase == nullptr)
 	{
 		WebsiteDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/TestDatabas", 0);

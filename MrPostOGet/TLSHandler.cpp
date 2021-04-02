@@ -1347,7 +1347,14 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 			return(ErrorToReturn);
 		}
 	}
-	assert(ClientVerifyDataMessage.size() <= 2);
+	if (!ClientVerifyDataMessage.size() <= 2)
+	{
+		std::ofstream DebugFile("./MBTLSDebugFile", std::ios::app);
+		std::cout << "ClientVerifyDataMessage.size() >=2";
+		DebugFile << "------------------\n";
+		DebugFile << ReplaceAll(HexEncodeString(ClientVerifyDataMessage[1]), " ", "");
+		std::cout << "\n";
+	}
 	ConnectionParameters.ServerSequenceNumber = 0;
 	ConnectionParameters.ClientSequenceNumber = 0;
 	std::string ServerFinishedMessagePlaintext = DecryptBlockcipherRecord(ClientVerifyDataMessage[1]);
