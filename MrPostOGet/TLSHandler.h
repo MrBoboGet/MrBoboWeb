@@ -792,7 +792,7 @@ public:
 	void InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
 	bool VerifyFinishedMessage(std::string DataToVerify);
 	bool VerifyMac(std::string Hash, TLS1_2::TLS1_2GenericRecord RecordToEncrypt);
-	std::string DecryptBlockcipherRecord(std::string Data);
+	std::string DecryptBlockcipherRecord(std::string const& Data);
 	void SendDataAsRecord(std::string const& Data, MBSockets::Socket* AssociatedSocket);
 	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket,int MaxNumberOfBytes = 1000000);
 	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes = 1000000);

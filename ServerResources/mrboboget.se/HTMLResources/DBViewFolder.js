@@ -41,7 +41,7 @@ async function UpdateFolderTable()
     }
     else
     {
-        MainDiv.innerHTML = "Invalid Directory or filepath";
+        MainDiv.innerHTML = DirectoryEntries.MBDBAPI_Status;
     }
 }
 UpdateFolderTable();

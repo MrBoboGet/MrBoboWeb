@@ -36,7 +36,7 @@ async function GetAvailableTables()
 }).then(res => res.json()).then(Data =>{
     //console.log(Data);
     //console.log(Data.TableNames);
-    ReturnValue = Data.TableNames;
+    ReturnValue = Data;
     //console.log(ReturnValue);   
 });
     FinishedResult = await Result;
@@ -135,8 +135,16 @@ async function DBAddMain()
     var MainDiv = document.getElementById("DBAddMainDiv");
     //var TableMetadata = GetTableMetadata();
     var NewTable = document.createElement("table");
-    NewTable.classList.add("SQLTable")
-    var AvailableTables = await GetAvailableTables();
+    NewTable.classList.add("SQLTable");
+    var AvailableTablesResponse = await GetAvailableTables();
+    if(AvailableTablesResponse.MBDBAPI_Status != "ok")
+    {
+        let ResultElement = document.getElementById("DBADD_Result");
+        ResultElement.innerHTML = "Error:"+AvailableTablesResponse.MBDBAPI_Status;
+        ResultElement.style.color = "red";
+        return;
+    }
+    var AvailableTables = AvailableTablesResponse.TableNames;
     var URLTableName = window.location.pathname.split("/").pop();
     
     var NameInTable = false;
@@ -150,7 +158,8 @@ async function DBAddMain()
         }
     }
 
-    //console.log(TableNames);
+    console.log(AvailableTables);
+    console.log(NameInTable);
     if(NameInTable)
     {
         var TableInfo = await GetTableInfo(URLTableName);
@@ -202,7 +211,7 @@ async function DBAddMain()
     {
         if(URLTableName == "" || URLTableName == "DBAdd")
         {
-            for(let i = 0;i<AvailableTables.length;i++)
+            for(var i = 0;i<AvailableTables.length;i++)
             {
                 NewTable.appendChild(CreateTableRow(["<a href=\"/DBAdd/"+AvailableTables[i]+"\">"+AvailableTables[i]+"</a>"]));
             }

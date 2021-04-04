@@ -142,6 +142,13 @@ namespace MBSockets
 		{
 			return(!ConnectionClosed);
 		}
+		void Close()
+		{
+			MBCloseSocket(ConnectedSocket);
+			ConnectionClosed = true;
+			Invalid = true;
+			ConnectedSocket = MBInvalidSocket;
+		}
 		//returnar en int f�r eventuellt framtida error hantering
 		int SendData(const char* DataPointer, int DataLength)
 		{
@@ -735,6 +742,7 @@ namespace MBSockets
 		OK = 200,
 		PartialContent = 206,
 		NotFound = 404,
+		Conflict = 409,
 	};
 	enum class MediaType
 	{
@@ -844,6 +852,10 @@ namespace MBSockets
 		else if (StatusToConvert == HTTPRequestStatus::NotFound)
 		{
 			return("404 Not Found");
+		}
+		else if (StatusToConvert == HTTPRequestStatus::Conflict)
+		{
+			return("409 Conflict");
 		}
 	}
 	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
@@ -1028,36 +1040,19 @@ namespace MBSockets
 			{
 				if (!SocketTlsHandler.EstablishedSecureConnection())
 				{
-					//int InitialBufferSize = 16500;
-					//char* Buffer = (char*)malloc(InitialBufferSize);
-					//int MaxRecieveSize = InitialBufferSize;
-					//int LengthOfDataRecieved = 0;
-					//int TotalLengthOfData = 0;
-					//assert(Buffer != nullptr);
-					//assert(sizeof(Buffer) != 8 * InitialBufferSize);
-					//assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
-					//while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
-					//{
-					//	TotalLengthOfData += LengthOfDataRecieved;
-					//	if (LengthOfDataRecieved == MaxRecieveSize)
-					//	{
-					//		MaxRecieveSize = 16500;
-					//		Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
-					//		assert(Buffer != nullptr);
-					//	}
-					//	else
-					//	{
-					//		break;
-					//	}
-					//}
-					//ReturnValue += std::string(Buffer, TotalLengthOfData);
-					//free(Buffer);
 					ReturnValue += Socket::GetNextRequestData(MaxDataInMemory - TotalRecievedData);
 				}
 				else
 				{
 					ReturnValue += SocketTlsHandler.GetApplicationData(this,MaxDataInMemory-TotalRecievedData);
 					//Kollar lite att det stämmer osv
+				}
+				if (!this->IsValid())
+				{
+					//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
+					CurrentContentLength = 0;
+					ParsedContentData = 0;
+					return(ReturnValue);
 				}
 				TotalRecievedData = ReturnValue.size();
 				if (CurrentContentLength == 0)

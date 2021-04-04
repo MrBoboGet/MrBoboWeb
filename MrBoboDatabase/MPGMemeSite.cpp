@@ -210,7 +210,7 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 		DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
 		if (!ConnectionPermissions.Read)
 		{
-			NewDocument.DocumentData = "{\"MBDBAPI_Status\":Invalid permissions: Require permissions to read,\"Rows\":[]}";
+			NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"Invalid permissions: Require permissions to read\",\"Rows\":[]}";
 		}
 		else
 		{
@@ -281,6 +281,8 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	if (!ConnectionPermissions.Upload)
 	{
 		NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permission to upload\"}";
+		NewDocument.RequestStatus = MBSockets::HTTPRequestStatus::Conflict;
+		AssociatedConnection->Close();
 		return(NewDocument);
 	}
 	for (size_t i = 0; i < ContentTypes.size(); i++)
@@ -307,6 +309,9 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	while(std::filesystem::exists(FileName))
 	{
 		NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"FileAlreadyExists\"}";
+		NewDocument.RequestStatus = MBSockets::HTTPRequestStatus::Conflict;
+		//TODO close makar inte mycket sense för svaret kommer inte skickas, borde istället finnas sett extra options som är "close after send"
+		AssociatedConnection->Close();
 		return(NewDocument);
 	}
 	int FileDataLocation = RequestData.find("\r\n\r\n", FirstFormParameterLocation) + 4;
@@ -814,13 +819,13 @@ std::string DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
 		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
 	
 		//DEBUG GREJER
-		MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
-		std::vector<MBDB::MBDB_RowData> DebugResult = WritableDatabase->GetAllRows(DebugStatement);
-		auto DebugTuple = DebugResult[0].GetTuple<int, std::string, std::string, std::string, std::string, std::string, std::string>();
-		std::ofstream DebugFile("./DebugDatabaseData.txt", std::ios::out|std::ios::binary);
-		std::ofstream DebugInput("./DebugInputData.txt", std::ios::out | std::ios::binary);
-		DebugFile << std::get<6>(DebugTuple);
-		DebugInput << Arguments[21];
+		//MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
+		//std::vector<MBDB::MBDB_RowData> DebugResult = WritableDatabase->GetAllRows(DebugStatement);
+		//auto DebugTuple = DebugResult[0].GetTuple<int, std::string, std::string, std::string, std::string, std::string, std::string>();
+		//std::ofstream DebugFile("./DebugDatabaseData.txt", std::ios::out|std::ios::binary);
+		//std::ofstream DebugInput("./DebugInputData.txt", std::ios::out | std::ios::binary);
+		//DebugFile << std::get<6>(DebugTuple);
+		//DebugInput << Arguments[21];
 
 		std::vector<MBDB::ColumnInfo> ColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
 		std::vector<MBDB::ColumnSQLType> ColumnTypes = {};
@@ -1051,6 +1056,34 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 			ReturnValue.DocumentData = DBAPI_Login(APIDirectiveArguments);
 			ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBUsername=" + APIDirectiveArguments[0]+"; Secure; "+"Max-Age=604800; Path=/");
 			ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBPassword=" + APIDirectiveArguments[1]+"; Secure; "+"Max-Age=604800; Path=/");
+		}
+		else if (APIDirective == "FileExists")
+		{
+			if (!ConnectionPermissions.Read)
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to Read\"}";
+			}
+			else
+			{
+				std::string NewDocumentData = "{\"MBDBAPI_Status\":\"ok\",";
+				NewDocumentData += "\"FileExists\":" + ToJason(std::filesystem::exists(MBDBGetResourceFolderPath() + APIDirectiveArguments[0]))+",";
+				std::filesystem::path NewFilepath(APIDirectiveArguments[0]);
+				NewFilepath = NewFilepath.parent_path();
+				std::filesystem::path BaseFilepath(MBDBGetResourceFolderPath());
+				bool FoldersExists = true;
+				for (auto const& Directory : NewFilepath)
+				{
+					BaseFilepath += "/";
+					BaseFilepath += Directory;
+					if (!std::filesystem::exists(BaseFilepath))
+					{
+						FoldersExists = false;
+						break;
+					}
+				}
+				NewDocumentData += "\"DirectoriesExists\":" + ToJason(FoldersExists)+"}";
+				ReturnValue.DocumentData = NewDocumentData;
+			}
 		}
 		else
 		{

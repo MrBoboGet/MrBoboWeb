@@ -1526,7 +1526,7 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 	}
 	return(MAC == Hash);
 }
-std::string TLSHandler::DecryptBlockcipherRecord(std::string Data)
+std::string TLSHandler::DecryptBlockcipherRecord(std::string const& Data)
 {
 	//beror egentligen på om vi är en server eller client men vi förutsätter att vi är en client
 	std::string RecordHeader = Data.substr(0,5);
