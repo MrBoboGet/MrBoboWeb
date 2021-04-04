@@ -85,12 +85,13 @@ std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData)
 }
 std::vector<MBDB::MBDB_RowData> DB_GetUser(std::string const& UserName, std::string const& PasswordHash)
 {
-	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=?;";
+	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=? AND PasswordHash=?;";
 	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
 	{
 		std::lock_guard<std::mutex> Lock(LoginDatabaseMutex);
 		MBDB::SQLStatement* NewStatement = LoginDatabase->GetSQLStatement(SQLStatement);
 		NewStatement->BindString(UserName, 1);
+		NewStatement->BindString(PasswordHash, 2);
 		QuerryResult = LoginDatabase->GetAllRows(NewStatement);
 		NewStatement->FreeData();
 		LoginDatabase->FreeSQLStatement(NewStatement);
@@ -153,6 +154,20 @@ std::string DBGetUsername(std::string const& RequestData)
 	}
 	return(ReturnValue);
 }
+std::string DBGetPassword(std::string const& RequestData)
+{
+	std::string ReturnValue = "";
+	std::vector<Cookie> Cookies = GetCookiesFromRequest(RequestData);
+	for (size_t i = 0; i < Cookies.size(); i++)
+	{
+		if (Cookies[i].Name == "DBPassword")
+		{
+			ReturnValue = Cookies[i].Value;
+			break;
+		}
+	}
+	return(ReturnValue);
+}
 bool DBLogin_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
@@ -173,8 +188,10 @@ MBSockets::HTTPDocument DBLogin_ResponseGenerator(std::string const& RequestData
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
 	std::unordered_map<std::string, std::string> FileVariables = {};
 	
-	FileVariables["LoginValue"] = DBGetUsername(RequestData);
-	if (FileVariables["LoginValue"] != "")
+	std::string RequestUsername = DBGetUsername(RequestData);
+	std::string RequestPassword = DBGetPassword(RequestData); 
+	FileVariables["LoginValue"] = RequestUsername;
+	if (DB_GetUser(RequestUsername,RequestPassword).size() != 0)
 	{
 		FileVariables["LoginValue"] = "Currently logged in as: " + FileVariables["LoginValue"];
 	}
@@ -1054,14 +1071,22 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 		else if (APIDirective == "Login")
 		{
 			ReturnValue.DocumentData = DBAPI_Login(APIDirectiveArguments);
-			ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBUsername=" + APIDirectiveArguments[0]+"; Secure; "+"Max-Age=604800; Path=/");
-			ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBPassword=" + APIDirectiveArguments[1]+"; Secure; "+"Max-Age=604800; Path=/");
+			std::string StringToCompare = "{\"MBDBAPI_Status\":\"ok\"}";
+			if (ReturnValue.DocumentData.substr(0,StringToCompare.size()) == StringToCompare)
+			{
+				ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBUsername=" + APIDirectiveArguments[0] + "; Secure; " + "Max-Age=604800; Path=/");
+				ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBPassword=" + APIDirectiveArguments[1] + "; Secure; " + "Max-Age=604800; Path=/");
+			}
 		}
 		else if (APIDirective == "FileExists")
 		{
 			if (!ConnectionPermissions.Read)
 			{
 				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to Read\"}";
+			}
+			else if (APIDirectiveArguments.size() != 1)
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid function call\"}";
 			}
 			else
 			{

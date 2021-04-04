@@ -42,6 +42,11 @@ async function DBUploadFileSubmit(event)
         return;
     }
     let FileExistsResponse = await MBDBAPI_SendDirective("FileExists "+MBDBAPI_EncodeArguments([ServerFilename]));
+    if(FileExistsResponse.MBDBAPI_Status != "ok")
+    {
+        ResultParagraph.innerHTML = "Error: "+FileExistsResponse.MBDBAPI_Status;
+        ResultParagraph.style.color = "red";
+    }
     if(FileExistsResponse.FileExists)
     {
         ResultParagraph.innerHTML = "File already exists";
