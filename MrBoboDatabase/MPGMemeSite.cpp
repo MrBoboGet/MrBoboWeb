@@ -878,9 +878,18 @@ struct MBDirectoryEntry
 	std::filesystem::path Path = "";
 	MBDirectoryEntryType Type = MBDirectoryEntryType::Null;
 };
-std::vector<MBDirectoryEntry> GetDirectoryEntries(std::string const& DirectoryPath)
+std::vector<MBDirectoryEntry> GetDirectoryEntries(std::string const& DirectoryPath,MBError* OutError = nullptr)
 {
 	std::vector<MBDirectoryEntry> ReturnValue = {};
+	if (!std::filesystem::exists(DirectoryPath))
+	{
+		if (OutError != nullptr)
+		{
+			*OutError = false;
+			OutError->ErrorMessage = "Directory does not exists";
+		}
+		return(ReturnValue);
+	}
 	std::filesystem::directory_iterator DirectoryIterator(DirectoryPath);
 	while (DirectoryIterator != std::filesystem::end(DirectoryIterator))
 	{
@@ -896,6 +905,10 @@ std::vector<MBDirectoryEntry> GetDirectoryEntries(std::string const& DirectoryPa
 		}
 		DirectoryIterator++;
 		ReturnValue.push_back(NewDirectoryEntry);
+	}
+	if (OutError != nullptr)
+	{
+		*OutError = true;
 	}
 	return(ReturnValue);
 }
@@ -939,7 +952,12 @@ std::string ToJason(MBDirectoryEntry const& EntryToEncode)
 std::string DBAPI_GetFolderContents(std::vector<std::string> const& Arguments)
 {
 	std::string ReturnValue = "";
-	std::vector<MBDirectoryEntry> DirectoryEntries = GetDirectoryEntries(MBDBGetResourceFolderPath()+Arguments[0]);
+	MBError ErrorResult(true);
+	std::vector<MBDirectoryEntry> DirectoryEntries = GetDirectoryEntries(MBDBGetResourceFolderPath()+Arguments[0],&ErrorResult);
+	if (!ErrorResult)
+	{
+		return("{\"MBDBAPI_Status\":\""+ErrorResult.ErrorMessage+"\"}");
+	}
 	for (size_t i = 0; i < DirectoryEntries.size(); i++)
 	{
 		DirectoryEntries[i].Path = MakePathRelative(DirectoryEntries[i].Path, "MBDBResources");

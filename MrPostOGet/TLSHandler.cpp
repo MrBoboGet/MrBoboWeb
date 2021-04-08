@@ -1379,7 +1379,7 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 {
 	std::string ActualDomainName;
-	if (DomainName != "")
+	if (DomainName != "" && DomainName != "127.0.0.1")
 	{
 		ActualDomainName = DomainName.substr(DomainName.find_first_of("."));
 		if (ActualDomainName[0] == '.')

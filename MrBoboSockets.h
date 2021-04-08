@@ -41,8 +41,8 @@ typedef int MB_OS_Socket;
 
 struct FiledataIntervall
 {
-	int FirstByte = 0;
-	int LastByte = 0;
+	size_t FirstByte = 0;
+	size_t LastByte = 0;
 };
 
 namespace MBSockets
@@ -735,6 +735,7 @@ namespace MBSockets
 		Text,
 		Wav,
 		WebP,
+		WebM,
 		Null
 	};
 	enum class HTTPRequestStatus
@@ -782,6 +783,7 @@ namespace MBSockets
 			{HTTPDocumentType::Text,MediaType::Text,{"txt"},"text/plain"},
 			{HTTPDocumentType::Wav,MediaType::Audio,{"wav"},"audio/wav"},
 			{HTTPDocumentType::WebP,MediaType::Image,{"webp"},"image/webp"},
+			{HTTPDocumentType::WebM,MediaType::Video,{"webm"},"video/webm"},
 		};
 		HTTPTypeTuple NullTupple = { HTTPDocumentType::Null,MediaType::Null,{},""};
 	public:
@@ -1151,12 +1153,12 @@ namespace MBSockets
 				{
 					return("");
 				}
-				int NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte+1;
+				size_t NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte+1;
 				if (IntervallsToRead[IntervallIndex].LastByte == -1)
 				{
 					NumberOfBytesToRead = FileSize - IntervallsToRead[IntervallIndex].FirstByte;
 				}
-				int FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
+				size_t FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
 				if (FirstByteToReadPosition < 0)
 				{
 					NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
@@ -1165,7 +1167,7 @@ namespace MBSockets
 
 				if (NumberOfBytesToRead >= MaxDataInMemory)
 				{
-					int BytesWantedToRead = NumberOfBytesToRead;
+					size_t BytesWantedToRead = NumberOfBytesToRead;
 					NumberOfBytesToRead = MaxDataInMemory;
 					IntervallsToRead[IntervallIndex].LastByte = FirstByteToReadPosition + BytesWantedToRead - 1;
 					IntervallsToRead[IntervallIndex].FirstByte = FirstByteToReadPosition + NumberOfBytesToRead;
@@ -1228,8 +1230,8 @@ namespace MBSockets
 				if (DocumentInterValls.size() == 0)
 				{
 					//vi skapar intervall
-					int FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
-					int CurrentOffset = 0;
+					size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+					size_t CurrentOffset = 0;
 					while (true)
 					{
 						FiledataIntervall NewIntervall = { CurrentOffset,CurrentOffset + MaxChunkSize - 1 };

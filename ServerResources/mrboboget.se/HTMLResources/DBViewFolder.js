@@ -20,6 +20,7 @@ async function UpdateFolderTable()
         }
     }
     console.log(FolderToGet);
+    FolderToGet = decodeURIComponent(FolderToGet);
     DirectiveString += MBDBAPI_EncodeArguments([FolderToGet]);
     let DirectoryEntries = await MBDBAPI_SendDirective(DirectiveString);
     console.log(DirectoryEntries);
