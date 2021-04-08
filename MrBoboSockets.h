@@ -863,9 +863,9 @@ namespace MBSockets
 	inline std::string GenerateRequest(HTTPDocument const& DocumentToSend)
 	{
 		std::string Request = "";
-		Request += "HTTP/1.1 "+HTTPRequestStatusToString(DocumentToSend.RequestStatus)+"\n";
-		Request += "Content-Type: "+GetMIMEFromDocumentType(DocumentToSend.Type)+"\n";
-		Request += "Accept-Ranges: bytes\n";
+		Request += "HTTP/1.1 "+HTTPRequestStatusToString(DocumentToSend.RequestStatus)+"\r\n";
+		Request += "Content-Type: "+GetMIMEFromDocumentType(DocumentToSend.Type)+"\r\n";
+		Request += "Accept-Ranges: bytes\r\n";
 		Request += "Content-Length: ";
 		if (DocumentToSend.DocumentDataFileReference != "")
 		{
@@ -902,10 +902,10 @@ namespace MBSockets
 			//Request += "Content-Length: ";
 			Request += std::to_string(DocumentToSend.DocumentData.size());
 		}
-		Request += "\n";
+		Request += "\r\n";
 		for (size_t i = 0; i < DocumentToSend.ExtraHeaders.size(); i++)
 		{
-			Request += DocumentToSend.ExtraHeaders[i]+"\n";
+			Request += DocumentToSend.ExtraHeaders[i]+"\r\n";
 		}
 		Request += "\r\n";
 		if (DocumentToSend.DocumentDataFileReference == "")

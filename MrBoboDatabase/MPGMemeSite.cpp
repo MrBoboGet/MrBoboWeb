@@ -397,11 +397,11 @@ MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, 
 			std::vector<std::string> IntervallNumbers = Split(Intervalls[i], "-");
 			if (IntervallNumbers[0] != "")
 			{
-				NewIntervall.FirstByte = std::stoi(IntervallNumbers[0]);
+				NewIntervall.FirstByte = std::stoll(IntervallNumbers[0]);
 			}
 			if (IntervallNumbers[1] != "")
 			{
-				NewIntervall.FirstByte = std::stoi(IntervallNumbers[1]);
+				NewIntervall.FirstByte = std::stoll(IntervallNumbers[1]);
 			}
 			ByteIntervalls.push_back(NewIntervall);
 		}
