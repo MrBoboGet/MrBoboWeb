@@ -25,7 +25,7 @@ int main()
 #ifdef DNDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
 	InitDatabase();
 
@@ -98,7 +98,7 @@ int main()
 	std::tuple<int, std::string, std::string> MemeEntry = TestQuerry[0].GetTuple<int, std::string, std::string>();
 	std::cout << std::get<0>(MemeEntry)<<" "<< std::get<1>(MemeEntry)<<" " << std::get<2>(MemeEntry) << std::endl;
 	//*/
-	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 1337);
+	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
 	TestServer.AddRequestHandler({ DBLogin_Predicate,DBLogin_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
 	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });

@@ -393,7 +393,7 @@ MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, 
 		std::vector<std::string> Intervalls = Split(ReplaceAll(IntervallsData," ",""), ",");
 		for (int i = 0; i < Intervalls.size(); i++)
 		{
-			FiledataIntervall NewIntervall = { -1,-1 };
+			FiledataIntervall NewIntervall = { size_t(-1),size_t(-1) };
 			std::vector<std::string> IntervallNumbers = Split(Intervalls[i], "-");
 			if (IntervallNumbers[0] != "")
 			{
