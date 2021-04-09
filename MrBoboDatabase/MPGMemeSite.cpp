@@ -415,20 +415,20 @@ std::string GetEmbeddedVideo(std::string const& VideoPath, std::string const& We
 {
 	std::string ReturnValue = "";
 	std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
-	std::unordered_map<std::string, std::string> VariableValues = {};
-	VariableValues["ElementID"] = VideoPath;
-	VariableValues["MediaType"] = "video";
-	VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
-	VariableValues["FileType"] = FileExtension;
-	ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
-	//else
-	//{
-	//	std::unordered_map<std::string, std::string> VariableValues = {};
-	//	VariableValues["ElementID"] = VideoPath;
-	//	VariableValues["MediaType"] = "video";
-	//	VariableValues["PlaylistPath"] = "/DB/" + VideoPath + "_Stream/MasterPlaylist.m3u8";
-	//	ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/EmbeddStreamTemplate.html", VariableValues);
-	//}
+	std::unordered_map<std::string, bool> BrowserSupported = { {"mp4",true},{"webm",true},{"ogg", true} };
+	if (BrowserSupported.find(FileExtension) != BrowserSupported.end())
+	{
+		std::unordered_map<std::string, std::string> VariableValues = {};
+		VariableValues["ElementID"] = VideoPath;
+		VariableValues["MediaType"] = "video";
+		VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
+		VariableValues["FileType"] = FileExtension;
+		ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
+	}
+	else
+	{
+		ReturnValue = "<p>Native broswer streaming not Supported</p><br><a href=\"/DB/" + VideoPath + "\">/DB/" + VideoPath + "</a>";
+	}
 	return(ReturnValue);
 }
 std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath)
@@ -468,7 +468,7 @@ std::string GetEmbeddedResource(std::string const& MBDBResource,std::string cons
 {
 	if (!std::filesystem::exists(MBDBGetResourceFolderPath()+MBDBResource))
 	{
-		return("");
+		return("<p>File does not exist<p>");
 	}
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
@@ -488,6 +488,10 @@ std::string GetEmbeddedResource(std::string const& MBDBResource,std::string cons
 	else if (ResourceMedia == MBSockets::MediaType::PDF)
 	{
 		ReturnValue = GetEmbeddedPDF(MBDBResource);
+	}
+	else
+	{
+		ReturnValue = "<p>File in unrecognized format</p><br><a href=\"/DB/" + MBDBResource + "\">/DB/" + MBDBResource + "</a>";
 	}
 	return(ReturnValue);
 }
