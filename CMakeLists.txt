@@ -114,6 +114,10 @@ set(EXTLIBS_DIR
 
 set(PROJECT_NAME BasicChatCmake)
 
+
+#globala linker settings
+
+
 ################################################################################
 # Source groups
 ################################################################################
@@ -129,6 +133,7 @@ source_group("" FILES ${no_group_source_files})
 set(EXTLIBS_HEADER_FILES
     "${EXTLIBS_DIR}/SQLite/sqlite3ext.h"
     "${EXTLIBS_DIR}/SQLite/sqlite3.h"
+    "${EXTLIBS_DIR}/cryptopp/cryptlib.h"
     #"${EXTLIBS_DIR}/ffmpeg/libavutil/avconfig.h"
 )
 set(EXTLIBS_SOURCE_FILES
@@ -331,23 +336,45 @@ set (FFMPEG_LIBS
 )
 
 if(UNIX)
-    set(ADDITIONAL_LIBRARY_DEPENDENCIES
+    set(ADDITIONAL_LIBRARY_DEPENDENCIES 
         "stdc++fs";
         "${EXTLIBS_DIR}/SQLite/sqlite3.a"
+        "${EXTLIBS_DIR}/cryptopp/cryptlib.a"
         "dl"
         #"${FFMPEG_LIBS}"
     )
 else()
-    set(ADDITIONAL_LIBRARY_DEPENDENCIES
-        "Ws2_32;"
+    set(ADDITIONAL_LIBRARY_DEPENDENCIES 
+        "Ws2_32"
+        #"ws2_32.lib"
         "Secur32.lib"
         "Bcrypt.lib"
         "Mfplat.lib"
         "Mfuuid.lib"
         "Strmiids.lib"
         "${EXTLIBS_DIR}/SQLite/sqlite3.lib"
+        #"${EXTLIBS_DIR}/cryptopp/cryptlib_D.lib"
+        #"${EXTLIBS_DIR}/cryptopp/cryptlib.lib"
         #"${FFMPEG_LIBS}"
     )
+endif()
+
+#mina link options
+if(MSVC)
+    message("Build type: ${CMAKE_BUILD_TYPE}")
+    if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+        message("Bygger Debug Build")    
+        set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+        target_compile_options(${PROJECT_NAME} PRIVATE /MTd)
+        target_link_options(${PROJECT_NAME} PRIVATE /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
+        list(APPEND ADDITIONAL_LIBRARY_DEPENDENCIES "${EXTLIBS_DIR}/cryptopp/cryptlib_D.lib")
+    else()
+        set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+        target_compile_options(${PROJECT_NAME} PRIVATE /MT)
+        target_link_options(${PROJECT_NAME} PRIVATE /INCREMENTAL:NO /NODEFAULTLIB:MSVCRT)
+        list(APPEND ADDITIONAL_LIBRARY_DEPENDENCIES "${EXTLIBS_DIR}/cryptopp/cryptlib.lib")
+    endif()
+    message("Additional librarys: ${ADDITIONAL_LIBRARY_DEPENDENCIES}")
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE "${ADDITIONAL_LIBRARY_DEPENDENCIES}")

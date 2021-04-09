@@ -762,6 +762,10 @@ private:
 	}
 #define KARATSUBA_UNIT_COUNT 20
 public:
+	std::vector<UnitType> GetInternalUnits() const
+	{
+		return(InternalUnits);
+	}
 	static void DoubleUnitDivide(UnitType Higher, UnitType Lower, UnitType Divisor, MrBigInt* OutQuotient, UnitType* OutRemainder, UnitType* DivisorReciprocalPointer = nullptr)
 	{
 		if (Higher == 0 && Lower < Divisor)
@@ -1463,6 +1467,49 @@ public:
 			}
 		}
 	}
+	void SetFromLittleEndianArray(const void* Data, unsigned int NumberOfBytes)
+	{
+		unsigned char BytesInUnit = (UNIT_BITS / 8);
+		unsigned int NumberOfElements = NumberOfBytes / BytesInUnit;
+		unsigned char* CharData = (unsigned char*)Data;
+		if (NumberOfBytes % BytesInUnit != 0)
+		{
+			NumberOfElements += 1;
+		}
+		if (NumberOfElements == 0)
+		{
+			NumberOfElements = 1;
+		}
+		InternalUnits = std::vector<UnitType>(NumberOfElements, 0);
+		int ByteIterator = 0;
+		for (size_t i = 0; i < NumberOfElements; i++)
+		{
+			for (size_t j = 0; j < BytesInUnit; j++)
+			{
+				if (ByteIterator >= NumberOfBytes)
+				{
+					break;
+				}
+				InternalUnits[i] += (UnitType)(((UnitType)CharData[ByteIterator]) << (j * 8));
+				ByteIterator += 1;
+			}
+			if (ByteIterator >= NumberOfBytes)
+			{
+				break;
+			}
+		}
+		for (int i = NumberOfElements - 1; i >= 1; i--)
+		{
+			if (InternalUnits[i] == 0)
+			{
+				InternalUnits.pop_back();
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
 	void SetFromString(std::string StringToInitializeWith, int Base)
 	{
 		//TODO gör grejer här
@@ -1959,6 +2006,19 @@ public:
 			if (i % UNIT_BITS == 0 && i != 0)
 			{
 				ReturnValue += " ";
+			}
+		}
+		return(ReturnValue);
+	}
+	std::string GetLittleEndianString() const
+	{
+		std::string ReturnValue = "";
+		size_t AmountOfBytes = InternalUnits.size();
+		for (size_t i = 0; i < AmountOfBytes; i++)
+		{
+			for (size_t j = 0; j < UNIT_BITS/8; j++)
+			{
+				ReturnValue += char((InternalUnits[i] >> (8 * j)) % 256);
 			}
 		}
 		return(ReturnValue);

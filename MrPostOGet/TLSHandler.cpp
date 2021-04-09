@@ -10,6 +10,12 @@
 #include <mutex>
 #include <MrPostOGet/TinySha1.h>
 //MBSockets::Socket* AssociatedSocket = nullptr;
+
+//TODO Vi vill helst bli av med denna depenadncy, exempelvis genom att optimera min klass
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/rsa.h>
+#include <cryptopp/algebra.h>
+
 std::string MBSha1(std::string const& StringToHash)
 {
 	Chocobo1::SHA1 Hasher;
@@ -1153,14 +1159,51 @@ RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
 
 	return(ReturnValue);
 }
+
+CryptoPP::Integer MBGToCryptoPP(MrBigInt const& IntToConvert)
+{
+	std::string IntData = IntToConvert.GetLittleEndianString();
+	CryptoPP::Integer ReturnValue = CryptoPP::Integer((const CryptoPP::byte*)IntData.c_str(), IntData.size(), CryptoPP::Integer::UNSIGNED, CryptoPP::LITTLE_ENDIAN_ORDER);
+	return(ReturnValue);
+}
+MrBigInt CryptoPPToMBG(CryptoPP::Integer const& IntToConvert)
+{
+	std::string IntData = "";
+	IntData.reserve(IntToConvert.ByteCount());
+	for (int i = 0; i < IntToConvert.ByteCount(); i++)
+	{
+		IntData += IntToConvert.GetByte(i);
+	}
+	MrBigInt ReturnValue;
+	ReturnValue.SetFromLittleEndianArray(IntData.c_str(), IntData.size());
+	return(ReturnValue);
+}
+
 std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& DecryptInfo, std::string const& PublicKeyEncryptedData)
 {
 	//debug
-	MrBigInt CipherText;
-	uint8_t* DebugPointer =(uint8_t*) PublicKeyEncryptedData.c_str();
-	CipherText.SetFromBigEndianArray(PublicKeyEncryptedData.c_str(), PublicKeyEncryptedData.size());
-	MrBigInt PaddedPlaintextMessageRepresentative;
-	MrBigInt::PowM(CipherText, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, PaddedPlaintextMessageRepresentative);
+	//MrBigInt CipherText;
+	////uint8_t* DebugPointer =(uint8_t*) PublicKeyEncryptedData.c_str(); 
+	//CipherText.SetFromBigEndianArray(PublicKeyEncryptedData.c_str(), PublicKeyEncryptedData.size());
+	//MrBigInt PaddedPlaintextMessageRepresentative;
+	//MrBigInt::PowM(CipherText, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, PaddedPlaintextMessageRepresentative);
+	std::clock_t Timer = clock();
+	
+	CryptoPP::Integer CipherText_CryptoPP((const CryptoPP::byte*)PublicKeyEncryptedData.c_str(),PublicKeyEncryptedData.size(),CryptoPP::Integer::UNSIGNED,CryptoPP::BIG_ENDIAN_ORDER);
+	//DEBUG
+	assert(MBGToCryptoPP(CryptoPPToMBG(CipherText_CryptoPP)) == CipherText_CryptoPP);
+
+	CryptoPP::Integer PrivateExponent_CryptoPP = MBGToCryptoPP(DecryptInfo.PrivateExponent);
+	CryptoPP::Integer PublicModolu_CryptoPP = MBGToCryptoPP(DecryptInfo.PublicModulu);
+	//TODO Memory leak cryptoPP?
+	CryptoPP::ModularArithmetic ma(PublicModolu_CryptoPP);
+	CryptoPP::Integer PaddedPlaintextMessageRepresentative_CryptoPP = ma.Exponentiate(CipherText_CryptoPP,PrivateExponent_CryptoPP);
+	
+
+
+	MrBigInt PaddedPlaintextMessageRepresentative = CryptoPPToMBG(PaddedPlaintextMessageRepresentative_CryptoPP);
+	
+
 	std::string PaddedPlainTextMessage = I2OSP(PaddedPlaintextMessageRepresentative, 256);
 	std::string PlaintextMessage = TLS1_2::Remove_PKCS1_v1_5_Padding(PaddedPlainTextMessage);
 	//std::cout << HexEncodeString(PlaintextMessage) << std::endl;
@@ -1172,6 +1215,8 @@ std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& Decry
 	}
 	//std::cout << DecryptInfo.PublicModulu.GetHexEncodedString() << std::endl;
 	//std::cout << DecryptInfo.PrivateExponent.GetHexEncodedString() << std::endl;
+
+	std::cout << "RSA Decryption Time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << "s";
 	return(PlaintextMessage);
 }
 TLS1_2::TLS1_2HelloClientStruct TLSHandler::ParseClientHelloStruct(std::string const& ClientHelloData)
