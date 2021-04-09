@@ -339,7 +339,7 @@ if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES 
         "stdc++fs";
         "${EXTLIBS_DIR}/SQLite/sqlite3.a"
-        "${EXTLIBS_DIR}/cryptopp/cryptlib.a"
+        "${EXTLIBS_DIR}/cryptopp/libcryptopp.a"
         "dl"
         #"${FFMPEG_LIBS}"
     )
