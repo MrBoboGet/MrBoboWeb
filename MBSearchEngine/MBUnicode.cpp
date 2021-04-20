@@ -149,4 +149,13 @@ namespace MBUnicode
 		OutputFile << "}";
 		return(0);
 	}
+	std::string UnicodeStringToLower(std::string const& StringToParse)
+	{
+		std::string ReturnValue = "";
+		for (size_t i = 0; i < StringToParse.size(); i++)
+		{
+			ReturnValue += std::tolower(StringToParse[i]);
+		}
+		return(ReturnValue);
+	}
 }

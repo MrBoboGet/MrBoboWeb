@@ -6,6 +6,9 @@
 #include <iostream>
 #include <filesystem>
 #include <array>
+#include <MBSearchEngine/MBUnicode.h>
+
+#include <MBSearchEngine/MBISaveIndexSpec.h>
 namespace MBSearchEngine
 {
 	//searchToken
@@ -16,7 +19,7 @@ namespace MBSearchEngine
 	SearchToken::SearchToken(std::string const& StringToNormalize)
 	{
 		//här vill vi egentligen converat allt till säg lowercase
-		TokenName = StringToNormalize;
+		TokenName = MBUnicode::UnicodeStringToLower(StringToNormalize);
 	}
 	std::vector<SearchToken> SearchToken::TokenizeString(std::string const& DataToTokenize)
 	{
@@ -500,4 +503,336 @@ namespace MBSearchEngine
 		return(ReturnValue);
 	}
 	//END BooleanQuerry
+
+	//BEGIN TokenDictionary
+	void TokenDictionary::Save(std::fstream& OutFile)
+	{
+		MBI_SaveVectorToFile(OutFile, m_TokenMapInMemory);
+	}
+	void TokenDictionary::Load(std::fstream& FileToReadFrom)
+	{
+		m_TokenMapInMemory = MBI_ReadVectorFromFile<TokenDictionaryEntry>(FileToReadFrom);
+	}
+	PostingListID TokenDictionary::GetTokenPosting(std::string const& TokenData)
+	{
+		int MapIndex = MBAlgorithms::BinarySearch(m_TokenMapInMemory, TokenData);
+		if (MapIndex != -1)
+		{
+			return(m_TokenMapInMemory[MapIndex].PostingIndex);
+		}
+	}
+	int TokenDictionary::GetNumberOfTokens()
+	{
+		return(m_TokenMapInMemory.size());
+	}
+	PostingListID TokenDictionary::AddNewToken(std::string const& TokenData)
+	{
+		PostingListID NewListID = GetNumberOfTokens();
+		m_TokenMapInMemory.push_back(TokenDictionaryEntry(TokenData, NewListID));
+		//extremt långsamt och ass egentligen, men får tänka ut datastrukturen lite bättre sen
+		std::sort(m_TokenMapInMemory.begin(), m_TokenMapInMemory.end());
+		return(NewListID);
+	}
+	TokenDictionaryIterator TokenDictionary::begin()
+	{
+		TokenDictionaryIterator ReturnValue(m_TokenMapInMemory);
+		ReturnValue.m_Offset = 0;
+		return(ReturnValue);
+	}
+	TokenDictionaryIterator TokenDictionary::end()
+	{
+		TokenDictionaryIterator ReturnValue(m_TokenMapInMemory);
+		ReturnValue.m_Offset = m_TokenMapInMemory.size();
+		return(ReturnValue);
+	}
+	bool TokenDictionary::TokenInDictionary(std::string const& TokenData)
+	{
+		return(MBAlgorithms::BinarySearch(m_TokenMapInMemory, TokenData) != -1);
+	}
+	//END TokenDictionary
+
+	//BEGIN TokenDictionaryEntry::
+	TokenDictionaryEntry::TokenDictionaryEntry(std::string const& NewTokenData, PostingListID NewPostingIndex)
+	{
+		TokenData = NewTokenData;
+		PostingIndex = NewPostingIndex;
+		DocumentFrequency = 0;
+	}
+	bool TokenDictionaryEntry::operator<(std::string const& StringToCompare) const
+	{
+		return(TokenData < StringToCompare);
+	}
+	bool TokenDictionaryEntry::operator==(std::string const& StringToCompare) const
+	{
+		return(TokenData == StringToCompare);
+	}
+	bool TokenDictionaryEntry::operator<(TokenDictionaryEntry const& DictionaryEntryToCompare) const
+	{
+		return(TokenData < DictionaryEntryToCompare.TokenData);
+	}
+	bool TokenDictionaryEntry::operator==(TokenDictionaryEntry const& DictionaryEntryToCompare) const
+	{
+		return(TokenData == DictionaryEntryToCompare.TokenData);
+	}
+	//END TokenDictionaryEntry
+
+	//Begin Posting
+	Posting::Posting(DocID NewDocumentReference)
+	{
+		DocumentReference = NewDocumentReference;
+		NumberOfOccurances = 0;
+	};
+	Posting::Posting()
+	{
+
+	}
+	void Posting::Update(int TokenPosition)
+	{
+		NumberOfOccurances += 1;
+		m_DocumentPositions.push_back(TokenPosition);
+	}
+	void Posting::Print() const
+	{
+		std::cout << "DocumentReference: " << DocumentReference << " NumberOfOccurances: " << NumberOfOccurances << std::endl;
+		std::cout << "DocumentPositions: ";
+		for (size_t i = 0; i < m_DocumentPositions.size(); i++)
+		{
+			std::cout << m_DocumentPositions[i];
+			if (i + 1 < m_DocumentPositions.size())
+			{
+				std::cout << ",";
+			}
+		}
+		std::cout << std::endl;
+	}
+	bool Posting::operator<(Posting const& RightPosting) const
+	{
+		return(this->DocumentReference < RightPosting.DocumentReference);
+	}
+	bool Posting::operator<(DocID IDToCompare) const
+	{
+		return(DocumentReference < IDToCompare);
+	}
+	bool Posting::operator==(DocID IDToCompare) const
+	{
+		return(DocumentReference == IDToCompare);
+	}
+	//End Posting
+
+	//Begin TokenDictionaryIterator
+	TokenDictionaryIterator::TokenDictionaryIterator(std::vector<TokenDictionaryEntry> const& DictionaryData)
+		:m_DictionaryData(&DictionaryData)
+	{
+		m_MaxElements = DictionaryData.size();
+	}
+	TokenDictionaryIterator::TokenDictionaryIterator(TokenDictionaryIterator const& IteratorToCopy)
+		: m_DictionaryData(IteratorToCopy.m_DictionaryData)
+	{
+		m_Offset = IteratorToCopy.m_Offset;
+		m_MaxElements = IteratorToCopy.m_MaxElements;
+	}
+	bool TokenDictionaryIterator::operator==(TokenDictionaryIterator const& RightIterator) const
+	{
+		//kanske borde jämföra huruvida dem är har samma container också, men skitsamma så länge
+		return(m_Offset == RightIterator.m_Offset);
+	}
+	bool TokenDictionaryIterator::operator!=(TokenDictionaryIterator const& RightIterator)
+	{
+		return(!(*this == RightIterator));
+	}
+	TokenDictionaryIterator& TokenDictionaryIterator::operator++()
+	{
+		m_Offset += 1;
+		return(*this);
+	}
+	TokenDictionaryIterator& TokenDictionaryIterator::operator++(int)
+	{
+		m_Offset += 1;
+		return(*this);
+	}
+	const TokenDictionaryEntry& TokenDictionaryIterator::operator*() const
+	{
+		return((*m_DictionaryData)[m_Offset]);
+	}
+	const TokenDictionaryEntry& TokenDictionaryIterator::operator->() const
+	{
+		return((*m_DictionaryData)[m_Offset]);
+	}
+	//END TokenDictionaryIterator
+
+	//Begin PostingsList
+	void PostingsList::AddPosting(DocID DocumentID, int TokenPosition)
+	{
+		//förutsätter att listan är sorterad
+		int DocumentPostingPosition = MBAlgorithms::BinarySearch(m_PostingsInMemory, DocumentID);
+		if (DocumentPostingPosition == -1)
+		{
+			//helt pantad algorithm egentligen, vi lägger till en på slutet och sedan sorterar vi, men kräver nog egentligen att man har lite mer eftertanke med hur
+			//man vill att datastrukturen ska se ut
+			m_PostingsInMemory.push_back(Posting(DocumentID));
+			m_PostingsInMemory.back().Update(TokenPosition);
+			std::sort(m_PostingsInMemory.begin(), m_PostingsInMemory.end());
+		}
+		else
+		{
+			m_PostingsInMemory[DocumentPostingPosition].Update(TokenPosition);
+		}
+	}
+	int PostingsList::size() const { return(m_PostingsInMemory.size()); };
+	PostingClass const& PostingsList::operator[](PostingListID Index) const
+	{
+		//kommer förändras iomed 
+		return(m_PostingsInMemory[Index]);
+	}
+	//END PostingsList
+
+	//BEGIN MBIndex
+	//MBError UpdatePostings(std::vector<SearchToken> const& TokensToUpdate, std::string const& DocumentName);
+	MBError MBIndex::UpdatePostings(std::vector<TokenClass> const& DocumentTokens, DocID DocumentID)
+	{
+		MBError ReturnValue(true);
+		for (size_t i = 0; i < DocumentTokens.size(); i++)
+		{
+			PostingListID PostinglistToUpdate = -1;
+			std::string TokenData = DocumentTokens[i].GetTokenString();
+			//if (TokenData == "iji" || TokenData == "iji's" || TokenData == "iji." || TokenData == "iji,")
+			//{
+			//	std::cout << TokenData << " " << DocumentID << std::endl;
+			//}
+			if (m_TokenDictionary.TokenInDictionary(TokenData))
+			{
+				PostinglistToUpdate = m_TokenDictionary.GetTokenPosting(TokenData);
+			}
+			else
+			{
+				m_TokenDictionary.AddNewToken(TokenData);
+				m_PostingsLists.push_back(PostingsList());
+				PostinglistToUpdate = m_PostingsLists.size() - 1;
+			}
+			m_PostingsLists[PostinglistToUpdate].AddPosting(DocumentID, i);
+		}
+		//sorterar den på slutet så kanske aningen offektivt för storra arrays
+		return(ReturnValue);
+	}
+	PostingsList& MBIndex::GetPostinglist(PostingListID ID)
+	{
+		return(m_PostingsLists[ID]);
+	}
+	MBIndex::MBIndex(std::string const& IndexDataPath)
+	{
+		Load(IndexDataPath);
+	}
+	MBIndex::MBIndex()
+	{
+	}
+	MBError  MBIndex::Save(std::string const& OutFilename)
+	{
+		MBError ReturnValue(true);
+		std::fstream OutFile(OutFilename, std::ios::binary | std::ios::out);
+		if (OutFile.is_open())
+		{
+			MBI_SaveVectorToFile<std::string>(OutFile, m_DocumentIDs);
+			MBI_SaveObjectToFile<TokenDictionary>(OutFile, m_TokenDictionary);
+			MBI_SaveVectorToFile(OutFile, m_PostingsLists);
+		}
+		else
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "Cant open outfile";
+		}
+		return(ReturnValue);
+	}
+	MBError  MBIndex::Load(std::string const& SavedIndexFile)
+	{
+		MBError ReturnValue(true);
+		std::fstream InFile(SavedIndexFile, std::ios::binary | std::ios::in);
+		if (InFile.is_open())
+		{
+			m_DocumentIDs = MBI_ReadVectorFromFile<std::string>(InFile);
+			m_TokenDictionary = MBI_ReadObjectFromFile<TokenDictionary>(InFile);
+			m_PostingsLists = MBI_ReadVectorFromFile<PostingsList>(InFile);
+		}
+		else
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "Cant open file";
+		}
+		return(ReturnValue);
+	}
+	std::vector<std::string>  MBIndex::EvaluteBooleanQuerry(std::string const& BooleanQuerryToEvaluate)
+	{
+		std::vector<std::string> ReturnValue = {};
+		BooleanQuerry ProcessedQuerry(BooleanQuerryToEvaluate);
+		std::vector<DocID> Result = ProcessedQuerry.Evaluate(*this);
+		for (size_t i = 0; i < Result.size(); i++)
+		{
+			ReturnValue.push_back(GetDocumentIdentifier(Result[i]));
+		}
+		return(ReturnValue);
+	}
+	MBError MBIndex::IndextTextData(std::string const& TextData, std::string const& DocumentIdentifier)
+	{
+		MBError ReturnValue(true);
+		std::vector<TokenClass> DocumentTokens;
+		{
+			DocumentTokens = TokenClass::TokenizeString(TextData);
+		}
+		m_DocumentIDs.push_back(DocumentIdentifier);
+		ReturnValue = UpdatePostings(DocumentTokens, m_DocumentIDs.size() - 1);
+		return(ReturnValue);
+	}
+	MBError MBIndex::IndexTextDocument(std::string const& DocumentName)
+	{
+		MBError ReturnValue(true);
+		std::ifstream FileToRead(DocumentName, std::ios::binary | std::ios::in);
+		if (!FileToRead.is_open())
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "Failed to open file";
+			return(ReturnValue);
+		}
+		size_t NumberOfBytes = std::filesystem::file_size(DocumentName);
+		std::vector<TokenClass> DocumentTokens;
+		std::string DocumentData(NumberOfBytes, 0);
+		FileToRead.read(&DocumentData[0], NumberOfBytes);
+		IndextTextData(DocumentData, DocumentName);
+		return(ReturnValue);
+	}
+	MBError MBIndex::IndexHTMLData(std::string const& DocumentData, std::string const& DocumentIdentifier)
+	{
+		HTMLNode HTMLDocument(DocumentData, 0);
+		MBError ReturnValue = HTMLDocument.GetParseError();
+		//if (!ReturnValue)
+		//{
+		//	std::cout << "Fel i parsingen" << std::endl;
+		//}
+		if (ReturnValue)
+		{
+			std::string TextData = HTMLDocument.GetVisableText();
+			IndextTextData(TextData, DocumentIdentifier);
+		}
+		return(ReturnValue);
+	}
+	void MBIndex::PrintIndex()
+	{
+		std::cout << "Indexed Documents: ";
+		for (size_t i = 0; i < m_DocumentIDs.size(); i++)
+		{
+			std::cout << "DocID: " << i << " DocumentPath " << m_DocumentIDs[i] << std::endl;
+		}
+		for (auto DictionaryEntries : m_TokenDictionary)
+		{
+			std::cout << DictionaryEntries.TokenData << ":" << std::endl;
+			PostingsList const& TokenPostings = m_PostingsLists[DictionaryEntries.PostingIndex];
+			for (size_t i = 0; i < TokenPostings.size(); i++)
+			{
+				TokenPostings[i].Print();
+			}
+		}
+	}
+	std::string MBIndex::GetDocumentIdentifier(DocID DocumentID)
+	{
+		return(m_DocumentIDs[DocumentID]);
+	}
+	//END MBIndex
 }

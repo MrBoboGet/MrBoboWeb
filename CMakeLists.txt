@@ -148,6 +148,7 @@ set(Header_Files
     "MrBoboChatt/MrBoboChatt.h"
     "MrBoboSockets.h"
     "MrPostOGet/Asn1Handlers.h"
+    "MrPostOGet/MBHTMLParser.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/MrPostOGet.h"
     "MrPostOGet/SearchEngineImplementation.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/TLSHandler.h"
@@ -160,6 +161,9 @@ set(Header_Files
     "MBSearchEngine/MBSearchEngine.h"
     "MBSearchEngine/MBUnicode.h"
     "MBSearchEngine/MBUnicodeMacros.h"
+    "Crawler/MBCrawler.h"
+    "Crawler/MBCrawlerSite.h"
+
 )
 source_group("Header Files" FILES ${Header_Files})
 
@@ -172,6 +176,7 @@ set(Source_Files
     "MrBoboMedia/MBMedia.cpp"
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBSearchEngine/MBUnicode.cpp"
+    "Crawler/MBCrawler.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
 message(${Source_Files})

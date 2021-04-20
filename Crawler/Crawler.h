@@ -19,7 +19,7 @@
 //#include <io.h>
 //#include <direct.h>
 //#define MAXHEADERSIZE 1024
-std::vector<std::string> GetAllHyperlinks(const std::string& HTMLString)
+inline std::vector<std::string> GetAllHyperlinks(const std::string& HTMLString)
 {
 	int Index = 0;
 	std::vector<std::string> ReturnValue;
@@ -72,7 +72,7 @@ int _mkdir(std::string Path)
 	//TODO fixa så denna faktiskt gör något
 	return(-1);
 }
-int IndexWebsite(std::string TopDomain,std::string ResourceToStartWith = "")
+int IndexWebsite_(std::string TopDomain,std::string ResourceToStartWith = "")
 {
 	//skapar socketen vi kommer använda
 	VisitedUrls.clear();

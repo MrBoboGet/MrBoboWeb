@@ -13,7 +13,9 @@
 #include <MBSearchEngine/MBUnicode.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <time.h>
-
+#include <Crawler/MBCrawler.h>
+#include <Crawler/MBCrawlerSite.h>
+#include <MrPostOGet/MBHTMLParser.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -29,6 +31,32 @@ int main()
 	MBSockets::Init();
 	InitDatabase();
 
+	std::string FileToTest = "./remar.se/daniel/__DirectoryResource";
+	std::fstream FileToRead = std::fstream(FileToTest, std::ios::in | std::ios::binary);
+	std::string TestHTMLData = std::string(std::filesystem::file_size(FileToTest), 0);
+	FileToRead.read(&TestHTMLData[0], std::filesystem::file_size(FileToTest));
+	HTMLNode TestNode(TestHTMLData,0);
+	std::cout << TestNode.GetVisableText() << std::endl;
+
+	MBError IndexError =CreateWebsiteIndex("./remar.se/", "RemarTestIndex");
+	MBSearchEngine::MBIndex TestTestIndex("RemarTestIndex");
+	std::vector<std::string> Result = TestTestIndex.EvaluteBooleanQuerry("iji OR iji's OR iji. OR iji,");
+	for (auto& StringToPrint: Result)
+	{
+		std::cout << StringToPrint << std::endl;
+	}
+	//std::cout << "Finished indexing!" << std::endl;
+	//std::cout << "Index error: " << IndexError.ErrorMessage << std::endl;
+	//MrPostOGet::HTTPServer TestCopyServer = MrPostOGet::HTTPServer("RelativeRemar.se/", 443);
+	//TestCopyServer.AddRequestHandler({ MBCrawlerSite_Predicate,MBCrawlerSite_ResponseGenerator });
+	//TestCopyServer.StartListening();
+	
+	//MakeWebsiteDirectoryRelative("./remar.se", "RelativeRemar.se/", "remar.se");
+	
+	//IndexWebsite("remar.se", "./remar.se/",false);
+
+
+	exit(0);
 	//std::string Input = "";
 	//std::getline(std::cin, Input);
 	char TestData3[] = { 0xe5,0xa4,0xa9,0xe7,0xa9,0xba,0xe3,0x81,0xae,0xe5,0xa4,0x9c,0xe6,0x98,0x8e,0xe3,0x81,0x91 };

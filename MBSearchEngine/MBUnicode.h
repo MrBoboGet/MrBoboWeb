@@ -21,7 +21,8 @@ namespace MBUnicode
 		UnicodeString(std::string const& StringToConvert);
 		std::string GetHexRepresentation();
 	};
-
+	
+	std::string UnicodeStringToLower(std::string const& StringToParse);
 	bool CompareCodepointRange(CodepointRange const& LeftElement, CodepointRange const& RightElement);
 	int CreateCMacroCodepointArrayFromPropertySpec(std::string const& InputFilename, std::string const& OutputFilename);
 };

@@ -1,6 +1,7 @@
 #pragma once
 #include <MrBoboSockets.h>
 #include <TextReader.h>
+#include <cstring>
 namespace MrPostOGet 
 {
 	class HTTPServer;
@@ -12,7 +13,30 @@ namespace MrPostOGet
 	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer);
 	
 	
-	
+	inline MBSockets::HTTPDocumentType MimeSniffDocument(std::string const& FilePath)
+	{
+		std::fstream DocumentToSniff = std::fstream(FilePath);
+		std::string DocumentHeader(100,0);
+		size_t BytesRead = DocumentToSniff.read(&DocumentHeader[0], 100).gcount();
+		if (DocumentHeader.substr(0,6) == "<html>")
+		{
+			return(MBSockets::HTTPDocumentType::HTML);
+		}
+		//15
+		if (BytesRead >= 14)
+		{
+			std::string LowerBeginning = "";
+			for (size_t i = 0; i < 14; i++)
+			{
+				LowerBeginning += std::tolower(DocumentHeader[i]);
+			}
+			if (LowerBeginning == "<!doctype html")
+			{
+				return(MBSockets::HTTPDocumentType::HTML);
+			}
+		}
+		return(MBSockets::HTTPDocumentType::Null);
+	}
 	//convinience funktioner
 	inline std::string GetRequestContent(std::string const& RequestData)
 	{
@@ -363,5 +387,5 @@ namespace MrPostOGet
 			}
 		}
 		//delete ConnectedClient;
-		}
+	}
 }

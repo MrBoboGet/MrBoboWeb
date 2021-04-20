@@ -1,3 +1,5 @@
+#define NOMINMAX
+#define _CRT_RAND_S
 #pragma once
 //operativ system specifika grejer
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
@@ -31,7 +33,8 @@
 #include <StringGrejer.h>
 #include <condition_variable>
 #include <MrPostOGet/TLSHandler.h>
-#include <MinaStringOperations.h>
+//#include <MinaStringOperations.h>
+#include <MBStrings.h>
 #include <math.h>
 #if defined(WIN32)
 typedef SOCKET MB_OS_Socket;
@@ -613,6 +616,18 @@ namespace MBSockets
 		std::string URl;
 		bool UsingHTTPS = false;
 		TLSHandler TLSConnectionHandler = TLSHandler();
+		
+		//recieve data status
+		int MaxBytesInMemory = 100000000;//100 MB, helt godtyckligt
+		int CurrentContentLength = -1;
+		int RecievedContentData = 0;
+		bool HeadRecieved = false;
+		bool IsChunked = false;
+		bool RequestFinished = true;
+
+		int CurrentChunkLength = -1;
+		int CurrentRecievedChunkData = 0;
+		size_t ChunkParseOffset = 0;
 	public:
 		int HTTPSendData(std::string DataToSend)
 		{
@@ -636,16 +651,158 @@ namespace MBSockets
 			}
 			return(0);
 		}
+		bool DataIsAvailable()
+		{
+			return(!RequestFinished);
+		}
+		void ResetRequestRecieveState()
+		{
+			CurrentContentLength = -1;
+			RecievedContentData = 0;
+			HeadRecieved = false;
+			IsChunked = false;
+			RequestFinished = true;
+
+			CurrentChunkLength = -1;
+			CurrentRecievedChunkData = 0;
+			size_t ChunkParseOffset = 0;
+		}
+		void UpdateAndDechunkData(std::string& DataToDechunk,size_t Offset)
+		{
+			while (true)
+			{
+				if (CurrentChunkLength <= CurrentRecievedChunkData || CurrentChunkLength == -1)
+				{
+					//nu är vi på en header som vi ska ta och fixa längden på
+					bool IncludeTailLineFeed = false;
+					if (CurrentChunkLength == -1)
+					{
+						IncludeTailLineFeed = true;
+					}
+
+					size_t ChunkHeaderEnd = DataToDechunk.find("\r\n", Offset+2)+2;
+					std::string ChunkLengthData = DataToDechunk.substr(Offset+2, ChunkHeaderEnd - 4 - Offset);
+					CurrentChunkLength = std::stoi(ChunkLengthData, nullptr, 16);
+					CurrentRecievedChunkData = 0;
+					if (IncludeTailLineFeed)
+					{
+						Offset += 2;
+					}
+					DataToDechunk = DataToDechunk.substr(0, Offset) + DataToDechunk.substr(ChunkHeaderEnd);
+					//offset behöver inte ändras, för nu pekar den helt enkelt med den datan som kommer efter chunk headern
+				}
+				if (CurrentChunkLength == 0)
+				{
+					RequestFinished = true;
+					ChunkParseOffset = 0;
+					break;
+				}
+				int PreviousRecievedChunkData = CurrentRecievedChunkData;
+				CurrentRecievedChunkData += DataToDechunk.size() - Offset;
+				if (CurrentRecievedChunkData >= CurrentChunkLength)
+				{
+					CurrentRecievedChunkData = CurrentChunkLength;
+					Offset += (CurrentRecievedChunkData-PreviousRecievedChunkData);
+					continue;
+				}
+				else
+				{
+					ChunkParseOffset = DataToDechunk.size();
+					break;
+				}
+			}
+		}
 		std::string HTTPGetData()
 		{
-			if (UsingHTTPS == false)
+			std::string ReturnValue = "";
+			while (true)
 			{
-				return(GetNextRequestData());
+				size_t PreviousDataSize = ReturnValue.size();
+				if (UsingHTTPS == false)
+				{
+					ReturnValue += GetNextRequestData(MaxBytesInMemory);
+				}
+				else
+				{
+					ReturnValue += TLSConnectionHandler.GetApplicationData(this, MaxBytesInMemory);
+				}
+				size_t HeaderSize = 0;
+				if (!HeadRecieved)
+				{
+					size_t HeaderEnd = ReturnValue.find("\r\n\r\n");
+					HeaderSize = HeaderEnd + 4;
+					if (HeaderEnd == ReturnValue.npos)
+					{
+						continue;
+					}
+					HeadRecieved = true;
+					RequestFinished = false;
+					std::string ContentLength = GetHeaderValue("Content-Length", ReturnValue);
+					//TODO Antar att varje gång vi inte har contentlength så är det chunked, kanske inte alltid stämmer men får fixa det sen
+					if (ContentLength == "" && GetHeaderValue("Transfer-Encoding",ReturnValue) != "")
+					{
+						size_t BodyBegin = HeaderEnd + 4;
+						//size_t ChunkSizeHeaderEnd = ReturnValue.find("\r\n", BodyBegin);
+						//std::string HexChunkLengthString = ReturnValue.substr(BodyBegin, ChunkSizeHeaderEnd - BodyBegin);
+						//CurrentChunkLength = std::stoi(HexChunkLengthString,nullptr,16);
+						//CurrentRecievedChunkData = ReturnValue.size() - (ChunkSizeHeaderEnd + 2);
+						//if(CurrentRecievedChunkData 
+						//ReturnValue = ReturnValue.substr(0, BodyBegin) + ReturnValue.substr(ChunkSizeHeaderEnd + 2);
+						ChunkParseOffset = BodyBegin-2; //vi vill inkludera \r\n som avslutar headern eftersom varje chunk också avslutas med dens
+						IsChunked = true;
+					}
+					if(ContentLength != "")
+					{
+						try
+						{
+							CurrentContentLength = std::stoi(ContentLength);
+							RecievedContentData += ReturnValue.size() - (HeaderEnd + 4);
+						}
+						catch (const std::exception&)
+						{
+							assert(false);
+						}
+					}
+					if (ContentLength == "" && GetHeaderValue("Transfer-Encoding", ReturnValue) == "")
+					{
+						//vi har fått all data typ
+						ResetRequestRecieveState();
+						break;
+					}
+				}
+				if (!IsChunked)
+				{
+					//extremt äcklig work around för vad som händer om den här händer efter head
+					if (HeaderSize != 0)
+					{
+						RecievedContentData = ReturnValue.size() - HeaderSize;
+					}
+					else
+					{
+						RecievedContentData += ReturnValue.size()- PreviousDataSize;
+					}
+					if (RecievedContentData >= CurrentContentLength)
+					{
+						RequestFinished = true;
+					}
+				}
+				else
+				{
+					UpdateAndDechunkData(ReturnValue,ChunkParseOffset);
+				}
+				HeaderSize = 0;
+				if (RequestFinished)
+				{
+					ResetRequestRecieveState();
+					break;
+				}
+				if (ReturnValue.size() >= MaxBytesInMemory)
+				{
+					break;
+				}
 			}
-			else
-			{
-				return(TLSConnectionHandler.GetApplicationData(this));
-			}
+			ChunkParseOffset = 0;
+			return(ReturnValue);
 		}
 		int Get(std::string Resource = "")
 		{
