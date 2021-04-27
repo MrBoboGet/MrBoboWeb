@@ -248,16 +248,25 @@ public:
 				return;
 			}
 			//om det är är en tom tag vill vi returna nu
-			
+			if (ParseOffset == 0)
+			{
+				std::cout << "Konstig" << std::endl;
+			}
 
 			//nu har vi kommit till den innre htmlen
 			while (m_ParseError)
 			{
 				size_t NextElementBegin = HTMLToParse.find("<", ParseOffset);
+				if (ParseOffset == 0)
+				{
+					std::cout << "Konstig" << std::endl;
+				}
 				if (NextElementBegin == HTMLToParse.npos)
 				{
-					m_ParseError = false;
-					m_ParseError.ErrorMessage = "No tag end detected";
+					//ENBART HÄR FÖR ATT STÖDJA FELAKTIG DATA
+					//m_ParseError = false;
+					//m_ParseError.ErrorMessage = "No tag end detected";
+					m_ElementEndOffset = NextElementBegin;
 					break;
 				}
 				if (HTMLToParse.substr(NextElementBegin, 2) == "<!")
@@ -295,6 +304,12 @@ public:
 				if (!m_ParseError)
 				{
 					m_ParseError.ErrorMessage = "Error in parsing child node: "+ m_Children.back().m_ParseError.ErrorMessage;
+				}
+				if (ParseOffset >= HTMLToParse.size())
+				{
+					//ENBART HÄR FÖR ATT STÖDJA FELAKTIG DATA
+					m_ElementEndOffset = ParseOffset;
+					break;
 				}
 			}
 		}

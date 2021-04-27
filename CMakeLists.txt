@@ -134,11 +134,13 @@ set(EXTLIBS_HEADER_FILES
     "${EXTLIBS_DIR}/SQLite/sqlite3ext.h"
     "${EXTLIBS_DIR}/SQLite/sqlite3.h"
     "${EXTLIBS_DIR}/cryptopp/cryptlib.h"
+    #"${EXTLIBS_DIR}/tinyxml2/tinyxml2.h"
     #"${EXTLIBS_DIR}/ffmpeg/libavutil/avconfig.h"
 )
 set(EXTLIBS_SOURCE_FILES
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
     #"${EXTLIBS_DIR}/SQLite/shell.c"
+    #"${EXTLIBS_DIR}/tinyxml2/tinyxml2.cpp"
 )
 
 set(Header_Files
@@ -177,6 +179,7 @@ set(Source_Files
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBSearchEngine/MBUnicode.cpp"
     "Crawler/MBCrawler.cpp"
+    ${EXTLIBS_SOURCE_FILES}
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
 message(${Source_Files})

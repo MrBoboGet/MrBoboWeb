@@ -1,7 +1,7 @@
 #define NOMINMAX
 #include <MrBoboDatabase/MPGMemeSite.h>
 #include <MinaStringOperations.h>
-
+#include <MBSearchEngine/MBSearchEngine.h>
 //username cookie = 
 //password cookie = 
 enum class DBPermissions
@@ -18,9 +18,16 @@ std::mutex WritableDatabaseMutex;
 MBDB::MrBoboDatabase* WritableDatabase = nullptr;
 std::mutex LoginDatabaseMutex;
 MBDB::MrBoboDatabase* LoginDatabase = nullptr;
+std::mutex DBIndexMapMutex;
+std::unordered_map<std::string, MBSearchEngine::MBIndex>* __DBIndexMap = nullptr;
 
 std::mutex __MBTopResourceFolderMutex;
 std::string __MBTopResourceFolder = "./";
+std::string MBDBGetResourceFolderPath()
+{
+	std::lock_guard<std::mutex> Lock(__MBTopResourceFolderMutex);
+	return(__MBTopResourceFolder + "/MBDBResources/");
+}
 void InitDatabase()
 {
 	//utgår från den foldern som programmet körs i
@@ -51,12 +58,12 @@ void InitDatabase()
 		LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/MBGLoginDatabase", 0);
 	}
 	//läser in mbdb config filen och initaliserar directoryn med rätt
-
-}
-std::string MBDBGetResourceFolderPath()
-{
-	std::lock_guard<std::mutex> Lock(__MBTopResourceFolderMutex);
-	return( __MBTopResourceFolder+"/MBDBResources/");
+	__DBIndexMap = new std::unordered_map<std::string, MBSearchEngine::MBIndex>();
+	std::filesystem::directory_iterator IndexIterator(MBDBGetResourceFolderPath() + "Indexes");
+	for (auto& DirectoryEntry : IndexIterator)
+	{
+		(*__DBIndexMap)[DirectoryEntry.path().filename().generic_string()] = MBSearchEngine::MBIndex(DirectoryEntry.path().generic_string());
+	}
 }
 struct DBPermissionsList
 {
@@ -1006,6 +1013,52 @@ std::string DBAPI_Login(std::vector<std::string> const& Arguments)
 	}
 	return("{\"MBDBAPI_Status\":\"ok\"}");
 }
+std::string DBAPI_GetAvailableIndexes(std::vector<std::string> const& Arguments)
+{
+	std::string ReturnValue = "{\"MBDBAPI_Status\":\"ok\",";
+	std::vector<std::string> AvailableIndexes = {};
+	std::filesystem::directory_iterator DirectoryIterator(MBDBGetResourceFolderPath() + "Indexes");
+	for (auto& DirectoryEntry : DirectoryIterator)
+	{
+		AvailableIndexes.push_back(DirectoryEntry.path().filename().generic_string());
+	}
+	ReturnValue += ToJason(std::string("AvailableIndexes"))+":"+MakeJasonArray(AvailableIndexes)+"}";
+	return(ReturnValue);
+}
+bool DB_IndexExists(std::string const& IndexToCheck)
+{
+	return(std::filesystem::exists(MBDBGetResourceFolderPath() + "/Indexes/" + IndexToCheck));
+}
+std::string DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments)
+{
+	std::string ReturnValue = "{\"MBDBAPI_Status\":";
+	if (Arguments.size() < 3)
+	{
+		ReturnValue += ToJason("Invalid function call")+"}";
+	}
+	if (!DB_IndexExists(Arguments[0]))
+	{
+		ReturnValue += ToJason("Index doesn't exists")+"}";
+	}
+	else
+	{
+		ReturnValue += "\"ok\",";
+		std::lock_guard<std::mutex> Lock(DBIndexMapMutex);
+		MBSearchEngine::MBIndex& IndexToSearch = (*__DBIndexMap)[Arguments[0]];
+		std::vector<std::string> Result = {};
+		if (Arguments[1] == "Boolean")
+		{
+			Result = IndexToSearch.EvaluteBooleanQuerry(Arguments[2]);
+		}
+		else
+		{
+			Result = IndexToSearch.EvaluteVectorModelQuerry(Arguments[2]);
+		}
+		ReturnValue += ToJason(std::string("IndexSearchResult"))+":"+MakeJasonArray(Result);
+		ReturnValue += "}";
+	}
+	return(ReturnValue);
+}
 //
 MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
@@ -1131,6 +1184,14 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 				NewDocumentData += "\"DirectoriesExists\":" + ToJason(FoldersExists)+"}";
 				ReturnValue.DocumentData = NewDocumentData;
 			}
+		}
+		else if(APIDirective == "GetAvailableIndexes")
+		{
+			ReturnValue.DocumentData = DBAPI_GetAvailableIndexes(APIDirectiveArguments);
+		}
+		else if (APIDirective == "GetIndexSearchResult")
+		{
+			ReturnValue.DocumentData = DBAPI_GetIndexSearchResult(APIDirectiveArguments);
 		}
 		else
 		{

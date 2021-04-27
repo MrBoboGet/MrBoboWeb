@@ -9,6 +9,7 @@
 #include <iostream>
 #include <filesystem>
 #include <array>
+#include <map>
 
 #include <MBSearchEngine/BooleanParse.h>
 #include <MrPostOGet/MBHTMLParser.h>
@@ -35,8 +36,8 @@ namespace MBSearchEngine
 	{
 		friend void MBI_SaveObjectToFile<Posting>(std::fstream&, Posting&);
 		friend Posting MBI_ReadObjectFromFile<Posting>(std::fstream&);
-		Posting();
 	public:
+		Posting();
 		DocID DocumentReference = -1;
 		int NumberOfOccurances = 0;
 		std::vector<int> m_DocumentPositions = {};
@@ -65,11 +66,10 @@ namespace MBSearchEngine
 	{
 		friend void MBI_SaveObjectToFile<TokenDictionaryEntry>(std::fstream&, TokenDictionaryEntry&);
 		friend TokenDictionaryEntry MBI_ReadObjectFromFile<TokenDictionaryEntry>(std::fstream&);
-		TokenDictionaryEntry() {}
 	public:
 		std::string TokenData = "";
-		unsigned int DocumentFrequency = 0;
 		PostingListID PostingIndex = 0;
+		TokenDictionaryEntry() {};
 		TokenDictionaryEntry(std::string const& NewTokenData, PostingListID NewPostingIndex);
 		bool operator<(std::string const& StringToCompare) const;
 		bool operator==(std::string const& StringToCompare) const;
@@ -80,25 +80,27 @@ namespace MBSearchEngine
 	{
 		friend class TokenDictionary;
 	private:
-		int m_Offset = 0;
-		int m_MaxElements = 0;
-		std::vector<TokenDictionaryEntry>const* m_DictionaryData;
+		//int m_Offset = 0;
+		//int m_MaxElements = 0;
+		//std::vector<TokenDictionaryEntry>const* m_DictionaryData;
+		std::map<std::string, TokenDictionaryEntry>::iterator _InternalIterator;
+		TokenDictionaryIterator(std::map<std::string, TokenDictionaryEntry>::iterator const& InitialIterator);
 	public:
-		TokenDictionaryIterator(std::vector<TokenDictionaryEntry> const& DictionaryData);
-		TokenDictionaryIterator(TokenDictionaryIterator const& IteratorToCopy);
+		//TokenDictionaryIterator(std::vector<TokenDictionaryEntry> const& DictionaryData);
+		//TokenDictionaryIterator(TokenDictionaryIterator const& IteratorToCopy);
 		bool operator==(TokenDictionaryIterator const& RightIterator) const;
 		bool operator!=(TokenDictionaryIterator const& RightIterator);
 		TokenDictionaryIterator& operator++();
 		TokenDictionaryIterator& operator++(int);
-		const TokenDictionaryEntry& operator*() const;
-		const TokenDictionaryEntry& operator->() const;
+		TokenDictionaryEntry& operator*() const;
+		TokenDictionaryEntry& operator->() const;
 	};
 	class TokenDictionary
 	{
 		friend void MBI_SaveObjectToFile<TokenDictionary>(std::fstream&,TokenDictionary&);
 		friend TokenDictionary MBI_ReadObjectFromFile<TokenDictionary>(std::fstream&);
 	private:
-		std::vector<TokenDictionaryEntry> m_TokenMapInMemory = {};
+		std::map<std::string,TokenDictionaryEntry> m_TokenMapInMemory = {};
 	public:
 		void Save(std::fstream& OutFile);
 		void Load(std::fstream& FileToReadFrom);
@@ -112,15 +114,37 @@ namespace MBSearchEngine
 	typedef Posting PostingClass;
 	typedef SearchToken TokenClass;
 	//template<typename PostingClass> 
+	class PostingsListIterator
+	{
+		friend class PostingsList;
+	private:
+		//den triviala dumma enkla implementationen
+		size_t m_PostingsListOffset = 0;
+		PostingsList* m_ListReference = nullptr;
+		PostingsListIterator(PostingsList*);
+	public:
+		PostingsListIterator(PostingsListIterator const& IteratorToCopy);
+		bool operator==(PostingsListIterator const& RightIterator) const;
+		bool operator!=(PostingsListIterator const& RightIterator) const;
+		PostingsListIterator& operator++();
+		PostingsListIterator& operator++(int);
+		const Posting& operator*() const;
+		const Posting& operator->() const;
+	};
 	class PostingsList
 	{
 		friend void MBI_SaveObjectToFile<PostingsList>(std::fstream&, PostingsList&);
 		friend PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream&);
 	private:
-		std::vector<PostingClass> m_PostingsInMemory = {};
+		//std::vector<PostingClass> m_PostingsInMemory = {};
+		std::map<size_t, PostingClass> m_PostingsInMemory = {};
+		size_t m_DocumentFrequency = 0;
 	public:
+		size_t GetDocumentFrequency() const;
 		void AddPosting(DocID DocumentID, int TokenPosition);
 		int size() const;
+		PostingsListIterator begin();
+		PostingsListIterator end();
 		PostingClass const& operator[](PostingListID Index) const;
 	};
 	//std::vector<SearchToken> TokenizeString(std::string const&);
@@ -163,11 +187,25 @@ namespace MBSearchEngine
 		BooleanQuerry(std::string const& QuerryToParse);
 		std::vector<DocID> Evaluate(MBIndex&);
 	};
+	struct DocumentIndexData
+	{
+		friend void MBI_SaveObjectToFile<DocumentIndexData>(std::fstream&, DocumentIndexData&);
+		friend DocumentIndexData MBI_ReadObjectFromFile<DocumentIndexData>(std::fstream&);
+		float DocumentLength = 0;
+	};
+	//class DocumentIndexDataList
+	//{
+	//private:
+	//	std::vector<DocumentIndexData> m_DataList = {};
+	//public:
+	//	DocumentIndexData const& operator[](DocID);
+	//};
 	class MBIndex
 	{
 		friend class BooleanQuerry;
 	private:
 		std::vector<std::string> m_DocumentIDs = {};
+		std::vector<DocumentIndexData> _DocumentIndexDataList = {};
 		TokenDictionary m_TokenDictionary;
 		std::vector<PostingsList> m_PostingsLists;
 		//std::unordered_map<SearchToken, PostingsList<TokenClass,PostingClass>> m_TokenMap = {};
@@ -177,13 +215,19 @@ namespace MBSearchEngine
 		MBError UpdatePostings(std::vector<TokenClass> const& DocumentTokens, DocID DocumentID);
 		PostingsList& GetPostinglist(PostingListID ID);
 		std::string GetDocumentIdentifier(DocID DocumentID);
+
+		DocumentIndexData m_GetDocumentIndexData(DocID ID);
+		void m_CalculateDocumentLengths();
 	public:
 		//MBError AddTextData(std::string const& TextData);
+		float GetInverseDocumentFrequency(PostingListID ID);
 		MBIndex(std::string const& IndexDataPath);
 		MBIndex();
+		void Finalize();
 		MBError Save(std::string const& OutFilename);
 		MBError Load(std::string const& SavedIndexFile);
 		std::vector<std::string> EvaluteBooleanQuerry(std::string const& BooleanQuerryToEvaluate);
+		std::vector<std::string> EvaluteVectorModelQuerry(std::string const& VectorModelQuerry);
 		MBError IndextTextData(std::string const& TextData, std::string const& DocumentIdentifier);
 		MBError IndexTextDocument(std::string const& DocumentName);
 		MBError IndexHTMLData(std::string const& DocumentData, std::string const& DocumentIdentifier);

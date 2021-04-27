@@ -348,7 +348,7 @@ namespace MrPostOGet
 					else
 					{
 						//väldigt ful undantagsfall för att få acme protokollet att fungera
-						std::string ChallengeFolder = "./ServerResources/MrBoboGet/HTMLResources/.well-known/acme-challenge/";
+						std::string ChallengeFolder = "./ServerResources/mrboboget.se/HTMLResources/.well-known/acme-challenge/";
 						if (ResourceToGet.substr(0, ChallengeFolder.size()) == ChallengeFolder)
 						{
 							MBSockets::HTTPDocument NewDocument;

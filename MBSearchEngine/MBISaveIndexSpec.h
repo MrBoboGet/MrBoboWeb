@@ -1,3 +1,4 @@
+#pragma once
 #include <MBSearchEngine/MBISave.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 namespace MBSearchEngine
@@ -67,45 +68,54 @@ namespace MBSearchEngine
 		FileToReadFrom.read(&ReturnValue[0], StringSize);
 		return(ReturnValue);
 	}
+	template<> void MBI_SaveObjectToFile(std::fstream& FileToSaveTo, float& SourceFloat)
+	{
+		//TODO *extremt* bullshit sätt att sava floaten, fixa en faktiskt representation 
+		unsigned int IntToSave = *((int*)&SourceFloat);
+		for (size_t i = 0; i < 4; i++)
+		{
+			char CharToSave = IntToSave % 256;
+			FileToSaveTo.write(&CharToSave,1);
+			IntToSave >>= 8;
+		}
+	}
+	template<> float MBI_ReadObjectFromFile(std::fstream& FileToReadFrom)
+	{
+		unsigned int ReturnValue = 0;
+		for (size_t i = 0; i < 4; i++)
+		{
+			char NewChar = 0;
+			FileToReadFrom.read(&NewChar, 1);
+			ReturnValue += ((unsigned char)NewChar) << (8 * i);
+		}
+		return(*((float*)&ReturnValue));
+	}
 };
 
 //specifika för MBSearchEngine.h
 namespace MBSearchEngine
 {
-	template<> void MBI_SaveObjectToFile(std::fstream& OutFile, TokenDictionary& DictionaryToSave)
+	template<> void MBI_SaveObjectToFile<DocumentIndexData>(std::fstream& FileToSaveTo, DocumentIndexData& DocumentIndexDataToSave)
 	{
-		MBI_SaveVectorToFile(OutFile, DictionaryToSave.m_TokenMapInMemory);
+		MBI_SaveObjectToFile<float>(FileToSaveTo, DocumentIndexDataToSave.DocumentLength);
 	}
-	template<> TokenDictionary MBI_ReadObjectFromFile(std::fstream& FileToReadFrom)
+	template<> DocumentIndexData MBI_ReadObjectFromFile<DocumentIndexData>(std::fstream& FileToReadFrom)
 	{
-		TokenDictionary ReturnValue;
-		ReturnValue.m_TokenMapInMemory = MBI_ReadVectorFromFile<TokenDictionaryEntry>(FileToReadFrom);
+		DocumentIndexData ReturnValue;
+		ReturnValue.DocumentLength = MBI_ReadObjectFromFile<float>(FileToReadFrom);
 		return(ReturnValue);
 	}
 	template<> void MBI_SaveObjectToFile<TokenDictionaryEntry>(std::fstream& FileToSaveTo, TokenDictionaryEntry& EntryToSave)
 	{
 		MBI_SaveObjectToFile(FileToSaveTo, EntryToSave.TokenData);
-		size_t DocumentFrequency = EntryToSave.DocumentFrequency;
 		size_t PostingIndex = EntryToSave.PostingIndex;
-		MBI_SaveObjectToFile<size_t>(FileToSaveTo, DocumentFrequency);
 		MBI_SaveObjectToFile<size_t>(FileToSaveTo, PostingIndex);
 	}
 	template<> TokenDictionaryEntry MBI_ReadObjectFromFile<TokenDictionaryEntry>(std::fstream& FileToReadFrom)
 	{
 		TokenDictionaryEntry ReturnValue;
 		ReturnValue.TokenData = MBI_ReadObjectFromFile<std::string>(FileToReadFrom);
-		ReturnValue.DocumentFrequency = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
 		ReturnValue.PostingIndex = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
-		return(ReturnValue);
-	}
-	template<> void MBI_SaveObjectToFile<PostingsList>(std::fstream& FileToSaveTo, PostingsList& PostingsListToSave)
-	{
-		MBI_SaveVectorToFile(FileToSaveTo,PostingsListToSave.m_PostingsInMemory);
-	}
-	template<> PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream& FileToReadFrom)
-	{
-		PostingsList ReturnValue;
-		ReturnValue.m_PostingsInMemory = MBI_ReadVectorFromFile<PostingClass>(FileToReadFrom);
 		return(ReturnValue);
 	}
 	template<> void MBI_SaveObjectToFile<Posting>(std::fstream& FileToSaveTo, Posting& PostingToSave)
@@ -122,5 +132,51 @@ namespace MBSearchEngine
 		PostingToReturn.NumberOfOccurances = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
 		PostingToReturn.m_DocumentPositions = MBI_ReadVectorFromFile<int>(FileToReadFrom);
 		return(PostingToReturn);
+	}
+	template<> void MBI_SaveObjectToFile(std::fstream& OutFile, TokenDictionary& DictionaryToSave)
+	{
+		//MBI_SaveVectorToFile(OutFile, DictionaryToSave.m_TokenMapInMemory);
+		size_t SizeOfMap = DictionaryToSave.m_TokenMapInMemory.size();
+		MBI_SaveObjectToFile<size_t>(OutFile, SizeOfMap);
+		for (TokenDictionaryEntry& DictionaryEntry : DictionaryToSave)
+		{
+			MBI_SaveObjectToFile<TokenDictionaryEntry>(OutFile, DictionaryEntry);
+		}
+	}
+	template<> TokenDictionary MBI_ReadObjectFromFile(std::fstream& FileToReadFrom)
+	{
+		TokenDictionary ReturnValue;
+		size_t NumberOfEntries = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		for (size_t i = 0; i < NumberOfEntries; i++)
+		{
+			TokenDictionaryEntry NewEntry = MBI_ReadObjectFromFile<TokenDictionaryEntry>(FileToReadFrom);
+			ReturnValue.m_TokenMapInMemory[NewEntry.TokenData] = NewEntry;
+		}
+		//ReturnValue.m_TokenMapInMemory = MBI_ReadVectorFromFile<TokenDictionaryEntry>(FileToReadFrom);
+		return(ReturnValue);
+	}
+	template<> void MBI_SaveObjectToFile<PostingsList>(std::fstream& FileToSaveTo, PostingsList& PostingsListToSave)
+	{
+		//MBI_SaveVectorToFile(FileToSaveTo,PostingsListToSave.m_PostingsInMemory);
+		size_t PostingSize = PostingsListToSave.size();
+		MBI_SaveObjectToFile<size_t>(FileToSaveTo, PostingSize);
+		for (PostingClass Post : PostingsListToSave)
+		{
+			MBI_SaveObjectToFile<Posting>(FileToSaveTo, Post);
+		}
+		MBI_SaveObjectToFile<size_t>(FileToSaveTo, PostingsListToSave.m_DocumentFrequency);
+	}
+	template<> PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream& FileToReadFrom)
+	{
+		PostingsList ReturnValue;
+		size_t NumberOfPostings = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		for (size_t i = 0; i < NumberOfPostings; i++)
+		{
+			Posting NewMember = MBI_ReadObjectFromFile<Posting>(FileToReadFrom);
+			ReturnValue.m_PostingsInMemory[i] = NewMember;
+		}
+		//ReturnValue.m_PostingsInMemory = MBI_ReadVectorFromFile<PostingClass>(FileToReadFrom);
+		ReturnValue.m_DocumentFrequency = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		return(ReturnValue);
 	}
 };

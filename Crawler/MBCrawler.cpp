@@ -440,6 +440,49 @@ MBError CreateWebsiteIndex(std::string const& WebsiteFolder, std::string const& 
 			}
 		}
 	}
+	NewIndex.Finalize();
+	NewIndex.Save(OutIndexFilename);
+	std::cout << "Failed to index following files due to html parsing errors:" << std::endl;
+	for (size_t i = 0; i < FilesWithErrors.size(); i++)
+	{
+		std::cout << FilesWithErrors[i] << std::endl;
+	}
+	//debug grej
+	//MBSearchEngine::MBIndex DebugIndex(OutIndexFilename);
+	//DebugIndex.Load(OutIndexFilename);
+	return(ReturnValue);
+}
+MBError CreateWebsiteIndex(std::string const& WebsiteURLHeader, std::string const& WebsiteFolder, std::string const& OutIndexFilename)
+{
+	MBError ReturnValue(true);
+	std::filesystem::recursive_directory_iterator DirectoryIterator(WebsiteFolder);
+	MBSearchEngine::MBIndex NewIndex;
+	std::vector<std::string> FilesWithErrors = { };
+	for (auto& DirectoryEntry : DirectoryIterator)
+	{
+		std::string Filepath = DirectoryEntry.path().generic_string();
+		//if (DEBUGFilepath.find("__ijiguide_secrets.php") != DEBUGFilepath.npos)
+		//{
+		//	std::cout << "Innehåller iji" << std::endl;
+		//}
+		if (MrPostOGet::MimeSniffDocument(DirectoryEntry.path().generic_string()) == MBSockets::HTTPDocumentType::HTML)
+		{
+			std::string FileData = MrPostOGet::LoadWholeFile(DirectoryEntry.path().generic_string());
+			std::string RelativePath = std::filesystem::relative(DirectoryEntry.path().parent_path(), WebsiteFolder).generic_string();
+			std::string FileName = DirectoryEntry.path().filename().generic_string().substr(2);
+			if (FileName == "DirectoryResource")
+			{
+				FileName = "";
+			}
+			std::string FileIdentifier = WebsiteURLHeader + RelativePath+"/" + FileName;
+			MBError IndexResult = NewIndex.IndexHTMLData(FileData, FileIdentifier);
+			if (!IndexResult)
+			{
+				FilesWithErrors.push_back(Filepath);
+			}
+		}
+	}
+	NewIndex.Finalize();
 	NewIndex.Save(OutIndexFilename);
 	std::cout << "Failed to index following files due to html parsing errors:" << std::endl;
 	for (size_t i = 0; i < FilesWithErrors.size(); i++)

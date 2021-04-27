@@ -1,0 +1,31 @@
+<html>
+    <head>
+        #{include(GeneralMetaTags)}
+        <link rel="stylesheet" href="/WebsidanStil.css">
+    </head>
+    <body>
+        #{include(TopMenu.html)}
+        <div style="text-align:center;">
+            <p id="ErrorStatus"></p>
+            <br>
+            <label for="SearchType">Search Type:</label>
+            <select name="SearchType" id="SearchTypeElement">
+                <option value="Boolean">Boolean</option>
+                <option value="VectorModel">Vector model</option>
+            </select>
+            <br>
+            <label for="Index">Index To Search:</label>
+            <select name="Index" id="IndexToSearch">
+            </select>
+            <br>
+            <br>
+            <input type="text" id="SearchBox" name="fname" style="width:50%">
+            <br>
+            <button id ="SearchButton">Search</button>
+        </div>
+        <div id="ResultDiv" class="CenterChildren center">
+        </div>
+    </body>
+    <script src="DBLibrary.js"></script>
+    <script src="SearchIndex.js"></script>
+</html>

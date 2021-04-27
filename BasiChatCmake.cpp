@@ -31,20 +31,32 @@ int main()
 	MBSockets::Init();
 	InitDatabase();
 
-	std::string FileToTest = "./remar.se/daniel/__DirectoryResource";
-	std::fstream FileToRead = std::fstream(FileToTest, std::ios::in | std::ios::binary);
-	std::string TestHTMLData = std::string(std::filesystem::file_size(FileToTest), 0);
-	FileToRead.read(&TestHTMLData[0], std::filesystem::file_size(FileToTest));
-	HTMLNode TestNode(TestHTMLData,0);
-	std::cout << TestNode.GetVisableText() << std::endl;
+	//std::string FileToTest = "./remar.se/daniel/__DirectoryResource";
+	//std::fstream FileToRead = std::fstream(FileToTest, std::ios::in | std::ios::binary);
+	//std::string TestHTMLData = std::string(std::filesystem::file_size(FileToTest), 0);
+	//FileToRead.read(&TestHTMLData[0], std::filesystem::file_size(FileToTest));
+	//HTMLNode TestNode(TestHTMLData,0);
+	//std::cout << TestNode.GetVisableText() << std::endl;
 
-	MBError IndexError =CreateWebsiteIndex("./remar.se/", "RemarTestIndex");
-	MBSearchEngine::MBIndex TestTestIndex("RemarTestIndex");
-	std::vector<std::string> Result = TestTestIndex.EvaluteBooleanQuerry("iji OR iji's OR iji. OR iji,");
-	for (auto& StringToPrint: Result)
-	{
-		std::cout << StringToPrint << std::endl;
-	}
+	//std::cout << TestDocument.ToText()->Value()<<std::endl;
+	//exit(0);
+
+	//MBError RemarIndexError = CreateWebsiteIndex("http://remar.se/", "./remar.se/", "./MBDBResources/Indexes/RemarSiteIndex");
+	//exit(0);
+	//MBError IndexError =CreateWebsiteIndex("./remar.se/", "RemarTestIndex2");
+	//MBSearchEngine::MBIndex TestTestIndex("RemarTestIndex2");
+	//std::cout << "Querry tests" << std::endl;
+	//std::vector<std::string> Result = TestTestIndex.EvaluteBooleanQuerry("(iji OR iji's OR iji. OR iji,) AND (strawberry OR ludosity) AND \"slap city\"");
+	//for (auto& StringToPrint: Result)
+	//{
+	//	std::cout << StringToPrint << std::endl;
+	//}
+	//Result = TestTestIndex.EvaluteVectorModelQuerry("iji game development");
+	//for (auto& StringToPrint : Result)
+	//{
+	//	std::cout << StringToPrint << std::endl;
+	//}
+	
 	//std::cout << "Finished indexing!" << std::endl;
 	//std::cout << "Index error: " << IndexError.ErrorMessage << std::endl;
 	//MrPostOGet::HTTPServer TestCopyServer = MrPostOGet::HTTPServer("RelativeRemar.se/", 443);
@@ -55,21 +67,8 @@ int main()
 	
 	//IndexWebsite("remar.se", "./remar.se/",false);
 
-
-	exit(0);
 	//std::string Input = "";
 	//std::getline(std::cin, Input);
-	char TestData3[] = { 0xe5,0xa4,0xa9,0xe7,0xa9,0xba,0xe3,0x81,0xae,0xe5,0xa4,0x9c,0xe6,0x98,0x8e,0xe3,0x81,0x91 };
-	MBUnicode::UnicodeString TestString(TestData3);
-	std::cout << TestString.GetHexRepresentation() << std::endl;
-
-	MBSearchEngine::MBIndex TestIndex;
-	TestIndex.IndexTextDocument("TestIndexFile.txt");
-	TestIndex.IndexTextDocument("BTestIndexFile.txt");
-	TestIndex.IndexTextDocument("ATestIndexFile.txt");
-	TestIndex.PrintIndex();
-	TestIndex.EvaluteBooleanQuerry("(hej AND indexera) OR \"boboget tjena\"");
-	exit(0);
 	//MBUnicode::CreateCMacroCodepointArrayFromPropertySpec("./MBSearchEngine/GraphemeBreakProperty.txt", "./MBSearchEngine/GraphemeBreakPropertyMacro.txt");
 	//MBUnicode::CodepointRange TestRange[] = GraphemeBreakList;
 	//std::cout << TestRange[15].Higher << std::endl;
