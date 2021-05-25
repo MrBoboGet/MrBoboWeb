@@ -95,6 +95,15 @@ namespace MBSearchEngine
 //specifika för MBSearchEngine.h
 namespace MBSearchEngine
 {
+	template<> void MBI_SaveObjectToFile(std::fstream& FileToSaveTo, DocID& SourceInteger)
+	{
+		size_t IntegerToSave = SourceInteger;
+		MBI_SaveObjectToFile<size_t>(FileToSaveTo, IntegerToSave);
+	}
+	template<> DocID MBI_ReadObjectFromFile(std::fstream& FileToReadFrom)
+	{
+		return(MBI_ReadObjectFromFile<size_t>(FileToReadFrom));
+	}
 	template<> void MBI_SaveObjectToFile<DocumentIndexData>(std::fstream& FileToSaveTo, DocumentIndexData& DocumentIndexDataToSave)
 	{
 		MBI_SaveObjectToFile<float>(FileToSaveTo, DocumentIndexDataToSave.DocumentLength);
@@ -164,6 +173,7 @@ namespace MBSearchEngine
 		{
 			MBI_SaveObjectToFile<Posting>(FileToSaveTo, Post);
 		}
+		MBI_SaveVectorToFile<size_t>(FileToSaveTo, PostingsListToSave.m_SortedDocumentIDs);
 		MBI_SaveObjectToFile<size_t>(FileToSaveTo, PostingsListToSave.m_DocumentFrequency);
 	}
 	template<> PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream& FileToReadFrom)
@@ -173,9 +183,10 @@ namespace MBSearchEngine
 		for (size_t i = 0; i < NumberOfPostings; i++)
 		{
 			Posting NewMember = MBI_ReadObjectFromFile<Posting>(FileToReadFrom);
-			ReturnValue.m_PostingsInMemory[i] = NewMember;
+			ReturnValue.m_PostingsInMemory[NewMember.DocumentReference] = NewMember;
 		}
 		//ReturnValue.m_PostingsInMemory = MBI_ReadVectorFromFile<PostingClass>(FileToReadFrom);
+		ReturnValue.m_SortedDocumentIDs = MBI_ReadVectorFromFile<size_t>(FileToReadFrom);
 		ReturnValue.m_DocumentFrequency = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
 		return(ReturnValue);
 	}

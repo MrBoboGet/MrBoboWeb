@@ -147,3 +147,59 @@ function htmlDecode(input) {
   console.log("HTML Decode");
   return doc.documentElement.textContent;
 }
+
+var PictureExtension = ["png","jpg","webp"];
+var VideoExtension = ["mp4","webm"]
+var AudioExtension = ["mp3"]
+
+function ValueInArray(ArrayToCheck,ValueToSearch)
+{
+  ReturnValue = false;
+  for(let i = 0;i < ArrayToCheck.length; i++)
+  {
+    if(ArrayToCheck[i] == ValueToSearch)
+    {
+      ReturnValue = true;
+      break;
+    }
+  }
+  return(ReturnValue);
+}
+function GetURLResourceType(URLToCheck)
+{
+  let ReturnValue = "";
+  let Extension = URLToCheck.lastIndexOf(".");
+  if(Extension != -1)
+  {
+    Extension = URLToCheck.substr(Extension+1);
+    console.log("Extension is",Extension);  
+    if(ValueInArray(PictureExtension,Extension))
+    {
+      ReturnValue = "Picture";
+    }
+    else if(ValueInArray(VideoExtension,Extension))
+    {
+      ReturnValue = "Video";
+    }
+    else if(ValueInArray(AudioExtension,Extension))
+    {
+      ReturnValue = "Audio"
+    }
+  }
+  return(ReturnValue);
+}
+function GetEmbeddedVideoString(URLToEmbedd)
+{
+  let ReturnValue = "<video src=\""+URLToEmbedd+"\" style=\"width:auto;max-width:100%\"></img>"
+  return(ReturnValue);
+}
+function GetEmbeddedPictureString(URLToEmbedd)
+{
+  let ReturnValue = "<img src=\""+URLToEmbedd+"\" style=\"width:auto;max-width:100%\"></img>"
+  return(ReturnValue);
+}
+function GetEmbeddedAudioString(URLToEmbedd)
+{
+  let ReturnValue = "<audio src=\""+URLToEmbedd+"\" style=\"width:auto;max-width:100%\"></img>"
+  return(ReturnValue);
+}

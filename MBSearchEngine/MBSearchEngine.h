@@ -114,6 +114,7 @@ namespace MBSearchEngine
 	typedef Posting PostingClass;
 	typedef SearchToken TokenClass;
 	//template<typename PostingClass> 
+	class PostingsList;
 	class PostingsListIterator
 	{
 		friend class PostingsList;
@@ -137,7 +138,9 @@ namespace MBSearchEngine
 		friend PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream&);
 	private:
 		//std::vector<PostingClass> m_PostingsInMemory = {};
+		DocID ASSERTION_LastAddedDocumentID = 0;
 		std::map<size_t, PostingClass> m_PostingsInMemory = {};
+		std::vector<size_t> m_SortedDocumentIDs = {};
 		size_t m_DocumentFrequency = 0;
 	public:
 		size_t GetDocumentFrequency() const;

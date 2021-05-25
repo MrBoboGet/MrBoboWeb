@@ -52,11 +52,28 @@ async function validate(e)
         let ValueToAdd = ColumnValue;
         if(StringIsUrl(String(ColumnValue)))
         {
-          ValueToAdd = "<a href=\""+String(ValueToAdd+"\">"+String(ValueToAdd)+"</a>");
+          //ValueToAdd = "<a href=\""+String(ValueToAdd+"\">"+String(ValueToAdd)+"</a>");
+          console.log(String(ColumnValue),"Is a URL");
+          let URLType = GetURLResourceType(String(ColumnValue));
+          if(URLType == "Picture")
+          {
+            ValueToAdd = GetEmbeddedPictureString(String(ColumnValue));
+          }
+          else if(URLType == "Video")
+          {
+            ValueToAdd = GetEmbeddedVideoString(String(ColumnValue));
+          }
+          else if(URLType == "Audio")
+          {
+            ValueToAdd = GetEmbeddedAudioString(String(ColumnValue));
+          }
+          else
+          {
+            ValueToAdd = "<a href=\""+String(ValueToAdd+"\">"+String(ValueToAdd)+"</a>");
+          }
         }
         else if(StringIsPath(String(ColumnValue)))
         {
-          console.log("Kommer hit");
           ValueToAdd = await MBGetEmbeddedResource(ValueToAdd);
         }
         TableValues.push(ValueToAdd);

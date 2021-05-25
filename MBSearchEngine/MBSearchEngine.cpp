@@ -9,6 +9,7 @@
 #include <array>
 #include <MBSearchEngine/MBUnicode.h>
 #include <map>
+#include <cmath>
 namespace MBSearchEngine
 {
 	//searchToken
@@ -718,6 +719,8 @@ namespace MBSearchEngine
 	{
 		//förutsätter att listan är sorterad
 		//int DocumentPostingPosition = MBAlgorithms::BinarySearch(m_PostingsInMemory, DocumentID);
+		assert(ASSERTION_LastAddedDocumentID <= DocumentID);
+		ASSERTION_LastAddedDocumentID = DocumentID;
 		if (m_PostingsInMemory.find(DocumentID) == m_PostingsInMemory.end())
 		{
 			//helt pantad algorithm egentligen, vi lägger till en på slutet och sedan sorterar vi, men kräver nog egentligen att man har lite mer eftertanke med hur
@@ -726,7 +729,8 @@ namespace MBSearchEngine
 			NewMember.Update(TokenPosition);
 			//m_PostingsInMemory.push_back(Posting(DocumentID));
 			//m_PostingsInMemory.back().Update(TokenPosition);
-			m_PostingsInMemory[m_PostingsInMemory.size()] = NewMember;
+			m_PostingsInMemory[DocumentID] = NewMember;
+			m_SortedDocumentIDs.push_back(DocumentID);
 			m_DocumentFrequency += 1;
 			//std::sort(m_PostingsInMemory.begin(), m_PostingsInMemory.end());
 		}
@@ -739,7 +743,7 @@ namespace MBSearchEngine
 	PostingClass const& PostingsList::operator[](PostingListID Index) const
 	{
 		//kommer förändras iomed
-		return(m_PostingsInMemory.at(Index));
+		return(m_PostingsInMemory.at(m_SortedDocumentIDs[Index]));
 	}
 	size_t PostingsList::GetDocumentFrequency() const
 	{
@@ -780,6 +784,11 @@ namespace MBSearchEngine
 				m_PostingsLists.push_back(PostingsList());
 				PostinglistToUpdate = m_PostingsLists.size() - 1;
 			}
+			//if (TokenData == "iji")
+			//{
+			//	PostingsList& AssociatedList = this->GetPostinglist(m_TokenDictionary.GetTokenPosting(TokenData));
+			//	std::cout << "debug" << std::endl;
+			//}
 			m_PostingsLists[PostinglistToUpdate].AddPosting(DocumentID, i);
 		}
 		//sorterar den på slutet så kanske aningen offektivt för storra arrays
