@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <algorithm>
+#include <codecvt>
 namespace MBUnicode
 {
 	//unicdocdeCodePoint
@@ -157,5 +158,19 @@ namespace MBUnicode
 			ReturnValue += std::tolower(StringToParse[i]);
 		}
 		return(ReturnValue);
+	}
+	std::string Convert_U16_U8(void* Data, size_t DataLength)
+	{
+		std::u16string source = std::u16string((char16_t*)Data,DataLength);
+		std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+		std::string dest = convert.to_bytes(source);
+		return(dest);
+	}
+	std::string Convert_U16_U8(const char16_t* StringToConvert)
+	{
+		std::u16string source = std::u16string(StringToConvert);
+		std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+		std::string dest = convert.to_bytes(source);
+		return(dest);
 	}
 }

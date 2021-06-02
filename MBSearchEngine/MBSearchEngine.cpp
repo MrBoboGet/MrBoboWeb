@@ -996,4 +996,8 @@ namespace MBSearchEngine
 		return(Result);
 	}
 	//END MBIndex
+	void MBIndex::Clear()
+	{
+		*this = MBIndex();
+	}
 }

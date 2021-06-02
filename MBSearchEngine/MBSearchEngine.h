@@ -234,6 +234,7 @@ namespace MBSearchEngine
 		MBError IndextTextData(std::string const& TextData, std::string const& DocumentIdentifier);
 		MBError IndexTextDocument(std::string const& DocumentName);
 		MBError IndexHTMLData(std::string const& DocumentData, std::string const& DocumentIdentifier);
+		void Clear();
 		void PrintIndex();
 	};
 }

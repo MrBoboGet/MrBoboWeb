@@ -27,10 +27,9 @@ int main()
 #ifdef DNDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
 	InitDatabase();
-
 	//std::string FileToTest = "./remar.se/daniel/__DirectoryResource";
 	//std::fstream FileToRead = std::fstream(FileToTest, std::ios::in | std::ios::binary);
 	//std::string TestHTMLData = std::string(std::filesystem::file_size(FileToTest), 0);

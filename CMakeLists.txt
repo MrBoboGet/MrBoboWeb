@@ -191,10 +191,106 @@ set(ALL_FILES
     ${Source_Files}
 )
 
+#MBSE grejer
+set (MB_STANDARD_LIBRARY_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
+)
+
+set (MBSE_HEADERS
+    "MBSearchEngine/MBSearchEngine.h"
+    "MBSearchEngine/MBUnicode.h"
+    "MBSearchEngine/MBUnicodeMacros.h"
+    "MBSearchEngine/MBUnicode.h"
+    "MBSearchEngine/MBISaveIndexSpec.h"
+    "MBSearchEngine/MBUnicodeMacros.h"
+    "MBSearchEngine/MBSearchEngineCLIClass.h"
+    "MBSearchEngine/MBRecursiveDirectoryIterator.h"
+)
+set (MBSE_SOURCES
+    "MBSearchEngine/MBSearchEngine.cpp"
+    "MBSearchEngine/MBSearchEngineCLIMain.cpp"
+    "MBSearchEngine/MBSearchEngineCLIClass.cpp"
+    "MBSearchEngine/MBUnicode.cpp"
+    #TODO flytta error handlingen till MB_STANDARD_LIBRARY
+    "MBErrorHandling.cpp"
+)
+set (MBSE_ALL_FILES
+   ${MBSE_HEADERS}
+   ${MBSE_SOURCES}
+)
+add_executable("mbse" ${MBSE_ALL_FILES})
+target_compile_features("mbse" PRIVATE cxx_std_17)
+target_include_directories("mbse" PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/.;"
+    "${MB_STANDARD_LIBRARY_DIR}"
+)
+
+#hokus pokus
+
+#use_props("mbse" "${CMAKE_CONFIGURATION_TYPES}" "${DEFAULT_CXX_PROPS}")
+#target_compile_options("mbse" PRIVATE /MTd)
+#target_compile_options("mbse" PRIVATE
+#    $<$<CXX_COMPILER_ID:MSVC>:/Zi>
+#    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-g>
+#    )
+#if(MSVC)
+#    target_link_options("mbse" PUBLIC /DEBUG)
+#    target_link_options("mbse" PUBLIC /Zi)
+#endif()
+if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
+    target_compile_definitions("mbse" PRIVATE
+        "$<$<CONFIG:Debug>:"
+            "_DEBUG"
+        ">"
+        "$<$<CONFIG:Release>:"
+            "NDEBUG"
+        ">"
+        "_CONSOLE;"
+        "UNICODE;"
+        "_UNICODE"
+    )
+endif()
+if(MSVC)
+    if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
+        target_compile_options("mbse" PRIVATE
+            $<$<CONFIG:Release>:
+                /Oi;
+                /Gy
+            >
+            /permissive-;
+            /std:c++latest;
+            /sdl-;
+            /W3;
+            /Zi;
+            ${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT};
+            ${DEFAULT_CXX_EXCEPTION_HANDLING}
+        )
+    endif()
+    if("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x64")
+        target_link_options("mbse" PRIVATE
+            $<$<CONFIG:Debug>:
+                /INCREMENTAL
+            >
+            $<$<CONFIG:Release>:
+                /OPT:REF;
+                /OPT:ICF;
+                /INCREMENTAL:NO
+            >
+            /DEBUG;
+            /SUBSYSTEM:CONSOLE
+        )
+    endif()
+endif()
+
+
+
+
 ################################################################################
 # Target
 ################################################################################
 add_executable(${PROJECT_NAME} ${ALL_FILES} "MrBoboChatt/MBChatConnection.h" "MrBoboChatt/MBCProtocols.h" "MrBoboChatt/MBCProtocols.cpp" "MrBoboChatt/MBChatConnection.cpp" "MBErrorHandling.h" "MBErrorHandling.cpp"  "MrBoboChatt/MrBoboChatt.cpp" "MBCertificateHandler/MBCertificateHandler.h")
+
+
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
 
