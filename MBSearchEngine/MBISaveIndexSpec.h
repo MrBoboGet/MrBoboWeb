@@ -106,15 +106,15 @@ namespace MBSearchEngine
 //specifika för MBSearchEngine.h
 namespace MBSearchEngine
 {
-	template<> void MBI_SaveObjectToFile(std::fstream& FileToSaveTo, DocID& SourceInteger)
-	{
-		size_t IntegerToSave = SourceInteger;
-		MBI_SaveObjectToFile<size_t>(FileToSaveTo, IntegerToSave);
-	}
-	template<> DocID MBI_ReadObjectFromFile(std::fstream& FileToReadFrom)
-	{
-		return(MBI_ReadObjectFromFile<size_t>(FileToReadFrom));
-	}
+	//template<> void MBI_SaveObjectToFile(std::fstream& FileToSaveTo, DocID& SourceInteger)
+	//{
+	//	size_t IntegerToSave = SourceInteger;
+	//	MBI_SaveObjectToFile<size_t>(FileToSaveTo, IntegerToSave);
+	//}
+	//template<> DocID MBI_ReadObjectFromFile(std::fstream& FileToReadFrom)
+	//{
+	//	return(MBI_ReadObjectFromFile<size_t>(FileToReadFrom));
+	//}
 	template<> void MBI_SaveObjectToFile<DocumentIndexData>(std::fstream& FileToSaveTo, DocumentIndexData& DocumentIndexDataToSave)
 	{
 		MBI_SaveObjectToFile<float>(FileToSaveTo, DocumentIndexDataToSave.DocumentLength);

@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 	//argv2[2] = "-r";
 	//argv2[3] = "-p";
 	//argv2[4] = "C:\\";
-	//argv2[5] = "TotalPathIndex";
+	//argv2[5] = "TotalPathIndex2";
 	
 	//argc = 3;
 	//const char** argv2 = (const char**)malloc(argc * sizeof(char*));

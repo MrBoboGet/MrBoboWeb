@@ -1,4 +1,3 @@
-#include <MBSearchEngine/MBISaveIndexSpec.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <MinaStringOperations.h>
 #include <MBAlgorithms.h>
@@ -10,6 +9,8 @@
 #include <MBSearchEngine/MBUnicode.h>
 #include <map>
 #include <cmath>
+
+#include <MBSearchEngine/MBISaveIndexSpec.h>
 namespace MBSearchEngine
 {
 	//Posting
@@ -686,7 +687,7 @@ namespace MBSearchEngine
 		}
 		else
 		{
-			if (IDToGet + 1 >= m_NumberOfPostings)
+			if (IDToGet + 1 > m_NumberOfPostings)
 			{
 				//kanske borde throw en exception
 				assert(false);
@@ -799,8 +800,8 @@ namespace MBSearchEngine
 	}
 	void PostingslistHandler::AddPostinglist()
 	{
+		PostingListID NewPostingID = m_NumberOfPostings;
 		m_NumberOfPostings += 1;
-		PostingListID NewPostingID = NewPostingID;
 		m_PostingsInMemory[NewPostingID] = std::make_shared<PostingsList>();
 	}
 	void PostingslistHandler::UpdatePosting(PostingListID PostingListToUpdate, DocID TokenDocument, size_t TokenPosition)

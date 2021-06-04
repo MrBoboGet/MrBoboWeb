@@ -226,7 +226,8 @@ namespace MBSearchEngine
 					std::string EntryPath = "";
 					if (IdentifiersAreRelative)
 					{
-						EntryPath = MBUnicode::Convert_U16_U8((char16_t*)CurrentEntry.path().lexically_normal().c_str());
+						//EntryPath = MBUnicode::Convert_U16_U8((char16_t*)CurrentEntry.path().lexically_normal().c_str());
+						EntryPath = MBUnicode::PathToUTF8(CurrentEntry.path().lexically_normal());
 					}
 					else
 					{
@@ -235,11 +236,11 @@ namespace MBSearchEngine
 						if (CurrentEntryPath.is_relative())
 						{
 							WorkingDirectory+=CurrentEntryPath;
-							EntryPath = MBUnicode::Convert_U16_U8((char16_t*)WorkingDirectory.lexically_normal().c_str());
+							EntryPath = MBUnicode::PathToUTF8(WorkingDirectory.lexically_normal());
 						}
 						else
 						{
-							EntryPath = MBUnicode::Convert_U16_U8((char16_t*)CurrentEntryPath.lexically_normal().c_str());
+							EntryPath = MBUnicode::PathToUTF8(CurrentEntryPath.lexically_normal());
 						}
 					}
 					EntryToAdd = MBUtility::ReplaceAll(EntryPath, "/", " ");
@@ -272,7 +273,7 @@ namespace MBSearchEngine
 				std::filesystem::directory_entry CurrentEntry = *DirectoryIterator;
 				if (CurrentEntry.is_regular_file(ErrorCode))
 				{
-					std::string EntryPath = MBUnicode::Convert_U16_U8((char16_t*)CurrentEntry.path().lexically_normal().c_str());
+					std::string EntryPath = MBUnicode::PathToUTF8(CurrentEntry.path().lexically_normal());
 					std::string EntryToAdd = EntryPath;
 					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, "/", " ");
 					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, "\\", " ");

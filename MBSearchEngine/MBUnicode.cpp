@@ -7,6 +7,7 @@
 #include <iostream>
 #include <algorithm>
 #include <codecvt>
+#include <filesystem>
 namespace MBUnicode
 {
 	//unicdocdeCodePoint
@@ -159,18 +160,31 @@ namespace MBUnicode
 		}
 		return(ReturnValue);
 	}
-	std::string Convert_U16_U8(void* Data, size_t DataLength)
+	//std::string Convert_U16_U8(void* Data, size_t DataLength)
+	//{
+	//	std::u16string source = std::u16string((char16_t*)Data,DataLength);
+	//	std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+	//	std::string dest = convert.to_bytes(source);
+	//	return(dest);
+	//}
+	//std::string Convert_U16_U8(const char16_t* StringToConvert)
+	//{
+	//	std::u16string source = std::u16string(StringToConvert);
+	//	std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
+	//	std::string dest = convert.to_bytes(source);
+	//	return(dest);
+	//}
+	std::string PathToUTF8(std::filesystem::path const& PathToProcess)
 	{
-		std::u16string source = std::u16string((char16_t*)Data,DataLength);
+		std::string ReturnValue = "";
+#if defined(_WIN32)
+		std::u16string source = std::u16string((char16_t*)PathToProcess.c_str());
 		std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
-		std::string dest = convert.to_bytes(source);
-		return(dest);
-	}
-	std::string Convert_U16_U8(const char16_t* StringToConvert)
-	{
-		std::u16string source = std::u16string(StringToConvert);
-		std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> convert;
-		std::string dest = convert.to_bytes(source);
-		return(dest);
+		ReturnValue = convert.to_bytes(source);
+#else
+		ReturnValue = PathToProcess.u8string();
+#endif // __WINDOWS__
+
+		return(ReturnValue);
 	}
 }
