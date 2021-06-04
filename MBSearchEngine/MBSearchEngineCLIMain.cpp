@@ -13,8 +13,8 @@ int main(int argc, char** argv)
 	argv2[0] = "mbse";
 	argv2[1] = "--s";
 	argv2[2] = "-b";
-	argv2[3] = "TotalPathIndex";
-	argv2[4] = ".GITIGNORE AND BUILD";
+	argv2[3] = "RemarSiteIndex";
+	argv2[4] = "iji AND ludosity";
 
 	//argc = 6;
 	//const char** argv2 =(const char**) malloc(argc * sizeof(char*));

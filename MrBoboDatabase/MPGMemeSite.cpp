@@ -62,7 +62,10 @@ void InitDatabase()
 	std::filesystem::directory_iterator IndexIterator(MBDBGetResourceFolderPath() + "Indexes");
 	for (auto& DirectoryEntry : IndexIterator)
 	{
-		(*__DBIndexMap)[DirectoryEntry.path().filename().generic_string()] = MBSearchEngine::MBIndex(DirectoryEntry.path().generic_string());
+		if (DirectoryEntry.is_regular_file())
+		{
+			(*__DBIndexMap)[DirectoryEntry.path().filename().generic_string()] = MBSearchEngine::MBIndex(DirectoryEntry.path().generic_string());
+		}
 	}
 }
 struct DBPermissionsList
