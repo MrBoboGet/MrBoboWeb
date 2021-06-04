@@ -36,6 +36,8 @@ namespace MBSearchEngine
 	{
 		friend void MBI_SaveObjectToFile<Posting>(std::fstream&, Posting&);
 		friend Posting MBI_ReadObjectFromFile<Posting>(std::fstream&);
+		friend void MBI_SkipObject<Posting>(std::fstream&, Posting*);
+		friend void swap(Posting&, Posting&);
 	public:
 		Posting();
 		DocID DocumentReference = -1;
@@ -121,8 +123,8 @@ namespace MBSearchEngine
 	private:
 		//den triviala dumma enkla implementationen
 		size_t m_PostingsListOffset = 0;
-		PostingsList* m_ListReference = nullptr;
-		PostingsListIterator(PostingsList*);
+		const PostingsList* m_ListReference = nullptr;
+		PostingsListIterator(const PostingsList*);
 	public:
 		PostingsListIterator(PostingsListIterator const& IteratorToCopy);
 		bool operator==(PostingsListIterator const& RightIterator) const;
@@ -136,6 +138,8 @@ namespace MBSearchEngine
 	{
 		friend void MBI_SaveObjectToFile<PostingsList>(std::fstream&, PostingsList&);
 		friend PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream&);
+		friend void MBI_SkipObject<PostingsList>(std::fstream&, PostingsList*);
+		friend void swap(PostingsList& LeftList, PostingsList& RightList);
 	private:
 		//std::vector<PostingClass> m_PostingsInMemory = {};
 		DocID ASSERTION_LastAddedDocumentID = 0;
@@ -146,8 +150,8 @@ namespace MBSearchEngine
 		size_t GetDocumentFrequency() const;
 		void AddPosting(DocID DocumentID, int TokenPosition);
 		int size() const;
-		PostingsListIterator begin();
-		PostingsListIterator end();
+		PostingsListIterator begin() const;
+		PostingsListIterator end() const;
 		PostingClass const& operator[](PostingListID Index) const;
 	};
 	//std::vector<SearchToken> TokenizeString(std::string const&);
@@ -203,6 +207,44 @@ namespace MBSearchEngine
 	//public:
 	//	DocumentIndexData const& operator[](DocID);
 	//};
+	struct PostingFilePosition
+	{
+		PostingListID Posting = -1;
+		size_t FilePosition = -1;
+	};
+	struct PostingDiskDataInfo
+	{
+		std::string DiskDataFilepath = "";
+		std::map<PostingListID, size_t> PostinglistFilePositions = {};
+		std::fstream* FileDataStream = nullptr;
+		bool IsTemporaryFile = true;
+	};
+	class PostingslistHandler
+	{
+		friend void MBI_SaveObjectToFile<PostingslistHandler>(std::fstream&, PostingslistHandler&);
+		friend PostingslistHandler MBI_ReadObjectFromFile<PostingslistHandler>(std::fstream&);
+	private:
+		static constexpr size_t MaxPostingsToRead = 10000;
+		std::vector<PostingDiskDataInfo> m_PostingsOnDisk = {};
+		size_t m_NumberOfPostings = 0;
+		std::map<PostingListID, std::shared_ptr<PostingsList>> m_PostingsInMemory = {};
+		bool p_PostingIsInMemory(PostingListID PostingToCheck);
+
+		//Potential disk operations
+		//ANTAGANDE postinglistorna tar aldrig bort element utan lägger enbart till, vilket innebär att den senaste filen som innehåller en posting
+		//har den mest uppdaterade varianten
+		std::shared_ptr<PostingsList> p_GetPostinglist(PostingListID IDToGet);
+		void p_WriteCacheToDisk(std::string OutputFilepath);
+		void p_MergeFilesAndCache(std::fstream& FileToWriteTo);
+		void p_ClearFileData();
+		bool p_CacheIsFull();
+	public:
+		void SetBaseFile(std::string const& BaseFilepath);
+		size_t NumberOfPostings();
+		std::shared_ptr<const PostingsList> GetPostinglist(PostingListID IDToGet);
+		void AddPostinglist(); //All postings have ID equal to the order in which they were allocated, the first id 0, second 1 etc.
+		void UpdatePosting(PostingListID PostingListToUpdate, DocID TokenDocument, size_t TokenPosition);
+	};
 	class MBIndex
 	{
 		friend class BooleanQuerry;
@@ -210,13 +252,15 @@ namespace MBSearchEngine
 		std::vector<std::string> m_DocumentIDs = {};
 		std::vector<DocumentIndexData> _DocumentIndexDataList = {};
 		TokenDictionary m_TokenDictionary;
-		std::vector<PostingsList> m_PostingsLists;
+		//std::vector<PostingsList> m_PostingsLists;
+		PostingslistHandler m_PostinglistHandler;
+		
 		//std::unordered_map<SearchToken, PostingsList<TokenClass,PostingClass>> m_TokenMap = {};
 		
 		
 		//MBError UpdatePostings(std::vector<SearchToken> const& TokensToUpdate, std::string const& DocumentName);
 		MBError UpdatePostings(std::vector<TokenClass> const& DocumentTokens, DocID DocumentID);
-		PostingsList& GetPostinglist(PostingListID ID);
+		std::shared_ptr<const PostingsList> GetPostinglist(PostingListID ID);
 		std::string GetDocumentIdentifier(DocID DocumentID);
 
 		DocumentIndexData m_GetDocumentIndexData(DocID ID);

@@ -3,6 +3,17 @@
 #include <MBSearchEngine/MBSearchEngine.h>
 namespace MBSearchEngine
 {
+	template<> void MBI_SkipObject(std::fstream& FileToReadFrom, size_t*)
+	{
+		unsigned char IntegerData = 0;
+		int NumberOfIterations = 0;
+		do
+		{
+			FileToReadFrom.read((char*)&IntegerData, 1);
+			assert(FileToReadFrom.good() && FileToReadFrom.is_open());
+			NumberOfIterations += 1;
+		} while ((IntegerData >> 7) == 0);
+	}
 	template<> void MBI_SaveObjectToFile(std::fstream& FileToSaveTo, size_t& SourceInteger)
 	{
 		size_t IntegerToSave = SourceInteger;
@@ -134,6 +145,12 @@ namespace MBSearchEngine
 		MBI_SaveObjectToFile<int>(FileToSaveTo, PostingToSave.NumberOfOccurances);
 		MBI_SaveVectorToFile<int>(FileToSaveTo, PostingToSave.m_DocumentPositions);
 	}
+	template<> void MBI_SkipObject<Posting>(std::fstream& FileToReadFrom, Posting*)
+	{
+		MBI_SkipObject<size_t>(FileToReadFrom,nullptr);
+		MBI_SkipObject<size_t>(FileToReadFrom, nullptr);
+		MBI_SkipVector<size_t>(FileToReadFrom);
+	}
 	template<> Posting MBI_ReadObjectFromFile<Posting>(std::fstream& FileToReadFrom)
 	{
 		Posting PostingToReturn;
@@ -176,6 +193,16 @@ namespace MBSearchEngine
 		MBI_SaveVectorToFile<size_t>(FileToSaveTo, PostingsListToSave.m_SortedDocumentIDs);
 		MBI_SaveObjectToFile<size_t>(FileToSaveTo, PostingsListToSave.m_DocumentFrequency);
 	}
+	template<> void MBI_SkipObject(std::fstream& FileToReadFrom,PostingsList*)
+	{
+		size_t NumberOfPostings = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		for (size_t i = 0; i < NumberOfPostings; i++)
+		{
+			MBI_SkipObject<Posting>(FileToReadFrom,nullptr);
+		}
+		MBI_SkipVector<size_t>(FileToReadFrom);
+		MBI_SkipObject<size_t>(FileToReadFrom,nullptr);
+	}
 	template<> PostingsList MBI_ReadObjectFromFile<PostingsList>(std::fstream& FileToReadFrom)
 	{
 		PostingsList ReturnValue;
@@ -183,11 +210,45 @@ namespace MBSearchEngine
 		for (size_t i = 0; i < NumberOfPostings; i++)
 		{
 			Posting NewMember = MBI_ReadObjectFromFile<Posting>(FileToReadFrom);
-			ReturnValue.m_PostingsInMemory[NewMember.DocumentReference] = NewMember;
+			//ReturnValue.m_PostingsInMemory[NewMember.DocumentReference] = NewMember;
+			swap(ReturnValue.m_PostingsInMemory[NewMember.DocumentReference], NewMember);
 		}
 		//ReturnValue.m_PostingsInMemory = MBI_ReadVectorFromFile<PostingClass>(FileToReadFrom);
 		ReturnValue.m_SortedDocumentIDs = MBI_ReadVectorFromFile<size_t>(FileToReadFrom);
 		ReturnValue.m_DocumentFrequency = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		return(ReturnValue);
+	}
+
+	//PostinglistHandler
+	template<> void MBI_SaveObjectToFile<PostingslistHandler>(std::fstream& FileToSaveTo, PostingslistHandler& HandlerToSave)
+	{
+		size_t NumberOfLists = HandlerToSave.NumberOfPostings();
+		MBI_SaveObjectToFile<size_t>(FileToSaveTo, NumberOfLists);
+		HandlerToSave.p_MergeFilesAndCache(FileToSaveTo);
+	}
+	template<> PostingslistHandler MBI_ReadObjectFromFile<PostingslistHandler>(std::fstream& FileToReadFrom)
+	{
+		PostingslistHandler ReturnValue = PostingslistHandler();
+		size_t NumberOfPostings = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		ReturnValue.m_NumberOfPostings = NumberOfPostings;
+		PostingDiskDataInfo NewDiskDataInfo;
+		NewDiskDataInfo.DiskDataFilepath = "";
+		NewDiskDataInfo.IsTemporaryFile = false;
+		for (size_t i = 0; i < NumberOfPostings; i++)
+		{
+			NewDiskDataInfo.PostinglistFilePositions[i] = FileToReadFrom.tellg();
+			if (i < PostingslistHandler::MaxPostingsToRead)
+			{
+				PostingsList* NewMemory = new PostingsList();
+			    *NewMemory = MBI_ReadObjectFromFile<PostingsList>(FileToReadFrom);
+				ReturnValue.m_PostingsInMemory[i] = std::shared_ptr<PostingsList>(NewMemory);
+			}
+			else
+			{
+				MBI_SkipObject<PostingsList>(FileToReadFrom,nullptr);
+			}
+		}
+		ReturnValue.m_PostingsOnDisk.push_back(NewDiskDataInfo);
 		return(ReturnValue);
 	}
 };

@@ -12,6 +12,13 @@
 #include <cmath>
 namespace MBSearchEngine
 {
+	//Posting
+	void swap(Posting& LeftPosting, Posting& RightPosting)
+	{
+		std::swap(LeftPosting.DocumentReference, RightPosting.DocumentReference);
+		std::swap(LeftPosting.NumberOfOccurances, RightPosting.NumberOfOccurances);
+		std::swap(LeftPosting.m_DocumentPositions, RightPosting.m_DocumentPositions);
+	}
 	//searchToken
 	bool SearchToken::operator==(const SearchToken& other) const
 	{
@@ -51,122 +58,8 @@ namespace MBSearchEngine
 	}
 	//END Searchtoken
 
-	//posting
-
-	//END Posting
-
-	//PostingsList
-	//bool CompareDocumentReferences(std::string const& LeftDocumentReference, std::string const& RightDocumentReference)
-	//{
-	//	return(LeftDocumentReference < RightDocumentReference);
-	//}
-	//std::string GetPostingReference(std::vector<Posting> const& Postings,int IndexToGet)
-	//{
-	//	return(Postings[IndexToGet].DocumentReference);
-	//}
-	//bool ComparePostings(Posting const& LeftPosting, Posting const& RightPosting)
-	//{
-	//	return(LeftPosting.DocumentReference < RightPosting.DocumentReference);
-	//}
-	//void PostingsList::AddPosting(SearchToken const& TokenToAdd, std::string DocumentID, int TokenPosition)
-	//{
-	//	//förutsätter att listan är sorterad
-	//	int DocumentPostingPosition = MBAlgorithms::BinarySearch(Postings, DocumentID, GetPostingReference, CompareDocumentReferences);
-	//	if (DocumentPostingPosition == -1)
-	//	{
-	//		//helt pantad algorithm egentligen, vi lägger till en på slutet och sedan sorterar vi, men kräver nog egentligen att man har lite mer eftertanke med hur
-	//		//man vill att datastrukturen ska se ut
-	//		Postings.push_back(Posting(DocumentID));
-	//		std::sort(Postings.begin(), Postings.end(), ComparePostings);
-	//	}
-	//	else
-	//	{
-	//		Postings[DocumentPostingPosition].NumberOfOccurances += 1;
-	//	}
-	//}
-	//END PostingsList
-
-	//std::vector<SearchToken> TokenizeString(std::string const& StringToTokenize)
-	//{
-	//	std::vector<SearchToken> ReturnValue = {};
-	//	size_t CurrentOffset = 0;
-	//	while (CurrentOffset != StringToTokenize.npos)
-	//	{
-	//		constexpr int NumberOfDelimiters = 3;
-	//		std::array<std::string, NumberOfDelimiters> Delimiter = { " ","\n","\r" };
-	//		std::array<size_t, NumberOfDelimiters> DelimiterPositions = {0,0,0};
-	//		DelimiterPositions[0] = StringToTokenize.find(Delimiter[0], CurrentOffset);
-	//		DelimiterPositions[1] = StringToTokenize.find(Delimiter[1], CurrentOffset);
-	//		DelimiterPositions[2] = StringToTokenize.find(Delimiter[2], CurrentOffset);
-	//		size_t NewOffset = std::min_element(DelimiterPositions.begin(),DelimiterPositions.end())[0];
-	//		//size_t NewOffset = StringToTokenize.find(" ", CurrentOffset);
-	//		if (NewOffset - CurrentOffset > 1)
-	//		{
-	//			//undviker \r\n
-	//			ReturnValue.push_back(SearchToken(StringToTokenize.substr(CurrentOffset, NewOffset - CurrentOffset)));
-	//			if (NewOffset == StringToTokenize.npos)
-	//			{
-	//				break;
-	//			}
-	//		}
-	//		CurrentOffset = NewOffset + 1;
-	//	}
-	//	return(ReturnValue);
-	//}
-	//MBIndex
-	//MBError MBIndex::IndexTextDocument(std::string const& DocumentName)
-	//{
-	//	MBError ReturnValue(true);
-	//	std::ifstream FileToRead(DocumentName, std::ios::binary | std::ios::in);
-	//	if (!FileToRead.is_open())
-	//	{
-	//		ReturnValue = false;
-	//		ReturnValue.ErrorMessage = "Failed to open file";
-	//		return(ReturnValue);
-	//	}
-	//	size_t NumberOfBytes = std::filesystem::file_size(DocumentName);
-	//	std::vector<SearchToken> DocumentTokens;
-	//	{
-	//		std::string DocumentData(NumberOfBytes, 0);
-	//		FileToRead.read(&DocumentData[0], NumberOfBytes);
-	//		DocumentTokens = TokenizeString(DocumentData);
-	//	}
-	//	ReturnValue = UpdatePostings(DocumentTokens, DocumentName);
-	//	return(ReturnValue);
-	//}
-	//MBError MBIndex::UpdatePostings(std::vector<SearchToken> const& DocumentTokens, std::string const& DocumentName)
-	//{
-	//	MBError ReturnValue(true);
-	//	for (size_t i = 0; i < DocumentTokens.size(); i++)
-	//	{
-	//		if (m_TokenMap.find(DocumentTokens[i]) == m_TokenMap.end())
-	//		{
-	//			m_TokenMap[DocumentTokens[i]] = PostingsList();
-	//		}
-	//		m_TokenMap[DocumentTokens[i]].AddPosting(DocumentTokens[i], DocumentName, i);
-	//	}
-	//	//sorterar den på slutet så kanske aningen offektivt för storra arrays
-	//	return(ReturnValue);
-	//}
-	//void MBIndex::PrintIndex()
-	//{
-	//	auto TokenMapIterator = m_TokenMap.begin();
-	//	while (TokenMapIterator != m_TokenMap.end())
-	//	{
-	//		SearchToken const& CurrentWord = TokenMapIterator->first;
-	//		PostingsList const& CurrentPostingList = TokenMapIterator->second;
-	//		std::cout <<+"\""+ CurrentWord.TokenName +"\": "<<std::endl;
-	//		for (size_t i = 0; i < CurrentPostingList.size(); i++)
-	//		{
-	//			std::cout << CurrentPostingList[i].DocumentReference + " " << CurrentPostingList[i].NumberOfOccurances << std::endl;
-	//		}
-	//		TokenMapIterator++;
-	//	}
-	//}
-	//END MBIndex
-
 	//BooleanQuerry
-	TopQuerry  BooleanQuerry::GetSubquerries(std::string const& QuerryToEvaluate)
+	TopQuerry BooleanQuerry::GetSubquerries(std::string const& QuerryToEvaluate)
 	{
 		TopQuerry ReturnValue;
 		std::string QuerryToParse = RemoveRedundatParenthesis(QuerryToEvaluate);
@@ -325,14 +218,15 @@ namespace MBSearchEngine
 	{
 		std::vector<DocID> ReturnValue = {};
 		PostingListID WordPosting = Index.m_TokenDictionary.GetTokenPosting(m_QuerryString);
-		PostingsList& ListReference = Index.m_PostingsLists[WordPosting];
+		std::shared_ptr<const PostingsList> PostingPointer = Index.GetPostinglist(WordPosting);
+		const PostingsList& ListReference = *PostingPointer;
 		for (size_t i = 0; i < ListReference.size(); i++)
 		{
 			ReturnValue.push_back(ListReference[i].DocumentReference);
 		}
 		return(ReturnValue);
 	}
-	bool PostinglistIteratorsAreValid(std::vector<int>& PostinglistIterators, std::vector<PostingsList*>& Postinglists)
+	bool PostinglistIteratorsAreValid(std::vector<int>& PostinglistIterators, std::vector<std::shared_ptr<const PostingsList>>& Postinglists)
 	{
 		bool IsValid = true;
 		for (size_t i = 0; i < PostinglistIterators.size(); i++)
@@ -345,7 +239,7 @@ namespace MBSearchEngine
 		}
 		return(IsValid);
 	}
-	DocID IterateToNextCommonDocument(std::vector<int>& PostinglistIterators,std::vector<PostingsList*>& Postinglists)
+	DocID IterateToNextCommonDocument(std::vector<int>& PostinglistIterators, std::vector<std::shared_ptr<const PostingsList>>& Postinglists)
 	{
 		DocID ReturnValue = -1;
 		int IteratorToCompareIndex = 0;
@@ -395,7 +289,7 @@ namespace MBSearchEngine
 		}
 		return(IsValid);
 	}
-	bool PhraseInDocument(std::vector<int> const& PostinglistIterators, std::vector<PostingsList*>& Postinglists)
+	bool PhraseInDocument(std::vector<int> const& PostinglistIterators, std::vector<std::shared_ptr<const PostingsList>>& Postinglists)
 	{
 		bool ReturnValue = false;
 		std::vector<int> DocumentPositionIterators = std::vector<int>(PostinglistIterators.size(), 0);
@@ -440,7 +334,7 @@ namespace MBSearchEngine
 		}
 		std::vector<std::string> PhraseWords = Split(QuerryToEvaluate.substr(1,QuerryToEvaluate.size()-2), " ");
 		std::vector<int> PostinglistIterators = std::vector<int>(PhraseWords.size(), 0);
-		std::vector<PostingsList*> PostingLists = {};
+		std::vector<std::shared_ptr<const PostingsList>> PostingLists = {};
 		for (size_t i = 0; i < PhraseWords.size(); i++)
 		{
 			PostingListID NewPostingId = Index.m_TokenDictionary.GetTokenPosting(PhraseWords[i]);
@@ -448,7 +342,7 @@ namespace MBSearchEngine
 			{
 				return(ReturnValue);
 			}
-			PostingLists.push_back(&Index.GetPostinglist(NewPostingId));
+			PostingLists.push_back(Index.GetPostinglist(NewPostingId));
 		}
 		DocID CurrentDocument = IterateToNextCommonDocument(PostinglistIterators,PostingLists);
 		while(CurrentDocument != -1)
@@ -489,7 +383,8 @@ namespace MBSearchEngine
 				{
 					return(ReturnValue);
 				}
-				PostingsList& ListReference = Index.m_PostingsLists[WordPosting];
+				std::shared_ptr<const PostingsList> PostingPointer = Index.GetPostinglist(WordPosting);
+				const PostingsList& ListReference = *PostingPointer;
 				for (size_t i = 0; i < ListReference.size(); i++)
 				{
 					ReturnValue.push_back(ListReference[i].DocumentReference);
@@ -519,9 +414,10 @@ namespace MBSearchEngine
 	PostingListID TokenDictionary::GetTokenPosting(std::string const& TokenData)
 	{
 		PostingListID ReturnValue = -1;
-		if (this->TokenInDictionary(TokenData))
+		std::string NormalizedData = TokenClass(TokenData).GetTokenString();
+		if (this->TokenInDictionary(NormalizedData))
 		{
-			ReturnValue = m_TokenMapInMemory[TokenData].PostingIndex;
+			ReturnValue = m_TokenMapInMemory[NormalizedData].PostingIndex;
 		}
 		return(ReturnValue);
 		//int MapIndex = MBAlgorithms::BinarySearch(m_TokenMapInMemory, TokenData);
@@ -677,7 +573,7 @@ namespace MBSearchEngine
 	//END TokenDictionaryIterator
 
 	//BEGIN PostingsListIterator
-	PostingsListIterator::PostingsListIterator(PostingsList* AssociatedPostingslist)
+	PostingsListIterator::PostingsListIterator(const PostingsList* AssociatedPostingslist)
 	{
 		m_ListReference = AssociatedPostingslist;
 	}
@@ -749,17 +645,170 @@ namespace MBSearchEngine
 	{
 		return(m_DocumentFrequency);
 	}
-	PostingsListIterator PostingsList::begin()
+	PostingsListIterator PostingsList::begin() const
 	{
 		return(PostingsListIterator(this));
 	}
-	PostingsListIterator PostingsList::end()
+	PostingsListIterator PostingsList::end() const
 	{
 		PostingsListIterator ReturnValue(this);
 		ReturnValue.m_PostingsListOffset = size();
 		return(ReturnValue);
 	}
+	void swap(PostingsList& LeftList, PostingsList& RightList)
+	{
+		std::swap(LeftList.m_PostingsInMemory, RightList.m_PostingsInMemory);
+		std::swap(LeftList.m_SortedDocumentIDs, RightList.m_SortedDocumentIDs);
+		std::swap(LeftList.m_DocumentFrequency, RightList.m_DocumentFrequency);
+		//DEBUG
+		std::swap(LeftList.ASSERTION_LastAddedDocumentID, RightList.ASSERTION_LastAddedDocumentID);
+	}
 	//END PostingsList
+	
+	//BEGIN PostingsListHandler
+		//friend void MBI_SaveObjectToFile<PostingslistHandler>(std::fstream&, PostingslistHandler&);
+		//friend PostingslistHandler MBI_ReadObjectFromFile<PostingslistHandler>(std::fstream&);
+	size_t PostingslistHandler::NumberOfPostings()
+	{
+		return(m_NumberOfPostings);
+	}
+	bool PostingslistHandler::p_PostingIsInMemory(PostingListID IDToCheck)
+	{
+		return(m_PostingsInMemory.find(IDToCheck) != m_PostingsInMemory.end());
+	}
+	//ANTAGANDE postinglistorna tar aldrig bort element utan lägger enbart till, vilket innebär att den senaste filen som innehåller en posting
+	//har den mest uppdaterade varianten
+	std::shared_ptr<PostingsList> PostingslistHandler::p_GetPostinglist(PostingListID IDToGet)
+	{
+		if (p_PostingIsInMemory(IDToGet))
+		{
+			return(m_PostingsInMemory[IDToGet]);
+		}
+		else
+		{
+			if (IDToGet + 1 >= m_NumberOfPostings)
+			{
+				//kanske borde throw en exception
+				assert(false);
+			}
+			else
+			{
+				//Att id:n är mindre än antalet postings innebär att den finns på filen
+				std::shared_ptr<PostingsList> NewPointer;
+				for (int i = m_PostingsOnDisk.size()-1; i >= 0; i--)
+				{
+					PostingDiskDataInfo& CurrentDiskDataInfo = m_PostingsOnDisk[i];
+					if (CurrentDiskDataInfo.PostinglistFilePositions.find(IDToGet) != CurrentDiskDataInfo.PostinglistFilePositions.end())
+					{
+						PostingsList* NewMemory = new PostingsList();
+						CurrentDiskDataInfo.FileDataStream->seekg(CurrentDiskDataInfo.PostinglistFilePositions[IDToGet]);
+						*NewMemory = MBI_ReadObjectFromFile<PostingsList>(*CurrentDiskDataInfo.FileDataStream);
+						NewPointer = std::shared_ptr<PostingsList>(NewMemory);
+						break;
+					}
+				}
+				if (NewPointer.use_count() == 0)
+				{
+					//fick ingen ny data
+					assert(false);
+				}
+				return(NewPointer);
+			}
+		}
+	}
+	void PostingslistHandler::p_WriteCacheToDisk(std::string OutputFilepath)
+	{
+		m_PostingsOnDisk.push_back(PostingDiskDataInfo());
+		PostingDiskDataInfo& NewDiskInfo = m_PostingsOnDisk.back();
+		NewDiskInfo.DiskDataFilepath = OutputFilepath;
+		NewDiskInfo.FileDataStream = new std::fstream(OutputFilepath);
+		for (std::pair<PostingListID,std::shared_ptr<PostingsList>> const& CurrentPosting : m_PostingsInMemory)
+		{
+			NewDiskInfo.PostinglistFilePositions[CurrentPosting.first] = NewDiskInfo.FileDataStream->tellp();
+			MBI_SaveObjectToFile<PostingsList>(*NewDiskInfo.FileDataStream, *CurrentPosting.second);
+		}
+		m_PostingsInMemory.clear();
+	}
+	void PostingslistHandler::SetBaseFile(std::string const& BaseFilepath)
+	{
+		if (m_PostingsOnDisk.size() == 1)
+		{
+			PostingDiskDataInfo& DiskDataToModify = m_PostingsOnDisk[0];
+			if (DiskDataToModify.FileDataStream == nullptr)
+			{
+				DiskDataToModify.DiskDataFilepath = BaseFilepath;
+				DiskDataToModify.IsTemporaryFile = false;
+				DiskDataToModify.FileDataStream = new std::fstream(BaseFilepath, std::ios::binary | std::ios::in);
+			}
+		}
+	}
+	void PostingslistHandler::p_ClearFileData()
+	{
+		for (size_t i = 0; i < m_PostingsOnDisk.size(); i++)
+		{
+			m_PostingsOnDisk[i].FileDataStream->flush();
+			m_PostingsOnDisk[i].FileDataStream->close();
+			delete m_PostingsOnDisk[i].FileDataStream;
+			if (m_PostingsOnDisk[i].IsTemporaryFile)
+			{
+				std::filesystem::remove(m_PostingsOnDisk[i].DiskDataFilepath);
+			}
+		}
+		m_PostingsOnDisk = {};
+	}
+	void PostingslistHandler::p_MergeFilesAndCache(std::fstream& FileToWriteTo)
+	{
+		PostingDiskDataInfo NewDataInfo;
+		NewDataInfo.DiskDataFilepath = "";
+		NewDataInfo.IsTemporaryFile = false;
+		for (size_t i = 0; i < m_NumberOfPostings; i++)
+		{
+			//ANTAGANDE filen i minne är mest uppdaterad, sedan är det senaste filen på disk
+			NewDataInfo.PostinglistFilePositions[i] = FileToWriteTo.tellp();
+			bool PostingIsWritten = false;
+			if (p_PostingIsInMemory(i))
+			{
+				MBI_SaveObjectToFile<PostingsList>(FileToWriteTo, *m_PostingsInMemory[i]);
+				PostingIsWritten = true;
+			}
+			int j = m_PostingsOnDisk.size() - 1;
+			while (!PostingIsWritten && j >= 0)
+			{
+				PostingDiskDataInfo& CurrentInfo = m_PostingsOnDisk[j];
+				if (CurrentInfo.PostinglistFilePositions.find(i) != CurrentInfo.PostinglistFilePositions.end())
+				{
+					size_t PostingBegin = CurrentInfo.PostinglistFilePositions[i];
+					CurrentInfo.FileDataStream->seekp(PostingBegin);
+					size_t PostingEnd = (*(++CurrentInfo.PostinglistFilePositions.find(i))).second;
+					size_t BytesToCopy = PostingEnd - PostingBegin;
+					char* BytesToWrite =(char*) malloc(BytesToCopy);
+					CurrentInfo.FileDataStream->read(BytesToWrite, BytesToCopy);
+					FileToWriteTo.write(BytesToWrite, BytesToCopy);
+					free(BytesToWrite);
+					PostingIsWritten = true;
+				}
+			}
+		}
+		p_ClearFileData();
+		m_PostingsOnDisk.push_back(NewDataInfo);
+	}
+
+	std::shared_ptr<const PostingsList> PostingslistHandler::GetPostinglist(PostingListID IDToGet)
+	{
+		return(p_GetPostinglist(IDToGet));
+	}
+	void PostingslistHandler::AddPostinglist()
+	{
+		m_NumberOfPostings += 1;
+		PostingListID NewPostingID = NewPostingID;
+		m_PostingsInMemory[NewPostingID] = std::make_shared<PostingsList>();
+	}
+	void PostingslistHandler::UpdatePosting(PostingListID PostingListToUpdate, DocID TokenDocument, size_t TokenPosition)
+	{
+		std::shared_ptr<PostingsList> PostingToUpdate = p_GetPostinglist(PostingListToUpdate);
+		PostingToUpdate->AddPosting(TokenDocument, TokenPosition);
+	}
+	//END PostingsListHandler
 
 	//BEGIN MBIndex
 	//MBError UpdatePostings(std::vector<SearchToken> const& TokensToUpdate, std::string const& DocumentName);
@@ -781,22 +830,23 @@ namespace MBSearchEngine
 			else
 			{
 				m_TokenDictionary.AddNewToken(TokenData);
-				m_PostingsLists.push_back(PostingsList());
-				PostinglistToUpdate = m_PostingsLists.size() - 1;
+				//m_PostingsLists.push_back(PostingsList());
+				m_PostinglistHandler.AddPostinglist();
+				PostinglistToUpdate = m_PostinglistHandler.NumberOfPostings() - 1;
 			}
 			//if (TokenData == "iji")
 			//{
 			//	PostingsList& AssociatedList = this->GetPostinglist(m_TokenDictionary.GetTokenPosting(TokenData));
 			//	std::cout << "debug" << std::endl;
 			//}
-			m_PostingsLists[PostinglistToUpdate].AddPosting(DocumentID, i);
+			m_PostinglistHandler.UpdatePosting(PostinglistToUpdate,DocumentID, i);
 		}
 		//sorterar den på slutet så kanske aningen offektivt för storra arrays
 		return(ReturnValue);
 	}
-	PostingsList& MBIndex::GetPostinglist(PostingListID ID)
+	std::shared_ptr<const PostingsList> MBIndex::GetPostinglist(PostingListID ID)
 	{
-		return(m_PostingsLists[ID]);
+		return(m_PostinglistHandler.GetPostinglist(ID));
 	}
 	MBIndex::MBIndex(std::string const& IndexDataPath)
 	{
@@ -814,7 +864,8 @@ namespace MBSearchEngine
 			MBI_SaveVectorToFile<std::string>(OutFile, m_DocumentIDs);
 			MBI_SaveVectorToFile<DocumentIndexData>(OutFile, _DocumentIndexDataList);
 			MBI_SaveObjectToFile<TokenDictionary>(OutFile, m_TokenDictionary);
-			MBI_SaveVectorToFile(OutFile, m_PostingsLists);
+			//MBI_SaveVectorToFile(OutFile, m_PostingsLists);
+			MBI_SaveObjectToFile<PostingslistHandler>(OutFile, m_PostinglistHandler);
 		}
 		else
 		{
@@ -829,10 +880,25 @@ namespace MBSearchEngine
 		std::fstream InFile(SavedIndexFile, std::ios::binary | std::ios::in);
 		if (InFile.is_open())
 		{
+			clock_t Timer = clock();
 			m_DocumentIDs = MBI_ReadVectorFromFile<std::string>(InFile);
+			std::cout << "Reading Document ID's from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 			_DocumentIndexDataList = MBI_ReadVectorFromFile<DocumentIndexData>(InFile);
+			std::cout << "Reading DocumentIndexDataList from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 			m_TokenDictionary = MBI_ReadObjectFromFile<TokenDictionary>(InFile);
-			m_PostingsLists = MBI_ReadVectorFromFile<PostingsList>(InFile);
+			std::cout << "Reading tokendictionary from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
+			std::cout << "Bytes before postingslist: " << InFile.tellg()<<std::endl;
+			m_PostinglistHandler = MBI_ReadObjectFromFile<PostingslistHandler>(InFile);
+			m_PostinglistHandler.SetBaseFile(SavedIndexFile);
+			//std::vector<PostingsList> DEBUG_Lists = MBI_ReadVectorFromFile<PostingsList>(InFile);
+			//PostingsList& ListToCheck = DEBUG_Lists[79277];
+			//PostingsList& ListToCheck1 = DEBUG_Lists[79278];
+			//PostingsList& ListToCheck2 = DEBUG_Lists[79279];
+			std::cout << "Reading postingslist from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 		}
 		else
 		{
@@ -877,9 +943,9 @@ namespace MBSearchEngine
 		for (size_t i = 0; i < QuerryTokens.size(); i++)
 		{
 			PostingListID AssociatedPostingID = m_TokenDictionary.GetTokenPosting(QuerryTokens[i]);
-			PostingsList& PostList = GetPostinglist(AssociatedPostingID);
+			std::shared_ptr<const PostingsList> PostList = GetPostinglist(AssociatedPostingID);
 			float TermInverseDocumentFrequency = GetInverseDocumentFrequency(AssociatedPostingID);
-			for (Posting const& Postings : PostList)
+			for (Posting const& Postings : *PostList)
 			{
 				Result[Postings.DocumentReference].Score += TermInverseDocumentFrequency * Postings.NumberOfOccurances;
 			}
@@ -908,9 +974,9 @@ namespace MBSearchEngine
 		_DocumentIndexDataList = std::vector<DocumentIndexData>(m_DocumentIDs.size());
 		for (TokenDictionaryEntry const& DictionaryEntry : m_TokenDictionary)
 		{
-			PostingsList& AssociatedPosting = GetPostinglist(DictionaryEntry.PostingIndex);
+			std::shared_ptr<const PostingsList> AssociatedPosting = GetPostinglist(DictionaryEntry.PostingIndex);
 			float TokenInvertedFrequency = GetInverseDocumentFrequency(DictionaryEntry.PostingIndex);
-			for (Posting const& Postings : AssociatedPosting)
+			for (Posting const& Postings : *AssociatedPosting)
 			{
 				float Weight = TokenInvertedFrequency * Postings.NumberOfOccurances;
 				_DocumentIndexDataList[Postings.DocumentReference].DocumentLength += Weight*Weight ;
@@ -978,11 +1044,11 @@ namespace MBSearchEngine
 		for (auto DictionaryEntries : m_TokenDictionary)
 		{
 			std::cout << DictionaryEntries.TokenData << ":" << std::endl;
-			PostingsList const& TokenPostings = m_PostingsLists[DictionaryEntries.PostingIndex];
-			for (size_t i = 0; i < TokenPostings.size(); i++)
-			{
-				TokenPostings[i].Print();
-			}
+			//PostingsList const& TokenPostings = m_PostingsLists[DictionaryEntries.PostingIndex];
+			//for (size_t i = 0; i < TokenPostings.size(); i++)
+			//{
+			//	TokenPostings[i].Print();
+			//}
 		}
 	}
 	std::string MBIndex::GetDocumentIdentifier(DocID DocumentID)
@@ -992,7 +1058,8 @@ namespace MBSearchEngine
 	float MBIndex::GetInverseDocumentFrequency(PostingListID ID)
 	{
 		size_t TotalNumberOfDocuments = m_DocumentIDs.size();
-		float Result = std::log(double(TotalNumberOfDocuments) / double(m_PostingsLists[ID].GetDocumentFrequency()));
+		std::shared_ptr<const PostingsList> CurrentList = m_PostinglistHandler.GetPostinglist(ID);
+		float Result = std::log(double(TotalNumberOfDocuments) / double(CurrentList->GetDocumentFrequency()));
 		return(Result);
 	}
 	//END MBIndex

@@ -2,6 +2,7 @@
 //#include <MBSearchEngine/MBSearchEngine.h>
 #include <vector>
 #include <string>
+#include <assert.h>
 namespace MBSearchEngine
 {
 	template<typename T> void MBI_SaveObjectToFile(std::fstream& FileToSaveTo, T& IntegerToSave)
@@ -39,11 +40,25 @@ namespace MBSearchEngine
 		std::vector<T> ReturnValue = {};
 		//size_t TotalSize = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
 		size_t NumberOfElements = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		ReturnValue.reserve(NumberOfElements);
 		for (size_t i = 0; i < NumberOfElements; i++)
 		{
 			ReturnValue.push_back(MBI_ReadObjectFromFile<T>(FileToReadFrom));
 		}
 		return(ReturnValue);
+	}
+
+	template<typename T> void MBI_SkipObject(std::fstream& StreamToRead, T*)
+	{
+		assert(false);
+	}
+	template<typename T> void MBI_SkipVector(std::fstream& StreamToRead)
+	{
+		size_t ElementsToSkip = MBI_ReadObjectFromFile<size_t>(StreamToRead);
+		for (size_t i = 0; i < ElementsToSkip; i++)
+		{
+			MBI_SkipObject<T>(StreamToRead,nullptr);
+		}
 	}
 };
 
