@@ -2,6 +2,25 @@
 #include <MrBoboSockets.h>
 #include <TextReader.h>
 #include <cstring>
+//linux specifika grejer
+
+#ifdef __linux__
+#define _FILE_OFFSET_BITS = 64
+#include <sys/stat.h>
+#endif
+inline size_t MBGetFileSize(std::string const& PathToCheck)
+{
+#ifdef __linux__
+	struct stat64 FileStats;
+	stat64(PathToCheck.c_str(), &FileStats);
+	std::cout << size_t(FileStats.st_size) << std::endl;
+	return(FileStats.st_size);
+#else
+	return(std::filesystem::file_size(PathToCheck));
+#endif // __linux__
+}
+
+
 namespace MrPostOGet 
 {
 	class HTTPServer;
@@ -46,7 +65,8 @@ namespace MrPostOGet
 	inline std::string LoadWholeFile(std::string const& FilePath)
 	{
 		std::ifstream t(FilePath, std::ifstream::in | std::ifstream::binary);
-		size_t size = std::filesystem::file_size(FilePath);
+		//size_t size = std::filesystem::file_size(FilePath);
+		size_t size = MBGetFileSize(FilePath);
 		std::string FileDataBuffer(size, ' ');
 		t.read(&FileDataBuffer[0], size);
 		size_t ReadCharacters = t.gcount();
@@ -189,7 +209,8 @@ namespace MrPostOGet
 		std::string LoadWholeFile(std::string const& FilePath)
 		{
 			std::ifstream t(FilePath, std::ifstream::in | std::ifstream::binary);
-			size_t size = std::filesystem::file_size(FilePath);
+			//size_t size = std::filesystem::file_size(FilePath);
+			size_t size = MBGetFileSize(FilePath);
 			std::string FileDataBuffer(size, ' ');
 			t.read(&FileDataBuffer[0], size);
 			size_t ReadCharacters = t.gcount();
@@ -200,7 +221,8 @@ namespace MrPostOGet
 		{
 			std::string ReturnValue = "";
 			std::ifstream FileToRead(FilePath, std::ifstream::in | std::ifstream::binary);
-			size_t LastBytePosition = std::filesystem::file_size(FilePath) - 1;
+			//size_t LastBytePosition = std::filesystem::file_size(FilePath) - 1;
+			size_t LastBytePosition = MBGetFileSize(FilePath) - 1;
 			for (size_t i = 0; i < ByteRanges.size(); i++)
 			{
 				int NumberOfBytesToRead = ByteRanges[i].LastByte - ByteRanges[i].FirstByte;
@@ -239,7 +261,8 @@ namespace MrPostOGet
 			{
 				std::cout << ResourceExtension << std::endl;
 			}
-			if (std::filesystem::file_size(ResourcePath) > MaxDocumentInMemorySize || Byteranges.size() != 0)
+			//if (std::filesystem::file_size(ResourcePath) > MaxDocumentInMemorySize || Byteranges.size() != 0)
+			if (MBGetFileSize(ResourcePath) > MaxDocumentInMemorySize || Byteranges.size() != 0)
 			{
 				ReturnValue.DocumentDataFileReference = ResourcePath;
 				ReturnValue.IntervallsToRead = Byteranges;
