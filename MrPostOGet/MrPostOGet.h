@@ -4,22 +4,6 @@
 #include <cstring>
 //linux specifika grejer
 
-#ifdef __linux__
-#define _FILE_OFFSET_BITS = 64
-#include <sys/stat.h>
-#endif
-inline size_t MBGetFileSize(std::string const& PathToCheck)
-{
-#ifdef __linux__
-	struct stat64 FileStats;
-	stat64(PathToCheck.c_str(), &FileStats);
-	std::cout << size_t(FileStats.st_size) << std::endl;
-	return(FileStats.st_size);
-#else
-	return(std::filesystem::file_size(PathToCheck));
-#endif // __linux__
-}
-
 
 namespace MrPostOGet 
 {
