@@ -1050,11 +1050,13 @@ namespace MBSockets
 			//Request += "Transfer-Encoding: chunked";
 			if (DocumentToSend.IntervallsToRead.size() == 0)
 			{
-				Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+				//Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+				Request += std::to_string(MBGetFileSize(DocumentToSend.DocumentDataFileReference));
 			}
 			else
 			{
-				size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+				size_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
 				int TotalIntervallSize = 0;
 				for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
 				{
@@ -1321,7 +1323,8 @@ namespace MBSockets
 				: FileToRead(FilePath, std::ifstream::in | std::ifstream::binary)
 			{
 				IntervallsToRead = Intervalls;
-				FileSize = std::filesystem::file_size(FilePath);
+				//FileSize = std::filesystem::file_size(FilePath);
+				FileSize = MBGetFileSize(FilePath);
 				this->MaxDataInMemory = MaxDataInMemory;
 			}
 			std::string GetNextIntervall()
@@ -1378,7 +1381,8 @@ namespace MBSockets
 				HTTPDocument NewDocument = DocumentToSend;
 				int StartByte = NewDocument.IntervallsToRead[0].FirstByte;
 				int LastByte = NewDocument.IntervallsToRead[0].LastByte;
-				size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
+				//size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
+				size_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
 				if (StartByte == -1)
 				{
 					StartByte = FileSize - LastByte;
@@ -1407,7 +1411,8 @@ namespace MBSockets
 				if (DocumentInterValls.size() == 0)
 				{
 					//vi skapar intervall
-					size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+					//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+					size_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
 					size_t CurrentOffset = 0;
 					while (true)
 					{

@@ -1,8 +1,6 @@
 #pragma once
 #include <MrBoboSockets.h>
-#include <TextReader.h>
 #include <cstring>
-//linux specifika grejer
 
 
 namespace MrPostOGet 

@@ -1455,7 +1455,7 @@ std::string TLSHandler::GenerateServerCertificateRecord(std::string const& Domai
 		CertificatePath = TLSHandler::GetDefaultCertificate();
 	}
 	std::ifstream t(CertificatePath,std::ifstream::in|std::ifstream::binary);
-	size_t size = std::filesystem::file_size(CertificatePath);
+	size_t size = MBGetFileSize(CertificatePath);
 	std::string CertificateDataBuffer(size, ' ');
 	t.read(&CertificateDataBuffer[0], size);
 	size_t ReadCharacters = t.gcount();
