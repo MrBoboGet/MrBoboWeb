@@ -52,7 +52,7 @@ inline size_t MBGetFileSize(std::string const& PathToCheck)
 #ifdef __linux__
 	struct stat64 FileStats;
 	stat64(PathToCheck.c_str(), &FileStats);
-	std::cout << size_t(FileStats.st_size) << std::endl;
+	//std::cout << size_t(FileStats.st_size) << std::endl;
 	return(FileStats.st_size);
 #else
 	return(std::filesystem::file_size(PathToCheck));
@@ -1057,7 +1057,7 @@ namespace MBSockets
 			{
 				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
 				size_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
-				int TotalIntervallSize = 0;
+				size_t TotalIntervallSize = 0;
 				for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
 				{
 					if(DocumentToSend.IntervallsToRead[i].FirstByte == -1)
@@ -1379,8 +1379,8 @@ namespace MBSockets
 			{
 				//enkel range request med specifikt intervall
 				HTTPDocument NewDocument = DocumentToSend;
-				int StartByte = NewDocument.IntervallsToRead[0].FirstByte;
-				int LastByte = NewDocument.IntervallsToRead[0].LastByte;
+				size_t StartByte = NewDocument.IntervallsToRead[0].FirstByte;
+				size_t LastByte = NewDocument.IntervallsToRead[0].LastByte;
 				//size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
 				size_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
 				if (StartByte == -1)

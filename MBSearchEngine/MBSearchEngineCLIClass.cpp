@@ -110,7 +110,23 @@ namespace MBSearchEngine
 			std::vector<std::string> QuerryResult = {};
 			if (IsBoolean)
 			{
-				QuerryResult = IndexToSearch.EvaluteBooleanQuerry(UserInput.CommandArguments[1]);
+				BooleanQuerryIterator QuerryIterator = IndexToSearch.GetBooleanQuerryIterator(UserInput.CommandArguments[1]);
+				//QuerryResult = IndexToSearch.EvaluteBooleanQuerry(UserInput.CommandArguments[1]);
+				while (!QuerryIterator.HasEnded())
+				{
+					QuerryResult.push_back(IndexToSearch.GetDocumentIdentifier(*QuerryIterator));
+					QuerryIterator++;
+				}
+				//DEBUG
+				//std::vector<std::string> DEBUG_QuerryResult = {};
+				//BooleanQuerryIterator DEBUG_TestIterator = IndexToSearch.GetBooleanQuerryIterator(UserInput.CommandArguments[1]);
+				//while (!DEBUG_TestIterator.HasEnded())
+				//{
+				//	DocID CurrentID = *DEBUG_TestIterator;
+				//	DEBUG_QuerryResult.push_back(IndexToSearch.GetDocumentIdentifier(CurrentID));
+				//	DEBUG_TestIterator++;
+				//}
+				//assert(DEBUG_QuerryResult == QuerryResult);
 			}
 			else
 			{

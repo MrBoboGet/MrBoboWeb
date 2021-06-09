@@ -1,5 +1,6 @@
 #pragma once
 #include <MrBoboSockets.h>
+#include <TextReader.h>
 #include <cstring>
 
 

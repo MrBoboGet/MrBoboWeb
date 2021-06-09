@@ -138,6 +138,11 @@ namespace MBSearchEngine
 		while (CurrentParseOffset < QuerryToParse.size())
 		{
 			size_t NextStringBeginning = GetNextStringBeginning(QuerryToParse, CurrentParseOffset);
+			if (NextStringBeginning == CurrentParseOffset)
+			{
+				CurrentParseOffset = GetNextStringEnd(QuerryToParse, CurrentParseOffset)+1;
+				continue;
+			}
 			size_t NextAND = QuerryToParse.find(" AND ", CurrentParseOffset);
 			size_t NextOR = QuerryToParse.find(" OR ", CurrentParseOffset);
 			size_t NextOperator = std::min(NextAND, NextOR);
@@ -149,6 +154,11 @@ namespace MBSearchEngine
 			if (NextOperator < NextStringBeginning && NextOperator < QuerryToParse.size())
 			{
 				ReturnValue.push_back(NextOperator);
+			}
+			if (NextOperator > NextStringBeginning && NextOperator != QuerryToParse.npos)
+			{
+				CurrentParseOffset = GetNextStringEnd(QuerryToParse, NextStringBeginning)+1;
+				continue;
 			}
 			if (NextOperator == QuerryToParse.npos)
 			{

@@ -127,6 +127,7 @@ namespace MBSearchEngine
 		PostingsListIterator(const PostingsList*);
 	public:
 		PostingsListIterator(PostingsListIterator const& IteratorToCopy);
+		bool HasEnded();
 		bool operator==(PostingsListIterator const& RightIterator) const;
 		bool operator!=(PostingsListIterator const& RightIterator) const;
 		PostingsListIterator& operator++();
@@ -166,19 +167,72 @@ namespace MBSearchEngine
 	struct TopQuerry
 	{
 		bool IsAtomic = false;
+		bool IsNegated = false;
 		std::string FirstOperand = "";
 		BoleanBinaryOperator Operator = BoleanBinaryOperator::Null;
 		std::string SecondOperand = "";
 	};
 	class MBIndex;
+	class BooleanQuerry;
+	class BooleanQuerryIterator
+	{
+	private:
+		friend void swap(BooleanQuerryIterator& LeftIterator, BooleanQuerryIterator& RightIterator);
+		friend class MBIndex;
+		friend class BooleanQuerry;
+		bool m_IsFinished = false;
+		bool m_IsAtomic = false;
+		DocID m_NegatedDocIDIterator = 0;
+		bool m_IsNegated = false;
+		DocID m_MaxDocID = -1;
+		BoleanBinaryOperator m_BinaryOperator = BoleanBinaryOperator::Null;
+		BooleanQuerryIterator* m_LeftOperand = nullptr;
+		BooleanQuerryIterator* m_RightOperand = nullptr;
+		DocID CurrentValue = -1;
+		//ANTAGANDE har något fler en 1 ord är det en phrase querry
+		std::vector<std::shared_ptr<const PostingsList>> m_AssociatedPostings = {};
+		std::vector<PostingsListIterator> m_QuerryWordIterator = {};
+		BooleanQuerryIterator(BooleanQuerry const& InitialQuerry,MBIndex& AssociatedIndex);
+
+		void p_IterateToNextCommonDocument(std::vector<PostingsListIterator>& IteratorToProcess);
+		void p_IncrementPostingListIterators(std::vector<PostingsListIterator>& IteratorsToIncrement);
+		bool p_PhraseIsInDocument(std::vector<PostingsListIterator>& IteratorsToCheck);
+		bool p_IteratorsAreValid(std::vector<PostingsListIterator>& IteratorsToCheck);
+		
+		void p_AtomicIncrement();
+		void p_NonAtomicIncrement();
+
+		void p_IncrementOperands();
+		void p_Union_IterateToNext(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator);
+		void p_Disjunction_IterateToNext(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator);
+		void p_Union_Increment(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator);
+		void p_Disjuntion_Increment(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator);
+
+		void Increment();
+	public:
+		bool HasEnded() { return(m_IsFinished); }
+		BooleanQuerryIterator();
+		BooleanQuerryIterator(BooleanQuerryIterator&&);
+		BooleanQuerryIterator(BooleanQuerryIterator const&);
+		~BooleanQuerryIterator();
+		BooleanQuerryIterator& operator=(BooleanQuerryIterator);
+		bool operator==(BooleanQuerryIterator const& RightIterator) const;
+		bool operator!=(BooleanQuerryIterator const& RightIterator) const;
+		BooleanQuerryIterator& operator++();
+		BooleanQuerryIterator& operator++(int);
+		DocID operator*();
+		DocID operator->();
+	};
 	class BooleanQuerry
 	{
+		friend class BooleanQuerryIterator;
 	private:
 		MBError m_ParseStatus = MBError(true);
 		bool m_IsAtomic = false;
 		std::string m_QuerryString = "";
 		BoleanBinaryOperator m_BinaryOperator = BoleanBinaryOperator::Null;
 		std::vector<BooleanQuerry> m_SubQuerries = {};
+		bool m_Negated = false;
 		TopQuerry GetSubquerries(std::string const& QuerryToEvaluate);
 		std::vector<DocID> EvaluateWordQuerry(MBIndex& Index,std::string const& Querry);
 		std::vector<DocID> EvaluatePhraseQuerry(MBIndex& Index,std::string const& QuerryToEvaluate);
@@ -191,6 +245,8 @@ namespace MBSearchEngine
 		{
 			return(m_ParseStatus.ErrorMessage);
 		}
+		BooleanQuerryIterator begin(MBIndex& AssociatedIndex);
+		BooleanQuerryIterator end(MBIndex& AssociatedIndex);
 		BooleanQuerry(std::string const& QuerryToParse);
 		std::vector<DocID> Evaluate(MBIndex&);
 	};
@@ -224,7 +280,7 @@ namespace MBSearchEngine
 		friend void MBI_SaveObjectToFile<PostingslistHandler>(std::fstream&, PostingslistHandler&);
 		friend PostingslistHandler MBI_ReadObjectFromFile<PostingslistHandler>(std::fstream&);
 	private:
-		static constexpr size_t MaxPostingsToRead = 10000;
+		static constexpr size_t MaxPostingsToRead = 0;
 		std::vector<PostingDiskDataInfo> m_PostingsOnDisk = {};
 		size_t m_NumberOfPostings = 0;
 		std::map<PostingListID, std::shared_ptr<PostingsList>> m_PostingsInMemory = {};
@@ -248,6 +304,7 @@ namespace MBSearchEngine
 	class MBIndex
 	{
 		friend class BooleanQuerry;
+		friend class BooleanQuerryIterator;
 	private:
 		std::vector<std::string> m_DocumentIDs = {};
 		std::vector<DocumentIndexData> _DocumentIndexDataList = {};
@@ -261,18 +318,20 @@ namespace MBSearchEngine
 		//MBError UpdatePostings(std::vector<SearchToken> const& TokensToUpdate, std::string const& DocumentName);
 		MBError UpdatePostings(std::vector<TokenClass> const& DocumentTokens, DocID DocumentID);
 		std::shared_ptr<const PostingsList> GetPostinglist(PostingListID ID);
-		std::string GetDocumentIdentifier(DocID DocumentID);
+		PostingListID p_GetPostingListID(std::string const& TokenToEvaluate);
 
 		DocumentIndexData m_GetDocumentIndexData(DocID ID);
 		void m_CalculateDocumentLengths();
 	public:
 		//MBError AddTextData(std::string const& TextData);
+		std::string GetDocumentIdentifier(DocID DocumentID);
 		float GetInverseDocumentFrequency(PostingListID ID);
 		MBIndex(std::string const& IndexDataPath);
 		MBIndex();
 		void Finalize();
 		MBError Save(std::string const& OutFilename);
 		MBError Load(std::string const& SavedIndexFile);
+		BooleanQuerryIterator GetBooleanQuerryIterator(std::string const& BooleanQuerryToEvaluate);
 		std::vector<std::string> EvaluteBooleanQuerry(std::string const& BooleanQuerryToEvaluate);
 		std::vector<std::string> EvaluteVectorModelQuerry(std::string const& VectorModelQuerry);
 		MBError IndextTextData(std::string const& TextData, std::string const& DocumentIdentifier);

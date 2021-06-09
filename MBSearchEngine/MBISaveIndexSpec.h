@@ -102,6 +102,50 @@ namespace MBSearchEngine
 		return(*((float*)&ReturnValue));
 	}
 };
+//fixed width integer grejer
+
+namespace MBSearchEngine
+{
+	inline uintmax_t MBI_ReadFixedSizeInteger(std::fstream& FileToReadFrom, char IntegerWidth)
+	{
+		uintmax_t ReturnValue = 0;
+		char ReadBuffer[sizeof(uintmax_t) / 8];
+		FileToReadFrom.read(ReadBuffer, IntegerWidth);
+		for (size_t i = 0; i < IntegerWidth; i++)
+		{
+			ReturnValue += (((unsigned char)ReadBuffer[i]) << (i * 8));
+		}
+		return(ReturnValue);
+	}
+	inline void MBI_SaveFixedSizeInteger(std::fstream& FileToSaveTo, uintmax_t IntegerToSave, char NumberOfBytes)
+	{
+		char ArrayToWrite[sizeof(uintmax_t) / 8];
+		for (size_t i = 0; i < NumberOfBytes; i++)
+		{
+			ArrayToWrite[i] = IntegerToSave & (255);
+			IntegerToSave >>= 8;
+		}
+		FileToSaveTo.write(ArrayToWrite, NumberOfBytes);
+	}
+	inline void MBI_ReadFixedSizeIntegerArray(std::fstream& FileToReadFrom, void* Buffer, size_t NumberOfElements, char IntegerWidth)
+	{
+		size_t BufferOffset = 0;
+		for (size_t i = 0; i < NumberOfElements; i++)
+		{
+			uintmax_t CurrentInteger = MBI_ReadFixedSizeInteger(FileToReadFrom, IntegerWidth);
+			memcpy(&(static_cast<char*>(Buffer)[BufferOffset]), &CurrentInteger, IntegerWidth);
+			BufferOffset += IntegerWidth;
+		}
+	}
+	inline void MBI_ReadFixedSizeIntegerArray(std::fstream& FileToReadFrom, void* Buffer, char IntegerWidth)
+	{
+		size_t NumberOfElements = MBI_ReadObjectFromFile<size_t>(FileToReadFrom);
+		MBI_ReadFixedSizeIntegerArray(FileToReadFrom, Buffer, NumberOfElements, IntegerWidth);
+	}
+};
+
+
+
 
 //specifika för MBSearchEngine.h
 namespace MBSearchEngine
@@ -236,7 +280,11 @@ namespace MBSearchEngine
 		NewDiskDataInfo.IsTemporaryFile = false;
 		for (size_t i = 0; i < NumberOfPostings; i++)
 		{
-			NewDiskDataInfo.PostinglistFilePositions[i] = FileToReadFrom.tellg();
+			NewDiskDataInfo.PostinglistFilePositions[i] = MBI_ReadFixedSizeInteger(FileToReadFrom, 4);
+		}
+		for (size_t i = 0; i < NumberOfPostings; i++)
+		{
+			//NewDiskDataInfo.PostinglistFilePositions[i] = FileToReadFrom.tellg();
 			if (i < PostingslistHandler::MaxPostingsToRead)
 			{
 				PostingsList* NewMemory = new PostingsList();
@@ -245,8 +293,12 @@ namespace MBSearchEngine
 			}
 			else
 			{
-				MBI_SkipObject<PostingsList>(FileToReadFrom,nullptr);
+				break;
 			}
+			//else
+			//{
+			//	MBI_SkipObject<PostingsList>(FileToReadFrom,nullptr);
+			//}
 		}
 		ReturnValue.m_PostingsOnDisk.push_back(NewDiskDataInfo);
 		return(ReturnValue);

@@ -59,6 +59,485 @@ namespace MBSearchEngine
 	}
 	//END Searchtoken
 
+	//BEGIN BooleanQuerryIterator
+		//bool m_IsFinished = false;
+		//bool m_IsAtomic = false;
+		//BoleanBinaryOperator m_BinaryOperator = BoleanBinaryOperator::Null;
+		//BooleanQuerryIterator* m_LeftOperand = nullptr;
+		//BooleanQuerryIterator* m_RightOperand = nullptr;
+		//std::vector<std::shared_ptr<const PostingsList>> m_AssociatedPostings = {};
+		//std::vector<PostingsListIterator> m_QuerryWordIterator = {};
+	void swap(BooleanQuerryIterator& LeftIterator, BooleanQuerryIterator& RightIterator)
+	{
+		std::swap(LeftIterator.m_IsNegated, RightIterator.m_IsNegated);
+		std::swap(LeftIterator.m_NegatedDocIDIterator, RightIterator.m_NegatedDocIDIterator);
+		std::swap(LeftIterator.CurrentValue, RightIterator.CurrentValue);
+		std::swap(LeftIterator.m_IsFinished, RightIterator.m_IsFinished);
+		std::swap(LeftIterator.m_IsAtomic, RightIterator.m_IsAtomic);
+		std::swap(LeftIterator.m_BinaryOperator, RightIterator.m_BinaryOperator);
+		std::swap(LeftIterator.m_LeftOperand, RightIterator.m_LeftOperand);
+		std::swap(LeftIterator.m_RightOperand, RightIterator.m_RightOperand);
+		std::swap(LeftIterator.m_AssociatedPostings, RightIterator.m_AssociatedPostings);
+		std::swap(LeftIterator.m_QuerryWordIterator, RightIterator.m_QuerryWordIterator);
+		std::swap(LeftIterator.m_MaxDocID, RightIterator.m_MaxDocID);
+	}
+	BooleanQuerryIterator::BooleanQuerryIterator() 
+	{
+		m_IsFinished = true;
+	}
+	BooleanQuerryIterator::BooleanQuerryIterator(BooleanQuerry const& InitialQuerry,MBIndex& AssociatedIndex)
+	{
+		m_MaxDocID = AssociatedIndex.m_PostinglistHandler.NumberOfPostings();
+		m_BinaryOperator = InitialQuerry.m_BinaryOperator;
+		m_IsNegated = InitialQuerry.m_Negated;
+		if (InitialQuerry.m_IsAtomic)
+		{
+			m_IsAtomic = true;
+			//mer grejer här
+			if (InitialQuerry.m_QuerryString[0] == '\"')
+			{
+				//phrase querry
+				std::vector<std::string> WordsInPhrase = MBUtility::Split(InitialQuerry.m_QuerryString.substr(1, InitialQuerry.m_QuerryString.size() - 2)," ");
+				for (size_t i = 0; i < WordsInPhrase.size(); i++)
+				{
+					PostingListID CurrentID = AssociatedIndex.p_GetPostingListID(WordsInPhrase[i]);
+					std::shared_ptr<const PostingsList> NewPostinglist;
+					if (CurrentID != -1)
+					{
+						NewPostinglist = AssociatedIndex.GetPostinglist(CurrentID);
+					}
+					else
+					{
+						NewPostinglist = std::make_shared<const PostingsList>();
+					}
+					m_QuerryWordIterator.push_back(NewPostinglist->begin());
+					m_AssociatedPostings.push_back(NewPostinglist);
+				}
+			}
+			else
+			{
+				PostingListID CurrentID = AssociatedIndex.p_GetPostingListID(InitialQuerry.m_QuerryString);
+				std::shared_ptr<const PostingsList> NewPostinglist;
+				if (CurrentID != -1)
+				{
+					NewPostinglist = AssociatedIndex.GetPostinglist(CurrentID);
+				}
+				else
+				{
+					NewPostinglist = std::make_shared<const PostingsList>();
+				}
+				m_QuerryWordIterator.push_back(NewPostinglist->begin());
+				m_AssociatedPostings.push_back(NewPostinglist);
+			}
+		}
+		else
+		{
+			m_IsAtomic = false;
+			m_LeftOperand = new BooleanQuerryIterator(InitialQuerry.m_SubQuerries[0],AssociatedIndex);
+			m_RightOperand = new BooleanQuerryIterator(InitialQuerry.m_SubQuerries[1],AssociatedIndex);
+		}
+		Increment();
+	}
+	BooleanQuerryIterator::BooleanQuerryIterator(BooleanQuerryIterator&& ObjectToSteal)
+	{
+		swap(*this, ObjectToSteal);
+	}
+	BooleanQuerryIterator::BooleanQuerryIterator(BooleanQuerryIterator const& ObjectToCopy)
+	{
+		m_IsFinished = ObjectToCopy.m_IsFinished;
+		m_IsAtomic = ObjectToCopy.m_IsAtomic;
+		m_NegatedDocIDIterator = ObjectToCopy.m_NegatedDocIDIterator;
+		m_IsNegated = ObjectToCopy.m_IsNegated;
+		m_BinaryOperator = ObjectToCopy.m_BinaryOperator;
+		CurrentValue = ObjectToCopy.CurrentValue;
+		m_AssociatedPostings = ObjectToCopy.m_AssociatedPostings;
+		m_QuerryWordIterator = ObjectToCopy.m_QuerryWordIterator;
+		m_MaxDocID = ObjectToCopy.m_MaxDocID;
+		if (ObjectToCopy.m_LeftOperand != nullptr)
+		{
+			//om en är det är båda det
+			m_LeftOperand = new BooleanQuerryIterator(*ObjectToCopy.m_LeftOperand);
+			m_RightOperand = new BooleanQuerryIterator(*ObjectToCopy.m_RightOperand);
+		}
+	}
+	BooleanQuerryIterator::~BooleanQuerryIterator()
+	{
+		delete m_LeftOperand;
+		delete m_RightOperand;
+	}
+	BooleanQuerryIterator& BooleanQuerryIterator::operator=(BooleanQuerryIterator NewObject)
+	{
+		swap(*this, NewObject);
+		return(*this);
+	}
+	bool BooleanQuerryIterator::operator==(BooleanQuerryIterator const& RightIterator) const
+	{
+		if (m_IsFinished == true && RightIterator.m_IsFinished == true)
+		{
+			return(true);
+		}
+		bool ReturnValue = true;
+		if ((m_LeftOperand == nullptr && RightIterator.m_LeftOperand != nullptr) || (m_LeftOperand != nullptr && RightIterator.m_LeftOperand == nullptr))
+		{
+			return(false);
+		}
+		if ((m_RightOperand == nullptr && RightIterator.m_RightOperand != nullptr) || (m_RightOperand != nullptr && RightIterator.m_RightOperand == nullptr))
+		{
+			return(false);
+		}
+		ReturnValue = ReturnValue && (m_IsFinished == RightIterator.m_IsFinished);
+		ReturnValue = ReturnValue && (m_IsAtomic == RightIterator.m_IsAtomic);
+		ReturnValue = ReturnValue && (m_NegatedDocIDIterator == RightIterator.m_NegatedDocIDIterator);
+		ReturnValue = ReturnValue && (m_IsNegated == RightIterator.m_IsNegated);
+		ReturnValue = ReturnValue && (m_BinaryOperator == RightIterator.m_BinaryOperator);
+		ReturnValue = ReturnValue && (CurrentValue == RightIterator.CurrentValue);
+		ReturnValue = ReturnValue && (m_AssociatedPostings == RightIterator.m_AssociatedPostings);
+		ReturnValue = ReturnValue && (m_QuerryWordIterator == RightIterator.m_QuerryWordIterator);
+		ReturnValue = ReturnValue && (m_MaxDocID == RightIterator.m_MaxDocID);
+		if (m_LeftOperand != nullptr)
+		{
+			//om en äär det är båda det
+			ReturnValue = ReturnValue && (*m_LeftOperand == *RightIterator.m_LeftOperand);
+			ReturnValue = ReturnValue && (*m_RightOperand == *RightIterator.m_RightOperand);
+		}
+		return(ReturnValue);
+	}
+	bool BooleanQuerryIterator::operator!=(BooleanQuerryIterator const& RightIterator) const
+	{
+		return(!(*this == RightIterator));
+	}
+	//ändrar current value
+	void BooleanQuerryIterator::p_IterateToNextCommonDocument(std::vector<PostingsListIterator>& IteratorToProcess)
+	{
+		size_t IteratorToCompareIndex = 0;
+		while (p_IteratorsAreValid(IteratorToProcess))
+		{
+			DocID LeftValue = (*IteratorToProcess[IteratorToCompareIndex]).DocumentReference;
+			DocID RightValue = (*IteratorToProcess[IteratorToCompareIndex + 1]).DocumentReference;
+			if (LeftValue == RightValue)
+			{
+				IteratorToCompareIndex += 1;
+				if (IteratorToCompareIndex == IteratorToProcess.size()-1)
+				{
+					return;
+				}
+			}
+			else if (LeftValue > RightValue)
+			{
+				IteratorToProcess[IteratorToCompareIndex + 1]++;
+			}
+			else
+			{
+				IteratorToCompareIndex = 0;
+				IteratorToProcess[0]++;
+			}
+		}
+	}
+	void BooleanQuerryIterator::p_IncrementPostingListIterators(std::vector<PostingsListIterator>& IteratorsToIncrement)
+	{
+		for (size_t i = 0; i < IteratorsToIncrement.size(); i++)
+		{
+			IteratorsToIncrement[i]++;
+		}
+	}
+	bool hf_IteratorsAreValid(std::vector<std::vector<int>::const_iterator>& IteratorsToCheck, std::vector<std::vector<int>::const_iterator>& EndIterators)
+	{
+		bool ReturnValue = true;
+		for (size_t i = 0; i < IteratorsToCheck.size(); i++)
+		{
+			if (IteratorsToCheck[i] == EndIterators[i])
+			{
+				ReturnValue = false;
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+	bool BooleanQuerryIterator::p_PhraseIsInDocument(std::vector<PostingsListIterator>& IteratorsToCheck)
+	{
+		if (!p_IteratorsAreValid(IteratorsToCheck))
+		{
+			return(false);
+		}
+		std::vector<std::vector<int>::const_iterator> PositionIterators = {};
+		std::vector<std::vector<int>::const_iterator> EndIterators = {};
+		for (size_t i = 0; i < IteratorsToCheck.size(); i++)
+		{
+			PositionIterators.push_back((*IteratorsToCheck[i]).m_DocumentPositions.begin());
+			EndIterators.push_back((*IteratorsToCheck[i]).m_DocumentPositions.end());
+		}
+		size_t IteratorToCompareIndex = 0;
+		while (hf_IteratorsAreValid(PositionIterators,EndIterators))
+		{
+			int LeftValue = (*PositionIterators[IteratorToCompareIndex]);
+			int RightValue = *PositionIterators[IteratorToCompareIndex + 1];
+			if (LeftValue == RightValue-1)
+			{
+				IteratorToCompareIndex += 1;
+				if (IteratorToCompareIndex == PositionIterators.size()-1)
+				{
+					return(true);
+				}
+			}
+			else if (LeftValue > RightValue-1)
+			{
+				PositionIterators[IteratorToCompareIndex + 1]++;
+			}
+			else
+			{
+				IteratorToCompareIndex = 0;
+				PositionIterators[0]++;
+			}
+		}
+		return(false);
+	}
+	bool BooleanQuerryIterator::p_IteratorsAreValid(std::vector<PostingsListIterator>& IteratorsToCheck)
+	{
+		bool ReturnValue = true;
+		for (size_t i = 0; i < IteratorsToCheck.size(); i++)
+		{
+			if (IteratorsToCheck[i].HasEnded())
+			{
+				ReturnValue = false;
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+	void BooleanQuerryIterator::p_AtomicIncrement()
+	{
+		while (true)
+		{
+			if (m_AssociatedPostings.size() == 1)
+			{
+				if (m_QuerryWordIterator[0].HasEnded() && !m_IsNegated)
+				{
+					m_IsFinished = true;
+					CurrentValue = -1;
+					break;
+				}
+				DocID NewValue = -1;
+				if (!m_QuerryWordIterator[0].HasEnded())
+				{
+					NewValue = (*m_QuerryWordIterator[0]).DocumentReference;
+				}
+				if (!m_IsNegated)
+				{
+					CurrentValue = NewValue;
+					(m_QuerryWordIterator[0])++;
+					break;
+				}
+				else
+				{
+					if (m_NegatedDocIDIterator >= m_MaxDocID)
+					{
+						CurrentValue = -1;
+						m_IsFinished = true;
+					}
+					if (NewValue != m_NegatedDocIDIterator)
+					{
+						CurrentValue = m_NegatedDocIDIterator;
+						m_NegatedDocIDIterator += 1;
+						break;
+					}
+					else
+					{
+						m_NegatedDocIDIterator = NewValue + 1;
+						m_QuerryWordIterator[0]++;
+					}
+				}
+			}
+			else
+			{
+				DocID NewValue = -1;
+				bool NewValueSet = false;
+				while (p_IteratorsAreValid(m_QuerryWordIterator))
+				{
+					p_IterateToNextCommonDocument(m_QuerryWordIterator);
+					if (p_PhraseIsInDocument(m_QuerryWordIterator))
+					{
+						NewValueSet = true;
+						NewValue = (*m_QuerryWordIterator[0]).DocumentReference;
+						if (!m_IsNegated)
+						{
+							p_IncrementPostingListIterators(m_QuerryWordIterator);
+						}
+						break;
+					}
+					p_IncrementPostingListIterators(m_QuerryWordIterator);
+				}
+				if (!p_IteratorsAreValid(m_QuerryWordIterator) && NewValueSet == false && !m_IsNegated)
+				{
+					CurrentValue = -1;
+					m_IsFinished = true;
+					break;
+				}
+				if (m_IsNegated)
+				{
+					if (m_NegatedDocIDIterator >= m_MaxDocID)
+					{
+						CurrentValue = -1;
+						m_IsFinished = true;
+						break;
+					}
+					if (NewValue != m_NegatedDocIDIterator)
+					{
+						CurrentValue = m_NegatedDocIDIterator;
+						m_NegatedDocIDIterator += 1;
+						break;
+					}
+					else
+					{
+						m_NegatedDocIDIterator = NewValue + 1;
+						p_IncrementPostingListIterators(m_QuerryWordIterator);
+					}
+				}
+				else
+				{
+					CurrentValue = NewValue;
+					break;
+				}
+			}
+		}
+	}
+	void BooleanQuerryIterator::p_Union_IterateToNext(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator)
+	{
+		while (!LeftIterator->HasEnded() && !RightIterator->HasEnded())
+		{
+			DocID LeftIteratorValue = **LeftIterator;
+			DocID RightITeratorValue = **RightIterator;
+			if (LeftIteratorValue == RightITeratorValue)
+			{
+				return;
+			}
+			else if(LeftIteratorValue < RightITeratorValue)
+			{
+				(*LeftIterator)++;
+			}
+			else
+			{
+				(*RightIterator)++;
+			}
+		}
+	}
+	void BooleanQuerryIterator::p_Disjunction_IterateToNext(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator)
+	{
+		return;
+	}
+	void BooleanQuerryIterator::p_Union_Increment(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator)
+	{
+		(*LeftIterator)++;
+		(*RightIterator)++;
+	}
+	void BooleanQuerryIterator::p_Disjuntion_Increment(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator)
+	{
+		if (**LeftIterator < **RightIterator)
+		{
+			(*LeftIterator)++;
+		}
+		else if(**LeftIterator > **RightIterator)
+		{
+			(*RightIterator)++;
+		}
+		else
+		{
+			(*LeftIterator)++;
+			(*RightIterator)++;
+		}
+	}
+	void BooleanQuerryIterator::p_IncrementOperands()
+	{
+		if (m_BinaryOperator == BoleanBinaryOperator::AND)
+		{
+			p_Union_Increment(m_LeftOperand, m_RightOperand);
+		}
+		else
+		{
+			p_Disjuntion_Increment(m_LeftOperand, m_RightOperand);
+		}
+	}
+	void BooleanQuerryIterator::p_NonAtomicIncrement()
+	{
+		while (true)
+		{
+			DocID NewValue = -1;
+			if (m_BinaryOperator == BoleanBinaryOperator::AND)
+			{
+				p_Union_IterateToNext(m_LeftOperand, m_RightOperand);
+			}
+			DocID LeftCurrentValue = **m_LeftOperand;
+			DocID RightCurrentValue = **m_RightOperand;
+			NewValue = std::min(LeftCurrentValue, RightCurrentValue);
+			if (!m_IsNegated)
+			{
+				if (m_LeftOperand->HasEnded() && m_RightOperand->HasEnded() || ((m_LeftOperand->HasEnded() || m_RightOperand->HasEnded()) && m_BinaryOperator == BoleanBinaryOperator::AND))
+				{
+					CurrentValue = -1;
+					m_IsFinished = true;
+					break;
+				}
+				CurrentValue = NewValue;
+				p_IncrementOperands();
+				break;
+			}
+			else
+			{
+				if (m_NegatedDocIDIterator >= m_MaxDocID)
+				{
+					CurrentValue = -1;
+					m_IsFinished = true;
+					break;
+				}
+				if (NewValue != m_NegatedDocIDIterator)
+				{
+					CurrentValue = m_NegatedDocIDIterator;
+					m_NegatedDocIDIterator += 1;
+					break;
+				}
+				else
+				{
+					m_NegatedDocIDIterator = NewValue + 1;
+					p_IncrementOperands();
+				}
+			}
+		}
+	}
+	void BooleanQuerryIterator::Increment()
+	{
+		if (HasEnded())
+		{
+			return;
+		}
+		if (m_IsAtomic)
+		{
+			p_AtomicIncrement();
+		}
+		else
+		{
+			p_NonAtomicIncrement();
+		}
+	}
+	BooleanQuerryIterator& BooleanQuerryIterator::operator++()
+	{
+		Increment();
+		return(*this);
+	}
+	BooleanQuerryIterator& BooleanQuerryIterator::operator++(int)
+	{
+		Increment();
+		return(*this);
+	}
+	DocID BooleanQuerryIterator::operator*()
+	{
+		return(CurrentValue);
+	}
+	DocID BooleanQuerryIterator::operator->()
+	{
+		return(CurrentValue);
+	}
+	//END BooleanQuerryIterator
+
+
 	//BooleanQuerry
 	TopQuerry BooleanQuerry::GetSubquerries(std::string const& QuerryToEvaluate)
 	{
@@ -68,6 +547,10 @@ namespace MBSearchEngine
 		if (OperatorPositions.size() == 0)
 		{
 			ReturnValue.IsAtomic = true;
+			if (QuerryToEvaluate.substr(0, 4) == "NOT ")
+			{
+				ReturnValue.IsNegated = true;
+			}
 			return(ReturnValue);
 		}
 		std::vector<int> OperatorDepth = std::vector<int>(OperatorPositions.size());
@@ -105,6 +588,10 @@ namespace MBSearchEngine
 				LowestDepthOperatorPosition = OperatorPositions[i];
 			}
 		}
+		if (LowestDetph != 0 && QuerryToParse.substr(0, 4) == "NOT ")
+		{
+			ReturnValue.IsNegated = true;
+		}
 		int OperatorLength = 0;
 		if (GetLogicOperator(QuerryToParse, LowestDepthOperatorPosition) == "AND")
 		{
@@ -121,6 +608,14 @@ namespace MBSearchEngine
 		ReturnValue.SecondOperand = RemoveRedundatParenthesis(QuerryToParse.substr(LowestDepthOperatorPosition + OperatorLength));
 		return(ReturnValue);
 	}
+	BooleanQuerryIterator BooleanQuerry::begin(MBIndex& AssociatedIndex)
+	{
+		return(BooleanQuerryIterator(*this, AssociatedIndex));
+	}
+	BooleanQuerryIterator BooleanQuerry::end(MBIndex& AssociatedIndex)
+	{
+		return(BooleanQuerryIterator());
+	}
 	BooleanQuerry::BooleanQuerry(std::string const& QuerryToParse)
 	{
 		TopQuerry Querry = GetSubquerries(QuerryToParse);
@@ -129,10 +624,18 @@ namespace MBSearchEngine
 			//error hände, slut med resten
 			return;
 		}
+		m_Negated = Querry.IsNegated;
 		if (Querry.IsAtomic)
 		{
 			m_IsAtomic = true;
-			m_QuerryString = QuerryToParse;
+			if (!m_Negated)
+			{
+				m_QuerryString = QuerryToParse;
+			}
+			else
+			{
+				m_QuerryString = RemoveRedundatParenthesis(RemoveRedundatParenthesis(QuerryToParse).substr(4));
+			}
 		}
 		else
 		{
@@ -583,6 +1086,10 @@ namespace MBSearchEngine
 		m_ListReference = IteratorToCopy.m_ListReference;
 		m_PostingsListOffset = IteratorToCopy.m_PostingsListOffset;
 	}
+	bool PostingsListIterator::HasEnded()
+	{
+		return(m_PostingsListOffset >= m_ListReference->size());
+	}
 	bool PostingsListIterator::operator==(PostingsListIterator const& RightIterator) const
 	{
 		return(m_PostingsListOffset == RightIterator.m_PostingsListOffset);
@@ -610,7 +1117,7 @@ namespace MBSearchEngine
 		return((*m_ListReference)[m_PostingsListOffset]);
 	}
 	//END PostingsListIterator
-
+	
 	//Begin PostingsList
 	void PostingsList::AddPosting(DocID DocumentID, int TokenPosition)
 	{
@@ -762,6 +1269,12 @@ namespace MBSearchEngine
 		PostingDiskDataInfo NewDataInfo;
 		NewDataInfo.DiskDataFilepath = "";
 		NewDataInfo.IsTemporaryFile = false;
+		size_t PostingsCount = NumberOfPostings();
+		size_t PostingsPositionArryPosition = FileToWriteTo.tellp();
+		for (size_t i = 0; i < PostingsCount; i++)
+		{
+			MBI_SaveFixedSizeInteger(FileToWriteTo, 0, 4);
+		}
 		for (size_t i = 0; i < m_NumberOfPostings; i++)
 		{
 			//ANTAGANDE filen i minne är mest uppdaterad, sedan är det senaste filen på disk
@@ -792,6 +1305,14 @@ namespace MBSearchEngine
 		}
 		p_ClearFileData();
 		m_PostingsOnDisk.push_back(NewDataInfo);
+		//nu uppdaterar vi listan
+		size_t LastWritePosition = FileToWriteTo.tellg();
+		FileToWriteTo.seekp(PostingsPositionArryPosition);
+		for (size_t i = 0; i < PostingsCount; i++)
+		{
+			MBI_SaveFixedSizeInteger(FileToWriteTo, NewDataInfo.PostinglistFilePositions[i], 4);
+		}
+		FileToWriteTo.seekp(LastWritePosition);
 	}
 
 	std::shared_ptr<const PostingsList> PostingslistHandler::GetPostinglist(PostingListID IDToGet)
@@ -845,6 +1366,11 @@ namespace MBSearchEngine
 		//sorterar den på slutet så kanske aningen offektivt för storra arrays
 		return(ReturnValue);
 	}
+	PostingListID MBIndex::p_GetPostingListID(std::string const& TokenToEvaluate)
+	{
+		return(m_TokenDictionary.GetTokenPosting(TokenToEvaluate));
+	}
+
 	std::shared_ptr<const PostingsList> MBIndex::GetPostinglist(PostingListID ID)
 	{
 		return(m_PostinglistHandler.GetPostinglist(ID));
@@ -862,11 +1388,20 @@ namespace MBSearchEngine
 		std::fstream OutFile(OutFilename, std::ios::binary | std::ios::out);
 		if (OutFile.is_open())
 		{
+			clock_t Timer = clock();
 			MBI_SaveVectorToFile<std::string>(OutFile, m_DocumentIDs);
+			std::cout << "Saving Document time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 			MBI_SaveVectorToFile<DocumentIndexData>(OutFile, _DocumentIndexDataList);
+			std::cout << "Saving index data time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 			MBI_SaveObjectToFile<TokenDictionary>(OutFile, m_TokenDictionary);
+			std::cout << "Saving token dictionary time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 			//MBI_SaveVectorToFile(OutFile, m_PostingsLists);
 			MBI_SaveObjectToFile<PostingslistHandler>(OutFile, m_PostinglistHandler);
+			std::cout << "Saving posting handler time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			Timer = clock();
 		}
 		else
 		{
@@ -907,6 +1442,11 @@ namespace MBSearchEngine
 			ReturnValue.ErrorMessage = "Cant open file";
 		}
 		return(ReturnValue);
+	}
+	BooleanQuerryIterator MBIndex::GetBooleanQuerryIterator(std::string const& BooleanQuerryToEvaluate)
+	{
+		BooleanQuerry ProcessedQuerry(BooleanQuerryToEvaluate);
+		return(BooleanQuerryIterator(ProcessedQuerry,*this));
 	}
 	std::vector<std::string>  MBIndex::EvaluteBooleanQuerry(std::string const& BooleanQuerryToEvaluate)
 	{
