@@ -182,7 +182,7 @@ namespace MBSearchEngine
 		friend class BooleanQuerry;
 		bool m_IsFinished = false;
 		bool m_IsAtomic = false;
-		DocID m_NegatedDocIDIterator = 0;
+		DocID m_NegatedDocIDIterator = -1;
 		bool m_IsNegated = false;
 		DocID m_MaxDocID = -1;
 		BoleanBinaryOperator m_BinaryOperator = BoleanBinaryOperator::Null;

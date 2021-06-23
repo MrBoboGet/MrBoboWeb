@@ -392,6 +392,24 @@ void FillArrayWithRandomBytes(uint8_t* ArrayToFill, int LengthOfArray)
 		ArrayToFill[i] = (uint8_t)rand();
 	}
 }
+CryptoPP::Integer MBGToCryptoPP(MrBigInt const& IntToConvert)
+{
+	std::string IntData = IntToConvert.GetLittleEndianString();
+	CryptoPP::Integer ReturnValue = CryptoPP::Integer((const CryptoPP::byte*)IntData.c_str(), IntData.size(), CryptoPP::Integer::UNSIGNED, CryptoPP::LITTLE_ENDIAN_ORDER);
+	return(ReturnValue);
+}
+MrBigInt CryptoPPToMBG(CryptoPP::Integer const& IntToConvert)
+{
+	std::string IntData = "";
+	IntData.reserve(IntToConvert.ByteCount());
+	for (int i = 0; i < IntToConvert.ByteCount(); i++)
+	{
+		IntData += IntToConvert.GetByte(i);
+	}
+	MrBigInt ReturnValue;
+	ReturnValue.SetFromLittleEndianArray(IntData.c_str(), IntData.size());
+	return(ReturnValue);
+}
 RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString)
 {
 	RSAPublicKey ReturnValue;
@@ -409,7 +427,7 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 	Parser.ExtractLengthOfType();//vi vill skippa den del som bara encodar vår dubbel int typ
 	Parser.ExtractTagData();
 	uint64_t LengthOfPrime = Parser.ExtractLengthOfType();
-	if (LengthOfPrime != 257)
+	if (!(LengthOfPrime == 257 || LengthOfPrime == 513))
 	{
 		std::cout << "Prime is wrongly formatted :(" << std::endl;
 		assert(false);
@@ -417,8 +435,8 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 	else
 	{
 		//första är alltid 0
-		PublicKeyPrime.SetFromBigEndianArray(&BitString.c_str()[Parser.GetOffset() + 1], 256);
-		for (size_t i = 0; i < 257; i++)
+		PublicKeyPrime.SetFromBigEndianArray(&BitString.c_str()[Parser.GetOffset() + 1], LengthOfPrime-1);
+		for (size_t i = 0; i < LengthOfPrime; i++)
 		{
 			Parser.ExtractByte();
 		}
@@ -443,7 +461,13 @@ MrBigInt TLSHandler::RSAEP(TLSServerPublickeyInfo& RSAInfo,MrBigInt const& Messa
 {
 	MrBigInt ReturnValue(0);
 	RSAPublicKey PublicKey = ExtractRSAPublicKeyFromBitString(RSAInfo.ServerKeyData);
-	MrBigInt::PowM(MessageRepresentative, PublicKey.Exponent, PublicKey.Modolu, ReturnValue);
+	CryptoPP::Integer TempRepresentative = MBGToCryptoPP(MessageRepresentative);
+	CryptoPP::Integer TempExponent = MBGToCryptoPP(PublicKey.Exponent);
+	CryptoPP::Integer TempModolu = MBGToCryptoPP(PublicKey.Modolu);
+	CryptoPP::ModularArithmetic TempMA(TempModolu);
+	CryptoPP::Integer TempResult = TempMA.Exponentiate(TempRepresentative, TempExponent);
+	ReturnValue = CryptoPPToMBG(TempResult);
+	//MrBigInt::PowM(MessageRepresentative, PublicKey.Exponent, PublicKey.Modolu, ReturnValue);
 	return(ReturnValue);
 }
 std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
@@ -451,7 +475,7 @@ std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
 	std::string ReturnValue = "";
 	MrBigInt MaxValueOfInteger(0);
 
-	MrBigInt::Pow(256, LengthOfString, MaxValueOfInteger);
+	MrBigInt::Pow(LengthOfString, LengthOfString, MaxValueOfInteger);
 	//std::cout << MaxValueOfInteger.GetString() << std::endl;
 	if (NumberToConvert > MaxValueOfInteger)
 	{
@@ -476,14 +500,15 @@ std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
 }
 std::string TLSHandler::RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo, std::string& DataToEncrypt)
 {
-	if (DataToEncrypt.size() > 256-11)
+	uint16_t RSAPrimeSize = RSAInfo.ServerKeyData.size() - 15;
+	if (DataToEncrypt.size() > RSAPrimeSize-11)
 	{
 		assert(false);
 	}
 	std::string EM = "";
 	EM += char(0x00);
 	EM += char(0x02);
-	uint64_t PSLength = 256 - 3 - DataToEncrypt.size();
+	uint64_t PSLength = RSAPrimeSize - 3 - DataToEncrypt.size();
 	srand(time(0));
 	for (int i = 0; i < PSLength; i++)
 	{
@@ -499,23 +524,24 @@ std::string TLSHandler::RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo
 	}
 	EM += char(0x00);
 	EM += DataToEncrypt;
-	MrBigInt MessageRepresentative = OS2IP(EM.c_str(), 256);
+	MrBigInt MessageRepresentative = OS2IP(EM.c_str(), RSAPrimeSize);
 	MrBigInt CiphertextRepresentative = RSAEP(RSAInfo,MessageRepresentative);
-	std::string CipherText = I2OSP(CiphertextRepresentative,256);
+	std::string CipherText = I2OSP(CiphertextRepresentative, RSAPrimeSize);
 	return(CipherText);
 }
 void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::Socket* SocketToConnect)
 {
 	//vi utgår alltid ifrån att det är rsa med specifika algoritmer
-	uint8_t* DataToSend = static_cast<uint8_t*>(malloc(5 + 4 +2+ 256));
+	uint16_t RSAPrimeSize = Data.ServerKeyData.size() - 15;
+	uint8_t* DataToSend = static_cast<uint8_t*>(malloc(5 + 4 +2+ RSAPrimeSize));
 	TLS1_2::NetWorkDataHandler ArrayFiller(DataToSend);
 	ArrayFiller << uint8_t(TLS1_2::handshake);
 	ArrayFiller << uint8_t(3);
 	ArrayFiller << uint8_t(3);
-	ArrayFiller << uint16_t(4+258);
+	ArrayFiller << uint16_t(4+ RSAPrimeSize+2);
 	ArrayFiller << uint8_t(TLS1_2::client_key_exchange);
-	ArrayFiller << TLS1_2::uint24(258);
-	ArrayFiller << uint16_t(256);
+	ArrayFiller << TLS1_2::uint24(RSAPrimeSize+2);
+	ArrayFiller << uint16_t(RSAPrimeSize);
 	uint8_t PreMasterSecret[48];
 	FillArrayWithRandomBytes(PreMasterSecret, 48);
 	//OBSS!"!"!"!"!"!!  dem första bytesen är variationen vi ville började att skicka, dvs jag hard codar 3 3
@@ -527,12 +553,12 @@ void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::S
 	}
 	std::string PremasterSecretString = std::string(reinterpret_cast<char*>(PreMasterSecret), 48);
 	std::string EncryptedPremasterSecret = RSAES_PKCS1_V1_5_ENCRYPT(Data, PremasterSecretString);
-	for (size_t i = 0; i < 256; i++)
+	for (size_t i = 0; i < RSAPrimeSize; i++)
 	{
 		DataToSend[9 +2+ i] = EncryptedPremasterSecret[i];
 	}
-	ConnectionParameters.AllHandshakeMessages.push_back(std::string(reinterpret_cast<char*>(DataToSend), 5 + 4 + 2 + 256));
-	SocketToConnect->SendData(reinterpret_cast<char*>(DataToSend), 5 + 4+2 + 256);
+	ConnectionParameters.AllHandshakeMessages.push_back(std::string(reinterpret_cast<char*>(DataToSend), 5 + 4 + 2 + RSAPrimeSize));
+	SocketToConnect->SendData(reinterpret_cast<char*>(DataToSend), 5 + 4+2 + RSAPrimeSize);
 	free(DataToSend);
 }
 
@@ -1157,25 +1183,6 @@ RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
 	unsigned int LengthOfPrivateExponent = Parser.ExtractLengthOfType();
 	ReturnValue.PrivateExponent.SetFromBigEndianArray(&KeyBinaryInfo[Parser.GetOffset()], LengthOfPrivateExponent);
 
-	return(ReturnValue);
-}
-
-CryptoPP::Integer MBGToCryptoPP(MrBigInt const& IntToConvert)
-{
-	std::string IntData = IntToConvert.GetLittleEndianString();
-	CryptoPP::Integer ReturnValue = CryptoPP::Integer((const CryptoPP::byte*)IntData.c_str(), IntData.size(), CryptoPP::Integer::UNSIGNED, CryptoPP::LITTLE_ENDIAN_ORDER);
-	return(ReturnValue);
-}
-MrBigInt CryptoPPToMBG(CryptoPP::Integer const& IntToConvert)
-{
-	std::string IntData = "";
-	IntData.reserve(IntToConvert.ByteCount());
-	for (int i = 0; i < IntToConvert.ByteCount(); i++)
-	{
-		IntData += IntToConvert.GetByte(i);
-	}
-	MrBigInt ReturnValue;
-	ReturnValue.SetFromLittleEndianArray(IntData.c_str(), IntData.size());
 	return(ReturnValue);
 }
 

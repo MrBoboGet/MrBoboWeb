@@ -164,7 +164,11 @@ set(Header_Files
     "MBSearchEngine/MBUnicode.h"
     "MBSearchEngine/MBUnicodeMacros.h"
     "Crawler/MBCrawler.h"
+    "MBDNSHandler/MBDNSHandler.h"
     "Crawler/MBCrawlerSite.h"
+    "MBMime/MBMime.h"
+    "MrBoboMail/MrBoboMail.h"
+    "MBCrypto/MBCrypto.h"
 
 )
 source_group("Header Files" FILES ${Header_Files})
@@ -179,6 +183,10 @@ set(Source_Files
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBSearchEngine/MBUnicode.cpp"
     "Crawler/MBCrawler.cpp"
+    "MBDNSHandler/MBDNSHandler.cpp"
+    "MBMime/MBMime.cpp"
+    "MrBoboMail/MrBoboMail.cpp"
+    "MBCrypto/MBCrypto.cpp"
     ${EXTLIBS_SOURCE_FILES}
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )

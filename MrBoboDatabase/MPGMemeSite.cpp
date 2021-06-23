@@ -68,6 +68,27 @@ void InitDatabase()
 		}
 	}
 }
+int MBGWebsiteMain()
+{
+#ifndef NDEBUG
+	std::cout << "Is Debug" << std::endl;
+#endif // DEBUG
+	MBSockets::Init();
+	InitDatabase();
+	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
+	TestServer.AddRequestHandler({ DBLogin_Predicate,DBLogin_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
+	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBGet_Predicate,DBGet_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBView_Predicate,DBView_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBViewEmbedd_Predicate,DBViewEmbedd_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBAdd_Predicate,DBAdd_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBGeneralAPI_Predicate,DBGeneralAPI_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBUpdate_Predicate,DBUpdate_ResponseGenerator });
+	TestServer.StartListening();
+	return(0);
+}
+
 struct DBPermissionsList
 {
 	bool Read = false;

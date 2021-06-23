@@ -647,6 +647,10 @@ namespace MBSockets
 		int CurrentRecievedChunkData = 0;
 		size_t ChunkParseOffset = 0;
 	public:
+		std::string GetNextDecryptedData()
+		{
+			return(TLSConnectionHandler.GetApplicationData(this));
+		}
 		int HTTPSendData(std::string DataToSend)
 		{
 			if (IsValid())

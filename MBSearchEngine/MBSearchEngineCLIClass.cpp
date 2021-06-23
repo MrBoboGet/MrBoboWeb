@@ -104,6 +104,8 @@ namespace MBSearchEngine
 		}
 		else
 		{
+			size_t NumberOfMatches = 0;
+			bool ShouldCountMatches = (UserInput.CommandOptions.find("-n") != UserInput.CommandOptions.end());
 			bool IsBoolean = (UserInput.CommandOptions.find("-b") != UserInput.CommandOptions.end());
 			MBIndex IndexToSearch = MBIndex();
 			IndexToSearch.Load(UserInput.CommandArguments[0]);
@@ -111,30 +113,33 @@ namespace MBSearchEngine
 			if (IsBoolean)
 			{
 				BooleanQuerryIterator QuerryIterator = IndexToSearch.GetBooleanQuerryIterator(UserInput.CommandArguments[1]);
-				//QuerryResult = IndexToSearch.EvaluteBooleanQuerry(UserInput.CommandArguments[1]);
 				while (!QuerryIterator.HasEnded())
 				{
-					QuerryResult.push_back(IndexToSearch.GetDocumentIdentifier(*QuerryIterator));
+					if (!ShouldCountMatches)
+					{
+						QuerryResult.push_back(IndexToSearch.GetDocumentIdentifier(*QuerryIterator));
+					}
+					else
+					{
+						NumberOfMatches += 1;
+					}
 					QuerryIterator++;
 				}
-				//DEBUG
-				//std::vector<std::string> DEBUG_QuerryResult = {};
-				//BooleanQuerryIterator DEBUG_TestIterator = IndexToSearch.GetBooleanQuerryIterator(UserInput.CommandArguments[1]);
-				//while (!DEBUG_TestIterator.HasEnded())
-				//{
-				//	DocID CurrentID = *DEBUG_TestIterator;
-				//	DEBUG_QuerryResult.push_back(IndexToSearch.GetDocumentIdentifier(CurrentID));
-				//	DEBUG_TestIterator++;
-				//}
-				//assert(DEBUG_QuerryResult == QuerryResult);
 			}
 			else
 			{
 				QuerryResult = IndexToSearch.EvaluteVectorModelQuerry(UserInput.CommandArguments[1]);
 			}
-			for (size_t i = 0; i < QuerryResult.size(); i++)
+			if (!ShouldCountMatches)
 			{
-				std::cout << QuerryResult[i] << std::endl;
+				for (size_t i = 0; i < QuerryResult.size(); i++)
+				{
+					std::cout << QuerryResult[i] << std::endl;
+				}
+			}
+			else
+			{
+				std::cout << "Number of matches: " << NumberOfMatches << std::endl;
 			}
 		}
 		return(ReturnValue);
@@ -262,6 +267,7 @@ namespace MBSearchEngine
 					EntryToAdd = MBUtility::ReplaceAll(EntryPath, "/", " ");
 					EntryToAdd = MBUtility::ReplaceAll(EntryPath, "\\", " ");
 					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, "_", " ");
+					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, ".", " ");
 					//DEBUG
 					//std::string DEBUG_StringToSearch = "emanu";
 					//if (EntryPath.size() >= DEBUG_StringToSearch.size())

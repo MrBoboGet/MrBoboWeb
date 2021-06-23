@@ -87,7 +87,7 @@ namespace MBSearchEngine
 	}
 	BooleanQuerryIterator::BooleanQuerryIterator(BooleanQuerry const& InitialQuerry,MBIndex& AssociatedIndex)
 	{
-		m_MaxDocID = AssociatedIndex.m_PostinglistHandler.NumberOfPostings();
+		m_MaxDocID = AssociatedIndex.m_DocumentIDs.size();
 		m_BinaryOperator = InitialQuerry.m_BinaryOperator;
 		m_IsNegated = InitialQuerry.m_Negated;
 		if (InitialQuerry.m_IsAtomic)
@@ -306,98 +306,50 @@ namespace MBSearchEngine
 	}
 	void BooleanQuerryIterator::p_AtomicIncrement()
 	{
-		while (true)
+		if (HasEnded())
 		{
-			if (m_AssociatedPostings.size() == 1)
+			return;
+		}
+		if (m_AssociatedPostings.size() == 1)
+		{
+			if (m_QuerryWordIterator[0].HasEnded() && !m_IsNegated)
 			{
-				if (m_QuerryWordIterator[0].HasEnded() && !m_IsNegated)
+				m_IsFinished = true;
+				CurrentValue = -1;
+				return;
+			}
+			DocID NewValue = -1;
+			if (!m_QuerryWordIterator[0].HasEnded())
+			{
+				NewValue = (*m_QuerryWordIterator[0]).DocumentReference;
+			}
+			CurrentValue = NewValue;
+			(m_QuerryWordIterator[0])++;
+			return;
+		}
+		else
+		{
+			DocID NewValue = -1;
+			bool NewValueSet = false;
+			while (p_IteratorsAreValid(m_QuerryWordIterator))
+			{
+				p_IterateToNextCommonDocument(m_QuerryWordIterator);
+				if (p_PhraseIsInDocument(m_QuerryWordIterator))
 				{
-					m_IsFinished = true;
-					CurrentValue = -1;
-					break;
-				}
-				DocID NewValue = -1;
-				if (!m_QuerryWordIterator[0].HasEnded())
-				{
+					NewValueSet = true;
 					NewValue = (*m_QuerryWordIterator[0]).DocumentReference;
-				}
-				if (!m_IsNegated)
-				{
-					CurrentValue = NewValue;
-					(m_QuerryWordIterator[0])++;
-					break;
-				}
-				else
-				{
-					if (m_NegatedDocIDIterator >= m_MaxDocID)
-					{
-						CurrentValue = -1;
-						m_IsFinished = true;
-					}
-					if (NewValue != m_NegatedDocIDIterator)
-					{
-						CurrentValue = m_NegatedDocIDIterator;
-						m_NegatedDocIDIterator += 1;
-						break;
-					}
-					else
-					{
-						m_NegatedDocIDIterator = NewValue + 1;
-						m_QuerryWordIterator[0]++;
-					}
-				}
-			}
-			else
-			{
-				DocID NewValue = -1;
-				bool NewValueSet = false;
-				while (p_IteratorsAreValid(m_QuerryWordIterator))
-				{
-					p_IterateToNextCommonDocument(m_QuerryWordIterator);
-					if (p_PhraseIsInDocument(m_QuerryWordIterator))
-					{
-						NewValueSet = true;
-						NewValue = (*m_QuerryWordIterator[0]).DocumentReference;
-						if (!m_IsNegated)
-						{
-							p_IncrementPostingListIterators(m_QuerryWordIterator);
-						}
-						break;
-					}
 					p_IncrementPostingListIterators(m_QuerryWordIterator);
-				}
-				if (!p_IteratorsAreValid(m_QuerryWordIterator) && NewValueSet == false && !m_IsNegated)
-				{
-					CurrentValue = -1;
-					m_IsFinished = true;
 					break;
 				}
-				if (m_IsNegated)
-				{
-					if (m_NegatedDocIDIterator >= m_MaxDocID)
-					{
-						CurrentValue = -1;
-						m_IsFinished = true;
-						break;
-					}
-					if (NewValue != m_NegatedDocIDIterator)
-					{
-						CurrentValue = m_NegatedDocIDIterator;
-						m_NegatedDocIDIterator += 1;
-						break;
-					}
-					else
-					{
-						m_NegatedDocIDIterator = NewValue + 1;
-						p_IncrementPostingListIterators(m_QuerryWordIterator);
-					}
-				}
-				else
-				{
-					CurrentValue = NewValue;
-					break;
-				}
+				p_IncrementPostingListIterators(m_QuerryWordIterator);
 			}
+			if (!p_IteratorsAreValid(m_QuerryWordIterator) && NewValueSet == false)
+			{
+				CurrentValue = -1;
+				m_IsFinished = true;
+				return;
+			}
+			CurrentValue = NewValue;
 		}
 	}
 	void BooleanQuerryIterator::p_Union_IterateToNext(BooleanQuerryIterator* LeftIterator, BooleanQuerryIterator* RightIterator)
@@ -458,49 +410,26 @@ namespace MBSearchEngine
 	}
 	void BooleanQuerryIterator::p_NonAtomicIncrement()
 	{
-		while (true)
+		if (HasEnded())
 		{
-			DocID NewValue = -1;
-			if (m_BinaryOperator == BoleanBinaryOperator::AND)
-			{
-				p_Union_IterateToNext(m_LeftOperand, m_RightOperand);
-			}
-			DocID LeftCurrentValue = **m_LeftOperand;
-			DocID RightCurrentValue = **m_RightOperand;
-			NewValue = std::min(LeftCurrentValue, RightCurrentValue);
-			if (!m_IsNegated)
-			{
-				if (m_LeftOperand->HasEnded() && m_RightOperand->HasEnded() || ((m_LeftOperand->HasEnded() || m_RightOperand->HasEnded()) && m_BinaryOperator == BoleanBinaryOperator::AND))
-				{
-					CurrentValue = -1;
-					m_IsFinished = true;
-					break;
-				}
-				CurrentValue = NewValue;
-				p_IncrementOperands();
-				break;
-			}
-			else
-			{
-				if (m_NegatedDocIDIterator >= m_MaxDocID)
-				{
-					CurrentValue = -1;
-					m_IsFinished = true;
-					break;
-				}
-				if (NewValue != m_NegatedDocIDIterator)
-				{
-					CurrentValue = m_NegatedDocIDIterator;
-					m_NegatedDocIDIterator += 1;
-					break;
-				}
-				else
-				{
-					m_NegatedDocIDIterator = NewValue + 1;
-					p_IncrementOperands();
-				}
-			}
+			return;
 		}
+		DocID NewValue = -1;
+		if (m_BinaryOperator == BoleanBinaryOperator::AND)
+		{
+			p_Union_IterateToNext(m_LeftOperand, m_RightOperand);
+		}
+		DocID LeftCurrentValue = **m_LeftOperand;
+		DocID RightCurrentValue = **m_RightOperand;
+		NewValue = std::min(LeftCurrentValue, RightCurrentValue);
+		if (m_LeftOperand->HasEnded() && m_RightOperand->HasEnded() || ((m_LeftOperand->HasEnded() || m_RightOperand->HasEnded()) && m_BinaryOperator == BoleanBinaryOperator::AND))
+		{
+			CurrentValue = -1;
+			m_IsFinished = true;
+			return;
+		}
+		CurrentValue = NewValue;
+		p_IncrementOperands();
 	}
 	void BooleanQuerryIterator::Increment()
 	{
@@ -508,13 +437,54 @@ namespace MBSearchEngine
 		{
 			return;
 		}
-		if (m_IsAtomic)
+		if (!m_IsNegated || CurrentValue == -1)
 		{
-			p_AtomicIncrement();
+			if (m_IsAtomic)
+			{
+				p_AtomicIncrement();
+			}
+			else
+			{
+				p_NonAtomicIncrement();
+			}
 		}
-		else
+		if(m_IsNegated)
 		{
-			p_NonAtomicIncrement();
+			//bara för att vanlig iteration sluta ska vi inte det här
+			if (m_IsFinished)
+			{
+				m_IsFinished = false;
+			}
+			if (m_NegatedDocIDIterator+1 != CurrentValue)
+			{
+				m_NegatedDocIDIterator += 1;
+			}
+			else
+			{
+				while (true)
+				{
+					m_NegatedDocIDIterator = CurrentValue + 1;
+					if (m_IsAtomic)
+					{
+						p_AtomicIncrement();
+					}
+					else
+					{
+						p_NonAtomicIncrement();
+					}
+					if (m_NegatedDocIDIterator != CurrentValue)
+					{
+						m_IsFinished = false;
+						break;
+					}
+				}
+			}
+			if (m_NegatedDocIDIterator + 1 >= m_MaxDocID || m_NegatedDocIDIterator == -1)
+			{
+				m_NegatedDocIDIterator = -1;
+				m_IsFinished = true;
+				return;
+			}
 		}
 	}
 	BooleanQuerryIterator& BooleanQuerryIterator::operator++()
@@ -524,16 +494,23 @@ namespace MBSearchEngine
 	}
 	BooleanQuerryIterator& BooleanQuerryIterator::operator++(int)
 	{
-		Increment();
+		++(*this);
 		return(*this);
 	}
 	DocID BooleanQuerryIterator::operator*()
 	{
-		return(CurrentValue);
+		if (!m_IsNegated)
+		{
+			return(CurrentValue);
+		}
+		else
+		{
+			return(m_NegatedDocIDIterator);
+		}
 	}
 	DocID BooleanQuerryIterator::operator->()
 	{
-		return(CurrentValue);
+		return(**this);
 	}
 	//END BooleanQuerryIterator
 
@@ -1390,17 +1367,16 @@ namespace MBSearchEngine
 		{
 			clock_t Timer = clock();
 			MBI_SaveVectorToFile<std::string>(OutFile, m_DocumentIDs);
-			std::cout << "Saving Document time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Saving Document time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
 			MBI_SaveVectorToFile<DocumentIndexData>(OutFile, _DocumentIndexDataList);
-			std::cout << "Saving index data time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Saving index data time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
 			MBI_SaveObjectToFile<TokenDictionary>(OutFile, m_TokenDictionary);
-			std::cout << "Saving token dictionary time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Saving token dictionary time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
-			//MBI_SaveVectorToFile(OutFile, m_PostingsLists);
 			MBI_SaveObjectToFile<PostingslistHandler>(OutFile, m_PostinglistHandler);
-			std::cout << "Saving posting handler time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Saving posting handler time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
 		}
 		else
@@ -1418,22 +1394,18 @@ namespace MBSearchEngine
 		{
 			clock_t Timer = clock();
 			m_DocumentIDs = MBI_ReadVectorFromFile<std::string>(InFile);
-			std::cout << "Reading Document ID's from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Reading Document ID's from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
 			_DocumentIndexDataList = MBI_ReadVectorFromFile<DocumentIndexData>(InFile);
-			std::cout << "Reading DocumentIndexDataList from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Reading DocumentIndexDataList from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
 			m_TokenDictionary = MBI_ReadObjectFromFile<TokenDictionary>(InFile);
-			std::cout << "Reading tokendictionary from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Reading tokendictionary from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
-			std::cout << "Bytes before postingslist: " << InFile.tellg()<<std::endl;
+			//std::cout << "Bytes before postingslist: " << InFile.tellg()<<std::endl;
 			m_PostinglistHandler = MBI_ReadObjectFromFile<PostingslistHandler>(InFile);
 			m_PostinglistHandler.SetBaseFile(SavedIndexFile);
-			//std::vector<PostingsList> DEBUG_Lists = MBI_ReadVectorFromFile<PostingsList>(InFile);
-			//PostingsList& ListToCheck = DEBUG_Lists[79277];
-			//PostingsList& ListToCheck1 = DEBUG_Lists[79278];
-			//PostingsList& ListToCheck2 = DEBUG_Lists[79279];
-			std::cout << "Reading postingslist from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
+			//std::cout << "Reading postingslist from file: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << std::endl;
 			Timer = clock();
 		}
 		else

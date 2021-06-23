@@ -16,6 +16,8 @@
 #include <Crawler/MBCrawler.h>
 #include <Crawler/MBCrawlerSite.h>
 #include <MrPostOGet/MBHTMLParser.h>
+#include <MBDNSHandler/MBDNSHandler.h>
+#include <MrBoboMail/MrBoboMail.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -24,118 +26,91 @@
 
 int main()
 {
-#ifdef DNDEBUG
-	std::cout << "Is Debug" << std::endl;
-#endif // DEBUG
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::string StringToEncode = "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure.";
+	std::string Base64EncodedString = MBMail::BASE64Encode(StringToEncode.data(), StringToEncode.size());
+	std::cout << "BASE64 Encoding: " << Base64EncodedString << std::endl;
+	std::cout << "Decoded string; " << MBMail::BASE64Decode(Base64EncodedString.data(), Base64EncodedString.size()) << std::endl;
+
+	MBMail::MBMailSender TestSender;
+	MBMail::Mail MailToSave;
+	MailToSave.Body.BodyType = MBMIME::MIMEType::Text;
+	MailToSave.Body.BodyData = "Test mail hej hej\r\n";
+	MBMail::StandardUserEmailHeaders StandardHeaders;
+	StandardHeaders.From = "test@mrboboget.se";
+	StandardHeaders.To = "emanuelberggren01@gmail.com";
+	StandardHeaders.Subject = "Test";
+	TestSender.FillMailHeaders(MailToSave, StandardHeaders);
+	TestSender.t_SaveMail(MailToSave, "test@mrboboget.se", "MailToTest.eml");
+	exit(0);
+	
+
 	MBSockets::Init();
-	InitDatabase();
-	//std::string FileToTest = "./remar.se/daniel/__DirectoryResource";
-	//std::fstream FileToRead = std::fstream(FileToTest, std::ios::in | std::ios::binary);
-	//std::string TestHTMLData = std::string(std::filesystem::file_size(FileToTest), 0);
-	//FileToRead.read(&TestHTMLData[0], std::filesystem::file_size(FileToTest));
-	//HTMLNode TestNode(TestHTMLData,0);
-	//std::cout << TestNode.GetVisableText() << std::endl;
-
-	//std::cout << TestDocument.ToText()->Value()<<std::endl;
-	//exit(0);
-
-	//MBError RemarIndexError = CreateWebsiteIndex("http://remar.se/", "./remar.se/", "./MBDBResources/Indexes/RemarSiteIndex");
-	//exit(0);
-	//MBError IndexError =CreateWebsiteIndex("./remar.se/", "RemarTestIndex2");
-	//MBSearchEngine::MBIndex TestTestIndex("RemarTestIndex2");
-	//std::cout << "Querry tests" << std::endl;
-	//std::vector<std::string> Result = TestTestIndex.EvaluteBooleanQuerry("(iji OR iji's OR iji. OR iji,) AND (strawberry OR ludosity) AND \"slap city\"");
-	//for (auto& StringToPrint: Result)
-	//{
-	//	std::cout << StringToPrint << std::endl;
-	//}
-	//Result = TestTestIndex.EvaluteVectorModelQuerry("iji game development");
-	//for (auto& StringToPrint : Result)
-	//{
-	//	std::cout << StringToPrint << std::endl;
-	//}
+	MBDNS::MBDNSHandler TestHandler;
+	std::vector<MBDNS::MXRecord> MXToUse = TestHandler.GetDomainMXRecords("gmail.com");
+	size_t HighestPriortiyMXIndex = 0;
+	size_t LowestPreferance = uint16_t(~0)>>1;
+	for (size_t i = 0; i < MXToUse.size(); i++)
+	{
+		if (MXToUse[i].Preference < LowestPreferance)
+		{
+			HighestPriortiyMXIndex = i;
+			LowestPreferance = MXToUse[i].Preference;
+		}
+	}
+	std::string DomainToUse = MXToUse[HighestPriortiyMXIndex].Exchange;
+	std::cout << "Domain to use: " << DomainToUse << std::endl;
+	std::cout << "Number of MXRecords: " << MXToUse.size() << std::endl;
 	
-	//std::cout << "Finished indexing!" << std::endl;
-	//std::cout << "Index error: " << IndexError.ErrorMessage << std::endl;
-	//MrPostOGet::HTTPServer TestCopyServer = MrPostOGet::HTTPServer("RelativeRemar.se/", 443);
-	//TestCopyServer.AddRequestHandler({ MBCrawlerSite_Predicate,MBCrawlerSite_ResponseGenerator });
-	//TestCopyServer.StartListening();
-	
-	//MakeWebsiteDirectoryRelative("./remar.se", "RelativeRemar.se/", "remar.se");
-	
-	//IndexWebsite("remar.se", "./remar.se/",false);
-
-	//std::string Input = "";
-	//std::getline(std::cin, Input);
-	//MBUnicode::CreateCMacroCodepointArrayFromPropertySpec("./MBSearchEngine/GraphemeBreakProperty.txt", "./MBSearchEngine/GraphemeBreakPropertyMacro.txt");
-	//MBUnicode::CodepointRange TestRange[] = GraphemeBreakList;
-	//std::cout << TestRange[15].Higher << std::endl;
-	//exit(0);
-	
-	///*
-	//test för att använda system
-
-	//CreateHLSStream("./MBDBResources/","./Ep1",10);
-	//test för att transcoda
-	std::string StringToHash = std::string(std::filesystem::file_size("DebugHash.txt"), 0);
-	std::ifstream DebugHash("DebugHash.txt", std::ios::in|std::ios::binary);
-	DebugHash.read(&StringToHash.data()[0], std::filesystem::file_size("DebugHash.txt"));
-	std::cout << ReplaceAll(HexEncodeString(MBSha1(StringToHash))," ","") << std::endl<<std::endl;
-	UnitType DebugRemainder;
-	MrBigInt DebugQuot;
-	//MrBigInt::divi
-	MrBigInt::DoubleUnitDivide(1, 1603210591, 3386463223,&DebugQuot,&DebugRemainder, nullptr);
-	MrBigInt RegularRemainder;
-	MrBigInt RegularQuot;
-	MrBigInt RegularDivInt;
-	RegularDivInt = 1;
-	RegularDivInt <<= 32;
-	RegularDivInt += 1603210591;
-	RegularQuot = RegularDivInt / 3386463223;
-	RegularRemainder = (RegularDivInt % 3386463223);
 
 
-	//test att connecta till amazon
-	//MBSockets::HTTPConnectSocket AmazonConnectTest("www.amazon.com", "443", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
-	//AmazonConnectTest.Connect();
-	//AmazonConnectTest.EstablishSecureConnetion();
-	//std::cout << AmazonConnectTest.GetDataFromRequest("GET", "/") << std::endl;
+	//reverse dns test grejer
+	std::vector<MBDNS::ARecord> DomainIPAdresses = TestHandler.GetDomainIPAdresses("mrboboget.se");
+	for (size_t i = 0; i < DomainIPAdresses.size(); i++)
+	{
+		std::cout << MBDNS::IPAdressToString(DomainIPAdresses[i].IPAdress) << std::endl;
+	}
+	std::vector<MBDNS::PTRRecord> IPDomains = TestHandler.GetIPAdressDomains(MBDNS::IPAdressToString(DomainIPAdresses[0].IPAdress));
+	for (size_t i = 0; i < IPDomains.size(); i++)
+	{
+		std::cout << IPDomains[i].DomainName << std::endl;
+	}
+	std::vector<MBDNS::ARecord> Domain2IPAdresses = TestHandler.GetDomainIPAdresses(IPDomains[0].DomainName);
+	for (size_t i = 0; i < Domain2IPAdresses.size(); i++)
+	{
+		std::cout << MBDNS::IPAdressToString(Domain2IPAdresses[i].IPAdress) << std::endl;
+	}
 
-	//std::cout << std::filesystem::current_path() << std::endl;
-	std::string NumberData = std::string(1024, 0);
-	std::ifstream TestData("BigIntTestData", std::ios::in | std::ios::binary);
-	TestData.read((char*)NumberData.c_str(), 1024);
-	//TestData << NumberData;
-	//exit(0);
-	//MrBigInt NumberToPowM;
-	//NumberToPowM.SetFromBigEndianArray(NumberData.c_str(), NumberData.size());
-	//RSADecryptInfo DecryptInfo = TLSHandler().GetRSADecryptInfo("mrboboget.se");
-	//MrBigInt Result;
-	//MrBigInt SlidingResult;
-	//MrBigInt::PowM(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, Result);
-	//MrBigInt::PowM_SlidinWindow(NumberToPowM, DecryptInfo.PrivateExponent, DecryptInfo.PublicModulu, SlidingResult);
-	//std::cout << Result.GetHexEncodedString() << std::endl;
-	//std::cout << SlidingResult.GetHexEncodedString() << std::endl;
-	//assert(SlidingResult == Result);
-	const char* TestDatabas = "./TestDatabas";
-	MBDB::MrBoboDatabase TestDatabase(TestDatabas,0);
-	auto TestQuerry = TestDatabase.GetAllRows("SELECT * FROM Memes");
-	std::tuple<int, std::string, std::string> Test = std::tuple_cat(std::make_tuple(2), std::make_tuple(std::string("Hej"), std::string("Hej")));
-	std::tuple<int, std::string, std::string> MemeEntry = TestQuerry[0].GetTuple<int, std::string, std::string>();
-	std::cout << std::get<0>(MemeEntry)<<" "<< std::get<1>(MemeEntry)<<" " << std::get<2>(MemeEntry) << std::endl;
-	//*/
-	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
-	TestServer.AddRequestHandler({ DBLogin_Predicate,DBLogin_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
-	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBGet_Predicate,DBGet_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBView_Predicate,DBView_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBViewEmbedd_Predicate,DBViewEmbedd_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBAdd_Predicate,DBAdd_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBGeneralAPI_Predicate,DBGeneralAPI_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBUpdate_Predicate,DBUpdate_ResponseGenerator });
-	TestServer.StartListening();
-	return(0);
-	//sqlite3_prepare("HejsanSvejsan");
+	//TXT records
+	std::string DomainToText = "brisbane._domainkey.example.com";
+	std::vector<MBDNS::TXTRecord> DomainTXTRecords = TestHandler.GetTXTRecords(DomainToText);
+	std::cout << DomainToText<<" TXT records:"<<std::endl;
+	for (size_t i = 0; i < DomainTXTRecords.size(); i++)
+	{
+		std::cout << "Record:" << i << std::endl;
+		for (size_t j = 0; j < DomainTXTRecords[i].RecordStrings.size(); j++)
+		{
+			std::cout << DomainTXTRecords[i].RecordStrings[j] << std::endl;
+		}
+	}
+	exit(0);
+
+
+	//MBSockets::HTTPConnectSocket TestSocket1("gmail-smtp-in.l.google.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+	//TestSocket1.Connect();
+	//TestSocket1.EstablishSecureConnetion();
+	MBSockets::HTTPConnectSocket TestSocket("alt3.gmail-smtp-in.l.google.com", "587", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+	TestSocket.Connect();
+	//TestSocket.EstablishSecureConnetion();
+	//TestSocket.HTTPSendData("EHLO mrboboget.se");
+	//std::cout << TestSocket.GetNextDecryptedData();
+	std::cout << TestSocket.GetNextRequestData();
+	while (true)
+	{
+		std::string StringToSend;
+		std::getline(std::cin,StringToSend);
+		TestSocket.SendData((StringToSend + "\r\n").c_str(),StringToSend.size()+2);
+		std::cout << TestSocket.GetNextRequestData();
+	}
+	return(MBGWebsiteMain());
 }
