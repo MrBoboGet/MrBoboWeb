@@ -185,7 +185,7 @@ namespace MBMail
 		DKIMSigningData SigningData;
 		SigningData.BodyNormalizationMethod = DKIMNormalizationMethod::Simple;
 		SigningData.HeaderNormalizationMethod = DKIMNormalizationMethod::Simple;
-		SigningData.DomainKeySelector = "PrivateMail";
+		SigningData.DomainKeySelector = "privatemail";
 		SigningData.KeyQuerryMethod = DKIMDomainkeyQuerryMethod::DNS_TXT;
 		SigningData.SigningDomain = "mrboboget.se";
 		SigningData.SigningMethod = DKIMSigningMethod::RSA_SHA256;
@@ -277,11 +277,11 @@ namespace MBMail
 		}
 		assert(false);
 	}
-	std::string BASE64Decode(void* CharactersToRead, size_t NumberOfCharacters)
+	std::string BASE64Decode(const void* CharactersToRead, size_t NumberOfCharacters)
 	{
 		return(MBCrypto::Base64ToBinary(std::string((char*)CharactersToRead, NumberOfCharacters)));
 	}
-	std::string BASE64Encode(void* DataToEncode, size_t DataLength)
+	std::string BASE64Encode(const void* DataToEncode, size_t DataLength)
 	{
 		std::string ReturnValue = "";
 		uint32_t DataBuffer = 0;
@@ -363,9 +363,8 @@ namespace MBMail
 		}
 		return(ReturnValue);
 	}
-	std::string DKIMSigner::p_GetHeadersHash(Mail const& MailToSign, DKIMSigningData const& SigningData)
+	std::string DKIMSigner::p_GetHeaderDataToHash(Mail const& MailToSign, DKIMSigningData const& SigningData)
 	{
-		std::string ReturnValue = "";
 		std::string DataToHash = "";
 		if (SigningData.HeaderNormalizationMethod != DKIMNormalizationMethod::Simple)
 		{
@@ -379,15 +378,15 @@ namespace MBMail
 		DataToHash += GetMIMEHeaderLines(p_GetHeader(MailToSign.MimeHeaders, "DKIM-Signature"));
 		//Because the last \r\n shouldnt be included in the hash
 		DataToHash.resize(DataToHash.size() - 2);
-		if (SigningData.SigningMethod == DKIMSigningMethod::RSA_SHA256)
-		{
-			ReturnValue = MBCrypto::HashData(DataToHash, MBCrypto::HashFunction::SHA256);
-		}
-		else
-		{
-			assert(false);
-		}
-		return(ReturnValue);
+		//if (SigningData.SigningMethod == DKIMSigningMethod::RSA_SHA256)
+		//{
+		//	ReturnValue = MBCrypto::HashData(DataToHash, MBCrypto::HashFunction::SHA256);
+		//}
+		//else
+		//{
+		//	assert(false);
+		//}
+		return(DataToHash);
 	}
 	std::string DKIMSigner::p_GetPrivateKeyPath(std::string const& DomainToSign, std::string const& SignSelector)
 	{
@@ -407,7 +406,7 @@ namespace MBMail
 			NewHeaders.push_back(MailToSign.MimeHeaders[i]);
 		}
 		MailToSign.MimeHeaders = NewHeaders;
-		std::string HeaderHash = p_GetHeadersHash(MailToSign, SigningData);
+		std::string HeaderHash = p_GetHeaderDataToHash(MailToSign, SigningData);
 		MailToSign.MimeHeaders.front().HeaderBody += p_GetHashSignature(HeaderHash, SigningData,p_GetPrivateKeyPath(SigningData.SigningDomain,SigningData.DomainKeySelector));
 	}
 

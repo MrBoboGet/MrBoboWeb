@@ -702,7 +702,13 @@ namespace MBSockets
 						IncludeTailLineFeed = true;
 					}
 
-					size_t ChunkHeaderEnd = DataToDechunk.find("\r\n", Offset+2)+2;
+					size_t ChunkHeaderEnd = DataToDechunk.find("\r\n", Offset+2);
+					if (ChunkHeaderEnd == DataToDechunk.npos)
+					{
+						ChunkParseOffset = DataToDechunk.size();
+						break;
+					}
+					ChunkHeaderEnd += 2;
 					std::string ChunkLengthData = DataToDechunk.substr(Offset+2, ChunkHeaderEnd - 4 - Offset);
 					CurrentChunkLength = std::stoi(ChunkLengthData, nullptr, 16);
 					CurrentRecievedChunkData = 0;
@@ -828,14 +834,14 @@ namespace MBSockets
 		}
 		int Get(std::string Resource = "")
 		{
-			std::string Meddelandet = "GET /"+Resource +" "+ "HTTP/1.1\nHost: " + URl+"\n"+"accept-encoding: identity"+"\n"+"\n";
+			std::string Meddelandet = "GET /"+Resource +" "+ "HTTP/1.1\nHost: " + URl+"\n"+"accept-encoding: identity"+"\r\n"+"\r\n";
 			//SendData(Meddelandet.c_str(), Meddelandet.length());
 			HTTPSendData(Meddelandet);
 			return(0);
 		}
 		int Head(std::string Resource = "")
 		{
-			std::string Meddelandet = "HEAD /" + Resource + " " + "HTTP/1.1\nHost: " + URl + "\n" + "accept-encoding: identity" + "\n" + "\n";
+			std::string Meddelandet = "HEAD /" + Resource + " " + "HTTP/1.1\nHost: " + URl + "\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
 			//SendData(Meddelandet.c_str(), Meddelandet.length());
 			HTTPSendData(Meddelandet);
 			return(0);

@@ -17,18 +17,46 @@ namespace MBCrypto
 	class HashObject
 	{
 	private:
+		friend void swap(HashObject& LeftObject, HashObject& RightObject);
 		size_t m_BlockSize = 0;
+		size_t m_DigestSize = 0;
+		HashFunction m_UnderlyingFunction = HashFunction::Null;
 		void* m_UnderlyingImplementation = nullptr;
 	public:
+		HashObject();
 		HashObject(HashFunction AssociatedFunction);
 		HashObject(HashObject& ObjectToCopy);
+		HashObject(HashObject const& ObjectToCopy);
 		~HashObject();
-		HashObject& operator=(HashObject const&);
-
+		HashObject& operator=(HashObject ObjectToCopy);
+			
 		size_t GetBlockSize();
-		void AddData(void* Data, size_t LengthOfData);
-		void Finalize();
-		std::string GetHash();
+		size_t GetDigestSize();
+		void Restart();
+		std::string Hash(std::string const& DataToHash);
+		std::string Hash(const void* DataToHash, size_t NumberOfBytes);
+		void AddData(const void* Data, size_t LengthOfData);
+		std::string Finalize();
+	};
+	enum class NamedElipticCurve : uint16_t
+	{
+		sect163k1 = 1,
+		sect163r1 = 2, sect163r2 = 3,
+		sect193r1 = 4, sect193r2 = 5, sect233k1 = 6,
+		sect233r1 = 7, sect239k1 = 8, sect283k1 = 9,
+		sect283r1 = 10, sect409k1 = 11, sect409r1 = 12,
+		sect571k1 = 13, sect571r1 = 14, secp160k1 = 15,
+		secp160r1 = 16, secp160r2 = 17, secp192k1 = 18,
+		secp192r1 = 19, secp224k1 = 20, secp224r1 = 21,
+		secp256k1 = 22, secp256r1 = 23, secp384r1 = 24,
+		secp521r1 = 25, x25519 = 0x1d
+	};
+	class ElipticCurve
+	{
+	private:
+
+	public:
+		ElipticCurve(NamedElipticCurve);
 	};
 	inline unsigned char Base64CharToBinary(unsigned char CharToDecode)
 	{
@@ -93,6 +121,7 @@ namespace MBCrypto
 	HashObject GetHashObject(HashFunction AssociatedFunction);
 	std::string HashData(std::string const& DataToHash, HashFunction FunctionToUse);
 	std::string RSASSA_PKCS1_V1_5_SIGN(std::string const& DataToSign, std::string const& RSAPrivateKeyPath,HashFunction HashToUse);
+	std::string RSASSA_PKCS1_V1_5_VERIIFY(std::string const& DataToSign, std::string const& RSAPublicKeyPath,HashFunction HashToUse);
 	std::string EMSA_PKCS1_V1_5_ENCODE(std::string const& MessageData,size_t OutputLength,HashFunction HashFunctionToUse);
 	std::string RSASP1(RSAPrivateKey const& PrivateKey,std::string const& BigEndianMessageRepresentative);
 	std::string I2OSP(std::string const& BigEndianArray, size_t ResultLength);

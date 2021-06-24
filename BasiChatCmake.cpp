@@ -18,6 +18,7 @@
 #include <MrPostOGet/MBHTMLParser.h>
 #include <MBDNSHandler/MBDNSHandler.h>
 #include <MrBoboMail/MrBoboMail.h>
+#include <MBCrypto/MBCrypto.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -27,25 +28,41 @@
 int main()
 {
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
-	std::string StringToEncode = "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure.";
-	std::string Base64EncodedString = MBMail::BASE64Encode(StringToEncode.data(), StringToEncode.size());
-	std::cout << "BASE64 Encoding: " << Base64EncodedString << std::endl;
-	std::cout << "Decoded string; " << MBMail::BASE64Decode(Base64EncodedString.data(), Base64EncodedString.size()) << std::endl;
-
-	MBMail::MBMailSender TestSender;
-	MBMail::Mail MailToSave;
-	MailToSave.Body.BodyType = MBMIME::MIMEType::Text;
-	MailToSave.Body.BodyData = "Test mail hej hej\r\n";
-	MBMail::StandardUserEmailHeaders StandardHeaders;
-	StandardHeaders.From = "test@mrboboget.se";
-	StandardHeaders.To = "emanuelberggren01@gmail.com";
-	StandardHeaders.Subject = "Test";
-	TestSender.FillMailHeaders(MailToSave, StandardHeaders);
-	TestSender.t_SaveMail(MailToSave, "test@mrboboget.se", "MailToTest.eml");
+	MBSockets::Init();
+	//<!-- sp:eh:0NeoaKmFjBKH4oimbSprXXINNJbO2DBGl0uTpjOggp0uD8/1G2AkxBRJzYeuMdglx0+TRmMkkDpr+OUudn/vdKifIiLCgl8iTIv9c2ms8RaQkwgmaopWHS2jAxM= -->
+	//std::string AmazonEasterEgg = "fhkUxNast3AF+wV5uFyTMkY01EmUV3vAgzYv46uVJ/KDVIkf+yLwwh+rjYVTYfUy1TqDVqQf3uMOuk8f/i3yQjnfz0mq1NmeSKJpM9MEcyapWYzb+CvJ8q56JWY=";
+	//std::cout << MBMail::BASE64Decode(AmazonEasterEgg.data(), AmazonEasterEgg.size())<<std::endl;
+	//exit(0);
+	MBSockets::HTTPConnectSocket TestConnectSocket("google.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
+	TestConnectSocket.Connect();
+	TestConnectSocket.EstablishSecureConnetion();
+	//std::cout << TestConnectSocket.GetDataFromRequest("GET", "")<<std::endl;
 	exit(0);
+	////test för att signera enbart
+	//std::string TestSignature = MBCrypto::RSASSA_PKCS1_V1_5_SIGN("Test Test", "ServerResources/mrboboget.se/EncryptionResources/KeyfileRSA2096.key", MBCrypto::HashFunction::SHA256);
+	//std::cout << MBMail::BASE64Encode(TestSignature.data(),TestSignature.size())<< std::endl;
+	//std::cout << "Base64 encoded size: " << MBMail::BASE64Encode(TestSignature.data(), TestSignature.size()).size() << std::endl;
+	//std::ofstream OutFile = std::ofstream("ServerResources/mrboboget.se/EncryptionResources/MBSignedFile.txt", std::ios::binary);
+	//OutFile << TestSignature;
+	////exit(0);
+	//std::string StringToEncode = "Man is distinguished, not only by his reason, but by this singular passion from other animals, which is a lust of the mind, that by a perseverance of delight in the continued and indefatigable generation of knowledge, exceeds the short vehemence of any carnal pleasure.";
+	//std::string Base64EncodedString = MBMail::BASE64Encode(StringToEncode.data(), StringToEncode.size());
+	//std::cout << "BASE64 Encoding: " << Base64EncodedString << std::endl;
+	//std::cout << "Decoded string; " << MBMail::BASE64Decode(Base64EncodedString.data(), Base64EncodedString.size()) << std::endl;
+	//
+	//MBMail::MBMailSender TestSender;
+	//MBMail::Mail MailToSave;
+	//MailToSave.Body.BodyType = MBMIME::MIMEType::Text;
+	//MailToSave.Body.BodyData = "Test mail hej hej\r\n";
+	//MBMail::StandardUserEmailHeaders StandardHeaders;
+	//StandardHeaders.From = "test@mrboboget.se";
+	//StandardHeaders.To = "emanuelberggren01@gmail.com";
+	//StandardHeaders.Subject = "Test";
+	//TestSender.FillMailHeaders(MailToSave, StandardHeaders);
+	//TestSender.t_SaveMail(MailToSave, "test@mrboboget.se", "MailToTest.eml");
+	//exit(0);
 	
 
-	MBSockets::Init();
 	MBDNS::MBDNSHandler TestHandler;
 	std::vector<MBDNS::MXRecord> MXToUse = TestHandler.GetDomainMXRecords("gmail.com");
 	size_t HighestPriortiyMXIndex = 0;
@@ -65,7 +82,7 @@ int main()
 
 
 	//reverse dns test grejer
-	std::vector<MBDNS::ARecord> DomainIPAdresses = TestHandler.GetDomainIPAdresses("mrboboget.se");
+	std::vector<MBDNS::ARecord> DomainIPAdresses = TestHandler.GetDomainIPAdresses("gmail.com");
 	for (size_t i = 0; i < DomainIPAdresses.size(); i++)
 	{
 		std::cout << MBDNS::IPAdressToString(DomainIPAdresses[i].IPAdress) << std::endl;
@@ -82,7 +99,7 @@ int main()
 	}
 
 	//TXT records
-	std::string DomainToText = "brisbane._domainkey.example.com";
+	std::string DomainToText = "_dmarc.gmail.com";
 	std::vector<MBDNS::TXTRecord> DomainTXTRecords = TestHandler.GetTXTRecords(DomainToText);
 	std::cout << DomainToText<<" TXT records:"<<std::endl;
 	for (size_t i = 0; i < DomainTXTRecords.size(); i++)
@@ -93,16 +110,16 @@ int main()
 			std::cout << DomainTXTRecords[i].RecordStrings[j] << std::endl;
 		}
 	}
-	exit(0);
-
-
+	//exit(0);
 	//MBSockets::HTTPConnectSocket TestSocket1("gmail-smtp-in.l.google.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
 	//TestSocket1.Connect();
 	//TestSocket1.EstablishSecureConnetion();
-	MBSockets::HTTPConnectSocket TestSocket("alt3.gmail-smtp-in.l.google.com", "587", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+	//alt1.gmail-smtp-in.l.google.com
+	MBSockets::HTTPConnectSocket TestSocket("smtp.gmail.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
 	TestSocket.Connect();
+	TestSocket.EstablishSecureConnetion();
 	//TestSocket.EstablishSecureConnetion();
-	//TestSocket.HTTPSendData("EHLO mrboboget.se");
+	TestSocket.HTTPSendData("EHLO mrboboget.se");
 	//std::cout << TestSocket.GetNextDecryptedData();
 	std::cout << TestSocket.GetNextRequestData();
 	while (true)

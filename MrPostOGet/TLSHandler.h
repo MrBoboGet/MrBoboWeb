@@ -9,6 +9,8 @@
 #include <MBErrorHandling.h>
 #include <filesystem>
 #include <deque>
+
+#include <MBCrypto/MBCrypto.h>
 enum class TLSVersions
 {
 	TLS1_2,
@@ -40,6 +42,41 @@ public:
 };
 namespace TLS1_2
 {
+	enum class KeyExchangeMethod
+	{
+		RSA,
+		DHE,
+		ECDHE,
+		Null,
+	};
+	enum class CertificateAuthenticationMethod
+	{
+		RSA,
+		ECDHE,
+		DHE,
+		Null,
+	};
+	enum class SymmetricEncryptionCipher
+	{
+		AES,
+		Null
+	};
+	enum class SymmetricCipherMode
+	{
+		CBC,
+		GCM,
+		Null,
+	};
+	struct CipherSuiteData
+	{
+		KeyExchangeMethod ExchangeMethod = KeyExchangeMethod::Null;
+		CertificateAuthenticationMethod AuthenticationMethod = CertificateAuthenticationMethod::Null;
+		size_t CipherKeySize = 0;
+		SymmetricCipherMode CipherMode = SymmetricCipherMode::Null;
+		MBCrypto::HashFunction HashFunction = MBCrypto::HashFunction::Null;
+	};
+
+
 	struct Random
 	{
 		//unsigned int GMT_UNIX_TIME;
@@ -54,6 +91,8 @@ namespace TLS1_2
 	{
 		server_name = 0,
 		signature_algoritms = 13,
+		SupportedGroups = 10,
+		EC_Point_Formats = 11,
 		Null
 	};
 	struct Extension
@@ -176,7 +215,7 @@ namespace TLS1_2
 		uint8_t					master_secret[48];
 		uint8_t					client_random[32];
 		uint8_t					server_random[32];
-		TLSHashObject HashAlgorithm = TLSHashObject(nullptr,0,0);
+		MBCrypto::HashObject HashAlgorithm = MBCrypto::HashObject();
 		std::string client_write_MAC_Key = "";
 		std::string server_write_MAC_Key = "";
 		std::string client_write_Key = "";
@@ -191,6 +230,8 @@ namespace TLS1_2
 		std::string SessionId = "";
 		bool IsHost = false;
 		std::string DomainName = "";
+		std::string HostToConnectToDomainName = "";
+		CipherSuiteData CipherSuiteInfo;
 	};
 
 	struct TLS1_2Alert {
@@ -724,13 +765,20 @@ class TLSHandler
 {
 private:
 	TLSHashObject Sha256HashObject = TLSHashObject(MBSha256, 32, 64);
+	bool IsConnected = false;
+	bool m_HandshakeIsValid = true;
+	int m_MaxRecordLength = 16384;
+	int m_MaxBytesInMemory = 200000000;
+	TLS_TCP_State RecieveDataState;
+	TLS1_2::SecurityParameters ConnectionParameters;
+	std::string DefaultDomain = "mrboboget.se";
+
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
 	MrBigInt RSAEP(TLSServerPublickeyInfo& RSAInfo, MrBigInt const& MessageRepresentative);
 	static std::string I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString);
 	std::string RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo, std::string& DataToEncrypt);
 	void SendClientKeyExchange(TLSServerPublickeyInfo& Data, MBSockets::Socket* SocketToConnect);
-	TLS1_2::SecurityParameters ConnectionParameters;
 	std::string XORedString(std::string String1, std::string String2);
 	std::string HMAC(std::string Secret, std::string Seed);
 	std::string P_Hash(std::string Secret, std::string Seed, uint64_t AmountOfData);
@@ -745,21 +793,23 @@ private:
 	std::string GetDomainResourcePath(std::string const& DomainName);
 	static std::string RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& DecryptInfo, std::string const& PublicKeyEncryptedData);
 	std::string GetDefaultCertificate();
-	std::string DefaultDomain = "mrboboget.se";
 	void ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord);
 	MBError ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2HelloClientStruct const& StructToUse,MBSockets::Socket* SocketToConnect);
 	void CacheSession();
 	static bool SessionIsSaved(std::string const& SessionID);
 	TLS1_2::SecurityParameters GetCachedSession(std::string const& SessiondID);
-	bool IsConnected = false;
-	bool m_HandshakeIsValid = true;
 	void SendCloseNotfiy(MBSockets::Socket* SocketToUse);
-	int m_MaxRecordLength = 16384;
-	int m_MaxBytesInMemory = 200000000;
-	TLS_TCP_State RecieveDataState;
 	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory);
 	bool HandleAlertMessage(MBSockets::Socket* SocketToConnect,std::string const& DecryptedAlertRecord);
 	std::string GetNextRawProtocol(MBSockets::Socket* SocketToConnect, int MaxBytesInMemory);
+
+	static TLS1_2::CipherSuiteData p_GetCipherSuiteData(TLS1_2::CipherSuite);
+	static std::vector<TLS1_2::CipherSuite> p_GetSupportedCipherSuites();
+	static void p_UpdateConnectionParametersAfterServerHello(TLS1_2::SecurityParameters& ConnectionParameters,TLS1_2::TLS1_2ServerHelloStruct const& ServerHelloStruct);
+	std::vector<TLS1_2::Extension> p_GetClientExtensions();
+	std::vector<std::string> p_GetServerHelloResponseRecords(MBSockets::ConnectSocket* SocketToUse);
+	void p_EstablishPreMasterSecret(TLS1_2::SecurityParameters& ConnectionParameters, std::vector<std::string> const& ServerHelloResponse, MBSockets::ConnectSocket* SocketTouse);
+	static std::vector<TLS1_2::Extension> p_GenerateDHEExtensions();
 public:
 	TLSHandler();
 	bool ConnectionIsActive() { return(IsConnected); };

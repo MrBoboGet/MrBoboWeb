@@ -59,8 +59,8 @@ namespace MBMail
 	public:
 	};
 	char ByteToBASE64(uint8_t ByteToEncode);
-	std::string BASE64Decode(void* CharactersToRead, size_t NumberOfCharacters);
-	std::string BASE64Encode(void* DataToEncode, size_t DataLength);
+	std::string BASE64Decode(const void* CharactersToRead, size_t NumberOfCharacters);
+	std::string BASE64Encode(const void* DataToEncode, size_t DataLength);
 
 	enum class DKIMNormalizationMethod
 	{
@@ -99,7 +99,7 @@ namespace MBMail
 		static MIMEHeader p_GenerateInitialDKIMHeader(DKIMSigningData const& SigningData);
 		static std::string p_GetBodyHash(std::string const& BodyData, DKIMSigningData const& SigningData);
 		static std::string p_GetBodyHash(Mail const& MailToSign, DKIMSigningData const& SigningData);
-		static std::string p_GetHeadersHash(Mail const& MailToSign, DKIMSigningData const& SigningData);
+		static std::string p_GetHeaderDataToHash(Mail const& MailToSign, DKIMSigningData const& SigningData);
 		static std::string p_GetPrivateKeyPath(std::string const& DomainToSign, std::string const& SignSelector);
 		static std::string p_GetHashSignature(std::string const& HashToSign, DKIMSigningData const& SigningData,std::string const& PrivateKeyPath);
 		static MIMEHeader p_GetHeader(std::vector<MIMEHeader> const& HeadersToSearch, std::string const& HeaderName);
