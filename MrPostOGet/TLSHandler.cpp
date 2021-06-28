@@ -15,6 +15,10 @@
 #include <cryptopp/cryptlib.h>
 #include <cryptopp/rsa.h>
 #include <cryptopp/algebra.h>
+#include <cryptopp/cryptlib.h>
+#include <cryptopp/rijndael.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/gcm.h>
 
 std::string MBSha1(std::string const& StringToHash)
 {
@@ -30,6 +34,27 @@ std::string MBSha1(std::string const& StringToHash)
 }
 namespace TLS1_2
 {
+	ECDHEServerKeyExchange GetServerECDHEKey(SecurityParameters& ConnectionParams,std::string const& CompleteRecordData)
+	{
+		ECDHEServerKeyExchange ReturnValue;
+		std::string ServerKeyExchangeData = CompleteRecordData.substr(5 + 4);
+		NetWorkDataHandler Extracter((const uint8_t*)ServerKeyExchangeData.c_str());
+		size_t StartOfServerECDHEParams = Extracter.GetPosition();
+		ReturnValue.CurveType = (ECCurveType) Extracter.Extract8();
+		ReturnValue.NamedCurve = (MBCrypto::NamedElipticCurve) Extracter.Extract16();
+		size_t CurveLength = Extracter.Extract8();
+		ReturnValue.ECPoint = ServerKeyExchangeData.substr(Extracter.GetPosition(), CurveLength);
+		Extracter.SetPosition(CurveLength + Extracter.GetPosition());
+		size_t EndOfServerKeyExchangeParams = Extracter.GetPosition();
+		std::string ServerParamsData = ServerKeyExchangeData.substr(StartOfServerECDHEParams, EndOfServerKeyExchangeParams - StartOfServerECDHEParams);
+		std::string DataToHash = std::string((char*)ConnectionParams.client_random, 32) + std::string((char*)ConnectionParams.server_random, 32) + ServerParamsData;
+		ReturnValue.ClientHashedServerECDHEParams = ConnectionParams.HashAlgorithm.Hash(DataToHash);
+		ReturnValue.SignatureAlgorithm.Hash =(HashAlgorithm) Extracter.Extract8();
+		ReturnValue.SignatureAlgorithm.Signature =(SignatureAlgorithm) Extracter.Extract8();
+		size_t LengthOfSignatureData = Extracter.Extract16();
+		ReturnValue.ServerSignedData = ServerKeyExchangeData.substr(Extracter.GetPosition(), LengthOfSignatureData);
+		return(ReturnValue);
+	}
 	std::string GetAlertErrorDescription(uint8_t ErrorValue)
 	{
 		if (ErrorValue == close_notify)
@@ -377,6 +402,28 @@ namespace TLS1_2
 		//nu koller vi längden till nästa value
 		return(ReturnValue);
 	}
+	std::string GetRecordString(TLS1_2GenericRecord const& RecordToEncode)
+	{
+		std::string ReturnValue = "";
+		ReturnValue += char(RecordToEncode.Type);
+		ReturnValue += char(RecordToEncode.Protocol.Major);
+		ReturnValue += char(RecordToEncode.Protocol.Minor);
+		ReturnValue += char(RecordToEncode.Data.size() >> 8);
+		ReturnValue += char(RecordToEncode.Data.size() % 256);
+		ReturnValue += RecordToEncode.Data;
+		return(ReturnValue);
+	}
+	std::string GetRecordString(TLS1_2HanshakeMessage const& MessageToEncode)
+	{
+		std::string ReturnValue = "";
+		ReturnValue += (char)MessageToEncode.Type;
+		for (size_t i = 0; i < 3; i++)
+		{
+			ReturnValue += char((MessageToEncode.MessageData.size() >> ((2 - i) * 8)) % 256);
+		}
+		ReturnValue += MessageToEncode.MessageData;
+		return(ReturnValue);
+	}
 };
 
 std::mutex CachedSessionsMutex;
@@ -674,17 +721,18 @@ TLS1_2::CipherSuiteData TLSHandler::p_GetCipherSuiteData(TLS1_2::CipherSuite Cip
 	TLS1_2::CipherSuiteData ReturnValue;
 	if (CipherToEvaluate.Del1 == 0 && CipherToEvaluate.Del2 == 0x3c)
 	{
-		ReturnValue = { TLS1_2::KeyExchangeMethod::RSA,TLS1_2::CertificateAuthenticationMethod::RSA,128,TLS1_2::SymmetricCipherMode::CBC,MBCrypto::HashFunction::SHA256 };
+		ReturnValue = { TLS1_2::KeyExchangeMethod::RSA,TLS1_2::CertificateAuthenticationMethod::RSA,16,0,0,TLS1_2::SymmetricEncryptionCipher::AES,TLS1_2::SymmetricCipherMode::CBC,MBCrypto::HashFunction::SHA256 };
 	}
 	else if (CipherToEvaluate.Del1 == 0xc0 && CipherToEvaluate.Del2 == 0x2f)
 	{
-		ReturnValue = { TLS1_2::KeyExchangeMethod::ECDHE,TLS1_2::CertificateAuthenticationMethod::RSA,128,TLS1_2::SymmetricCipherMode::GCM,MBCrypto::HashFunction::SHA256 };
+		ReturnValue = { TLS1_2::KeyExchangeMethod::ECDHE,TLS1_2::CertificateAuthenticationMethod::RSA,16,8,4,TLS1_2::SymmetricEncryptionCipher::AES,TLS1_2::SymmetricCipherMode::GCM,MBCrypto::HashFunction::SHA256 };
 	}
 	return(ReturnValue);
 }
 std::vector<TLS1_2::CipherSuite> TLSHandler::p_GetSupportedCipherSuites()
 {
 	std::vector<TLS1_2::CipherSuite> ReturnValue = { {0x00,0x3c},{0xc0,0x02f} };
+	//std::vector<TLS1_2::CipherSuite> ReturnValue = { {0x00,0x3c} };
 	return(ReturnValue);
 }
 
@@ -781,47 +829,45 @@ void TLSHandler::SendChangeCipherMessage(MBSockets::Socket* SocketToConnect)
 }
 void TLSHandler::GenerateKeys()
 {
-	uint8_t EncryptKeySize = 16;
+	uint8_t EncryptKeySize = ConnectionParameters.CipherSuiteInfo.CipherKeySize;
 	uint8_t MacKeyLength = ConnectionParameters.HashAlgorithm.GetDigestSize();
-	uint64_t DataNeeded = 4*EncryptKeySize+2*MacKeyLength;
+	if (ConnectionParameters.CipherSuiteInfo.CipherMode == TLS1_2::SymmetricCipherMode::GCM)
+	{
+		MacKeyLength = 0;
+	}
+	uint8_t WriteIVLength = ConnectionParameters.CipherSuiteInfo.FixedIVLength;
+	uint64_t DataNeeded = 2*EncryptKeySize+2*MacKeyLength+2*WriteIVLength;
 	std::string MasterSecret = std::string(reinterpret_cast<char*>(ConnectionParameters.master_secret), 48);
 	std::string ServerRandom = std::string(reinterpret_cast<char*>(ConnectionParameters.server_random), 32);
 	std::string ClientRandom = std::string(reinterpret_cast<char*>(ConnectionParameters.client_random), 32);
 	
-	//std::cout << "Client radnom used: " << HexEncodeString(ClientRandom) << std::endl;
-	//std::cout << "Server random used: " << HexEncodeString(ServerRandom) << std::endl;
-	//std::cout << "Master secret used: " << HexEncodeString(MasterSecret) << std::endl;
+	std::cout << "Client radnom used: " << HexEncodeString(ClientRandom) << std::endl;
+	std::cout << "Server random used: " << HexEncodeString(ServerRandom) << std::endl;
+	std::cout << "Master secret used: " << HexEncodeString(MasterSecret) << std::endl;
 	
 	std::string GeneratedKeyData = PRF(MasterSecret, "key expansion", ServerRandom + ClientRandom, DataNeeded);
 	
-	//std::cout << "Generated PRF: " << HexEncodeString(GeneratedKeyData) << std::endl;
+	std::cout << "Generated PRF: " << HexEncodeString(GeneratedKeyData) << std::endl;
 	
 	ConnectionParameters.client_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *0, MacKeyLength);
 	ConnectionParameters.server_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *1, MacKeyLength);
 	ConnectionParameters.client_write_Key = GeneratedKeyData.substr(MacKeyLength*2+EncryptKeySize *0, EncryptKeySize);
 	ConnectionParameters.server_write_Key = GeneratedKeyData.substr(MacKeyLength * 2+EncryptKeySize *1, EncryptKeySize);
-	ConnectionParameters.client_write_IV = GeneratedKeyData.substr(EncryptKeySize *2, EncryptKeySize);
-	ConnectionParameters.server_write_IV = GeneratedKeyData.substr(EncryptKeySize *3, EncryptKeySize);
+	ConnectionParameters.client_write_IV = GeneratedKeyData.substr(EncryptKeySize *2+MacKeyLength*2, WriteIVLength);
+	ConnectionParameters.server_write_IV = GeneratedKeyData.substr(EncryptKeySize *2+MacKeyLength*2+WriteIVLength, WriteIVLength);
 
-	//std::cout << "Client_write_MAC_Key: " << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
-	//std::cout << "Server_write_MAC_Key: " << HexEncodeString(ConnectionParameters.server_write_MAC_Key) << std::endl;
-	//std::cout << "Client_write_Key: " << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
-	//std::cout << "Server_write_Key: " << HexEncodeString(ConnectionParameters.server_write_Key) << std::endl;
+	std::cout << "Client_write_MAC_Key: " << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
+	std::cout << "Server_write_MAC_Key: " << HexEncodeString(ConnectionParameters.server_write_MAC_Key) << std::endl;
+	std::cout << "Client_write_Key: " << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
+	std::cout << "Server_write_Key: " << HexEncodeString(ConnectionParameters.server_write_Key) << std::endl;
+	std::cout << "Client Write IV: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.client_write_IV), " ", "") << std::endl;
+	std::cout << "Server Write IV: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.server_write_IV), " ", "") << std::endl;
 }
-std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt,void* PreDeterminedIV)
+std::string TLSHandler::p_GetCBCEncryptedRecord(TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt)
 {
-	//generar en random IV
 	std::string TotalRecordData = "";
 	unsigned char IV[16];
 	FillArrayWithRandomBytes(IV, 16);
-	if (PreDeterminedIV != nullptr)
-	{
-		unsigned char* IVData = (unsigned char*)PreDeterminedIV;
-		for (size_t i = 0; i < 16; i++)
-		{
-			IV[i] = IVData[i];
-		}
-	}
 	std::string SequenceNumber = std::string(8, 0);
 	uint64_t TempSequenceNumber;
 	if (!ConnectionParameters.IsHost)
@@ -835,9 +881,9 @@ std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordTo
 	for (size_t i = 0; i < 8; i++)
 	{
 		SequenceNumber[7 - i] = TempSequenceNumber % 256;
-		TempSequenceNumber =  TempSequenceNumber >> 8;
+		TempSequenceNumber = TempSequenceNumber >> 8;
 	}
-	std::string LengthString = std::string(2,0);
+	std::string LengthString = std::string(2, 0);
 	uint16_t TempLengthNumber = RecordToEncrypt.Length;
 	for (int i = 0; i < 2; i++)
 	{
@@ -871,34 +917,199 @@ std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordTo
 	}
 	DataToEncrypt += Padding;
 	DataToEncrypt += char(PaddingLength);
-	std::string EncryptedData(DataToEncrypt.size(),0);
-	if (DataToEncrypt.size() != plusaes::get_padded_encrypted_size(DataToEncrypt.size()))
-	{
-		//std::cout << DataToEncrypt.size() << " " << plusaes::get_padded_encrypted_size(DataToEncrypt.size()) << std::endl;
-		//assert(false);
-	}
-	//std::ofstream EncFile("RecordData.txt");
-	//EncFile << DataToEncrypt;
-	//EncFile.close();
-	plusaes::encrypt_cbc((unsigned char*)DataToEncrypt.data(), DataToEncrypt.size(), (unsigned char*)WriteKey.data(), WriteKey.size(),&IV, (unsigned char*)EncryptedData.data(), EncryptedData.size(), false);
+	std::string EncryptedData(DataToEncrypt.size(), 0);
+	plusaes::encrypt_cbc((unsigned char*)DataToEncrypt.data(), DataToEncrypt.size(), (unsigned char*)WriteKey.data(), WriteKey.size(), &IV, (unsigned char*)EncryptedData.data(), EncryptedData.size(), false);
 	TotalRecordData += char(RecordToEncrypt.Type);
 	TotalRecordData += char(RecordToEncrypt.Protocol.Major);
 	TotalRecordData += char(RecordToEncrypt.Protocol.Minor);
 	std::string IVString = std::string(reinterpret_cast<char*>(IV), 16);
 	uint16_t LengthOfCipherBlock = EncryptedData.size() + IVString.size();
 	TotalRecordData += char(LengthOfCipherBlock >> 8);
-	TotalRecordData += char(LengthOfCipherBlock%256);
+	TotalRecordData += char(LengthOfCipherBlock % 256);
 	TotalRecordData += IVString;
 	TotalRecordData += EncryptedData;
-	//debuggrej
-	//TotalRecordData.back() = char(0);
-	//std::cout << "Client write key" << std::endl;
-	//std::cout << ReplaceAll(HexEncodeString(ConnectionParameters.client_write_Key), " ", "") << std::endl;
-	//std::cout << "IV used" << std::endl;
-	//std::cout << ReplaceAll(HexEncodeString(IVString), " ", "") << std::endl;
-	//std::cout << "Encrypted data" << std::endl;
-	//std::cout << ReplaceAll(HexEncodeString(EncryptedData), " ", "") << std::endl;
 	return(TotalRecordData);
+} 
+std::string TLSHandler::p_GetExplicitNonce()
+{
+	//m_NonceSequenceNumber += 1;
+	std::string ReturnValue = "";
+	//ReturnValue += "UwU\xbe\xef";
+	size_t SequenceNumberToUse = 0;
+	if (ConnectionParameters.IsHost)
+	{
+		SequenceNumberToUse = ConnectionParameters.ServerSequenceNumber;
+	}
+	else
+	{
+		SequenceNumberToUse = ConnectionParameters.ClientSequenceNumber;
+	}
+	for (size_t i = 0; i < ConnectionParameters.CipherSuiteInfo.NonceSize; i++)
+	{
+		ReturnValue += char(SequenceNumberToUse >> ((3 - i) * 8));
+	}
+	return(ReturnValue);
+}
+std::string TLSHandler::p_GetGCMEncryptedRecord(TLS1_2::SecurityParameters const& SecurityParams, TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt)
+{
+	if (ConnectionParameters.CipherSuiteInfo.EncryptionCipher == TLS1_2::SymmetricEncryptionCipher::AES)
+	{
+		return(p_Get_AES_GCM_EncryptedRecord(SecurityParams, RecordToEncrypt));
+	}
+}
+std::string TLSHandler::p_GetAEADAdditionalData(TLS1_2::SecurityParameters const& ConnectionParams, std::string const& RecordData,bool Encrypt)
+{
+	if (ConnectionParams.CipherSuiteInfo.EncryptionCipher != TLS1_2::SymmetricEncryptionCipher::AES)
+	{
+		assert(false);
+	}
+	std::string ReturnValue = "";
+	std::string SequenceNumber = std::string(8, 0);
+	size_t ExplicitNounceLength = ConnectionParams.CipherSuiteInfo.NonceSize;
+	size_t TagSize = 16;
+	uintmax_t TempSequenceNumber;
+	if (!ConnectionParams.IsHost)
+	{
+		if (Encrypt)
+		{
+			TempSequenceNumber = ConnectionParams.ClientSequenceNumber;
+		}
+		else
+		{
+			TempSequenceNumber = ConnectionParams.ServerSequenceNumber;
+		}
+	}
+	else
+	{
+		if (Encrypt)
+		{
+			TempSequenceNumber = ConnectionParams.ServerSequenceNumber;
+		}
+		else
+		{
+			TempSequenceNumber = ConnectionParams.ClientSequenceNumber;
+		}
+	}
+	for (size_t i = 0; i < 8; i++)
+	{
+		SequenceNumber[7 - i] = TempSequenceNumber % 256;
+		TempSequenceNumber = TempSequenceNumber >> 8;
+	}
+	ReturnValue = SequenceNumber + RecordData.substr(0,3);
+	if (Encrypt)
+	{
+		ReturnValue += RecordData.substr(3, 2);
+	}
+	else
+	{
+		size_t DecryptedRecordLength = 0;
+		DecryptedRecordLength +=uint8_t(RecordData[3]) << 8;
+		DecryptedRecordLength += uint8_t(RecordData[4]);
+		DecryptedRecordLength -= TagSize;
+		DecryptedRecordLength -= ExplicitNounceLength;
+		ReturnValue += DecryptedRecordLength >> 8;
+		ReturnValue += DecryptedRecordLength%256;
+	}
+	size_t RecordSize = 0;
+
+	return(ReturnValue);
+}
+std::string TLSHandler::p_GetAEADAdditionalData(TLS1_2::SecurityParameters const& ConnectionParams, TLS1_2::TLS1_2GenericRecord const& AssociatedRecord,bool Encrypts)
+{
+	if (ConnectionParams.CipherSuiteInfo.EncryptionCipher != TLS1_2::SymmetricEncryptionCipher::AES)
+	{
+		assert(false);
+	}
+	std::string ReturnValue = "";
+	std::string SequenceNumber = std::string(8, 0);
+	size_t ExplicitNounceLength = ConnectionParams.CipherSuiteInfo.NonceSize;
+	size_t TagSize = 16;
+	uintmax_t TempSequenceNumber;
+	if (!ConnectionParams.IsHost)
+	{
+		TempSequenceNumber = ConnectionParams.ClientSequenceNumber;
+	}
+	else
+	{
+		TempSequenceNumber = ConnectionParams.ServerSequenceNumber;
+	}
+	for (size_t i = 0; i < 8; i++)
+	{
+		SequenceNumber[7 - i] = TempSequenceNumber % 256;
+		TempSequenceNumber = TempSequenceNumber >> 8;
+	}
+	std::string RecordLength = "";
+	if (Encrypts)
+	{
+		RecordLength += char(AssociatedRecord.Data.size() >> 8);
+		RecordLength += char(AssociatedRecord.Data.size() % 256);
+	}
+	else
+	{
+		RecordLength += char((AssociatedRecord.Data.size()-TagSize-ExplicitNounceLength) >> 8);
+		RecordLength += char((AssociatedRecord.Data.size()-TagSize - ExplicitNounceLength) % 256);
+	}
+	ReturnValue = SequenceNumber + char(AssociatedRecord.Type) + char(AssociatedRecord.Protocol.Major) + char(AssociatedRecord.Protocol.Minor) + RecordLength;
+	return(ReturnValue);
+}
+std::string TLSHandler::p_Get_AES_GCM_EncryptedRecord(TLS1_2::SecurityParameters const& SecurityParams, TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt)
+{
+	std::string ReturnValue = "";
+	ReturnValue += char(RecordToEncrypt.Type);
+	ReturnValue += char(RecordToEncrypt.Protocol.Major);
+	ReturnValue += char(RecordToEncrypt.Protocol.Minor);
+	std::string EncryptedData = "";
+	std::string ImplicitNonce = "";
+	if (ConnectionParameters.IsHost)
+	{
+		ImplicitNonce = ConnectionParameters.server_write_IV;
+	}
+	else
+	{
+		ImplicitNonce = ConnectionParameters.client_write_IV;
+	}
+	std::string ExplicitNonce = p_GetExplicitNonce();
+	std::string NonceToUse = ImplicitNonce+ ExplicitNonce;
+	std::string AuthenticatedData = p_GetAEADAdditionalData(SecurityParams,RecordToEncrypt,true);
+	size_t TagSize = 16;
+	
+	//DEBUG
+	std::cout << "Used Nonce: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(NonceToUse), " ", "") << std::endl;
+	std::cout << "Additional Data: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(AuthenticatedData), " ", "") << std::endl;
+
+
+	CryptoPP::GCM<CryptoPP::AES>::Encryption Encryptor;
+	if (ConnectionParameters.IsHost)
+	{
+		Encryptor.SetKeyWithIV((CryptoPP::byte*)ConnectionParameters.server_write_Key.data(), ConnectionParameters.server_write_Key.size(), (CryptoPP::byte*)NonceToUse.data(), NonceToUse.size());
+	}
+	else
+	{
+		Encryptor.SetKeyWithIV((CryptoPP::byte*)ConnectionParameters.client_write_Key.data(), ConnectionParameters.client_write_Key.size(), (CryptoPP::byte*)NonceToUse.data(), NonceToUse.size());
+	}
+	CryptoPP::AuthenticatedEncryptionFilter AEADFilter(Encryptor, new CryptoPP::StringSink(EncryptedData), false, TagSize);
+	AEADFilter.ChannelPut(CryptoPP::AAD_CHANNEL,(CryptoPP::byte*) AuthenticatedData.data(), AuthenticatedData.size());
+	AEADFilter.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
+	AEADFilter.ChannelPut(CryptoPP::DEFAULT_CHANNEL,(CryptoPP::byte*) RecordToEncrypt.Data.data(), RecordToEncrypt.Data.size());
+	AEADFilter.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+	size_t TotalMessageSize = ExplicitNonce.size() + EncryptedData.size();
+	ReturnValue += char(TotalMessageSize >> 8);
+	ReturnValue += char(TotalMessageSize %256);
+	ReturnValue += ExplicitNonce;
+	ReturnValue += EncryptedData;
+	//std::string DEBUG_TEST = p_DecryptRecord(ReturnValue);
+	return(ReturnValue);
+}
+std::string TLSHandler::GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt)
+{
+	if (ConnectionParameters.CipherSuiteInfo.CipherMode == TLS1_2::SymmetricCipherMode::CBC)
+	{
+		return(p_GetCBCEncryptedRecord(RecordToEncrypt));
+	}
+	else if (ConnectionParameters.CipherSuiteInfo.CipherMode == TLS1_2::SymmetricCipherMode::GCM)
+	{
+		return(p_GetGCMEncryptedRecord(ConnectionParameters, RecordToEncrypt));
+	}
 }
 std::string TLSHandler::GenerateVerifyDataMessage()
 {
@@ -1060,20 +1271,58 @@ std::vector<std::string> TLSHandler::p_GetServerHelloResponseRecords(MBSockets::
 	}
 	return(ReturnValue);
 }
+std::string TLSHandler::p_GenerateClientECDHEKeyExchangeMessage(TLS1_2::SecurityParameters const& ConnectionParams, MBCrypto::ECDHEPrivatePublicKeyPair& OutKeypair, TLS1_2::ECDHEServerKeyExchange const& ServerExchange)
+{
+	std::string ReturnValue = "";
+	TLS1_2::TLS1_2GenericRecord RecordToSend;
+	RecordToSend.Protocol = ConnectionParams.NegotiatedProtocolVersion;
+	RecordToSend.Type = TLS1_2::handshake;
+	TLS1_2::TLS1_2HanshakeMessage HandshakeMessage;
+	HandshakeMessage.Type = TLS1_2::client_key_exchange;
+	MBCrypto::ElipticCurve CurveToUse(ServerExchange.NamedCurve);
+	OutKeypair = CurveToUse.GetPrivatePublicKeypair();
+	std::string PointData = CurveToUse.EncodeECP_ANS1x92Encoding(OutKeypair.PublicPoint);
+	HandshakeMessage.MessageData += char(PointData.size() % 256);
+	HandshakeMessage.MessageData += PointData;
+ 	RecordToSend.Data = TLS1_2::GetRecordString(HandshakeMessage);
+	ReturnValue = TLS1_2::GetRecordString(RecordToSend);
+	return(ReturnValue);
+}
+void TLSHandler::p_ECDHECalculatePremasterSecret(TLS1_2::SecurityParameters& ConnectionParams, TLS1_2::ECDHEServerKeyExchange const& ServerExchange, MBCrypto::ECDHEPrivatePublicKeyPair const& ClientKeypair)
+{
+	MBCrypto::ElipticCurve CurveToUse(ServerExchange.NamedCurve);
+	std::string ServerBigEndianPoint = ServerExchange.ECPoint;
+	std::string PreMasterSecret = CurveToUse.CalculateSharedKey(MBCrypto::DecodeECP_ANS1x92Encoding(ServerBigEndianPoint), ClientKeypair.PrivateInteger);
+	PreMasterSecret = PreMasterSecret.substr(PreMasterSecret.find_first_not_of((char)0));
+	ConnectionParams.PreMasterSecret = PreMasterSecret;
+}
 void TLSHandler::p_EstablishPreMasterSecret(TLS1_2::SecurityParameters& ConnectionParams, std::vector<std::string> const& ServerHelloResponse, MBSockets::ConnectSocket* SocketTouse)
 {
+	std::string ServerCertificateMessage = ServerHelloResponse[1];
+	std::string ServerCertificate = ServerCertificateMessage.substr(5 + 4 + 3 + 3/*första trean är eftersom den börjhar med en lengthy byte av alla data, andra är föör längen av första certfiikaten*/);
+	TLSServerPublickeyInfo KeyFromCertificate = GetServerPublicKey(ServerCertificate); //keytype agnostic data
 	if (ConnectionParams.CipherSuiteInfo.ExchangeMethod == TLS1_2::KeyExchangeMethod::RSA)
 	{
-		std::string ServerCertificateMessage = ServerHelloResponse[1];
-		std::string ServerCertificate = ServerCertificateMessage.substr(5 + 4 + 3 + 3/*första trean är eftersom den börjhar med en lengthy byte av alla data, andra är föör längen av första certfiikaten*/);
-		TLSServerPublickeyInfo KeyFromCertificate = GetServerPublicKey(ServerCertificate);
 		SendClientKeyExchange(KeyFromCertificate, SocketTouse);
-		ConnectionParameters.ClientSequenceNumber += 1;
+		ConnectionParams.ClientSequenceNumber += 1;
 		SendChangeCipherMessage(SocketTouse);
 	}
-	else if (ConnectionParameters.CipherSuiteInfo.ExchangeMethod == TLS1_2::KeyExchangeMethod::ECDHE)
+	else if (ConnectionParams.CipherSuiteInfo.ExchangeMethod == TLS1_2::KeyExchangeMethod::ECDHE)
 	{
-
+		TLS1_2::ECDHEServerKeyExchange ServerKeyExchange = TLS1_2::GetServerECDHEKey(ConnectionParameters,ServerHelloResponse[2]);
+		MBCrypto::RSAPublicKey ServerRSAPublicKey = MBCrypto::ParsePublicKeyDEREncodedData(KeyFromCertificate.ServerKeyData);
+		bool SignatureValid = MBCrypto::RSASSA_PKCS1_V1_5_VERIFY(ServerKeyExchange.ServerSignedData, ServerKeyExchange.ClientHashedServerECDHEParams, ServerRSAPublicKey, ConnectionParams.CipherSuiteInfo.HashFunction);
+		if (SignatureValid == false)
+		{
+			assert(false);
+		}
+		MBCrypto::ECDHEPrivatePublicKeyPair ClientKeypair;
+		std::string ClientKeyExchange = p_GenerateClientECDHEKeyExchangeMessage(ConnectionParams, ClientKeypair,ServerKeyExchange);
+		SocketTouse->SendData(ClientKeyExchange.data(), ClientKeyExchange.size());
+		ConnectionParams.ClientSequenceNumber += 1;
+		ConnectionParams.AllHandshakeMessages.push_back(ClientKeyExchange);
+		p_ECDHECalculatePremasterSecret(ConnectionParams, ServerKeyExchange,ClientKeypair);
+		SendChangeCipherMessage(SocketTouse);
 	}
 }
 std::vector<TLS1_2::Extension> TLSHandler::p_GenerateDHEExtensions()
@@ -1082,10 +1331,7 @@ std::vector<TLS1_2::Extension> TLSHandler::p_GenerateDHEExtensions()
 	TLS1_2::Extension SupportedGroupsExtension;
 	SupportedGroupsExtension.ExtensionType = TLS1_2::SupportedGroups;
 	std::vector<MBCrypto::NamedElipticCurve> SupportedCurves = 
-	{ MBCrypto::NamedElipticCurve::x25519,
-		MBCrypto::NamedElipticCurve::secp256r1,
-		MBCrypto::NamedElipticCurve::secp384r1,
-		MBCrypto::NamedElipticCurve::secp521r1 };
+	{ MBCrypto::NamedElipticCurve::secp256r1};
 	SupportedGroupsExtension.ExtensionData = {};
 	assert(SupportedCurves.size() < 256);
 	SupportedGroupsExtension.ExtensionData.push_back(0);
@@ -1124,13 +1370,32 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 
 	p_UpdateConnectionParametersAfterServerHello(ConnectionParameters, ServerHelloStruct);
 	p_EstablishPreMasterSecret(ConnectionParameters, ServerHelloResponseData, SocketToConnect);
-	GenerateMasterSecret(std::string((char*)ConnectionParameters.PreMasterSecret,48));
+	GenerateMasterSecret(ConnectionParameters.PreMasterSecret);
 	GenerateKeys();
+	
+	
+	
+	std::ofstream DEBUG_Keyfile = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWireshark.txt");
+	DEBUG_Keyfile << "CLIENT_RANDOM " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret, 48)), " ", "");
+	DEBUG_Keyfile.flush();
+	DEBUG_Keyfile.close();
+	
+
+	std::ofstream DEBUG_Keyfile2 = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWiresharkPremaster.txt");
+	DEBUG_Keyfile2 << "CLIENT_RANDOM " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(MBCrypto::I2OSP(ConnectionParameters.PreMasterSecret,48)), " ", "");
+	DEBUG_Keyfile2.flush();
+	DEBUG_Keyfile2.close();
+	
+	
 	std::string VerifyDataMessage = GenerateVerifyDataMessage();
 	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
 	ConnectionParameters.HandshakeFinished = true;
 	ConnectionParameters.ClientSequenceNumber+=1;
+	ConnectionParameters.ServerSequenceNumber = 0;
+
+	std::cout << "Premaster secret: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.PreMasterSecret), " ", "") << std::endl;
 	std::vector<std::string> ServerVerifyDataResponse = GetNextPlaintextRecords(SocketToConnect);
+	ConnectionParameters.ServerSequenceNumber = 0;
 	assert(ServerVerifyDataResponse.size() > 1);
 	assert(ServerVerifyDataResponse[1].size() >= 9);
 	assert(VerifyFinishedMessage(ServerVerifyDataResponse[1].substr(9)));
@@ -1187,7 +1452,7 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	//std::cout << HexEncodeString(HMAC("123123", "123123")) << std::endl;
 	ServerHandleKeyExchange(ClientResponse[0]);
 	ConnectionParameters.AllHandshakeMessages.push_back(ClientResponse[0]);
-	std::string ServerFinishedMessagePlaintext = DecryptBlockcipherRecord(ClientResponse[2]);
+	std::string ServerFinishedMessagePlaintext = p_DecryptRecord(ClientResponse[2]);
 	if (VerifyFinishedMessage(ServerFinishedMessagePlaintext.substr(9)) == false)
 	{
 		ErrorToReturn = false;
@@ -1428,7 +1693,7 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 	assert(ClientVerifyDataMessage.size() <= 2);
 	ConnectionParameters.ServerSequenceNumber = 0;
 	ConnectionParameters.ClientSequenceNumber = 0;
-	std::string ServerFinishedMessagePlaintext = DecryptBlockcipherRecord(ClientVerifyDataMessage[1]);
+	std::string ServerFinishedMessagePlaintext = p_DecryptRecord(ClientVerifyDataMessage[1]);
 	if (VerifyFinishedMessage(ServerFinishedMessagePlaintext.substr(9)) == false)
 	{
 		ErrorToReturn = false;
@@ -1627,8 +1892,10 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 	std::string LengthOfRecord = "";
 	LengthOfRecord += RecordToEncrypt.Length >> 8;
 	LengthOfRecord += RecordToEncrypt.Length % 256;
+	//std::cout <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret, 48))," ","") << std::endl;
 	std::string MACStringInput = SequenceNumber + char(RecordToEncrypt.Type) + char(RecordToEncrypt.Protocol.Major) + char(RecordToEncrypt.Protocol.Minor) + LengthString + RecordToEncrypt.Data;
 	std::string MAC = HMAC(WriteMACKey, MACStringInput);
+	//std::cout << MBUtility::ReplaceAll(MBUtility::HexEncodeString(MAC)," ","") << std::endl;
 	if (MAC != Hash)
 	{
 		std::cout << HexEncodeString(MAC) << std::endl;
@@ -1638,10 +1905,10 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 	}
 	return(MAC == Hash);
 }
-std::string TLSHandler::DecryptBlockcipherRecord(std::string const& Data)
+std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* OutVerification)
 {
 	//beror egentligen på om vi är en server eller client men vi förutsätter att vi är en client
-	std::string RecordHeader = Data.substr(0,5);
+	std::string RecordHeader = Data.substr(0, 5);
 	unsigned int HashOutputSize = ConnectionParameters.HashAlgorithm.GetDigestSize();
 	unsigned char IV[16];
 	if (Data[0] == TLS1_2::change_cipher_spec)
@@ -1650,11 +1917,11 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string const& Data)
 	}
 	for (int i = 5; i < 21; i++)
 	{
-		IV[i-5] = Data[i];
+		IV[i - 5] = Data[i];
 	}
 	//vi kollar hur många bytes padding det är
 	//vi kan då få content octetsen genom att skippa paddingen + 1 +32 
-	std::string DataToDecrypt = Data.substr(5+16);
+	std::string DataToDecrypt = Data.substr(5 + 16);
 	uint64_t DataToDecryptSize = DataToDecrypt.size();
 	std::string DecryptedData = std::string(DataToDecryptSize, 0);
 	unsigned long PaddedSize = 0;
@@ -1672,7 +1939,7 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string const& Data)
 		(unsigned char*)DecryptedData.data(), DecryptedData.size(), &PaddedSize);
 	if (AESError != plusaes::Error::kErrorOk)
 	{
- 		std::cout << "Error with decryption" << std::endl;
+		std::cout << "Error with decryption" << std::endl;
 		assert(false);
 	}
 	std::string ContentOctets = "";
@@ -1681,7 +1948,7 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string const& Data)
 	//TODO Fixa så det är cipher suite independant koden under
 	//uint64_t Padding = DecryptedData[DecryptedData.size() - 1];
 	//assert(PaddedSize == Padding);
-	for (int i = 0; i < DecryptedData.size()-(HashOutputSize +PaddedSize+1); i++)
+	for (int i = 0; i < DecryptedData.size() - (HashOutputSize + PaddedSize + 1); i++)
 	{
 		ContentOctets += DecryptedData[i];
 	}
@@ -1697,20 +1964,118 @@ std::string TLSHandler::DecryptBlockcipherRecord(std::string const& Data)
 	//vi verivierar att macen stämmer
 	TLS1_2::TLS1_2GenericRecord RecordToEncrypt;
 	RecordToEncrypt.Type = TLS1_2::ContentType(RecordHeader[0]);
-	RecordToEncrypt.Protocol = { uint8_t(RecordHeader[1]),uint8_t(RecordHeader[2])};
+	RecordToEncrypt.Protocol = { uint8_t(RecordHeader[1]),uint8_t(RecordHeader[2]) };
 	RecordToEncrypt.Length = ContentOctets.size();
 	RecordToEncrypt.Data = ContentOctets;
-	assert(VerifyMac(MACOctets, RecordToEncrypt));
+	bool VerificationResult = VerifyMac(MACOctets, RecordToEncrypt);
+	assert(VerificationResult);
+	*OutVerification = VerificationResult;
 	//nu vet vi även att vi kan ta och öka record´sen vi fått
+	return(RecordHeader + ContentOctets);
+}
+std::string TLSHandler::p_Decrypt_AES_GCM_Record(std::string const& Data,bool* OutVerification)
+{
+	std::string ReturnValue = "";
+	std::string DecryptedData = "";
+	std::string ImplicitNonce = "";
 	if (!ConnectionParameters.IsHost)
 	{
-		ConnectionParameters.ServerSequenceNumber += 1;
+		ImplicitNonce = ConnectionParameters.server_write_IV;
 	}
 	else
 	{
-		ConnectionParameters.ClientSequenceNumber += 1;
+		ImplicitNonce = ConnectionParameters.client_write_IV;
 	}
-	return(RecordHeader+ContentOctets);
+	std::string ExplicitNonce = Data.substr(5, ConnectionParameters.CipherSuiteInfo.NonceSize);
+	std::string Nonce = ImplicitNonce+ExplicitNonce;
+	std::string AdditionalData = p_GetAEADAdditionalData(ConnectionParameters, Data,false);
+	size_t CipherOffset = 5 + ExplicitNonce.size();
+	size_t TagSize = 16;
+	bool VerificationResult = false;
+	CryptoPP::GCM<CryptoPP::AES>::Decryption Decryptor;
+	if (!ConnectionParameters.IsHost)
+	{
+		Decryptor.SetKeyWithIV((CryptoPP::byte*) ConnectionParameters.server_write_Key.data(), ConnectionParameters.server_write_Key.size(), (CryptoPP::byte*) Nonce.data(), Nonce.size());
+	}
+	else
+	{
+		Decryptor.SetKeyWithIV((CryptoPP::byte*) ConnectionParameters.client_write_Key.data(), ConnectionParameters.client_write_Key.size(), (CryptoPP::byte*) Nonce.data(), Nonce.size());
+	}
+	try
+	{
+		std::string Mac = Data.substr(Data.size() - TagSize);
+		CryptoPP::AuthenticatedDecryptionFilter df(Decryptor, nullptr, CryptoPP::AuthenticatedDecryptionFilter::MAC_AT_BEGIN | CryptoPP::AuthenticatedDecryptionFilter::THROW_EXCEPTION, TagSize);
+		
+		// The order of the following calls are important
+		df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) Mac.data(), Mac.size());
+		df.ChannelPut(CryptoPP::AAD_CHANNEL, (CryptoPP::byte*) AdditionalData.data(), AdditionalData.size());
+		size_t EncryptedDataSize = Data.size() - (5 + ExplicitNonce.size()) - TagSize;
+		//std::string DEBUG_ENCData = std::string(&Data.data()[CipherOffset], EncryptedDataSize);
+		df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) &Data[CipherOffset], EncryptedDataSize);
+
+		// If the object throws, it will most likely occur
+		//   during ChannelMessageEnd()
+		df.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
+		df.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+
+		// If the object does not throw, here's the only
+		//  opportunity to check the data's integrity
+		bool b = false;
+		b = df.GetLastResult();
+		assert(true == b);
+		VerificationResult = b;
+
+		df.SetRetrievalChannel(CryptoPP::DEFAULT_CHANNEL);
+		size_t NumberOfCharacters = (size_t)df.MaxRetrievable();
+		DecryptedData.resize(NumberOfCharacters);
+		if (NumberOfCharacters > 0)
+		{
+			df.Get((CryptoPP::byte*)DecryptedData.data(), DecryptedData.size());
+		}
+		ReturnValue = Data.substr(0, 3);
+		ReturnValue += char(DecryptedData.size() >> 8);
+		ReturnValue += char(DecryptedData.size()%256);
+		ReturnValue += DecryptedData;
+	}
+	catch (const CryptoPP::Exception& e)
+	{
+		ReturnValue = "";
+		VerificationResult = false;
+		std::cout << "CrypotoPP exception in decrypting AES_GCM record" << std::endl;
+		std::cout << e.what() << std::endl;
+		std::cout << std::endl;
+	}
+	*OutVerification = VerificationResult;
+	return(ReturnValue);
+}
+std::string TLSHandler::p_DecryptRecord(std::string const& Data)
+{
+	std::string ReturnValue = "";
+	bool VerifcationResult = false;
+	if (Data[0] == TLS1_2::change_cipher_spec)
+	{
+		return(Data);
+	}
+	if (ConnectionParameters.CipherSuiteInfo.CipherMode == TLS1_2::SymmetricCipherMode::GCM && ConnectionParameters.CipherSuiteInfo.EncryptionCipher ==TLS1_2::SymmetricEncryptionCipher::AES)
+	{
+		ReturnValue = p_Decrypt_AES_GCM_Record(Data,&VerifcationResult);
+	}
+	else if (ConnectionParameters.CipherSuiteInfo.CipherMode == TLS1_2::SymmetricCipherMode::CBC && ConnectionParameters.CipherSuiteInfo.EncryptionCipher == TLS1_2::SymmetricEncryptionCipher::AES)
+	{
+		ReturnValue = p_Decrypt_AES_CBC_Record(Data,&VerifcationResult);
+	}
+	if (Data[0] != TLS1_2::change_cipher_spec)
+	{
+		if (!ConnectionParameters.IsHost)
+		{
+			ConnectionParameters.ServerSequenceNumber += 1;
+		}
+		else
+		{
+			ConnectionParameters.ClientSequenceNumber += 1;
+		}
+	}
+	return(ReturnValue);
 }
 void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::Socket* AssociatedSocket)
 {
@@ -1867,7 +2232,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 		}
 		if (ConnectionParameters.HandshakeFinished)
 		{
-			NewRecord = DecryptBlockcipherRecord(NewRecord);
+			NewRecord = p_DecryptRecord(NewRecord);
 		}
 		if (NewRecord[0] == TLS1_2::alert)
 		{
@@ -1956,7 +2321,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 		{
 			for (int i = 0; i < RawDataProtocols.size(); i++)
 			{
-				RawDataProtocols[i] = DecryptBlockcipherRecord(RawDataProtocols[i]);
+				RawDataProtocols[i] = p_DecryptRecord(RawDataProtocols[i]);
 				//std::string NewRawData = RawData.substr(0, 5);
 				//NewRawData += DecryptBlockcipherRecord(RawData);
 				//RawData = NewRawData;

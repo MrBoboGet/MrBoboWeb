@@ -42,6 +42,7 @@ public:
 };
 namespace TLS1_2
 {
+
 	enum class KeyExchangeMethod
 	{
 		RSA,
@@ -72,6 +73,9 @@ namespace TLS1_2
 		KeyExchangeMethod ExchangeMethod = KeyExchangeMethod::Null;
 		CertificateAuthenticationMethod AuthenticationMethod = CertificateAuthenticationMethod::Null;
 		size_t CipherKeySize = 0;
+		size_t NonceSize = 0;
+		size_t FixedIVLength = 0;
+		SymmetricEncryptionCipher EncryptionCipher = SymmetricEncryptionCipher::Null;
 		SymmetricCipherMode CipherMode = SymmetricCipherMode::Null;
 		MBCrypto::HashFunction HashFunction = MBCrypto::HashFunction::Null;
 	};
@@ -211,7 +215,7 @@ namespace TLS1_2
 		uint8_t                 mac_length;
 		uint8_t					mac_key_length;
 		CompressionMethod		compression_algorithm;
-		uint8_t					PreMasterSecret[48];
+		std::string				PreMasterSecret = std::string(48,0);
 		uint8_t					master_secret[48];
 		uint8_t					client_random[32];
 		uint8_t					server_random[32];
@@ -233,7 +237,27 @@ namespace TLS1_2
 		std::string HostToConnectToDomainName = "";
 		CipherSuiteData CipherSuiteInfo;
 	};
-
+	enum class ECCurveType : uint8_t
+	{
+		explicit_prime = 1,
+		explicit_char2 = 2,
+		named_curve = 3,
+		Null
+	};
+	struct ECDHEServerKeyExchange
+	{
+		ECCurveType CurveType = ECCurveType::Null;
+		MBCrypto::NamedElipticCurve NamedCurve = MBCrypto::NamedElipticCurve::Null;
+		std::string ECPoint = ""; //0-32 bytes
+		SignatureAndHashAlgoritm SignatureAlgorithm;
+		std::string ServerSignedData = "";
+		std::string ClientHashedServerECDHEParams = "";
+	};
+	struct ECDHECClientKeyExchange
+	{
+		std::string ECPoint = ""; //0-32 bytes
+	};
+	ECDHEServerKeyExchange GetServerECDHEKey(SecurityParameters& ConnectionParams, std::string const& CompleteRecordData);
 	struct TLS1_2Alert {
 		TLS1_2AlertLevel level;
 		TLS1_2AlertDescription description;
@@ -598,6 +622,13 @@ namespace TLS1_2
 		}
 		return(PaddedString.substr(OffsetToRealMessage+1));
 	}
+	struct TLS1_2HanshakeMessage
+	{
+		HandshakeType Type;
+		std::string MessageData = "";
+	};
+	std::string GetRecordString(TLS1_2GenericRecord const& RecordToEncode);
+	std::string GetRecordString(TLS1_2HanshakeMessage const& MessageToEncode);
 }
 //Hashalgoritmer vi behöver
 inline std::string MBSha256(std::string const& StringToHash)
@@ -772,7 +803,7 @@ private:
 	TLS_TCP_State RecieveDataState;
 	TLS1_2::SecurityParameters ConnectionParameters;
 	std::string DefaultDomain = "mrboboget.se";
-
+	size_t m_NonceSequenceNumber = 0;
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
 	MrBigInt RSAEP(TLSServerPublickeyInfo& RSAInfo, MrBigInt const& MessageRepresentative);
@@ -809,7 +840,19 @@ private:
 	std::vector<TLS1_2::Extension> p_GetClientExtensions();
 	std::vector<std::string> p_GetServerHelloResponseRecords(MBSockets::ConnectSocket* SocketToUse);
 	void p_EstablishPreMasterSecret(TLS1_2::SecurityParameters& ConnectionParameters, std::vector<std::string> const& ServerHelloResponse, MBSockets::ConnectSocket* SocketTouse);
+	static std::string p_GenerateClientECDHEKeyExchangeMessage(TLS1_2::SecurityParameters const& ConnectionParams,MBCrypto::ECDHEPrivatePublicKeyPair& OutKeypair, TLS1_2::ECDHEServerKeyExchange const& ServerExchange);
+	static void p_ECDHECalculatePremasterSecret(TLS1_2::SecurityParameters& ConnectionParams,TLS1_2::ECDHEServerKeyExchange const& ServerExchange, MBCrypto::ECDHEPrivatePublicKeyPair const& ClientKeypair);
 	static std::vector<TLS1_2::Extension> p_GenerateDHEExtensions();
+	static std::string p_GetAEADAdditionalData(TLS1_2::SecurityParameters const& SecurityParameters, TLS1_2::TLS1_2GenericRecord const& AssociatedRecord,bool Encrypts);
+	static std::string p_GetAEADAdditionalData(TLS1_2::SecurityParameters const& SecurityParameters, std::string const& RecordData,bool Encrypts);
+	std::string p_GetCBCEncryptedRecord(TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt);
+	std::string p_GetGCMEncryptedRecord(TLS1_2::SecurityParameters const& SecurityParams,TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt);
+	std::string p_Get_AES_GCM_EncryptedRecord(TLS1_2::SecurityParameters const& SecurityParams, TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt);
+	std::string p_GetExplicitNonce();
+
+	std::string p_Decrypt_AES_CBC_Record(std::string const& Data, bool* OutVerification);
+	std::string p_Decrypt_AES_GCM_Record(std::string const& Data, bool* OutVerification);
+	std::string p_DecryptRecord(std::string const& Data);
 public:
 	TLSHandler();
 	bool ConnectionIsActive() { return(IsConnected); };
@@ -820,29 +863,28 @@ public:
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
 	void SendChangeCipherMessage(MBSockets::Socket* SocketToConnect);
 	void GenerateKeys();
-	std::string GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord& RecordToEncrypt,void* PreDeterminedIV = nullptr);
-	std::string TestEncryptRecord(void* IV,uint64_t RecordNumber ,std::string ClientWriteMacKey, std::string ClientWriteKey, TLS1_2::TLS1_2GenericRecord& RecordToEncrypt)
-	{
-		std::string PreviousWriteMacKey = ConnectionParameters.client_write_MAC_Key;
-		std::string PreviousWriteKey = ConnectionParameters.client_write_Key;
-		uint64_t PreviousRecordNumber = ConnectionParameters.ClientSequenceNumber;
-		
-		ConnectionParameters.ClientSequenceNumber = RecordNumber;
-		ConnectionParameters.client_write_MAC_Key = ClientWriteMacKey;
-		ConnectionParameters.client_write_Key = ClientWriteKey;
-		std::string EncryptedRecord = GetEncryptedRecord(RecordToEncrypt,IV);
-
-		ConnectionParameters.client_write_MAC_Key = PreviousWriteMacKey;
-		ConnectionParameters.client_write_Key = PreviousWriteKey;
-		ConnectionParameters.ClientSequenceNumber = PreviousRecordNumber;
-		return(EncryptedRecord);
-	}
+	std::string GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt);
+	//std::string TestEncryptRecord(void* IV,uint64_t RecordNumber ,std::string ClientWriteMacKey, std::string ClientWriteKey, TLS1_2::TLS1_2GenericRecord& RecordToEncrypt)
+	//{
+	//	std::string PreviousWriteMacKey = ConnectionParameters.client_write_MAC_Key;
+	//	std::string PreviousWriteKey = ConnectionParameters.client_write_Key;
+	//	uint64_t PreviousRecordNumber = ConnectionParameters.ClientSequenceNumber;
+	//	
+	//	ConnectionParameters.ClientSequenceNumber = RecordNumber;
+	//	ConnectionParameters.client_write_MAC_Key = ClientWriteMacKey;
+	//	ConnectionParameters.client_write_Key = ClientWriteKey;
+	//	std::string EncryptedRecord = GetEncryptedRecord(RecordToEncrypt,IV);
+	//
+	//	ConnectionParameters.client_write_MAC_Key = PreviousWriteMacKey;
+	//	ConnectionParameters.client_write_Key = PreviousWriteKey;
+	//	ConnectionParameters.ClientSequenceNumber = PreviousRecordNumber;
+	//	return(EncryptedRecord);
+	//}
 	bool EstablishedSecureConnection() { return(ConnectionParameters.HandshakeFinished); };
 	std::string GenerateVerifyDataMessage();
 	void InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
 	bool VerifyFinishedMessage(std::string DataToVerify);
 	bool VerifyMac(std::string Hash, TLS1_2::TLS1_2GenericRecord RecordToEncrypt);
-	std::string DecryptBlockcipherRecord(std::string const& Data);
 	void SendDataAsRecord(std::string const& Data, MBSockets::Socket* AssociatedSocket);
 	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket,int MaxNumberOfBytes = 1000000);
 	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes = 1000000);

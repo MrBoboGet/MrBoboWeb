@@ -2,6 +2,7 @@
 #include <string>
 #include <MrBoboSockets.h>
 #include <MBMime/MBMime.h>
+#include <MBSearchEngine/MBUnicode.h>
 namespace MBMail
 {
 	struct MailAttachment
@@ -31,15 +32,15 @@ namespace MBMail
 		MailBody Body;
 		std::vector<MailAttachment> Attachments = {};
 	};
-	enum class SMTPStatusCodes
+	enum class SMTPStatusCode
 	{
 		OK = 250,
 		Null,
 	};
 	struct MailError
 	{
-		std::string ErrorCode = "";
-		SMTPStatusCodes StatusCode = SMTPStatusCodes::Null;
+		std::string ErrorMessage = "";
+		SMTPStatusCode StatusCode = SMTPStatusCode::Null;
 	};
 	class BASE64Encoder
 	{
@@ -109,12 +110,13 @@ namespace MBMail
 	};
 	struct SMTPConnectionState
 	{
-		MBSockets::ConnectSocket* DataSocket = nullptr;
+		//MBSockets::ConnectSocket* DataSocket = nullptr;
 		bool Connected = false;
 		bool InTransaction = false;
 		uintmax_t MaxMessageSize = 0;
 		std::unordered_map<std::string,bool> ServerExtensions = {};
-		MailError LastError;
+		SMTPStatusCode LatestCommandStatus = SMTPStatusCode::Null;
+		std::string LatestErrorString = "";
 	};
 	struct StandardUserEmailHeaders
 	{
@@ -122,6 +124,28 @@ namespace MBMail
 		std::string From = "";
 		std::string Subject = "";
 	};
+	struct SMTPResponse
+	{
+		SMTPStatusCode StatusCode = SMTPStatusCode::Null;
+		std::vector<std::string> ResponseLines = {};
+	};
+	struct SMTPSendInfo
+	{
+		std::string Domain = "";
+		std::string User = "";
+		std::vector<std::string> Recievers = {};
+	};
+	inline bool SMTPStatusIsError(SMTPStatusCode StatusToCheck)
+	{
+		if ((uint32_t)StatusToCheck >= 200)
+		{
+			return(false);
+		}
+		else
+		{
+			return(true);
+		}
+	}
 	class MBMailSender
 	{
 	private:
@@ -137,17 +161,147 @@ namespace MBMail
 		static std::string p_GetNonOcurringString(std::string const& StringToCheck, std::string const& CurrentString);
 		static std::string p_GetBASE64NonOcurringString();
 		static std::string p_GetMailBody(Mail const& MailToParse);
-		SMTPConnectionState p_StartSMTPConnection(std::string const& DomainToSendTo);
-		void p_SendAttachmentData(SMTPConnectionState& AssociatedConnection, MailAttachment const& AttachmentToSend);
-		void p_StartMailTranser(SMTPConnectionState& StateToUpdate);
-		void p_EndDataTransfer(SMTPConnectionState& StateToUpdate);
-		void p_EndSMTPConnection(SMTPConnectionState& StateToUpdate);
-		static std::string p_GetDateString();
+
+		template<typename MBOctetCommunication>
+		SMTPResponse p_GetCommandResponse(std::string const& CommandToSend, MBOctetCommunication* CommunicationStream)
+		{
+			SMTPResponse ReturnValue;
+			(*CommunicationStream) << CommandToSend;
+			std::string ResponseData;
+			(*CommunicationStream) >> ResponseData;
+			std::string StatusString = ResponseData.substr(0, 3);
+			ReturnValue.StatusCode = (SMTPResponse) std::stoi(ResponseData);
+			bool MultiLine = (ResponseData[3] == ' ');
+			if (MultiLine)
+			{
+				while (true)
+				{
+					size_t LastResponseCodePosition = 0;
+					size_t StringSize = ResponseData.size();
+					for (size_t i = 2; i < ResponseData.size() - 1; i++)
+					{
+						if (ResponseData[StringSize - 1 - i] == '\n' && ResponseData[StringSize - 2 - i] == '\r')
+						{
+							LastResponseCodePosition = StringSize - i;
+						}
+					}
+					if (ResponseData[LastResponseCodePosition + 3] != ' ' || ResponseData.substr(ResponseData.size() - 3) != "\r\n")
+					{
+						std::string NewData;
+						(*CommunicationStream) >> NewData;
+						ResponseData += NewData;
+					}
+					else
+					{
+						break;
+					}
+				}
+			}
+			std::vector<std::string> ResponseLines = MBUtility::Split(ResponseData, "\r\n");
+			for (size_t i = 0; i < ResponseLines.size(); i++)
+			{
+				ReturnValue.ResponseLines.push_back(ResponseLines[i].substr(4));
+			}
+			return(ReturnValue);
+		}
+		template<typename MBOctetCommunication>
+		SMTPConnectionState p_StartSMTPConnection(std::string const& DomainToSendTo, MBOctetCommunication* CommunicationStream,SMTPSendInfo const& SendInfo)
+		{
+			SMTPConnectionState ReturnValue;
+			SMTPResponse Response = p_GetCommandResponse("EHLO " + SendInfo.Domain);
+			ReturnValue.LatestCommandStatus = Response.StatusCode;
+			for (size_t i = 0; i < Response.ResponseLines.size(); i++)
+			{
+				if (MBUnicode::UnicodeStringToLower(Response.ResponseLines[i].substr(0, 4)) == "size")
+				{
+					ReturnValue.MaxMessageSize = std::stoi(Response.ResponseLines[i].substr(5));
+					ReturnValue.ServerExtensions[Response.ResponseLines[i].substr(0, 4)] = true;
+				}
+				else
+				{
+					ReturnValue.ServerExtensions[Response.ResponseLines[i]] = true;
+				}
+			}
+			if (SMTPStatusIsError(Response.StatusCode))
+			{
+				ReturnValue.LatestErrorString = Response.ResponseLines[0];
+			}
+			ReturnValue.Connected = true;
+			return(ReturnValue);
+		}
+		template<typename MBOctetCommunication> void p_SendDotStuffedData(SMTPConnectionState& AssociatedConnection, std::string const& DataToSend, MBOctetCommunication* CommunicationStream)
+		{
+			size_t ParseOffset = 0;
+			while (ParseOffset < DataToSend.size())
+			{
+				size_t NextLineToStuff = DataToSend.find("\r\n.\r\n", ParseOffset);
+				if (NextLineToStuff == DataToSend.npos)
+				{
+					(*CommunicationStream) << DataToSend.substr(ParseOffset);
+					break;
+				}
+				else
+				{
+					(*CommunicationStream) << DataToSend.substr(ParseOffset,NextLineToStuff-ParseOffset);
+					(*CommunicationStream) << "\r\n..\r\n";
+					ParseOffset = NextLineToStuff + 5;
+				}
+			}
+		}
+		template<typename MBOctetCommunication> void p_SendAttachmentData(SMTPConnectionState& AssociatedConnection,MBOctetCommunication* CommunicationStream, MailAttachment const& AttachmentToSend)
+		{
+
+		}
+		template<typename MBOctetCommunication>
+		void p_StartMailTranser(SMTPConnectionState& StateToUpdate,MBOctetCommunication& CommunicationStream,SMTPSendInfo const& SendInfo)
+		{
+			StateToUpdate.InTransaction = true;
+			SMTPResponse Response = p_GetCommandResponse("MAIL FROM:" + "<" + SendInfo.User + "@" + SendInfo.Domain + ">");
+			if (SMTPStatusIsError(Response.StatusCode))
+			{
+				StateToUpdate.InTransaction = false;
+				StateToUpdate.LatestCommandStatus = Response.StatusCode;
+				StateToUpdate.LatestErrorString = Response.ResponseLines[0];
+				return;
+			}
+			for (size_t i = 0; i < SendInfo.Recievers.size(); i++)
+			{
+				Response = p_GetCommandResponse("RCPT TO:" + "<" + SendInfo.Recievers[i]+ ">");
+				if (SMTPStatusIsError(Response.StatusCode))
+				{
+					StateToUpdate.InTransaction = false;
+					StateToUpdate.LatestCommandStatus = Response.StatusCode;
+					StateToUpdate.LatestErrorString = Response.ResponseLines[0];
+					return;
+				}
+			}
+		}
+		template<typename MBOctetCommunication>
+		void p_EndDataTransfer(SMTPConnectionState& StateToUpdate,MBOctetCommunication& CommunciationStream)
+		{
+			SMTPResponse Response = p_GetCommandResponse("\r\n.\r\n", CommunciationStream);
+			StateToUpdate.InTransaction = false;
+			StateToUpdate.LatestCommandStatus = Response.StatusCode;
+			if (SMTPStatusIsError(Response.StatusCode))
+			{
+				StateToUpdate.LatestErrorString = Response.ResponseLines[0];
+			}
+		}
+		template<typename MBOctetCommunication>
+		void p_EndSMTPConnection(SMTPConnectionState& StateToUpdate, MBOctetCommunication& CommunciationStream)
+		{
+			SMTPResponse Response = p_GetCommandResponse("QUIT", CommunciationStream);
+			StateToUpdate.Connected = false;
+			StateToUpdate.InTransaction = false;
+			StateToUpdate.MaxMessageSize = 0;
+			StateToUpdate.ServerExtensions = {};
+		}
 		template<typename MBOctetStream> void p_InsertAttachment(Mail const& MailToSend, size_t AttachmentIndex,MBOctetStream& DataStream)
 		{
 			assert(false);
 			return;
 		}
+		static std::string p_GetDateString();
 	public:
 		void SetMailbox(std::string const& NewMailbox);
 		MailError SendMail(Mail MailToSend,std::string const& PostBoxReiever);

@@ -4,6 +4,22 @@
 #include <MBSearchEngine/MBUnicode.h>
 namespace MBMail
 {
+	//void MBMailSender::p_SendAttachmentData(SMTPConnectionState& AssociatedConnection, MailAttachment const& AttachmentToSend)
+	//{
+	//	AssociatedConnection
+	//}
+	//void MBMailSender::p_StartMailTranser(SMTPConnectionState& StateToUpdate)
+	//{
+	//
+	//}
+	//void MBMailSender::p_EndDataTransfer(SMTPConnectionState& StateToUpdate)
+	//{
+	//
+	//}
+	//void MBMailSender::p_EndSMTPConnection(SMTPConnectionState& StateToUpdate)
+	//{
+	//
+	//}
 	void MBMailSender::SetMailbox(std::string const& NewMailbox)
 	{
 		m_SenderMailbox = NewMailbox;
@@ -15,7 +31,7 @@ namespace MBMail
 	}
 	MailError MBMailSender::SendMail(Mail MailToSend, std::string const& PostBoxReiever)
 	{
-		return(MailError());
+		//return(MailError());
 		//MailError ReturnValue;
 		//std::string BodyContent = p_GetMailBody(MailToSend);
 		//m_DKIMSigner.SignMail(MailToSend, BodyContent);

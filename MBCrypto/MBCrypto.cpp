@@ -7,7 +7,9 @@
 #include <cryptopp/rsa.h>
 #include <cryptopp/algebra.h>
 #include <cryptopp/hashfwd.h>
-
+#include <cryptopp/xed25519.h>
+#include <cryptopp/eccrypto.h>
+#include <cryptopp/eccrypto.h>
 
 
 //DEBUG GREJER
@@ -23,6 +25,7 @@ namespace MBCrypto
 	}
 	std::string h_CryptoPPToString(CryptoPP::Integer const& IntegerToConvert)
 	{
+		std::cout << IntegerToConvert.ByteCount() << std::endl;
 		std::string ReturnValue = std::string(IntegerToConvert.MinEncodedSize(),0);
 		IntegerToConvert.Encode((CryptoPP::byte*)ReturnValue.c_str(), IntegerToConvert.MinEncodedSize());
 		//assert(IntegerToConvert == h_CryptoPPFromBigEndianArray(ReturnValue));
@@ -148,7 +151,63 @@ namespace MBCrypto
 
 	//END HashObject
 
+	//BEGIN ElipticCurve
+	ElipticCurvePoint DecodeECP_ANS1x92Encoding(std::string const& ANS1x92EncodedPoint)
+	{
+		ElipticCurvePoint ReturnValue;
+		size_t CoordinateSize = (ANS1x92EncodedPoint.size() - 1) / 2;
+		ReturnValue.BigEndianXCoordinate = ANS1x92EncodedPoint.substr(1, CoordinateSize);
+		ReturnValue.BigEndianYCoordinate = ANS1x92EncodedPoint.substr(1 + CoordinateSize, CoordinateSize);
+		return(ReturnValue);
+	}
+	ElipticCurve::ElipticCurve(NamedElipticCurve CurveParameters)
+	{
+		if (CurveParameters == NamedElipticCurve::secp256r1)
+		{
+			m_Group.Initialize(CryptoPP::ASN1::secp256r1());
+		}
+		else
+		{
+			assert(false);
+		}
+	}
+	ECDHEPrivatePublicKeyPair ElipticCurve::GetPrivatePublicKeypair()
+	{
+		ECDHEPrivatePublicKeyPair ReturnValue;
+		CryptoPP::AutoSeededRandomPool prng;
+		CryptoPP::Integer PrivateKey(prng, CryptoPP::Integer::One(), m_Group.GetMaxExponent());
+		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element PublicPoint = m_Group.ExponentiateBase(PrivateKey);
+		ReturnValue.PrivateInteger = h_CryptoPPToString(PrivateKey);
+		ReturnValue.PublicPoint.BigEndianXCoordinate = h_CryptoPPToString(PublicPoint.x);
+		ReturnValue.PublicPoint.BigEndianYCoordinate = h_CryptoPPToString(PublicPoint.y);
+		return(ReturnValue);
+	}
+	std::string ElipticCurve::CalculateSharedKey(ElipticCurvePoint const& PublicPoint, std::string const& PrivateInteger)
+	{
+		CryptoPP::Integer XCoordinate = h_CryptoPPFromBigEndianArray(PublicPoint.BigEndianXCoordinate);
+		CryptoPP::Integer YCoordinate = h_CryptoPPFromBigEndianArray(PublicPoint.BigEndianYCoordinate);
+		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element PointToUse(XCoordinate,YCoordinate);
+		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element ResultPoint = m_Group.GetCurve().Multiply(h_CryptoPPFromBigEndianArray(PrivateInteger), PointToUse);
+		//DEBUG TEST
+		std::string ReturnValue = h_CryptoPPToString(ResultPoint.x);
+		CryptoPP::ECDH<CryptoPP::ECP>::Domain dhA(CryptoPP::ASN1::secp256r1());
+		std::string DEBUG_TestValue = std::string(ReturnValue.size(), 0);
+		dhA.Agree((CryptoPP::byte*)DEBUG_TestValue.data(),(CryptoPP::byte*) PrivateInteger.data(),(CryptoPP::byte*) EncodeECP_ANS1x92Encoding(PublicPoint).data(), true);
+		std::string ReturnValue2 = h_CryptoPPToString(m_Group.ExponentiateElement(PointToUse, h_CryptoPPFromBigEndianArray(PrivateInteger)).x);
+		assert(DEBUG_TestValue == ReturnValue);
+		assert(ReturnValue == ReturnValue2);
+		return(h_CryptoPPToString(ResultPoint.x));
+	}
+	std::string ElipticCurve::EncodeECP_ANS1x92Encoding(ElipticCurvePoint const& PointToEncode)
+	{
+		std::string ReturnValue = "\x04";
+		size_t CoordinateByteLength =  m_Group.GetCurve().GetField().MaxElementByteLength();
+		ReturnValue += I2OSP(PointToEncode.BigEndianXCoordinate, CoordinateByteLength);
+		ReturnValue += I2OSP(PointToEncode.BigEndianYCoordinate, CoordinateByteLength);
+		return(ReturnValue);
+	}
 
+	//END ElipticCurve
 
 	std::string I2OSP(std::string const& BigEndianArray, size_t ResultLength)
 	{
@@ -226,6 +285,51 @@ namespace MBCrypto
 		std::string Base64Data = PemFile.substr(DataBegin, DataEnd-DataBegin);
 		std::string BinaryData = Base64ToBinary(Base64Data);
 		return(BinaryData);
+	}
+	bool RSASSA_PKCS1_V1_5_VERIFY(std::string const& DataToVerify, std::string const& CorrectHash, std::string const& RSAPublicKeyPath, HashFunction HashToUse)
+	{
+		return(true);
+	}
+	bool RSASSA_PKCS1_V1_5_VERIFY(std::string const& DataToVerify, std::string const& CorrectHash, RSAPublicKey const& AssociatedPublicKey, HashFunction HashToUse)
+	{
+		return(true);
+	}
+	RSAPublicKey ParsePublicKeyDEREncodedData(std::string const& DataToParse)
+	{
+		RSAPublicKey ReturnValue;
+		//parsa primen från datan, först kollar vi att paddingen är 0
+		if (DataToParse[0] != 0)
+		{
+			std::cout << "Fel formatterad public key" << std::endl;
+			assert(false);
+			return ReturnValue;
+		}
+		ASN1Extracter Parser(reinterpret_cast<const uint8_t*>(DataToParse.c_str()));
+		Parser.ExtractByte();
+		Parser.ExtractTagData();
+		Parser.ExtractLengthOfType();//vi vill skippa den del som bara encodar vår dubbel int typ
+		Parser.ExtractTagData();
+		uint64_t LengthOfPrime = Parser.ExtractLengthOfType();
+		if (!(LengthOfPrime == 257 || LengthOfPrime == 513))
+		{
+			std::cout << "Prime is wrongly formatted :(" << std::endl;
+			assert(false);
+		}
+		else
+		{
+			//första är alltid 0
+			ReturnValue.BigEndianPublicModolu = DataToParse.substr(Parser.GetOffset() + 1, LengthOfPrime - 1);
+			for (size_t i = 0; i < LengthOfPrime; i++)
+			{
+				Parser.ExtractByte();
+			}
+		}
+		//std::cout << PublicKeyPrime.get_str() << std::endl;
+		//nu räknar vi ut exponenten
+		Parser.ExtractTagData();
+		uint64_t LengthOfExponent = Parser.ExtractLengthOfType();
+		ReturnValue.BigEndianPublicExponent = DataToParse.substr(Parser.GetOffset(), LengthOfExponent);
+		return(ReturnValue);
 	}
 	RSAPrivateKey RSALoadPEMPrivateKey(std::string const& KeyPath)
 	{

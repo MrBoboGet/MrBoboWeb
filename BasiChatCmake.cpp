@@ -33,11 +33,28 @@ int main()
 	//std::string AmazonEasterEgg = "fhkUxNast3AF+wV5uFyTMkY01EmUV3vAgzYv46uVJ/KDVIkf+yLwwh+rjYVTYfUy1TqDVqQf3uMOuk8f/i3yQjnfz0mq1NmeSKJpM9MEcyapWYzb+CvJ8q56JWY=";
 	//std::cout << MBMail::BASE64Decode(AmazonEasterEgg.data(), AmazonEasterEgg.size())<<std::endl;
 	//exit(0);
-	MBSockets::HTTPConnectSocket TestConnectSocket("google.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
-	TestConnectSocket.Connect();
-	TestConnectSocket.EstablishSecureConnetion();
+	//MBSockets::HTTPConnectSocket TestConnectSocket("www.google.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
+	//TestConnectSocket.Connect();
+	//TestConnectSocket.EstablishSecureConnetion();
 	//std::cout << TestConnectSocket.GetDataFromRequest("GET", "")<<std::endl;
-	exit(0);
+	//MBSockets::HTTPConnectSocket TestSocket("alt1.gmail-smtp-in.l.google.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+	//TestSocket.Connect();
+	//TestSocket.EstablishSecureConnetion();
+	////TestSocket.EstablishSecureConnetion();
+	//TestSocket.HTTPSendData("EHLO mrboboget.se");
+	////std::cout << TestSocket.GetNextDecryptedData();
+	//std::cout << TestSocket.GetNextDecryptedData();
+	//while (true)
+	//{
+	//	std::string StringToSend;
+	//	std::getline(std::cin, StringToSend);
+	//	TestSocket.HTTPSendData((StringToSend + "\r\n").c_str());
+	//	std::cout << TestSocket.GetNextDecryptedData();
+	//}
+	//exit(0);
+
+
+
 	////test för att signera enbart
 	//std::string TestSignature = MBCrypto::RSASSA_PKCS1_V1_5_SIGN("Test Test", "ServerResources/mrboboget.se/EncryptionResources/KeyfileRSA2096.key", MBCrypto::HashFunction::SHA256);
 	//std::cout << MBMail::BASE64Encode(TestSignature.data(),TestSignature.size())<< std::endl;
@@ -64,7 +81,7 @@ int main()
 	
 
 	MBDNS::MBDNSHandler TestHandler;
-	std::vector<MBDNS::MXRecord> MXToUse = TestHandler.GetDomainMXRecords("gmail.com");
+	std::vector<MBDNS::MXRecord> MXToUse = TestHandler.GetDomainMXRecords("tele2.com");
 	size_t HighestPriortiyMXIndex = 0;
 	size_t LowestPreferance = uint16_t(~0)>>1;
 	for (size_t i = 0; i < MXToUse.size(); i++)
@@ -74,6 +91,7 @@ int main()
 			HighestPriortiyMXIndex = i;
 			LowestPreferance = MXToUse[i].Preference;
 		}
+		std::cout << MXToUse[i].Preference << " " << MXToUse[i].Exchange << std::endl;
 	}
 	std::string DomainToUse = MXToUse[HighestPriortiyMXIndex].Exchange;
 	std::cout << "Domain to use: " << DomainToUse << std::endl;
@@ -82,21 +100,21 @@ int main()
 
 
 	//reverse dns test grejer
-	std::vector<MBDNS::ARecord> DomainIPAdresses = TestHandler.GetDomainIPAdresses("gmail.com");
+	std::vector<MBDNS::ARecord> DomainIPAdresses = TestHandler.GetDomainIPAdresses("mx1.wk.se");
 	for (size_t i = 0; i < DomainIPAdresses.size(); i++)
 	{
 		std::cout << MBDNS::IPAdressToString(DomainIPAdresses[i].IPAdress) << std::endl;
 	}
-	std::vector<MBDNS::PTRRecord> IPDomains = TestHandler.GetIPAdressDomains(MBDNS::IPAdressToString(DomainIPAdresses[0].IPAdress));
-	for (size_t i = 0; i < IPDomains.size(); i++)
-	{
-		std::cout << IPDomains[i].DomainName << std::endl;
-	}
-	std::vector<MBDNS::ARecord> Domain2IPAdresses = TestHandler.GetDomainIPAdresses(IPDomains[0].DomainName);
-	for (size_t i = 0; i < Domain2IPAdresses.size(); i++)
-	{
-		std::cout << MBDNS::IPAdressToString(Domain2IPAdresses[i].IPAdress) << std::endl;
-	}
+	//std::vector<MBDNS::PTRRecord> IPDomains = TestHandler.GetIPAdressDomains(MBDNS::IPAdressToString(DomainIPAdresses[0].IPAdress));
+	//for (size_t i = 0; i < IPDomains.size(); i++)
+	//{
+	//	std::cout << IPDomains[i].DomainName << std::endl;
+	//}
+	//std::vector<MBDNS::ARecord> Domain2IPAdresses = TestHandler.GetDomainIPAdresses(IPDomains[0].DomainName);
+	//for (size_t i = 0; i < Domain2IPAdresses.size(); i++)
+	//{
+	//	std::cout << MBDNS::IPAdressToString(Domain2IPAdresses[i].IPAdress) << std::endl;
+	//}
 
 	//TXT records
 	std::string DomainToText = "_dmarc.gmail.com";
@@ -110,24 +128,28 @@ int main()
 			std::cout << DomainTXTRecords[i].RecordStrings[j] << std::endl;
 		}
 	}
-	//exit(0);
 	//MBSockets::HTTPConnectSocket TestSocket1("gmail-smtp-in.l.google.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
 	//TestSocket1.Connect();
 	//TestSocket1.EstablishSecureConnetion();
 	//alt1.gmail-smtp-in.l.google.com
-	MBSockets::HTTPConnectSocket TestSocket("smtp.gmail.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
-	TestSocket.Connect();
-	TestSocket.EstablishSecureConnetion();
-	//TestSocket.EstablishSecureConnetion();
-	TestSocket.HTTPSendData("EHLO mrboboget.se");
-	//std::cout << TestSocket.GetNextDecryptedData();
-	std::cout << TestSocket.GetNextRequestData();
-	while (true)
+	
+	for (size_t i = 0; i < MXToUse.size(); i++)
 	{
-		std::string StringToSend;
-		std::getline(std::cin,StringToSend);
-		TestSocket.SendData((StringToSend + "\r\n").c_str(),StringToSend.size()+2);
-		std::cout << TestSocket.GetNextRequestData();
+		MBSockets::HTTPConnectSocket TestSocket(MXToUse[i].Exchange, "587", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+		TestSocket.Connect();
+		//TestSocket.EstablishSecureConnetion();
+		//TestSocket.HTTPSendData("EHLO mrboboget.se");
+		////std::cout << TestSocket.GetNextDecryptedData();
+		//std::cout << TestSocket.GetNextDecryptedData();
+		//while (true)
+		//{
+		//	std::string StringToSend;
+		//	std::getline(std::cin, StringToSend);
+		//	TestSocket.SendData((StringToSend + "\r\n").c_str(), StringToSend.size() + 2);
+		//	std::cout << TestSocket.GetNextDecryptedData();
+		//}
+		//TestSocket.SendData("EHLO mrboboget.se", 17);
+		std::cout << TestSocket.GetNextRequestData() << std::endl;
 	}
 	return(MBGWebsiteMain());
 }
