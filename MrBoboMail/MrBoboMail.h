@@ -1,8 +1,11 @@
 #pragma once
+#define NOMINMAX
+#define _CRT_RAND_S
 #include <string>
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <MBMime/MBMime.h>
 #include <MBSearchEngine/MBUnicode.h>
+#include <MBStrings.h>
 namespace MBMail
 {
 	struct MailAttachment
@@ -256,7 +259,7 @@ namespace MBMail
 		void p_StartMailTranser(SMTPConnectionState& StateToUpdate,MBOctetCommunication& CommunicationStream,SMTPSendInfo const& SendInfo)
 		{
 			StateToUpdate.InTransaction = true;
-			SMTPResponse Response = p_GetCommandResponse("MAIL FROM:" + "<" + SendInfo.User + "@" + SendInfo.Domain + ">");
+			SMTPResponse Response = p_GetCommandResponse("MAIL FROM:<" + SendInfo.User + "@" + SendInfo.Domain + ">");
 			if (SMTPStatusIsError(Response.StatusCode))
 			{
 				StateToUpdate.InTransaction = false;
@@ -266,7 +269,7 @@ namespace MBMail
 			}
 			for (size_t i = 0; i < SendInfo.Recievers.size(); i++)
 			{
-				Response = p_GetCommandResponse("RCPT TO:" + "<" + SendInfo.Recievers[i]+ ">");
+				Response = p_GetCommandResponse("RCPT TO:<" + SendInfo.Recievers[i]+ ">");
 				if (SMTPStatusIsError(Response.StatusCode))
 				{
 					StateToUpdate.InTransaction = false;

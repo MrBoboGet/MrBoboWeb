@@ -1,6 +1,6 @@
 #define NOMINMAX
 #define _CRT_RAND_S
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <Crawler.h>
 #include <SearchEngine/MBSearchEngine.h>
 #include <MrPostOGet/MrPostOGet.h>
@@ -33,10 +33,11 @@ int main()
 	//std::string AmazonEasterEgg = "fhkUxNast3AF+wV5uFyTMkY01EmUV3vAgzYv46uVJ/KDVIkf+yLwwh+rjYVTYfUy1TqDVqQf3uMOuk8f/i3yQjnfz0mq1NmeSKJpM9MEcyapWYzb+CvJ8q56JWY=";
 	//std::cout << MBMail::BASE64Decode(AmazonEasterEgg.data(), AmazonEasterEgg.size())<<std::endl;
 	//exit(0);
-	//MBSockets::HTTPConnectSocket TestConnectSocket("www.google.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
-	//TestConnectSocket.Connect();
-	//TestConnectSocket.EstablishSecureConnetion();
-	//std::cout << TestConnectSocket.GetDataFromRequest("GET", "")<<std::endl;
+	MBSockets::HTTPConnectSocket TestConnectSocket("www.google.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
+	TestConnectSocket.Connect();
+	TestConnectSocket.EstablishSecureConnetion();
+	std::cout << TestConnectSocket.GetDataFromRequest("GET", "")<<std::endl;
+	exit(0);
 	//MBSockets::HTTPConnectSocket TestSocket("alt1.gmail-smtp-in.l.google.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
 	//TestSocket.Connect();
 	//TestSocket.EstablishSecureConnetion();

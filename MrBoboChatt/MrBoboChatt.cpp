@@ -1,7 +1,7 @@
 #include <MrBoboChatt/MrBoboChatt.h>
 #include <filesystem>
 //olika depandancies
-#ifdef WIN32
+#if defined(WIN32) || defined(_WIN32)
 #include <conio.h>
 #elif __linux__
 #include <unistd.h>
@@ -240,7 +240,7 @@ int MrBoboChat::GetCurrentLineIndex()
 }
 char MrBoboChat::GetCharInput()
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(_WIN32)
 	return(_getch());
 #elif __linux__
 	//annat förslag

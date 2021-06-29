@@ -1,6 +1,6 @@
 #define NOMINMAX
 #define _CRT_RAND_S
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <MrPostOGet/TLSHandler.h>
 #include <math.h>
 #include <MBRandom.h>
@@ -9,6 +9,7 @@
 #include <Hash/src/sha1.h>
 #include <mutex>
 #include <MrPostOGet/TinySha1.h>
+#include <MBStrings.h>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 
 //TODO Vi vill helst bli av med denna depenadncy, exempelvis genom att optimera min klass

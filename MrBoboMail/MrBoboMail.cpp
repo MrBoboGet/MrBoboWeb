@@ -31,7 +31,7 @@ namespace MBMail
 	}
 	MailError MBMailSender::SendMail(Mail MailToSend, std::string const& PostBoxReiever)
 	{
-		//return(MailError());
+		return(MailError());
 		//MailError ReturnValue;
 		//std::string BodyContent = p_GetMailBody(MailToSend);
 		//m_DKIMSigner.SignMail(MailToSend, BodyContent);

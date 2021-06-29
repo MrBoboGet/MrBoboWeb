@@ -1,5 +1,5 @@
 #pragma once
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <cinttypes>
 #include <string>
 #include <vector>

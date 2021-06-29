@@ -1,7 +1,7 @@
 #define NOMINMAX
 #define _CRT_RAND_S 
 #pragma once
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <MinaStringOperations.h>
 #include <MrPostOGet/TLSHandler.h>
 #include <MBRandom.h>

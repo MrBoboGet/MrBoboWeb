@@ -7,7 +7,7 @@
 #include <mutex>
 #include <deque>
 #include <MrBigInt/MrBigInt.h>
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <MBErrorHandling.h>
 //#include <MrBoboChatt/MrBoboChatt.h>
 struct MBChatConnection_SecurityParameters

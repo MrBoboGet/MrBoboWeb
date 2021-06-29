@@ -148,7 +148,7 @@ set(Header_Files
     "Crawler/StringGrejer.h"
     "MrBigInt/MrBigInt.h"
     "MrBoboChatt/MrBoboChatt.h"
-    "MrBoboSockets.h"
+    "MrBoboSockets/MrBoboSockets.h"
     "MrPostOGet/Asn1Handlers.h"
     "MrPostOGet/MBHTMLParser.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/MrPostOGet.h"
@@ -174,6 +174,7 @@ set(Header_Files
 source_group("Header Files" FILES ${Header_Files})
 
 set(Source_Files
+    "MrBoboSockets/MrBoboSockets.cpp"
     "BasicChat/BasicChatMain.cpp"
     "BasiChatCmake.cpp"
     "MrPostOGet/TLSHandler.cpp"

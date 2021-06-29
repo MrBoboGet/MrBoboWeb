@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <MrBoboSockets.h>
+#include <MrBoboSockets/MrBoboSockets.h>
 #include <MinaStringOperations.h>
 #include <TextReader.h>
 #include <filesystem>
