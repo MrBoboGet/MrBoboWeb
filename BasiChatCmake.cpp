@@ -19,6 +19,7 @@
 #include <MBDNSHandler/MBDNSHandler.h>
 #include <MrBoboMail/MrBoboMail.h>
 #include <MBCrypto/MBCrypto.h>
+#include <MBTorrent/MBBitTorrent.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -27,15 +28,56 @@
 
 int main()
 {
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	MBSockets::Init();
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+
+	
+	MBDB_Object TestObject;
+	TestObject.LoadObject("TestMBDBO.mbdbo", "Guest", nullptr);
+	std::ofstream OutputTest = std::ofstream("TestOutputMBDBO",std::ios::out|std::ios::binary);
+	std::string ObjectJSON = TestObject.ToJason();
+	OutputTest << ObjectJSON;
+	OutputTest.flush();
+	OutputTest.close();
+	std::cout << ObjectJSON<<std::endl;
+	TestObject.LoadObject("TestOutputMBDBO", "Guest", nullptr);
+	std::cout << TestObject.ToJason() << std::endl;
+	std::cout << (TestObject.ToJason() == ObjectJSON) << std::endl;
+	exit(0);
+	//std::ofstream SparseFileTest("SparseFileTest",std::ios::out|std::ios::binary);
+	//SparseFileTest.seekp(10000);
+	//SparseFileTest.write("TestTestTest", 12);
+	//SparseFileTest.flush();
+	//SparseFileTest.close();
+	//exit(0);
+	MBTorrent::MBBitTorrentHandler TestTorrentHandler;
+	TestTorrentHandler.LoadTorrentInfo("Serial Experiments Lain Storyboard.torrent");
+	TestTorrentHandler.StartDownload();
+	exit(0);
+	MBSockets::ClientSocket GmailConnection("smtp-relay.gmail.com", "587");
+	GmailConnection.Connect();
+	//GmailConnection.EstablishTLSConnection();
+	std::cout << GmailConnection.RecieveData();
+	while (true)
+	{
+		std::string LineToSend;
+		std::getline(std::cin, LineToSend);
+		LineToSend += "\r\n";
+		GmailConnection.SendData(LineToSend);
+		std::cout << GmailConnection.RecieveData();
+		if (LineToSend == "STARTTLS\r\n")
+		{
+			GmailConnection.EstablishTLSConnection();
+		}
+	}
+	exit(0);
 	//<!-- sp:eh:0NeoaKmFjBKH4oimbSprXXINNJbO2DBGl0uTpjOggp0uD8/1G2AkxBRJzYeuMdglx0+TRmMkkDpr+OUudn/vdKifIiLCgl8iTIv9c2ms8RaQkwgmaopWHS2jAxM= -->
 	//std::string AmazonEasterEgg = "fhkUxNast3AF+wV5uFyTMkY01EmUV3vAgzYv46uVJ/KDVIkf+yLwwh+rjYVTYfUy1TqDVqQf3uMOuk8f/i3yQjnfz0mq1NmeSKJpM9MEcyapWYzb+CvJ8q56JWY=";
 	//std::cout << MBMail::BASE64Decode(AmazonEasterEgg.data(), AmazonEasterEgg.size())<<std::endl;
 	//exit(0);
-	MBSockets::HTTPConnectSocket TestConnectSocket("www.google.com", "443", MBSockets::TraversalProtocol::TCP,MBSockets::ApplicationProtocols::HTTPS);
+	MBSockets::HTTPConnectSocket TestConnectSocket("www.google.com", "443");
 	TestConnectSocket.Connect();
-	TestConnectSocket.EstablishSecureConnetion();
+	TestConnectSocket.EstablishTLSConnection();
 	std::cout << TestConnectSocket.GetDataFromRequest("GET", "")<<std::endl;
 	exit(0);
 	//MBSockets::HTTPConnectSocket TestSocket("alt1.gmail-smtp-in.l.google.com", "465", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
@@ -104,7 +146,7 @@ int main()
 	std::vector<MBDNS::ARecord> DomainIPAdresses = TestHandler.GetDomainIPAdresses("mx1.wk.se");
 	for (size_t i = 0; i < DomainIPAdresses.size(); i++)
 	{
-		std::cout << MBDNS::IPAdressToString(DomainIPAdresses[i].IPAdress) << std::endl;
+		std::cout << MBDNS::IPv4AdressToString(DomainIPAdresses[i].IPAdress) << std::endl;
 	}
 	//std::vector<MBDNS::PTRRecord> IPDomains = TestHandler.GetIPAdressDomains(MBDNS::IPAdressToString(DomainIPAdresses[0].IPAdress));
 	//for (size_t i = 0; i < IPDomains.size(); i++)
@@ -136,7 +178,7 @@ int main()
 	
 	for (size_t i = 0; i < MXToUse.size(); i++)
 	{
-		MBSockets::HTTPConnectSocket TestSocket(MXToUse[i].Exchange, "587", MBSockets::TraversalProtocol::TCP, MBSockets::ApplicationProtocols::HTTPS);
+		MBSockets::ClientSocket TestSocket(MXToUse[i].Exchange, "587");
 		TestSocket.Connect();
 		//TestSocket.EstablishSecureConnetion();
 		//TestSocket.HTTPSendData("EHLO mrboboget.se");
@@ -150,7 +192,7 @@ int main()
 		//	std::cout << TestSocket.GetNextDecryptedData();
 		//}
 		//TestSocket.SendData("EHLO mrboboget.se", 17);
-		std::cout << TestSocket.GetNextRequestData() << std::endl;
+		std::cout << TestSocket.RecieveData() << std::endl;
 	}
 	return(MBGWebsiteMain());
 }

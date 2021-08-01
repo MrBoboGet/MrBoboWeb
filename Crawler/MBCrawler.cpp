@@ -220,7 +220,7 @@ void IndexWebsiteResource(std::string WebsiteURL,std::string ResourceToIndex,Web
 	try
 	{
 		Crawler->WaitForNextRequest();
-		MBSockets::HTTPConnectSocket HTTPSocket(WebsiteURL, "80", MBSockets::TraversalProtocol::TCP);
+		MBSockets::HTTPConnectSocket HTTPSocket(WebsiteURL, "80");
 		HTTPSocket.Connect();
 		if (!HTTPSocket.IsValid())
 		{

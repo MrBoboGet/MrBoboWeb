@@ -145,12 +145,12 @@ namespace MBDNS
 	{
 		std::vector<std::string> RecordStrings = {};
 	};
-	std::string IPAdressToString(uint32_t Adress);
+	std::string IPv4AdressToString(uint32_t Adress);
 	class MBDNSHandler
 	{
 	private:
 		MBSockets::UDPSocket m_UDPSocket;
-		MBSockets::ConnectSocket m_TCPSocket;
+		MBSockets::ClientSocket m_TCPSocket;
 		static std::string p_EncodeDomain(std::string const& DomainToEncode);
 		static std::string p_EncodeBigEndianInteger(uintmax_t IntegerToEncode,unsigned char IntegerSize);
 		static std::string p_EncodeMessageHeader(DNSMessageHeader const& HeaderToEncode);
@@ -174,7 +174,7 @@ namespace MBDNS
 	public:
 		MBDNSHandler()
 			//: m_UDPSocket("83.255.255.1", "53", MBSockets::TraversalProtocol::TCP), m_TCPSocket("83.255.255.1", "53", MBSockets::TraversalProtocol::TCP)
-			: m_UDPSocket("8.8.8.8", "53", MBSockets::TraversalProtocol::TCP), m_TCPSocket("8.8.8.8", "53", MBSockets::TraversalProtocol::TCP)
+			: m_UDPSocket("8.8.8.8", "53"), m_TCPSocket("8.8.8.8", "53")
 		{
 
 		};

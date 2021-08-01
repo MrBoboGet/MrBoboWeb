@@ -29,30 +29,51 @@ namespace MBMail
 		std::ofstream OutputFile = std::ofstream(MailOutputPath,std::ios::binary);
 		t_InsertMail(MailToSend, PostBoxReciever, OutputFile);
 	}
-	MailError MBMailSender::SendMail(Mail MailToSend, std::string const& PostBoxReiever)
+	MBSockets::ClientSocket MBMailSender::p_GetServerConnection(std::string const& DomainName)
 	{
-		return(MailError());
-		//MailError ReturnValue;
-		//std::string BodyContent = p_GetMailBody(MailToSend);
-		//m_DKIMSigner.SignMail(MailToSend, BodyContent);
-		//m_CurrentSMTPConnectionState = p_StartSMTPConnection(PostBoxReiever.substr(PostBoxReiever.find("@") + 1));
-		//p_StartMailTranser(m_CurrentSMTPConnectionState);
-		//for (size_t i = 0; i < MailToSend.MimeHeaders.size(); i++)
-		//{
-		//	std::string CurrentHeaderData = GetMIMEHeaderLines(MailToSend.MimeHeaders[i]);
-		//	m_CurrentSMTPConnectionState.DataSocket->SendData(CurrentHeaderData.data(), CurrentHeaderData.size());
-		//}
-		//m_CurrentSMTPConnectionState.DataSocket->SendData("\r\n", 2);
-		//assert(BodyContent.find("\r\n.\r\n") == BodyContent.npos);
-		////TODO fix dot-stuffing
-		//m_CurrentSMTPConnectionState.DataSocket->SendData(BodyContent.data(),BodyContent.size());
+		MBSockets::ClientSocket ReturnValue("smtp-relay.gmail.com", "465");
+		return(ReturnValue);
+	}
+	SMTPAuthenticationData MBMailSender::p_GetAuthenticationData()
+	{
+		SMTPAuthenticationData ReturnValue;
+		std::ifstream AuthenticationInfoFile = std::ifstream("./ServerResources/mrboboget.se/SMTPResources/RelayInfo.txt",std::ios::in|std::ios::binary);
+		std::string DataBuffer = std::string(MBGetFileSize("./ServerResources/mrboboget.se/SMTPResources/RelayInfo.txt"), 0);
+		AuthenticationInfoFile.read(DataBuffer.data(), MBGetFileSize("./ServerResources/mrboboget.se/SMTPResources/RelayInfo.txt"));
+		size_t ParseOffset = 0;
+		ReturnValue.RelayDomain = DataBuffer.substr(DataBuffer.find(':', ParseOffset) + 1, std::min(DataBuffer.find('\n', ParseOffset), DataBuffer.find('\r', ParseOffset)) - ParseOffset);
+		ParseOffset = std::min(DataBuffer.find('\n', ParseOffset), DataBuffer.find('\r', ParseOffset)) + 2;
+		ReturnValue.PlaintextUser = DataBuffer.substr(DataBuffer.find(':', ParseOffset) + 1, std::min(DataBuffer.find('\n', ParseOffset), DataBuffer.find('\r', ParseOffset)) - ParseOffset);
+		ParseOffset = std::min(DataBuffer.find('\n', ParseOffset), DataBuffer.find('\r', ParseOffset)) + 2;
+		ReturnValue.PlaintextPassword = DataBuffer.substr(DataBuffer.find(':', ParseOffset) + 1, std::min(DataBuffer.find('\n', ParseOffset), DataBuffer.find('\r', ParseOffset)) - ParseOffset);
+		return(ReturnValue);
+	}
+	MailError MBMailSender::SendMail(Mail MailToSend, std::string const& PostBoxReciever,SMTPSendInfo const& SendInfo)
+	{
+		//return(MailError());
+		MailError ReturnValue;
+		std::string BodyContent = p_GetMailBody(MailToSend);
+		m_DKIMSigner.SignMail(MailToSend, BodyContent);
+		MBSockets::ClientSocket MailServerConnection = p_GetServerConnection(PostBoxReciever.substr(PostBoxReciever.find_last_of('@') + 1));
+		m_CurrentSMTPConnectionState = p_StartSMTPConnection<MBSockets::ConnectSocket>(PostBoxReciever.substr(PostBoxReciever.find("@") + 1), &MailServerConnection,SendInfo);
+		p_Authenticate(m_CurrentSMTPConnectionState, MailServerConnection);
+		p_StartMailTranser(m_CurrentSMTPConnectionState, MailServerConnection,SendInfo);
+		for (size_t i = 0; i < MailToSend.MimeHeaders.size(); i++)
+		{
+			std::string CurrentHeaderData = GetMIMEHeaderLines(MailToSend.MimeHeaders[i]);
+			MailServerConnection<<CurrentHeaderData;
+		}
+		MailServerConnection<<"\r\n";
+		assert(BodyContent.find("\r\n.\r\n") == BodyContent.npos);
+		//TODO fix dot-stuffing
+		MailServerConnection << BodyContent;
 		//for (size_t i = 0; i < MailToSend.Attachments.size(); i++)
 		//{
 		//	p_SendAttachmentData(m_CurrentSMTPConnectionState, MailToSend.Attachments[i]);
 		//}
-		//p_EndDataTransfer(m_CurrentSMTPConnectionState);
-		//p_EndSMTPConnection(m_CurrentSMTPConnectionState);
-		//return(ReturnValue);
+		p_EndDataTransfer(m_CurrentSMTPConnectionState,MailServerConnection);
+		p_EndSMTPConnection(m_CurrentSMTPConnectionState, MailServerConnection);
+		return(ReturnValue);
 	}
 	std::vector<MIMEHeader> MBMailSender::p_GetMIMEContentMIMEHeaders(MBMIME::MIMEType MIMETypeToCheck)
 	{
@@ -343,6 +364,14 @@ namespace MBMail
 		}
 		return(ReturnValue);
 	}
+	std::string BASE64Decode(std::string const& DataToDecode)
+	{
+		return(BASE64Decode(DataToDecode.data(), DataToDecode.size()));
+	}
+	std::string BASE64Encode(std::string const& DataToEncode)
+	{
+		return(BASE64Encode(DataToEncode.data(), DataToEncode.size()));
+	}
 	std::string GetMIMEHeaderLines(MIMEHeader const& HeaderToEncode)
 	{
 		std::string ReturnValue = HeaderToEncode.HeaderName + ": " + HeaderToEncode.HeaderBody + "\r\n";
@@ -425,5 +454,237 @@ namespace MBMail
 		std::string HeaderHash = p_GetHeaderDataToHash(MailToSign, SigningData);
 		MailToSign.MimeHeaders.front().HeaderBody += p_GetHashSignature(HeaderHash, SigningData,p_GetPrivateKeyPath(SigningData.SigningDomain,SigningData.DomainKeySelector));
 	}
+	//END DKIMSigner
 
+	//BEGIN MBMailReciever
+	bool MBMailReciever::p_VerifyUser(std::string const& UsernameToVerify)
+	{
+		assert(false);
+		return(true);
+	}
+	void MBMailReciever::p_AddConnection(size_t ConnectionID, std::shared_ptr<MBMailSMTPServerConnection> ConnectionToAdd)
+	{
+		std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
+		m_ActiveConnections[ConnectionID] = ConnectionToAdd;
+	}
+	void MBMailReciever::p_RemoveConnection(size_t ConnectionID)
+	{
+		std::lock_guard<std::mutex> InternalsLock(m_InternalsMutex);
+		m_ActiveConnections.erase(ConnectionID);
+	}
+	void MBMailReciever::StartListening(std::string const& AssociatedDomain, std::string const& PortToListenTo, bool UseImplicitTLS)
+	{
+		MBSockets::ServerSocket ListenSocket(PortToListenTo);
+		ListenSocket.Bind();
+		size_t CurrentConnectionID = 0;
+		while (true)
+		{
+			ListenSocket.Listen();
+			ListenSocket.Accept();
+			if (UseImplicitTLS)
+			{
+				ListenSocket.EstablishTLSConnection();
+			}
+			MBSockets::ServerSocket* NewSocket = new MBSockets::ServerSocket();
+			ListenSocket.TransferConnectedSocket(*NewSocket);
+			std::shared_ptr<MBSockets::ConnectSocket> SharedSocketPointer(NewSocket);
+			MBMailSMTPServerConnection* ConnectionPointer = new MBMailSMTPServerConnection(SharedSocketPointer, CurrentConnectionID, UseImplicitTLS);
+			p_AddConnection(CurrentConnectionID, std::shared_ptr<MBMailSMTPServerConnection>(ConnectionPointer));
+			CurrentConnectionID += 1;
+		}
+	}
+	std::string MBMailReciever::p_GetTempDirectory()
+	{
+		return("");
+	}
+	std::string MBMailReciever::p_GetUserDirectory(std::string const& Username)
+	{
+		return("");
+	}
+	std::string MBMailReciever::p_GetTimeString()
+	{
+		return("");
+	}
+	//END MBMailReciever
+	//BEGIN MBMailSMTPConnection
+	bool MBMailSMTPServerConnection::p_VerifyPRF(std::string const& DomainToVerify, std::string const& ConnectionIP)
+	{
+		return(true);
+	}
+	bool MBMailSMTPServerConnection::p_VerifyDKIM(std::string const& DomainToVerify, std::string const& MailFilePath)
+	{
+		return(true);
+	}
+	bool MBMailSMTPServerConnection::p_VerifyRDNS(std::string const& ConnectionIP)
+	{
+		return(true);
+	}
+	void MBMailSMTPServerConnection::p_SendServerHello(MBSockets::ConnectSocket* AssociatedSocket)
+	{
+		AssociatedSocket->SendData("220 OwO");
+	}
+	void MBMailSMTPServerConnection::p_SendExtensions(MBSockets::ConnectSocket* AssociatedSocket)
+	{
+		AssociatedSocket->SendData("250 STARTTLS");
+	}
+	void MBMailSMTPServerConnection::p_GetPostboxParts(std::string& Username, std::string& Domain, std::string const& LineData)
+	{
+		Username = "";
+		Domain = "";
+		size_t RecieverBegin = LineData.find('<');
+		size_t AtLocation = LineData.find('@');
+		if (RecieverBegin != LineData.npos)
+		{
+			RecieverBegin += 1;
+		}
+		if (RecieverBegin == LineData.npos || AtLocation == LineData.npos)
+		{
+			return;
+		}
+		Username = LineData.substr(RecieverBegin, AtLocation - RecieverBegin);
+		Domain = LineData.substr(AtLocation + 1, LineData.find_last_of('>') - AtLocation - 1);
+	}
+	void MBMailSMTPServerConnection::p_CloseConnection()
+	{
+		m_ConnectionIsOpen = false;
+		m_AssociatedSocket->Close();
+		m_TransactionState = SMTPTransactionState();
+	}
+	void MBMailSMTPServerConnection::p_HandleCommand(std::string const& CommandData)
+	{
+		std::string CommandVerb = MBUnicode::UnicodeStringToLower(CommandData.substr(0, CommandData.find(' ')));
+		if (CommandVerb == "ehlo")
+		{
+			m_ClientDomain = CommandData.substr(CommandVerb.size() + 1,CommandData.size()-2-CommandVerb.size()-1);
+			if (m_ClientDomain == "")
+			{
+				m_AssociatedSocket->SendData("501 Invalid syntax: empty HELO/EHLO argument not allowed\r\n");
+				return;
+			}
+			else
+			{
+				p_SendExtensions(m_AssociatedSocket.get());
+				return;
+			}
+		}
+		else if (CommandVerb == "starttls")
+		{
+			m_AssociatedSocket->SendData("250 Ready to start TLS\r\n");
+			m_AssociatedSocket->EstablishTLSConnection();
+			return;
+		}
+		else if (CommandVerb == "mail")
+		{
+			std::string SenderUsername;
+			std::string SenderDomain;
+			p_GetPostboxParts(SenderUsername, SenderDomain, CommandData);
+			if (SenderUsername == "" || SenderDomain == "")
+			{
+				m_AssociatedSocket->SendData("501 Invalid postbox\r\n");
+				return;
+			}
+			bool PRFPassed = p_VerifyPRF(SenderDomain,m_AssociatedSocket->GetIpOfConnectedSocket());
+			if (!PRFPassed)
+			{
+				m_AssociatedSocket->SendData("550 PRF not passed, closing connection\r\n");
+				p_CloseConnection();
+				return;
+			}
+			m_TransactionState.InTransaction = true;
+			m_TransactionState.SenderDomain = SenderDomain;
+			m_TransactionState.SenderUsername = SenderUsername;
+			m_FileToSaveToPath = m_AssociatedReciever->p_GetTempDirectory() + m_AssociatedReciever->p_GetTimeString()+".eml";
+			m_FileToSaveTo.open(m_FileToSaveToPath, std::ios::binary | std::ios::out);
+			m_AssociatedSocket->SendData("250 Allowed sender\r\n");
+			return;
+		}
+		else if (CommandVerb == "rcpt")
+		{
+			std::string RecieverUsername;
+			std::string RecieverDomain;
+			p_GetPostboxParts(RecieverUsername, RecieverDomain, CommandData);
+			if (RecieverUsername == "" || RecieverDomain == "")
+			{
+				m_AssociatedSocket->SendData("501 Invalid postbox\r\n");
+				return;
+			}
+			else
+			{
+				if (!m_AssociatedReciever->p_VerifyUser(RecieverUsername))
+				{
+					m_AssociatedSocket->SendData("450 Invalid postbox: user not found\r\n");
+					return;
+				}
+				if (RecieverDomain != "mrboboget.se")
+				{
+					m_AssociatedSocket->SendData("550 Only accepts mail to same domain\r\n");
+					return;
+				}
+				m_TransactionState.Recipients.push_back(RecieverUsername);
+				m_AssociatedSocket->SendData("250 Recipient accepted\r\n");
+				return;
+			}
+		}
+		else if (CommandVerb == "data")
+		{
+			m_TransactionState.InDataTransfer = true;
+			m_AssociatedSocket->SendData("354 Ready to recieve data\r\n");
+		}
+		else if (CommandVerb == "quit")
+		{
+			m_AssociatedSocket->SendData("221 Bye\r\n");
+			p_CloseConnection();
+			return;
+		}
+		else
+		{
+			m_AssociatedSocket->SendData("502 \r\n");
+			return;
+		}
+	}
+	void MBMailSMTPServerConnection::p_HandleConnection()
+	{
+		p_SendServerHello(m_AssociatedSocket.get());
+		std::string NextClientData;
+		size_t TotalDataRecieved = 0;
+		while (m_AssociatedSocket->IsValid() && m_AssociatedSocket->IsValid() && m_ConnectionIsOpen)
+		{
+			//rätt så godtyckligt tal
+			NextClientData = m_AssociatedSocket->RecieveData(1000000);
+			if (!m_TransactionState.InDataTransfer)
+			{
+				p_HandleCommand(NextClientData);
+			}
+			else
+			{
+				TotalDataRecieved += NextClientData.size();
+				m_FileToSaveTo << NextClientData;
+				if (NextClientData.find("\r\n.\r\n") != NextClientData.npos)
+				{
+					m_TransactionState.InDataTransfer = false;
+					m_TransactionState.InTransaction = false;
+					m_FileToSaveTo.flush();
+					m_FileToSaveTo.close();
+					bool DKIMIsValid = p_VerifyDKIM(m_TransactionState.SenderDomain, m_FileToSaveToPath);
+					if (DKIMIsValid)
+					{
+						m_AssociatedSocket->SendData("250 Data recieved");
+					}
+					else
+					{
+						m_AssociatedSocket->SendData("450 DKIM Invalid, closing connection");
+						p_CloseConnection();
+						return;
+					}
+				}
+			}
+		}
+		m_AssociatedReciever->p_RemoveConnection(m_ConnectionID);
+	}
+	MBMailSMTPServerConnection::MBMailSMTPServerConnection(std::shared_ptr<MBSockets::ConnectSocket> AssociatedConnection, size_t ConnectionID, bool UsedImplicitTLS)
+	{
+		m_AssociatedSocket = AssociatedConnection;
+		m_ConnectionID = ConnectionID;
+		m_UsedImplicitTLS = UsedImplicitTLS;
+	}
 }

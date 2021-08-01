@@ -110,7 +110,7 @@ private:
 	std::atomic<int> ActiveConnectionNumber = {-1};
 	std::atomic<int> LastConnectionNumber = 0;
 	const std::atomic<uint32_t> StandardInitiationPort = {2700};
-	MBSockets::UDPSocket MainSocket = MBSockets::UDPSocket("127.0.0.1", std::to_string(StandardInitiationPort), MBSockets::TraversalProtocol::TCP);
+	MBSockets::UDPSocket MainSocket = MBSockets::UDPSocket("127.0.0.1", std::to_string(StandardInitiationPort));
 	std::thread MSListenThread;
 	std::thread MSSendThread;
 	std::mutex MainSockListenMutex;

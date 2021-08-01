@@ -284,7 +284,9 @@ namespace TLS1_2
 	void ParseServerHelloToStruct(TLS1_2ServerHelloStruct* StructToPopulate, std::string& ServerHelloData)
 	{
 		NetWorkDataHandler NetworkHandler(reinterpret_cast<const uint8_t*>(ServerHelloData.c_str()));
-		StructToPopulate->Protocol = { NetworkHandler.Extract8(),NetworkHandler.Extract8() };
+		//StructToPopulate->Protocol = { NetworkHandler.Extract8(),NetworkHandler.Extract8() };
+		StructToPopulate->Protocol.Major = NetworkHandler.Extract8();
+		StructToPopulate->Protocol.Minor = NetworkHandler.Extract8();
 		for (int i = 0; i < sizeof(Random); i++)
 		{
 			NetworkHandler >> static_cast<uint8_t&>(StructToPopulate->RandomStruct.RandomBytes[i]);
@@ -295,7 +297,9 @@ namespace TLS1_2
 		{
 			StructToPopulate->SessionId.push_back(NetworkHandler.Extract8());
 		}
-		StructToPopulate->CipherSuiteToUse = { NetworkHandler.Extract8(),NetworkHandler.Extract8() };
+		//StructToPopulate->CipherSuiteToUse = { NetworkHandler.Extract8(),NetworkHandler.Extract8() };
+		StructToPopulate->CipherSuiteToUse.Del1 = NetworkHandler.Extract8();
+		StructToPopulate->CipherSuiteToUse.Del2 = NetworkHandler.Extract8();
 		StructToPopulate->CompressionToUse = NetworkHandler.Extract8();
 		int NumberOfExtensions = 0;
 		uint16_t TotalLengthOfExtensions = 0;
@@ -577,7 +581,7 @@ std::string TLSHandler::RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo
 	std::string CipherText = I2OSP(CiphertextRepresentative, RSAPrimeSize);
 	return(CipherText);
 }
-void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::Socket* SocketToConnect)
+void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::ConnectSocket* SocketToConnect)
 {
 	//vi utgår alltid ifrån att det är rsa med specifika algoritmer
 	uint16_t RSAPrimeSize = Data.ServerKeyData.size() - 15;
@@ -606,7 +610,7 @@ void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::S
 		DataToSend[9 +2+ i] = EncryptedPremasterSecret[i];
 	}
 	ConnectionParameters.AllHandshakeMessages.push_back(std::string(reinterpret_cast<char*>(DataToSend), 5 + 4 + 2 + RSAPrimeSize));
-	SocketToConnect->SendData(reinterpret_cast<char*>(DataToSend), 5 + 4+2 + RSAPrimeSize);
+	SocketToConnect->SendRawData(reinterpret_cast<char*>(DataToSend), 5 + 4+2 + RSAPrimeSize);
 	free(DataToSend);
 }
 
@@ -713,16 +717,16 @@ TLSHandler::TLSHandler()
 {
 	//AssociatedSocket = SocketToAssociateWith;
 }
-void TLSHandler::EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect)
+MBError TLSHandler::EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect)
 {
-	InitiateHandShake(SocketToConnect);
+	return(InitiateHandShake(SocketToConnect));
 }
 TLS1_2::CipherSuiteData TLSHandler::p_GetCipherSuiteData(TLS1_2::CipherSuite CipherToEvaluate)
 {
 	TLS1_2::CipherSuiteData ReturnValue;
-	if (CipherToEvaluate.Del1 == 0 && CipherToEvaluate.Del2 == 0x3c)
+	if (CipherToEvaluate.Del1 == 0 && CipherToEvaluate.Del2 == 0x2f)
 	{
-		ReturnValue = { TLS1_2::KeyExchangeMethod::RSA,TLS1_2::CertificateAuthenticationMethod::RSA,16,0,0,TLS1_2::SymmetricEncryptionCipher::AES,TLS1_2::SymmetricCipherMode::CBC,MBCrypto::HashFunction::SHA256 };
+		ReturnValue = { TLS1_2::KeyExchangeMethod::RSA,TLS1_2::CertificateAuthenticationMethod::RSA,16,0,0,TLS1_2::SymmetricEncryptionCipher::AES,TLS1_2::SymmetricCipherMode::CBC,MBCrypto::HashFunction::SHA1};
 	}
 	else if (CipherToEvaluate.Del1 == 0xc0 && CipherToEvaluate.Del2 == 0x2f)
 	{
@@ -806,7 +810,7 @@ std::vector<std::string> TLSHandler::GetCertificateList(std::string& AllCertific
 	}
 	return(ReturnValue);
 }
-void TLSHandler::SendChangeCipherMessage(MBSockets::Socket* SocketToConnect)
+void TLSHandler::SendChangeCipherMessage(MBSockets::ConnectSocket* SocketToConnect)
 {
 	uint8_t* Data = (uint8_t*)malloc(5 + 1);
 	TLS1_2::NetWorkDataHandler ArrayFiller(Data);
@@ -816,7 +820,7 @@ void TLSHandler::SendChangeCipherMessage(MBSockets::Socket* SocketToConnect)
 	ArrayFiller << uint8_t(0);
 	ArrayFiller << uint8_t(1);
 	ArrayFiller << uint8_t(1);
-	SocketToConnect->SendData(reinterpret_cast<char*>(Data), 6);
+	SocketToConnect->SendRawData(reinterpret_cast<char*>(Data), 6);
 	free(Data);
 	if (!ConnectionParameters.IsHost)
 	{
@@ -852,10 +856,10 @@ void TLSHandler::GenerateKeys()
 	
 	ConnectionParameters.client_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *0, MacKeyLength);
 	ConnectionParameters.server_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *1, MacKeyLength);
-	ConnectionParameters.client_write_Key = GeneratedKeyData.substr(MacKeyLength*2+EncryptKeySize *0, EncryptKeySize);
-	ConnectionParameters.server_write_Key = GeneratedKeyData.substr(MacKeyLength * 2+EncryptKeySize *1, EncryptKeySize);
-	ConnectionParameters.client_write_IV = GeneratedKeyData.substr(EncryptKeySize *2+MacKeyLength*2, WriteIVLength);
-	ConnectionParameters.server_write_IV = GeneratedKeyData.substr(EncryptKeySize *2+MacKeyLength*2+WriteIVLength, WriteIVLength);
+	ConnectionParameters.client_write_Key = GeneratedKeyData.substr((MacKeyLength*2)+(EncryptKeySize *0), EncryptKeySize);
+	ConnectionParameters.server_write_Key = GeneratedKeyData.substr((MacKeyLength * 2)+(EncryptKeySize *1), EncryptKeySize);
+	ConnectionParameters.client_write_IV = GeneratedKeyData.substr((EncryptKeySize *2)+(MacKeyLength*2), WriteIVLength);
+	ConnectionParameters.server_write_IV = GeneratedKeyData.substr((EncryptKeySize *2)+(MacKeyLength*2)+WriteIVLength, WriteIVLength);
 
 	std::cout << "Client_write_MAC_Key: " << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
 	std::cout << "Server_write_MAC_Key: " << HexEncodeString(ConnectionParameters.server_write_MAC_Key) << std::endl;
@@ -1319,7 +1323,7 @@ void TLSHandler::p_EstablishPreMasterSecret(TLS1_2::SecurityParameters& Connecti
 		}
 		MBCrypto::ECDHEPrivatePublicKeyPair ClientKeypair;
 		std::string ClientKeyExchange = p_GenerateClientECDHEKeyExchangeMessage(ConnectionParams, ClientKeypair,ServerKeyExchange);
-		SocketTouse->SendData(ClientKeyExchange.data(), ClientKeyExchange.size());
+		SocketTouse->SendRawData(ClientKeyExchange.data(), ClientKeyExchange.size());
 		ConnectionParams.ClientSequenceNumber += 1;
 		ConnectionParams.AllHandshakeMessages.push_back(ClientKeyExchange);
 		p_ECDHECalculatePremasterSecret(ConnectionParams, ServerKeyExchange,ClientKeypair);
@@ -1356,11 +1360,12 @@ std::vector<TLS1_2::Extension> TLSHandler::p_GenerateDHEExtensions()
 	ReturnValue.push_back(EC_PointFormats);
 	return(ReturnValue);
 }
-void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
+MBError TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 {
+	MBError ReturnValue(true);
 	ConnectionParameters.HostToConnectToDomainName = SocketToConnect->HostName;
 	std::string ClientHelloData = GenerateTLS1_2ClientHello(SocketToConnect);
-	SocketToConnect->SendData(ClientHelloData.c_str(), ClientHelloData.size());
+	SocketToConnect->SendRawData(ClientHelloData.c_str(), ClientHelloData.size());
 	ConnectionParameters.ClientSequenceNumber += 1;
 	ConnectionParameters.IsHost = false;
 	std::vector<std::string> ServerHelloResponseData = p_GetServerHelloResponseRecords(SocketToConnect);
@@ -1376,25 +1381,25 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	
 	
 	
-	std::ofstream DEBUG_Keyfile = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWireshark.txt");
-	DEBUG_Keyfile << "CLIENT_RANDOM " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret, 48)), " ", "");
-	DEBUG_Keyfile.flush();
-	DEBUG_Keyfile.close();
-	
-
-	std::ofstream DEBUG_Keyfile2 = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWiresharkPremaster.txt");
-	DEBUG_Keyfile2 << "CLIENT_RANDOM " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(MBCrypto::I2OSP(ConnectionParameters.PreMasterSecret,48)), " ", "");
-	DEBUG_Keyfile2.flush();
-	DEBUG_Keyfile2.close();
+	//std::ofstream DEBUG_Keyfile = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWireshark.txt");
+	//DEBUG_Keyfile << "CLIENT_RANDOM " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret, 48)), " ", "");
+	//DEBUG_Keyfile.flush();
+	//DEBUG_Keyfile.close();
+	//
+	//
+	//std::ofstream DEBUG_Keyfile2 = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWiresharkPremaster.txt");
+	//DEBUG_Keyfile2 << "CLIENT_RANDOM " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(MBCrypto::I2OSP(ConnectionParameters.PreMasterSecret,48)), " ", "");
+	//DEBUG_Keyfile2.flush();
+	//DEBUG_Keyfile2.close();
 	
 	
 	std::string VerifyDataMessage = GenerateVerifyDataMessage();
-	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
+	SocketToConnect->SendRawData(VerifyDataMessage.data(), VerifyDataMessage.size());
 	ConnectionParameters.HandshakeFinished = true;
 	ConnectionParameters.ClientSequenceNumber+=1;
 	ConnectionParameters.ServerSequenceNumber = 0;
 
-	std::cout << "Premaster secret: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.PreMasterSecret), " ", "") << std::endl;
+	//std::cout << "Premaster secret: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.PreMasterSecret), " ", "") << std::endl;
 	std::vector<std::string> ServerVerifyDataResponse = GetNextPlaintextRecords(SocketToConnect);
 	ConnectionParameters.ServerSequenceNumber = 0;
 	assert(ServerVerifyDataResponse.size() > 1);
@@ -1402,8 +1407,9 @@ void TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	assert(VerifyFinishedMessage(ServerVerifyDataResponse[1].substr(9)));
 	ConnectionParameters.ServerSequenceNumber = 1;
 	IsConnected = true;
+	return(ReturnValue);
 }
-MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect)
+MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect)
 {
 	//förutsätter att vi redan connectat med TCP protokollet
 	ConnectionParameters.IsHost = true;
@@ -1411,6 +1417,9 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	std::vector<std::string> ClientHello = GetNextPlaintextRecords(SocketToConnect,1,m_MaxBytesInMemory);
 	ConnectionParameters.AllHandshakeMessages.push_back(ClientHello[0]);
 	TLS1_2::TLS1_2HelloClientStruct ClientHelloStruct = ParseClientHelloStruct(ClientHello[0]);
+
+	//ConnectionParameters.CipherSuiteInfo = p_GetCipherSuiteData(ClientHelloStruct.CipherSuites);
+
 	//om clienten skicker ett session id så vill vi ta och använda den sesssion id:n värden
 	if (ClientHelloStruct.SessionId.size() != 0)
 	{
@@ -1428,18 +1437,18 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 		return(ErrorToReturn);
 	}
 	std::string ServerHelloRecord = GenerateServerHello(ClientHelloStruct);
-	SocketToConnect->SendData(ServerHelloRecord.data(), ServerHelloRecord.size());
+	SocketToConnect->SendRawData(ServerHelloRecord.data(), ServerHelloRecord.size());
 	ConnectionParameters.AllHandshakeMessages.push_back(ServerHelloRecord);
 	//test grej
 	std::string ServerCertificateRecord = GenerateServerCertificateRecord(ConnectionParameters.DomainName);
-	SocketToConnect->SendData(ServerCertificateRecord.c_str(),ServerCertificateRecord.size());
+	SocketToConnect->SendRawData(ServerCertificateRecord.c_str(),ServerCertificateRecord.size());
 	ConnectionParameters.AllHandshakeMessages.push_back(ServerCertificateRecord);
 	//server done record
 	TLS_RecordGenerator ServerHelloDoneRecord;
 	ServerHelloDoneRecord.SetContentType(TLS1_2::ContentType::handshake);
 	ServerHelloDoneRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello_done);
 	std::string ServerHelloDoneMessage = ServerHelloDoneRecord.GetHandShakeRecord();
-	SocketToConnect->SendData(ServerHelloDoneMessage.c_str(), ServerHelloDoneMessage.size());
+	SocketToConnect->SendRawData(ServerHelloDoneMessage.c_str(), ServerHelloDoneMessage.size());
 	ConnectionParameters.AllHandshakeMessages.push_back(ServerHelloDoneRecord.GetHandShakeRecord());
 	std::vector<std::string> ClientResponse = GetNextPlaintextRecords(SocketToConnect,3,m_MaxBytesInMemory);
 	if (ClientResponse.size() != 3 || this->m_HandshakeIsValid == false)
@@ -1452,6 +1461,19 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	//debug grejer
 	//std::cout << HexEncodeString(HMAC("123123", "123123")) << std::endl;
 	ServerHandleKeyExchange(ClientResponse[0]);
+
+	std::ofstream DEBUG_Keyfile = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWireshark.txt");
+	DEBUG_Keyfile << "CLIENT_RANDOM " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret, 48)), " ", "");
+	DEBUG_Keyfile.flush();
+	DEBUG_Keyfile.close();
+	
+	
+	std::ofstream DEBUG_Keyfile2 = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWiresharkPremaster.txt");
+	DEBUG_Keyfile2 << "CLIENT_RANDOM " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(MBCrypto::I2OSP(ConnectionParameters.PreMasterSecret,48)), " ", "");
+	DEBUG_Keyfile2.flush();
+	DEBUG_Keyfile2.close();
+
+
 	ConnectionParameters.AllHandshakeMessages.push_back(ClientResponse[0]);
 	std::string ServerFinishedMessagePlaintext = p_DecryptRecord(ClientResponse[2]);
 	if (VerifyFinishedMessage(ServerFinishedMessagePlaintext.substr(9)) == false)
@@ -1464,7 +1486,7 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ServerSocket* SocketTo
 	ConnectionParameters.AllHandshakeMessages.push_back(ServerFinishedMessagePlaintext);
 	SendChangeCipherMessage(SocketToConnect);
 	std::string ServerVerifyDataMessage = GenerateVerifyDataMessage();
-	SocketToConnect->SendData(ServerVerifyDataMessage.c_str(), ServerVerifyDataMessage.size());
+	SocketToConnect->SendRawData(ServerVerifyDataMessage.c_str(), ServerVerifyDataMessage.size());
 
 	ConnectionParameters.HandshakeFinished = true;
 	ConnectionParameters.ServerSequenceNumber = 1;
@@ -1653,12 +1675,12 @@ TLS1_2::SecurityParameters TLSHandler::GetCachedSession(std::string const& Sessi
 	std::lock_guard<std::mutex> Lock(CachedSessionsMutex);
 	return(CachedSessions[SessionID]);
 }
-MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2HelloClientStruct const& ClientHello ,MBSockets::Socket* SocketToConnect)
+MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2HelloClientStruct const& ClientHello ,MBSockets::ConnectSocket* SocketToConnect)
 {
 	//std::cout<<HexEncodeString(SessionID)<<std::endl;
 	MBError ErrorToReturn(true);
 	std::string ServerHelloMessage = GenerateServerHello(ClientHello, SessionID);
-	SocketToConnect->SendData(ServerHelloMessage.data(), ServerHelloMessage.size());
+	SocketToConnect->SendRawData(ServerHelloMessage.data(), ServerHelloMessage.size());
 	std::vector<std::string> CurrentHandshakeRecords = ConnectionParameters.AllHandshakeMessages;
 	CurrentHandshakeRecords.push_back(ServerHelloMessage);
 	std::string NewClientRandom = std::string((char*)ConnectionParameters.client_random,32);
@@ -1682,7 +1704,7 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 	SendChangeCipherMessage(SocketToConnect);
 	//är ju frågan om det ska vara 0 eller 1 recored sent?
 	std::string VerifyDataMessage = GenerateVerifyDataMessage();
-	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
+	SocketToConnect->SendRawData(VerifyDataMessage.data(), VerifyDataMessage.size());
 
 	std::vector<std::string> ClientVerifyDataMessage = GetNextPlaintextRecords(SocketToConnect,2,m_MaxBytesInMemory);
 	while (ClientVerifyDataMessage.size() < 2)
@@ -1745,8 +1767,12 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 	{
 		//std::cout << HexEncodeByte(SupportedAlgorithms[i].Hash) << " " << HexEncodeByte(SupportedAlgorithms[i].Signature) << std::endl;
 	}
+	//hardcodad af
 	NewRecord.AddUINT8(0);
 	NewRecord.AddUINT8(0x2f);
+
+	ConnectionParameters.CipherSuiteInfo = p_GetCipherSuiteData({ 0,0x2f });
+	ConnectionParameters.HashAlgorithm = MBCrypto::HashObject(MBCrypto::HashFunction::SHA1);
 	//uppdatera compressions algorithmen
 	ConnectionParameters.compression_algorithm = TLS1_2::nullCompressionMethod;
 	NewRecord.AddUINT8(0);
@@ -2078,14 +2104,14 @@ std::string TLSHandler::p_DecryptRecord(std::string const& Data)
 	}
 	return(ReturnValue);
 }
-void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::Socket* AssociatedSocket)
+void TLSHandler::SendDataAsRecord(const void* Data, size_t SizeOfData, MBSockets::ConnectSocket* AssociatedSocket)
 {
 	std::vector<std::string> RecordsData = std::vector<std::string>(0);
 	uint64_t Offset = 0;
-	uint64_t MacLengthOfRecord = 16384;
-	while (Offset < Data.size())
+	size_t MacLengthOfRecord = 16384;
+	while (Offset < SizeOfData)
 	{
-		RecordsData.push_back(Data.substr(Offset, MacLengthOfRecord));
+		RecordsData.push_back(std::string(&(((char*)Data)[Offset]),std::min(MacLengthOfRecord,SizeOfData-Offset)));
 		Offset += MacLengthOfRecord;
 	}
 	for (int i = 0; i < RecordsData.size(); i++)
@@ -2096,7 +2122,7 @@ void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::Socket* Ass
 		RecordToSend.Length = RecordsData[i].size();
 		RecordToSend.Data = RecordsData[i];
 		std::string DataToSend = GetEncryptedRecord(RecordToSend);
-		AssociatedSocket->SendData(DataToSend.data(), DataToSend.size());
+		AssociatedSocket->SendRawData(DataToSend.data(), DataToSend.size());
 		if (!ConnectionParameters.IsHost)
 		{
 			ConnectionParameters.ClientSequenceNumber += 1;
@@ -2107,7 +2133,11 @@ void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::Socket* Ass
 		}
 	}
 }
-std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket,int MaxNumberOfBytes)
+void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::ConnectSocket* AssociatedSocket)
+{
+	SendDataAsRecord(Data.c_str(), Data.size(), AssociatedSocket);
+}
+std::string TLSHandler::GetApplicationData(MBSockets::ConnectSocket* AssociatedSocket,int MaxNumberOfBytes)
 {
 	std::vector<std::string> ApplicationDataRecords = GetNextPlaintextRecords((MBSockets::ConnectSocket*)AssociatedSocket,MaxNumberOfBytes);
 	//nu så bara klistrat vi ihop datan och skickar tillbaka den
@@ -2119,7 +2149,7 @@ std::string TLSHandler::GetApplicationData(MBSockets::Socket* AssociatedSocket,i
 	}
 	return(SentApplicationData);
 }
-std::string TLSHandler::GetNextRawProtocol(MBSockets::Socket* SocketToConnect, int MaxBytesInMemory)
+std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToConnect, int MaxBytesInMemory)
 {
 	if (MaxBytesInMemory < m_MaxRecordLength)
 	{
@@ -2135,7 +2165,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::Socket* SocketToConnect, i
 	std::string NewRecordData = "";
 	std::swap(NewRecordData, RecieveDataState.CurrentRecordPreviousData);
 	//newrecord data kan aldrig vara komplett record
-	NewRecordData += SocketToConnect->GetNextRequestData(MaxBytesInMemory - NewRecordData.size());
+	NewRecordData += SocketToConnect->RecieveRawData(MaxBytesInMemory - NewRecordData.size());
 	if (NewRecordData.size() == 0)
 	{
 		return(NewRecordData);
@@ -2143,7 +2173,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::Socket* SocketToConnect, i
 	if (NewRecordData.size() < 5)
 	{
 		//måste alltid kunna avgöra längden
-		NewRecordData += SocketToConnect->GetNextRequestData(MaxBytesInMemory - NewRecordData.size());
+		NewRecordData += SocketToConnect->RecieveRawData(MaxBytesInMemory - NewRecordData.size());
 	}
 	size_t RecievedDataOffset = 0;
 	bool NewRecordExtracted = false;
@@ -2158,7 +2188,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::Socket* SocketToConnect, i
 			int CurrentRecordSize = LengthExtractor.Extract16();
 			if (NewRecordData.size()-5 < CurrentRecordSize)
 			{
-				NewRecordData += SocketToConnect->GetNextRequestData(MaxBytesInMemory - NewRecordData.size());
+				NewRecordData += SocketToConnect->RecieveRawData(MaxBytesInMemory - NewRecordData.size());
 			}
 			if (NewRecordData.size() - 5 < CurrentRecordSize)
 			{
@@ -2197,7 +2227,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::Socket* SocketToConnect, i
 	}
 	return(NewRecords[0]);
 }
-bool TLSHandler::HandleAlertMessage(MBSockets::Socket* SocketToConnect,std::string const& DecryptedAlertRecord)
+bool TLSHandler::HandleAlertMessage(MBSockets::ConnectSocket* SocketToConnect,std::string const& DecryptedAlertRecord)
 {
 	uint8_t AlertLevel = DecryptedAlertRecord[5];
 	uint8_t ErrorMessage = DecryptedAlertRecord[6];
@@ -2220,7 +2250,7 @@ bool TLSHandler::HandleAlertMessage(MBSockets::Socket* SocketToConnect,std::stri
 		return(true);
 	}
 }
-std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory)
+std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory)
 {
 	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
 	int NumberOfRecievedRecords = 0;
@@ -2251,7 +2281,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 	}
 	return(ReturnValue);
 }
-std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes)
+std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes)
 {
 	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
 	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
@@ -2266,7 +2296,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 		}
 		std::string RawData = RecieveDataState.CurrentRecordPreviousData;
 		int TotalRecievedData = RawData.size();
-		std::string NewData = SocketToConnect->GetNextRequestData(MaxNumberOfBytes-TotalRecievedData);
+		std::string NewData = SocketToConnect->RecieveRawData(MaxNumberOfBytes-TotalRecievedData);
 		if (NewData == "")
 		{
 			return(ReturnValue);
@@ -2281,7 +2311,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 		{
 			while(RawData.size()-OffsetOfProcessedRecords < 5 && TotalRecievedData < MaxNumberOfBytes)
 			{
-				RawData += SocketToConnect->GetNextRequestData(MaxNumberOfBytes-TotalRecievedData);
+				RawData += SocketToConnect->RecieveRawData(MaxNumberOfBytes-TotalRecievedData);
 				TotalRecievedData = RawData.size();
 			}
 
@@ -2297,7 +2327,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 			uint64_t LengthOfRecord = DataReader.Extract16();
 			while(RawData.size()-OffsetOfProcessedRecords-5 < LengthOfRecord && TotalRecievedData < MaxNumberOfBytes)
 			{
-				RawData += SocketToConnect->GetNextRequestData(MaxNumberOfBytes - TotalRecievedData);
+				RawData += SocketToConnect->RecieveRawData(MaxNumberOfBytes - TotalRecievedData);
 				TotalRecievedData = RawData.size();
 			}
 
@@ -2380,7 +2410,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::Socket* 
 	}
 	return(ReturnValue);
 }
-void TLSHandler::SendCloseNotfiy(MBSockets::Socket* SocketToUse)
+void TLSHandler::SendCloseNotfiy(MBSockets::ConnectSocket* SocketToUse)
 {
 	//då ska vi också ta skicka att vi stänger av
 	std::string DataToSend = "";
@@ -2406,7 +2436,7 @@ void TLSHandler::SendCloseNotfiy(MBSockets::Socket* SocketToUse)
 		DataToSend += char(0);
 		IsConnected = false;
 	}
-	SocketToUse->SendData(DataToSend.data(), DataToSend.size());
+	SocketToUse->SendRawData(DataToSend.data(), DataToSend.size());
 }
 TLSHandler::~TLSHandler()
 {

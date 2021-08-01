@@ -52,3 +52,10 @@ form
     margin-right: auto;
     text-align: center;
 }
+.MBButton
+{
+    color: #00FF00;
+    background: rgba(0, 0, 0, 1);
+    border: 1px solid #00FF00;
+    text-align: center;
+}

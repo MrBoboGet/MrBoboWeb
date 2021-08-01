@@ -115,32 +115,30 @@ namespace MBSockets
 	{
 	protected:
 		MB_OS_Socket m_UnderlyingHandle;
-		int ErrorResults = 0;
-		bool Invalid = false;
-		bool ConnectionClosed = false;
-		std::string LastErrorMessage = "";
-		std::string GetLastError();
-		void HandleError(std::string const& ErrorMessage, bool IsLethal);
-		void p_TransferInternals(Socket& SocketToTransferTo);
+		int m_ErrorResult = 0;
+		bool m_Invalid = false;
+		std::string m_LastErrorMessage = "";
+		std::string p_GetLastError();
+		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
+		friend void swap(Socket& FirstSocket, Socket& SecondSocket);
 	public:
 		Socket& operator=(Socket const&) = delete;
+		Socket& operator=(Socket&&);
 		Socket(Socket const&) = delete;
 		Socket(Socket&&);
 		bool IsValid();
-		bool IsConnected();
-		void Close();
-		int SendData(const char* DataPointer, int DataLength);
-		std::string GetIpOfConnectedSocket();
-		int RecieveData(char* Buffer, int BufferSize);
-		std::string GetNextRequestData();
-		std::string GetNextRequestData(int MaxNumberOfBytes);
+		virtual void Close();
+		//int SendData(const char* DataPointer, int DataLength);
+		//int RecieveData(char* Buffer, int BufferSize);
+		//std::string RecieveData();
+		//std::string RecieveData(int MaxNumberOfBytes);
 		Socket();
 		~Socket();
 	};
 	class UDPSocket : public Socket
 	{
 	public:
-		UDPSocket(std::string const& Adress, std::string const& Port, TraversalProtocol TraversalProto);
+		UDPSocket(std::string const& Adress, std::string const& Port);
 		void UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber);
 		int Bind(int PortToAssociateWith);
 		std::string UDPGetData();
@@ -150,36 +148,65 @@ namespace MBSockets
 	class ConnectSocket : public Socket
 	{
 	protected:
+		bool m_IsConnected = false;
 		bool m_TLSConnectionEstablished = false;
 		size_t _m_ai_addrlen = 0;
 		sockaddr* _m_addr = nullptr;
+		TLSHandler m_TLSHandler = TLSHandler();
 	public:
 		std::string HostName;
 		int Connect();
+		bool IsConnected();
+		std::string GetIpOfConnectedSocket();
+		int SendRawData(const void* DataPointer, size_t DataLength);
+		virtual int SendData(const void* DataPointer, size_t DataLength);
+		virtual int SendData(std::string const& DataToSend);
+		std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
+		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1);
+		virtual ConnectSocket& operator<<(std::string const& DataToSend);
+		virtual ConnectSocket& operator>>(std::string& DataBuffer);
+		virtual MBError EstablishTLSConnection();
 		ConnectSocket() {};
-		ConnectSocket(std::string const& Adress, std::string const& Port, TraversalProtocol TraversalProto);
+		ConnectSocket(ConnectSocket&&)
+		{
+
+		}
 		~ConnectSocket();
+	};
+	class ClientSocket : public ConnectSocket
+	{
+	private:
+	public:
+		int Connect();
+		MBError EstablishTLSConnection() override;
+		ClientSocket(std::string const& Adress, std::string const& Port);
+		ClientSocket(ClientSocket&&)
+		{
+
+		}
 	};
 	class ServerSocket : public ConnectSocket
 	{
 	private:
-		MB_OS_Socket ListenerSocket;
+		MB_OS_Socket m_ListenerSocket;
 	protected:
 		TLSHandler SocketTlsHandler = TLSHandler();
+		friend void swap(ServerSocket& FirstSocket, ServerSocket& SecondSocket);
 		//bool SecureConnectionEstablished = false;
 	public:
-		int Bind();
-		int Listen();
+		MBError EstablishTLSConnection() override;
+		virtual int Bind();
+		virtual int Listen();
 		void TransferConnectedSocket(ServerSocket& OtherSocket);
-		int Accept();
-		MBError EstablishSecureConnection();
-		ServerSocket(std::string const& Port, TraversalProtocol TraversalProto);
+		virtual int Accept();
+		ServerSocket();
+		ServerSocket(std::string const& Port);
 		~ServerSocket();
 	};
 	std::string GetHeaderValue(std::string Header, const std::string& HeaderContent);
 	std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent);
 	int HexToDec(std::string NumberToConvert);
-	class HTTPConnectSocket : public ConnectSocket
+	class HTTPConnectSocket : public ClientSocket
 	{
 	private:
 		std::string URl;
@@ -198,8 +225,7 @@ namespace MBSockets
 		int CurrentRecievedChunkData = 0;
 		size_t ChunkParseOffset = 0;
 	public:
-		std::string GetNextDecryptedData();
-		int HTTPSendData(std::string DataToSend);
+		//int HTTPSendData(std::string const& DataToSend);
 		bool DataIsAvailable();
 		void ResetRequestRecieveState();
 		void UpdateAndDechunkData(std::string& DataToDechunk, size_t Offset);
@@ -207,29 +233,26 @@ namespace MBSockets
 		int Get(std::string Resource = "");
 		int Head(std::string Resource = "");
 		std::string GetDataFromRequest(const std::string& RequestType, std::string Resource);
-		HTTPConnectSocket(std::string URL, std::string Port, TraversalProtocol TraversalProto, ApplicationProtocols ApplicationProtocol = ApplicationProtocols::HTTP);
-		void EstablishSecureConnetion();
+		HTTPConnectSocket(std::string const& URL, std::string const& Port);
 		~HTTPConnectSocket();
 	};
 	class HTTPServerSocket : public ServerSocket
 	{
 	private:
-		void SendWithTls(std::string const& DataToSend);
 		bool ChunksRemaining = false;
 		bool RequestIsChunked = false;
 		int CurrentChunkSize = 0;
 		int CurrentChunkParsed = 0;
 		int CurrentContentLength = 0;
 		int ParsedContentData = 0;
+		int p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
+		std::string p_UpdateAndDeChunkData(std::string const& ChunkedData);
 	public:
 		bool DataIsAvailable();
-		HTTPServerSocket(std::string Port, TraversalProtocol TraversalProto);
-		int GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
-		std::string UpdateAndDeChunkData(std::string const& ChunkedData);
-		std::string  GetNextRequestData();
+		HTTPServerSocket(std::string const& Port);
+		std::string GetHTTPRequest();
 		void SendDataAsHTTPBody(const std::string& Data);
 		void SendHTTPBody(const std::string& Data);
-		void SendFullResponse(std::string const& DataToSend);
 		void SendHTTPDocument(HTTPDocument const& DocumentToSend);
 		std::string GetNextChunkData();
 	};

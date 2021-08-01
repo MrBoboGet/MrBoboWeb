@@ -82,14 +82,14 @@ void ListenOnInitiationUserInput(std::atomic<bool>* BoolToModify, std::atomic<bo
 	}
 	AssociatedChatObject->InitiatingCancelableInput = false;
 };
-void InitiationSendData(MBSockets::UDPSocket* SocketToSendDataOn, std::string* StringToModify, std::condition_variable* ConditionalToNotify, std::mutex* ResourceMutex)
-{
-	std::string DataToSend = "";
-	while (true)
-	{
-		SocketToSendDataOn->SendData(DataToSend.data(), DataToSend.size());
-	}
-}
+//void InitiationSendData(MBSockets::UDPSocket* SocketToSendDataOn, std::string* StringToModify, std::condition_variable* ConditionalToNotify, std::mutex* ResourceMutex)
+//{
+//	std::string DataToSend = "";
+//	while (true)
+//	{
+//		SocketToSendDataOn->SendData(DataToSend.data(), DataToSend.size());
+//	}
+//}
 void ChatMainFunction_Listener(MBChatConnection* AssociatedConnectionObject, std::vector<std::string>* RecievedMessages, std::atomic<bool>* RecievedMessage, std::mutex* MainFuncMutex)
 {
 	//std::cout << "Hej" << std::endl;

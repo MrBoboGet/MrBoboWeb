@@ -804,12 +804,13 @@ private:
 	TLS1_2::SecurityParameters ConnectionParameters;
 	std::string DefaultDomain = "mrboboget.se";
 	size_t m_NonceSequenceNumber = 0;
+
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
 	MrBigInt RSAEP(TLSServerPublickeyInfo& RSAInfo, MrBigInt const& MessageRepresentative);
 	static std::string I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString);
 	std::string RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo, std::string& DataToEncrypt);
-	void SendClientKeyExchange(TLSServerPublickeyInfo& Data, MBSockets::Socket* SocketToConnect);
+	void SendClientKeyExchange(TLSServerPublickeyInfo& Data, MBSockets::ConnectSocket* SocketToConnect);
 	std::string XORedString(std::string String1, std::string String2);
 	std::string HMAC(std::string Secret, std::string Seed);
 	std::string P_Hash(std::string Secret, std::string Seed, uint64_t AmountOfData);
@@ -825,15 +826,14 @@ private:
 	static std::string RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& DecryptInfo, std::string const& PublicKeyEncryptedData);
 	std::string GetDefaultCertificate();
 	void ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord);
-	MBError ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2HelloClientStruct const& StructToUse,MBSockets::Socket* SocketToConnect);
+	MBError ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2HelloClientStruct const& StructToUse,MBSockets::ConnectSocket* SocketToConnect);
 	void CacheSession();
 	static bool SessionIsSaved(std::string const& SessionID);
 	TLS1_2::SecurityParameters GetCachedSession(std::string const& SessiondID);
-	void SendCloseNotfiy(MBSockets::Socket* SocketToUse);
-	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory);
-	bool HandleAlertMessage(MBSockets::Socket* SocketToConnect,std::string const& DecryptedAlertRecord);
-	std::string GetNextRawProtocol(MBSockets::Socket* SocketToConnect, int MaxBytesInMemory);
-
+	void SendCloseNotfiy(MBSockets::ConnectSocket* SocketToUse);
+	std::vector<std::string> GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory);
+	bool HandleAlertMessage(MBSockets::ConnectSocket* SocketToConnect,std::string const& DecryptedAlertRecord);
+	std::string GetNextRawProtocol(MBSockets::ConnectSocket* SocketToConnect, int MaxBytesInMemory);
 	static TLS1_2::CipherSuiteData p_GetCipherSuiteData(TLS1_2::CipherSuite);
 	static std::vector<TLS1_2::CipherSuite> p_GetSupportedCipherSuites();
 	static void p_UpdateConnectionParametersAfterServerHello(TLS1_2::SecurityParameters& ConnectionParameters,TLS1_2::TLS1_2ServerHelloStruct const& ServerHelloStruct);
@@ -857,11 +857,11 @@ public:
 	TLSHandler();
 	bool ConnectionIsActive() { return(IsConnected); };
 	RSADecryptInfo GetRSADecryptInfo(std::string const& DomainName);
-	void EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
-	MBError EstablishHostTLSConnection(MBSockets::ServerSocket* SocketToConnect);
+	MBError EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
+	MBError EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
 	std::string GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect);
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
-	void SendChangeCipherMessage(MBSockets::Socket* SocketToConnect);
+	void SendChangeCipherMessage(MBSockets::ConnectSocket* SocketToConnect);
 	void GenerateKeys();
 	std::string GetEncryptedRecord(TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt);
 	//std::string TestEncryptRecord(void* IV,uint64_t RecordNumber ,std::string ClientWriteMacKey, std::string ClientWriteKey, TLS1_2::TLS1_2GenericRecord& RecordToEncrypt)
@@ -882,11 +882,12 @@ public:
 	//}
 	bool EstablishedSecureConnection() { return(ConnectionParameters.HandshakeFinished); };
 	std::string GenerateVerifyDataMessage();
-	void InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
+	MBError InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
 	bool VerifyFinishedMessage(std::string DataToVerify);
 	bool VerifyMac(std::string Hash, TLS1_2::TLS1_2GenericRecord RecordToEncrypt);
-	void SendDataAsRecord(std::string const& Data, MBSockets::Socket* AssociatedSocket);
-	std::string GetApplicationData(MBSockets::Socket* AssociatedSocket,int MaxNumberOfBytes = 1000000);
-	std::vector<std::string> GetNextPlaintextRecords(MBSockets::Socket* SocketToConnect,int MaxNumberOfBytes = 1000000);
+	void SendDataAsRecord(std::string const& Data, MBSockets::ConnectSocket* AssociatedSocket);
+	void SendDataAsRecord(const void* Data, size_t SizeOfData, MBSockets::ConnectSocket* AssociatedSocket);
+	std::string GetApplicationData(MBSockets::ConnectSocket* AssociatedSocket,int MaxNumberOfBytes = 1000000);
+	std::vector<std::string> GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes = 1000000);
 	~TLSHandler();
 };

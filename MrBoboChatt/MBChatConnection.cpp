@@ -89,7 +89,7 @@ std::string MBChatConnection::DecryptData(std::string& DataToDecrypt)
 	plusaes::decrypt_cbc((const unsigned char*)DataToDecrypt.substr(16).c_str(), DataToDecrypt.size() - 16, (const unsigned char*)SecurityParameters.SharedSecret.c_str(), SecurityParameters.SharedSecret.size(), &IV, (unsigned char*)DecryptedData.c_str(), DecryptedData.size(), &PaddingRemoved);
 	return(DecryptedData.substr(0, DecryptedData.size() - PaddingRemoved));
 }
-MBChatConnection::MBChatConnection(std::string PeerIP, int Port) : ConnectionSocket(PeerIP, std::to_string(Port), MBSockets::TraversalProtocol::TCP)
+MBChatConnection::MBChatConnection(std::string PeerIP, int Port) : ConnectionSocket(PeerIP, std::to_string(Port))
 {
 	std::string PeerMessage = "";
 	ConnectionSocket.UDPMakeSocketNonBlocking(StandardResponseWait);

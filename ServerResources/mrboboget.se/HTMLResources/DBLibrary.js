@@ -44,7 +44,7 @@ function MBDBAPI_EncodeArguments(ArgumentStringArray)
       ReturnValue+=" ";
     }
   }
-  console.log(ReturnValue);
+  //console.log(ReturnValue);
   return(ReturnValue);
 }
 
@@ -70,7 +70,7 @@ async function MBDBAPI_SendDirective(DirectiveString)
 }
 function StringIsPath(StringToCheck)
 {
-  console.log("Kommer till path grejen")
+  //console.log("Kommer till path grejen")
   if(typeof(StringToCheck) != typeof("Hej"))
   {
     return(false);
@@ -79,13 +79,13 @@ function StringIsPath(StringToCheck)
   {
     return(false);
   }
-  console.log("ska kolla om inkluderar tecken")
+  //console.log("ska kolla om inkluderar tecken")
   let ContainsSpace = (StringToCheck.indexOf(" ") != -1);
   let ContainsSlash = (StringToCheck.indexOf("/") != -1);
   let ContainsNewline = (StringToCheck.indexOf("\n") != -1);
   if(ContainsSpace || ContainsNewline || !ContainsSlash)
   {
-    console.log(ContainsSpace,ContainsSlash,ContainsNewline);
+    //console.log(ContainsSpace,ContainsSlash,ContainsNewline);
     return(false);
   }
   return(true);
@@ -144,7 +144,7 @@ function toHexString(byteArray) {
 
 function htmlDecode(input) {
   var doc = new DOMParser().parseFromString(input, "text/html");
-  console.log("HTML Decode");
+  //console.log("HTML Decode");
   return doc.documentElement.textContent;
 }
 
@@ -172,7 +172,7 @@ function GetURLResourceType(URLToCheck)
   if(Extension != -1)
   {
     Extension = URLToCheck.substr(Extension+1);
-    console.log("Extension is",Extension);  
+    //console.log("Extension is",Extension);  
     if(ValueInArray(PictureExtension,Extension))
     {
       ReturnValue = "Picture";
@@ -202,4 +202,22 @@ function GetEmbeddedAudioString(URLToEmbedd)
 {
   let ReturnValue = "<audio src=\""+URLToEmbedd+"\" style=\"width:auto;max-width:100%\"></img>"
   return(ReturnValue);
+}
+
+function ShuffleArray(array) {
+  var currentIndex = array.length,  randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    // And swap it with the current element.
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
+  }
+
+  return array;
 }

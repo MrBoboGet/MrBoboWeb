@@ -65,7 +65,9 @@ namespace MBMail
 	char ByteToBASE64(uint8_t ByteToEncode);
 	std::string BASE64Decode(const void* CharactersToRead, size_t NumberOfCharacters);
 	std::string BASE64Encode(const void* DataToEncode, size_t DataLength);
-
+	std::string BASE64Decode(std::string const& DataToDecode);
+	std::string BASE64Encode(std::string const& DataToEncode);
+	
 	enum class DKIMNormalizationMethod
 	{
 		Simple,
@@ -149,6 +151,12 @@ namespace MBMail
 			return(true);
 		}
 	}
+	struct SMTPAuthenticationData
+	{
+		std::string RelayDomain = "";
+		std::string PlaintextUser = "";
+		std::string PlaintextPassword = "";
+	};
 	class MBMailSender
 	{
 	private:
@@ -173,7 +181,7 @@ namespace MBMail
 			std::string ResponseData;
 			(*CommunicationStream) >> ResponseData;
 			std::string StatusString = ResponseData.substr(0, 3);
-			ReturnValue.StatusCode = (SMTPResponse) std::stoi(ResponseData);
+			ReturnValue.StatusCode = (SMTPStatusCode) std::stoi(ResponseData);
 			bool MultiLine = (ResponseData[3] == ' ');
 			if (MultiLine)
 			{
@@ -211,7 +219,7 @@ namespace MBMail
 		SMTPConnectionState p_StartSMTPConnection(std::string const& DomainToSendTo, MBOctetCommunication* CommunicationStream,SMTPSendInfo const& SendInfo)
 		{
 			SMTPConnectionState ReturnValue;
-			SMTPResponse Response = p_GetCommandResponse("EHLO " + SendInfo.Domain);
+			SMTPResponse Response = p_GetCommandResponse("EHLO " + SendInfo.Domain,CommunicationStream);
 			ReturnValue.LatestCommandStatus = Response.StatusCode;
 			for (size_t i = 0; i < Response.ResponseLines.size(); i++)
 			{
@@ -259,7 +267,7 @@ namespace MBMail
 		void p_StartMailTranser(SMTPConnectionState& StateToUpdate,MBOctetCommunication& CommunicationStream,SMTPSendInfo const& SendInfo)
 		{
 			StateToUpdate.InTransaction = true;
-			SMTPResponse Response = p_GetCommandResponse("MAIL FROM:<" + SendInfo.User + "@" + SendInfo.Domain + ">");
+			SMTPResponse Response = p_GetCommandResponse("MAIL FROM:<" + SendInfo.User + "@" + SendInfo.Domain + ">",&CommunicationStream);
 			if (SMTPStatusIsError(Response.StatusCode))
 			{
 				StateToUpdate.InTransaction = false;
@@ -269,7 +277,7 @@ namespace MBMail
 			}
 			for (size_t i = 0; i < SendInfo.Recievers.size(); i++)
 			{
-				Response = p_GetCommandResponse("RCPT TO:<" + SendInfo.Recievers[i]+ ">");
+				Response = p_GetCommandResponse("RCPT TO:<" + SendInfo.Recievers[i]+ ">",&CommunicationStream);
 				if (SMTPStatusIsError(Response.StatusCode))
 				{
 					StateToUpdate.InTransaction = false;
@@ -282,7 +290,7 @@ namespace MBMail
 		template<typename MBOctetCommunication>
 		void p_EndDataTransfer(SMTPConnectionState& StateToUpdate,MBOctetCommunication& CommunciationStream)
 		{
-			SMTPResponse Response = p_GetCommandResponse("\r\n.\r\n", CommunciationStream);
+			SMTPResponse Response = p_GetCommandResponse("\r\n.\r\n", &CommunciationStream);
 			StateToUpdate.InTransaction = false;
 			StateToUpdate.LatestCommandStatus = Response.StatusCode;
 			if (SMTPStatusIsError(Response.StatusCode))
@@ -293,11 +301,18 @@ namespace MBMail
 		template<typename MBOctetCommunication>
 		void p_EndSMTPConnection(SMTPConnectionState& StateToUpdate, MBOctetCommunication& CommunciationStream)
 		{
-			SMTPResponse Response = p_GetCommandResponse("QUIT", CommunciationStream);
+			SMTPResponse Response = p_GetCommandResponse("QUIT", &CommunciationStream);
 			StateToUpdate.Connected = false;
 			StateToUpdate.InTransaction = false;
 			StateToUpdate.MaxMessageSize = 0;
 			StateToUpdate.ServerExtensions = {};
+		}
+		template<typename MBOctetCommunication> void p_Authenticate(SMTPConnectionState& StateToUpdate, MBOctetCommunication& CommunicationStream)
+		{
+			SMTPAuthenticationData AuthenticationData = p_GetAuthenticationData();
+			SMTPResponse AuthResponse = p_GetCommandResponse("AUTH LOGIN",&CommunicationStream);
+			AuthResponse = p_GetCommandResponse(BASE64Encode(AuthenticationData.PlaintextUser.data(), AuthenticationData.PlaintextPassword.size()), &CommunicationStream);
+			AuthResponse = p_GetCommandResponse(BASE64Encode(AuthenticationData.PlaintextPassword.data(), AuthenticationData.PlaintextPassword.size()), &CommunicationStream);
 		}
 		template<typename MBOctetStream> void p_InsertAttachment(Mail const& MailToSend, size_t AttachmentIndex,MBOctetStream& DataStream)
 		{
@@ -305,9 +320,11 @@ namespace MBMail
 			return;
 		}
 		static std::string p_GetDateString();
+		MBSockets::ClientSocket p_GetServerConnection(std::string const& DomainName);
+		SMTPAuthenticationData p_GetAuthenticationData();
 	public:
 		void SetMailbox(std::string const& NewMailbox);
-		MailError SendMail(Mail MailToSend,std::string const& PostBoxReiever);
+		MailError SendMail(Mail MailToSend,std::string const& PostBoxReiever,SMTPSendInfo const& SendInfo);
 		void FillMailHeaders(Mail& MailToEdit, StandardUserEmailHeaders const& UserInputHeaders);
 		void t_SaveMail(Mail MailToSend, std::string const& PostBoxReiever, std::string const& MailOutputPath);
 		template<typename MBOctetStream> void t_InsertMail(Mail MailToSend, std::string const& PostBoxReiever,MBOctetStream& DataStream)
@@ -328,11 +345,56 @@ namespace MBMail
 			}
 		}
 	};
-	class MBMailReciever
+
+	class MBMailReciever;
+	struct SMTPTransactionState
+	{
+		bool InTransaction = false;
+		bool InDataTransfer = false;
+		bool SenderValid = true;
+		std::string SenderUsername = "";
+		std::string SenderDomain = "";
+		std::vector<std::string> Recipients = {};
+	};
+	class MBMailSMTPServerConnection
 	{
 	private:
-
+		friend class MBMailReciever;
+		size_t m_ConnectionID = -1;
+		std::shared_ptr<MBSockets::ConnectSocket> m_AssociatedSocket = nullptr;
+		MBMailReciever* m_AssociatedReciever = nullptr;
+		std::string m_ClientDomain = "";
+		bool m_UsedImplicitTLS = false;
+		bool m_ConnectionIsOpen = true;
+		SMTPTransactionState m_TransactionState;
+		std::string m_FileToSaveToPath = "";
+		std::ofstream m_FileToSaveTo;
+		void p_HandleConnection();
+		void p_HandleCommand(std::string const& CommandData);
+		static void p_GetPostboxParts(std::string& Username, std::string& Domain, std::string const& LineContainingPostbox);
+		static bool p_VerifyPRF(std::string const& DomainToVerify,std::string const& ConnectionIP);
+		static bool p_VerifyDKIM(std::string const& DomainToVerify,std::string const& MailFilePath);
+		static bool p_VerifyRDNS(std::string const& ConnectionIP);
+		static void p_SendServerHello(MBSockets::ConnectSocket* AssociatedSocket);
+		static void p_SendExtensions(MBSockets::ConnectSocket* AssociatedSocket);
+		void p_CloseConnection();
+		MBMailSMTPServerConnection(std::shared_ptr<MBSockets::ConnectSocket> AssociatedConnection, size_t ConnectionID, bool UsedImplicitTLS);
 	public:
-
+	};
+	class MBMailReciever
+	{
+		friend class MBMailSMTPServerConnection;
+	private:
+		std::mutex m_InternalsMutex;
+		std::unordered_map<size_t, std::shared_ptr<MBMailSMTPServerConnection>> m_ActiveConnections = {};
+		void p_AddConnection(size_t ConnectionID, std::shared_ptr<MBMailSMTPServerConnection> ConnectionToAdd);
+		void p_RemoveConnection(size_t ConnectionID);
+		bool p_VerifyUser(std::string const& UsernameToVerify);
+		std::string p_GetTempDirectory();
+		std::string p_GetUserDirectory(std::string const& Username);
+		std::string p_GetTimeString();
+		//static void p_SendHello(MBSockets::ConnectSocket* ConnectionSocket);
+	public:
+		void StartListening(std::string const& AssociatedDomain, std::string const& PortToListenTo,bool UseImplicitTLS);
 	};
 }

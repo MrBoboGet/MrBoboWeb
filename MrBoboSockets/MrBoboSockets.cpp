@@ -81,7 +81,7 @@ namespace MBSockets
 
 
 	//BEGIN Socket
-	std::string Socket::GetLastError()
+	std::string Socket::p_GetLastError()
 	{
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 		return(std::to_string(WSAGetLastError()));
@@ -89,125 +89,324 @@ namespace MBSockets
 		return(std::string(strerror(errno)));
 #endif
 	}
-	void Socket::HandleError(std::string const& ErrorMessage, bool IsLethal)
+	void Socket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
 	{
 		//DEBUG GREJER
 		std::cout << ErrorMessage << std::endl;
-		LastErrorMessage = ErrorMessage;
+		m_LastErrorMessage = ErrorMessage;
 		if (IsLethal == true)
 		{
-			Invalid = true;
+			m_Invalid = true;
 		}
 	}
 	bool Socket::IsValid()
 	{
-		return(!Invalid);
+		return(!m_Invalid);
 	}
-	bool Socket::IsConnected()
-	{
-		return(!ConnectionClosed);
-	}
+	//bool Socket::IsConnected()
+	//{
+	//	return(!ConnectionClosed);
+	//}
 	void Socket::Close()
 	{
 		MBCloseSocket(m_UnderlyingHandle);
-		ConnectionClosed = true;
-		Invalid = true;
+		m_Invalid = true;
 		m_UnderlyingHandle = MBInvalidSocket;
 	}
-	int Socket::SendData(const char* DataPointer, int DataLength)
+	//int Socket::SendData(const char* DataPointer, int DataLength)
+	//{
+	//	try
+	//	{
+	//		int TotalDataSent = 0;
+	//		while (TotalDataSent != DataLength)
+	//		{
+	//			m_ErrorResult = send(m_UnderlyingHandle, DataPointer, DataLength, 0);
+	//			if (m_ErrorResult == MBSocketError())
+	//			{
+	//				p_HandleError("send failed with error: " + p_GetLastError(), true);
+	//				return(0);
+	//			}
+	//			TotalDataSent += m_ErrorResult;
+	//		}
+	//	}
+	//	catch (const std::exception&)
+	//	{
+	//		p_HandleError("send failed with unknown error", true);
+	//		return(-1);
+	//	}
+	//	return(0);
+	//}
+	//std::string Socket::GetIpOfConnectedSocket()
+	//{
+	//	sockaddr_in  AddresData;
+	//	AddresData.sin_family = AF_INET;
+	//	int SizeOfData = sizeof(sockaddr_in);
+	//	m_ErrorResult = getpeername(m_UnderlyingHandle, (sockaddr*)&AddresData, (socklen_t*)&SizeOfData);
+	//	if (m_ErrorResult == MBSocketError())
+	//	{
+	//		p_HandleError("Get ip failed: " + p_GetLastError(), false);
+	//		return("");
+	//	}
+	//	char ActualAdress[100];
+	//	unsigned long DataReturned = 100;
+	//	//ErrorResults = WSAAddressToStringA((SOCKADDR*)&AddresData, sizeof(SOCKADDR), NULL, ActualAdress, &DataReturned);
+	//	//TODO fixa s� det h�r fungerar
+	//	std::string Result = inet_ntoa(AddresData.sin_addr);
+	//	return(std::string(ActualAdress));
+	//}
+	//int Socket::RecieveData(char* Buffer, int BufferSize)
+	//{
+	//	m_ErrorResult = recv(m_UnderlyingHandle, Buffer, BufferSize, 0);
+	//	if (m_ErrorResult > 0)
+	//	{
+	//		//printf("Bytes received: %d\n", ErrorResults);
+	//		return(m_ErrorResult);
+	//	}
+	//	else if (m_ErrorResult == 0)
+	//	{
+	//		//printf("Connection closed\n");
+	//		ConnectionClosed = true;
+	//		return(m_ErrorResult);
+	//	}
+	//	else
+	//	{
+	//		p_HandleError("recv failed: " + p_GetLastError(), true);
+	//		return(m_ErrorResult);
+	//	}
+	//}
+	//std::string Socket::RecieveData()
+	//{
+	//	size_t InitialBufferSize = 16500;
+	//	char* Buffer = (char*)malloc(InitialBufferSize);
+	//	size_t MaxRecieveSize = InitialBufferSize;
+	//	size_t LengthOfDataRecieved = 0;
+	//	size_t TotalLengthOfData = 0;
+	//	while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
+	//	{
+	//		TotalLengthOfData += LengthOfDataRecieved;
+	//		if (LengthOfDataRecieved == MaxRecieveSize)
+	//		{
+	//			MaxRecieveSize = 500;
+	//			Buffer = (char*)realloc(Buffer, TotalLengthOfData + 500);
+	//			assert(Buffer != nullptr);
+	//		}
+	//		else
+	//		{
+	//			break;
+	//		}
+	//	}
+	//	std::string ReturnValue(Buffer, TotalLengthOfData);
+	//	free(Buffer);
+	//	return(ReturnValue);
+	//}
+	//std::string Socket::RecieveData(int MaxNumberOfBytes)
+	//{
+	//	int InitialBufferSize = std::min(16500, MaxNumberOfBytes);
+	//	char* Buffer = (char*)malloc(InitialBufferSize);
+	//	int MaxRecieveSize = InitialBufferSize;
+	//	int LengthOfDataRecieved = 0;
+	//	int TotalLengthOfData = 0;
+	//	while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
+	//	{
+	//		TotalLengthOfData += LengthOfDataRecieved;
+	//		if (TotalLengthOfData >= MaxNumberOfBytes)
+	//		{
+	//			break;
+	//		}
+	//		if (LengthOfDataRecieved == MaxRecieveSize)
+	//		{
+	//			MaxRecieveSize = InitialBufferSize;
+	//			if (TotalLengthOfData + MaxRecieveSize > MaxNumberOfBytes)
+	//			{
+	//				MaxRecieveSize = MaxNumberOfBytes - TotalLengthOfData;
+	//			}
+	//			Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
+	//			assert(Buffer != nullptr);
+	//		}
+	//		else
+	//		{
+	//			break;
+	//		}
+	//	}
+	//	std::string ReturnValue(Buffer, TotalLengthOfData);
+	//	free(Buffer);
+	//	return(ReturnValue);
+	//}
+	Socket::Socket()
 	{
-		try
+		m_UnderlyingHandle = MBInvalidSocket;
+	}
+	Socket::~Socket()
+	{
+		MBCloseSocket(m_UnderlyingHandle);
+	}
+	//END Socket
+
+	//BEGIN UDPSocket
+	//class UDPSocket : public Socket
+	UDPSocket::UDPSocket(std::string const& Adress, std::string const& Port)
+	{
+		struct addrinfo* result = NULL, * ptr = NULL, hints;
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_DGRAM;
+		hints.ai_protocol = IPPROTO_UDP;
+
+		m_ErrorResult = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
+		if (m_ErrorResult != 0)
 		{
-			int TotalDataSent = 0;
-			while (TotalDataSent != DataLength)
-			{
-				ErrorResults = send(m_UnderlyingHandle, DataPointer, DataLength, 0);
-				if (ErrorResults == MBSocketError())
-				{
-					HandleError("send failed with error: " + GetLastError(), true);
-					return(0);
-				}
-				TotalDataSent += ErrorResults;
-			}
+			//error grejer, helst v�ra egna ocks�
+			p_HandleError("getaddrinfo on adress: " + Adress + " failed with error: " + p_GetLastError(), true);
+			return;
 		}
-		catch (const std::exception&)
+
+		m_UnderlyingHandle = MBInvalidSocket;
+		// Attempt to connect to the first address returned by
+		// the call to getaddrinfo
+		ptr = result;
+		// Create a SOCKET for connecting to server
+		m_UnderlyingHandle = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+		freeaddrinfo(result);
+		if (m_UnderlyingHandle == MBInvalidSocket)
 		{
-			HandleError("send failed with unknown error", true);
-			return(-1);
+			//egen error hantering
+			p_HandleError("Error at socket(): " + p_GetLastError(), true);
+			//freeaddrinfo(result);
+			return;
+		}
+	}
+	void UDPSocket::UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber)
+	{
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(PortNumber);
+		RecvAddr.sin_addr.s_addr = inet_addr(HostAdress.c_str());
+		m_ErrorResult = sendto(m_UnderlyingHandle, DataToSend.c_str(), DataToSend.size(), 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("UDP send data failed with error: " + p_GetLastError(), false);
+			//freeaddrinfo(result);
+			//MBCloseSocket(ConnectedSocket);
+		}
+	}
+	int UDPSocket::Bind(int PortToAssociateWith)
+	{
+		sockaddr_in service;
+		service.sin_family = AF_INET;
+		service.sin_addr.s_addr = htonl(INADDR_ANY);
+		service.sin_port = htons(PortToAssociateWith);
+		m_ErrorResult = bind(m_UnderlyingHandle, (sockaddr*)&service, sizeof(service));
+		//ErrorResults = bind(ConnectedSocket, result->ai_addr, (int)result->ai_addrlen);
+		if (m_ErrorResult == MBSocketError()) {
+			p_HandleError("Bind failed with error: " + p_GetLastError(), true);
+			//freeaddrinfo(result);
+			//MBCloseSocket(ConnectedSocket);
 		}
 		return(0);
 	}
-	std::string Socket::GetIpOfConnectedSocket()
+	std::string UDPSocket::UDPGetData()
 	{
-		sockaddr_in  AddresData;
-		AddresData.sin_family = AF_INET;
-		int SizeOfData = sizeof(sockaddr_in);
-		ErrorResults = getpeername(m_UnderlyingHandle, (sockaddr*)&AddresData, (socklen_t*)&SizeOfData);
-		if (ErrorResults == MBSocketError())
+		int InitialBufferSize = 65535;
+		char* Buffer = (char*)malloc(InitialBufferSize);
+		int MaxRecieveSize = InitialBufferSize;
+		int LengthOfDataRecieved = 0;
+		//assert(Buffer != nullptr);
+		//assert(sizeof(Buffer) != 8 * InitialBufferSize);
+		//assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
+		std::string ReturnValue = "";
+		LengthOfDataRecieved = recvfrom(m_UnderlyingHandle, Buffer, MaxRecieveSize, 0, nullptr, 0);
+		if (LengthOfDataRecieved == MBSocketError())
 		{
-			HandleError("Get ip failed: " + GetLastError(), false);
-			return("");
-		}
-		char ActualAdress[100];
-		unsigned long DataReturned = 100;
-		//ErrorResults = WSAAddressToStringA((SOCKADDR*)&AddresData, sizeof(SOCKADDR), NULL, ActualAdress, &DataReturned);
-		//TODO fixa s� det h�r fungerar
-		std::string Result = inet_ntoa(AddresData.sin_addr);
-		return(std::string(ActualAdress));
-	}
-	int Socket::RecieveData(char* Buffer, int BufferSize)
-	{
-		ErrorResults = recv(m_UnderlyingHandle, Buffer, BufferSize, 0);
-		if (ErrorResults > 0)
-		{
-			//printf("Bytes received: %d\n", ErrorResults);
-			return(ErrorResults);
-		}
-		else if (ErrorResults == 0)
-		{
-			//printf("Connection closed\n");
-			ConnectionClosed = true;
-			return(ErrorResults);
+			p_HandleError("UDPgetdata failed with error: " + p_GetLastError(), false);
+			//freeaddrinfo(result);
+			//MBCloseSocket(ConnectedSocket);
 		}
 		else
 		{
-			HandleError("recv failed: " + GetLastError(), true);
-			return(ErrorResults);
+			ReturnValue = std::string(Buffer, LengthOfDataRecieved);
 		}
-	}
-	std::string Socket::GetNextRequestData()
-	{
-		int InitialBufferSize = 16500;
-		char* Buffer = (char*)malloc(InitialBufferSize);
-		int MaxRecieveSize = InitialBufferSize;
-		int LengthOfDataRecieved = 0;
-		int TotalLengthOfData = 0;
-		while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
-		{
-			TotalLengthOfData += LengthOfDataRecieved;
-			if (LengthOfDataRecieved == MaxRecieveSize)
-			{
-				MaxRecieveSize = 500;
-				Buffer = (char*)realloc(Buffer, TotalLengthOfData + 500);
-				assert(Buffer != nullptr);
-			}
-			else
-			{
-				break;
-			}
-		}
-		std::string ReturnValue(Buffer, TotalLengthOfData);
 		free(Buffer);
 		return(ReturnValue);
 	}
-	std::string Socket::GetNextRequestData(int MaxNumberOfBytes)
+	void UDPSocket::UDPMakeSocketNonBlocking(float SecondsToWait)
 	{
-		int InitialBufferSize = std::min(16500, MaxNumberOfBytes);
+		struct timeval read_timeout;
+		read_timeout.tv_sec = SecondsToWait - std::fmod(SecondsToWait, 1);
+		read_timeout.tv_usec = std::fmod(SecondsToWait, 1);
+		setsockopt(m_UnderlyingHandle, SOL_SOCKET, SO_RCVTIMEO, (const char*)&read_timeout, sizeof read_timeout);
+	}
+	void UDPSocket::Listen(std::string const& PortNumber)
+	{
+		m_ErrorResult = listen(m_UnderlyingHandle, SOMAXCONN);
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("listen in UDP socket failed with error: " + p_GetLastError(), false);
+			//MBCloseSocket(ConnectedSocket);
+			//WSACleanup();
+		}
+	}
+	//END UdpSocket
+
+	//BEGIN ConnectSocket	
+	//class ConnectSocket:: : public Socket
+	ConnectSocket::~ConnectSocket()
+	{
+		delete _m_addr;
+	}
+	bool ConnectSocket::IsConnected()
+	{
+		return(m_IsConnected);
+	}
+	std::string ConnectSocket::GetIpOfConnectedSocket()
+	{
+		return("");
+	}
+	int ConnectSocket::SendRawData(const void* DataPointer, size_t DataLength)
+	{
+		size_t TotalDataSent = 0;
+		while (TotalDataSent != DataLength)
+		{
+			m_ErrorResult = send(m_UnderlyingHandle, (const char*)DataPointer, DataLength, 0);
+			if (m_ErrorResult == MBSocketError())
+			{
+				p_HandleError("send failed with error: " + p_GetLastError(), true);
+				return(0);
+			}
+			TotalDataSent += m_ErrorResult;
+		}
+	}
+	int ConnectSocket::SendData(const void* DataPointer, size_t DataLength)
+	{
+		if (!m_TLSConnectionEstablished)
+		{
+			try
+			{
+				SendRawData(DataPointer, DataLength);
+			}
+			catch (const std::exception&)
+			{
+				p_HandleError("send failed with unknown error", true);
+				return(-1);
+			}
+		}
+		else
+		{
+			m_TLSHandler.SendDataAsRecord(DataPointer, DataLength,this);
+		}
+		return(0);
+	}
+	int ConnectSocket::SendData(std::string const& DataToSend)
+	{
+		return(SendData(DataToSend.c_str(), DataToSend.size()));
+	}
+	std::string ConnectSocket::RecieveRawData(size_t MaxNumberOfBytes)
+	{
+		int InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
 		char* Buffer = (char*)malloc(InitialBufferSize);
 		int MaxRecieveSize = InitialBufferSize;
 		int LengthOfDataRecieved = 0;
 		int TotalLengthOfData = 0;
-		while ((LengthOfDataRecieved = RecieveData(&Buffer[TotalLengthOfData], MaxRecieveSize)) > 0)
+		while ((LengthOfDataRecieved = recv(m_UnderlyingHandle, &Buffer[TotalLengthOfData], MaxRecieveSize, 0)) > 0)
 		{
 			TotalLengthOfData += LengthOfDataRecieved;
 			if (TotalLengthOfData >= MaxNumberOfBytes)
@@ -233,133 +432,78 @@ namespace MBSockets
 		free(Buffer);
 		return(ReturnValue);
 	}
-	Socket::Socket()
+	std::string ConnectSocket::RecieveData(size_t MaxNumberOfBytes)
 	{
-		m_UnderlyingHandle = MBInvalidSocket;
-	}
-	Socket::~Socket()
-	{
-		MBCloseSocket(m_UnderlyingHandle);
-	}
-	//END Socket
-
-	//BEGIN UDPSocket
-	//class UDPSocket : public Socket
-	UDPSocket::UDPSocket(std::string const& Adress, std::string const& Port, TraversalProtocol TraversalProto)
-	{
-		struct addrinfo* result = NULL, * ptr = NULL, hints;
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_DGRAM;
-		hints.ai_protocol = IPPROTO_UDP;
-
-		ErrorResults = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
-		if (ErrorResults != 0)
+		if (!m_TLSConnectionEstablished)
 		{
-			//error grejer, helst v�ra egna ocks�
-			HandleError("getaddrinfo on adress: " + Adress + " failed with error: " + GetLastError(), true);
-			return;
-		}
-
-		m_UnderlyingHandle = MBInvalidSocket;
-		// Attempt to connect to the first address returned by
-		// the call to getaddrinfo
-		ptr = result;
-		// Create a SOCKET for connecting to server
-		m_UnderlyingHandle = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-		freeaddrinfo(result);
-		if (m_UnderlyingHandle == MBInvalidSocket)
-		{
-			//egen error hantering
-			HandleError("Error at socket(): " + GetLastError(), true);
-			//freeaddrinfo(result);
-			return;
-		}
-	}
-	void UDPSocket::UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber)
-	{
-		sockaddr_in RecvAddr;
-		RecvAddr.sin_family = AF_INET;
-		RecvAddr.sin_port = htons(PortNumber);
-		RecvAddr.sin_addr.s_addr = inet_addr(HostAdress.c_str());
-		ErrorResults = sendto(m_UnderlyingHandle, DataToSend.c_str(), DataToSend.size(), 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
-		if (ErrorResults == MBSocketError())
-		{
-			HandleError("UDP send data failed with error: " + GetLastError(), false);
-			//freeaddrinfo(result);
-			//MBCloseSocket(ConnectedSocket);
-		}
-	}
-	int UDPSocket::Bind(int PortToAssociateWith)
-	{
-		sockaddr_in service;
-		service.sin_family = AF_INET;
-		service.sin_addr.s_addr = htonl(INADDR_ANY);
-		service.sin_port = htons(PortToAssociateWith);
-		ErrorResults = bind(m_UnderlyingHandle, (sockaddr*)&service, sizeof(service));
-		//ErrorResults = bind(ConnectedSocket, result->ai_addr, (int)result->ai_addrlen);
-		if (ErrorResults == MBSocketError()) {
-			HandleError("Bind failed with error: " + GetLastError(), true);
-			//freeaddrinfo(result);
-			//MBCloseSocket(ConnectedSocket);
-		}
-		return(0);
-	}
-	std::string UDPSocket::UDPGetData()
-	{
-		int InitialBufferSize = 65535;
-		char* Buffer = (char*)malloc(InitialBufferSize);
-		int MaxRecieveSize = InitialBufferSize;
-		int LengthOfDataRecieved = 0;
-		//assert(Buffer != nullptr);
-		//assert(sizeof(Buffer) != 8 * InitialBufferSize);
-		//assert(Buffer == (char*)&Buffer[TotalLengthOfData]);
-		std::string ReturnValue = "";
-		LengthOfDataRecieved = recvfrom(m_UnderlyingHandle, Buffer, MaxRecieveSize, 0, nullptr, 0);
-		if (LengthOfDataRecieved == MBSocketError())
-		{
-			HandleError("UDPgetdata failed with error: " + GetLastError(), false);
-			//freeaddrinfo(result);
-			//MBCloseSocket(ConnectedSocket);
+			return(RecieveRawData(MaxNumberOfBytes));
 		}
 		else
 		{
-			ReturnValue = std::string(Buffer, LengthOfDataRecieved);
+			return(m_TLSHandler.GetApplicationData(this, MaxNumberOfBytes));
 		}
-		free(Buffer);
+	}
+	ConnectSocket& ConnectSocket::operator<<(std::string const& DataToSend)
+	{
+		SendData(DataToSend);
+		return(*this);
+	}
+	ConnectSocket& ConnectSocket::operator>>(std::string& DataBuffer)
+	{
+		DataBuffer = RecieveData(-1);
+		return(*this);
+	}
+	MBError ConnectSocket::EstablishTLSConnection()
+	{
+		//MBError ReturnValue(false);
+		//try
+		//{
+		//	ReturnValue = m_TLSHandler.EstablishTLSConnection(this);
+		//}
+		//catch (const std::exception&)
+		//{
+		//	ReturnValue = false;
+		//	ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
+		//}
+		//if (!ReturnValue)
+		//{
+		//	//om det fuckade vill vi reseta vårt tls object
+		//	m_TLSHandler = TLSHandler();
+		//}
+		//else
+		//{
+		//	m_TLSConnectionEstablished = true;
+		//}
+		//return(ReturnValue);
+		return(MBError(false));
+	}
+	//END ConnectSocket
+
+	//BEGIN ClientSocket
+	MBError ClientSocket::EstablishTLSConnection()
+	{
+		MBError ReturnValue(false);
+		try
+		{
+			ReturnValue = m_TLSHandler.EstablishTLSConnection(this);
+		}
+		catch (const std::exception&)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
+		}
+		if (!ReturnValue)
+		{
+			//om det fuckade vill vi reseta vårt tls object
+			m_TLSHandler = TLSHandler();
+		}
+		else
+		{
+			m_TLSConnectionEstablished = true;
+		}
 		return(ReturnValue);
 	}
-	void UDPSocket::UDPMakeSocketNonBlocking(float SecondsToWait)
-	{
-		struct timeval read_timeout;
-		read_timeout.tv_sec = SecondsToWait - std::fmod(SecondsToWait, 1);
-		read_timeout.tv_usec = std::fmod(SecondsToWait, 1);
-		setsockopt(m_UnderlyingHandle, SOL_SOCKET, SO_RCVTIMEO, (const char*)&read_timeout, sizeof read_timeout);
-	}
-	void UDPSocket::Listen(std::string const& PortNumber)
-	{
-		ErrorResults = listen(m_UnderlyingHandle, SOMAXCONN);
-		if (ErrorResults == MBSocketError())
-		{
-			HandleError("listen in UDP socket failed with error: " + GetLastError(), false);
-			//MBCloseSocket(ConnectedSocket);
-			//WSACleanup();
-		}
-	}
-	//END UdpSocket
-
-	//BEGIN ConnectSocket	
-	//class ConnectSocket:: : public Socket
-	int ConnectSocket::Connect()
-	{
-		ErrorResults = connect(m_UnderlyingHandle, _m_addr, _m_ai_addrlen);
-		if (ErrorResults == MBSocketError())
-		{
-			HandleError("Error Att connecta " + GetLastError(), false);
-		}
-		return(0);
-	}
-	ConnectSocket::ConnectSocket(std::string const& Adress, std::string const& Port, TraversalProtocol TraversalProto)
+	ClientSocket::ClientSocket(std::string const& Adress, std::string const& Port)
 	{
 		HostName = Adress;
 		struct addrinfo* result = NULL, * ptr = NULL, hints;
@@ -368,11 +512,11 @@ namespace MBSockets
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_protocol = IPPROTO_TCP;
 
-		ErrorResults = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
-		if (ErrorResults != 0)
+		m_ErrorResult = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
+		if (m_ErrorResult != 0)
 		{
 			//error grejer, helst v�ra egna ocks�
-			HandleError("getaddrinfo with adress " + Adress + " failed: " + GetLastError(), true);
+			p_HandleError("getaddrinfo with adress " + Adress + " failed: " + p_GetLastError(), true);
 			//std::cout << Adress << std::endl;
 			return;
 		}
@@ -390,22 +534,54 @@ namespace MBSockets
 		if (m_UnderlyingHandle == MBInvalidSocket)
 		{
 			//egen error hantering
-			HandleError("Error at socket(): " + GetLastError(), true);
+			p_HandleError("Error at socket(): " + p_GetLastError(), true);
 			//freeaddrinfo(result);
 		}
 	}
-	ConnectSocket::~ConnectSocket()
+	int ClientSocket::Connect()
 	{
-		delete _m_addr;
+		m_ErrorResult = connect(m_UnderlyingHandle, _m_addr, _m_ai_addrlen);
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("Error Att connecta " + p_GetLastError(), false);
+		}
+		else
+		{
+			m_IsConnected = true;
+		}
+		return(0);
 	}
-	//END ConnectSocket
+	//END ClientSocket
 
 	//BEGIN ServerSocket
+	MBError ServerSocket::EstablishTLSConnection()
+	{
+		MBError ReturnValue(true);
+		try
+		{
+			ReturnValue = m_TLSHandler.EstablishHostTLSConnection(this);
+		}
+		catch (const std::exception&)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "Unknown error in establishing host tls connection";
+			std::cout << "Unknown error in establishing host tls connection" << std::endl;
+		}
+		if (!ReturnValue)
+		{
+			m_TLSHandler = TLSHandler();
+		}
+		else
+		{
+			m_TLSConnectionEstablished = true;
+		}
+		return(ReturnValue);
+	}
 	int ServerSocket::Bind()
 	{
-		ErrorResults = bind(ListenerSocket, _m_addr, _m_ai_addrlen);
-		if (ErrorResults == MBSocketError()) {
-			HandleError("bind failed with error: " + GetLastError(), false);
+		m_ErrorResult = bind(m_ListenerSocket, _m_addr, _m_ai_addrlen);
+		if (m_ErrorResult == MBSocketError()) {
+			p_HandleError("bind failed with error: " + p_GetLastError(), false);
 			//freeaddrinfo(result);
 			//MBCloseSocket(ConnectedSocket);
 		}
@@ -413,10 +589,10 @@ namespace MBSockets
 	}
 	int ServerSocket::Listen()
 	{
-		ErrorResults = listen(ListenerSocket, SOMAXCONN);
-		if (ErrorResults == MBSocketError())
+		m_ErrorResult = listen(m_ListenerSocket, SOMAXCONN);
+		if (m_ErrorResult == MBSocketError())
 		{
-			HandleError("listen failed with error: " + GetLastError(), false);
+			p_HandleError("listen failed with error: " + p_GetLastError(), false);
 			//MBCloseSocket(ConnectedSocket);
 		}
 		return(0);
@@ -427,36 +603,47 @@ namespace MBSockets
 		m_UnderlyingHandle = MBInvalidSocket;
 		OtherSocket.SocketTlsHandler = SocketTlsHandler;
 		SocketTlsHandler = TLSHandler();
+		OtherSocket.m_IsConnected = m_IsConnected;
+	}
+	ServerSocket::ServerSocket() : m_ListenerSocket(MBInvalidSocket)
+	{
+		
 	}
 	int ServerSocket::Accept()
 	{
-		m_UnderlyingHandle = accept(ListenerSocket, NULL, NULL);
+		m_UnderlyingHandle = accept(m_ListenerSocket, NULL, NULL);
 		if (m_UnderlyingHandle == MBInvalidSocket) {
-			HandleError("accept failed with error: " + GetLastError(), true);
+			p_HandleError("accept failed with error: " + p_GetLastError(), true);
 			//MBCloseSocket(ConnectedSocket);
+			m_IsConnected = false;
+		}
+		else
+		{
+			m_IsConnected = true;
 		}
 		return(0);
 	}
-	MBError ServerSocket::EstablishSecureConnection()
-	{
-		MBError ReturnValue(false);
-		try
-		{
-			ReturnValue = SocketTlsHandler.EstablishHostTLSConnection(this);
-		}
-		catch (const std::exception&)
-		{
-			ReturnValue = false;
-			ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
-		}
-		if (!ReturnValue)
-		{
-			//om det fuckade vill vi reseta vårt tls object
-			SocketTlsHandler = TLSHandler();
-		}
-		return(ReturnValue);
-	}
-	ServerSocket::ServerSocket(std::string const& Port, TraversalProtocol TraversalProto)
+	//MBError ServerSocket::EstablishSecureConnection()
+	//{
+	//	MBError ReturnValue(false);
+	//	try
+	//	{
+	//		ReturnValue = SocketTlsHandler.EstablishHostTLSConnection(this);
+	//	}
+	//	catch (const std::exception&)
+	//	{
+	//		ReturnValue = false;
+	//		ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
+	//	}
+	//	if (!ReturnValue)
+	//	{
+	//		//om det fuckade vill vi reseta vårt tls object
+	//		SocketTlsHandler = TLSHandler();
+	//	}
+	//	return(ReturnValue);
+	//}
+
+	ServerSocket::ServerSocket(std::string const& Port) : m_ListenerSocket(MBInvalidSocket)
 	{
 		struct addrinfo* result = NULL, * ptr = NULL, hints;
 		memset(&hints, 0, sizeof(hints));
@@ -466,28 +653,28 @@ namespace MBSockets
 		hints.ai_protocol = IPPROTO_TCP;
 		hints.ai_flags = AI_PASSIVE;
 
-		ErrorResults = getaddrinfo(NULL, Port.c_str(), &hints, &result);
-		if (ErrorResults != 0)
+		m_ErrorResult = getaddrinfo(NULL, Port.c_str(), &hints, &result);
+		if (m_ErrorResult != 0)
 		{
 			//error grejer, helst v�ra egna ocks�
-			HandleError("getaddrinfo failed: " + GetLastError(), true);
+			p_HandleError("getaddrinfo failed: " + p_GetLastError(), true);
 			return;
 		}
 
-		ListenerSocket = MBInvalidSocket;
+		m_ListenerSocket = MBInvalidSocket;
 		// Attempt to connect to the first address returned by
 		// the call to getaddrinfo
 		ptr = result;
 		// Create a SOCKET for connecting to server
-		ListenerSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+		m_ListenerSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 		_m_ai_addrlen = ptr->ai_addrlen;
 		_m_addr = new sockaddr;
 		*_m_addr = *(ptr->ai_addr);
 		freeaddrinfo(result);
-		if (ListenerSocket == MBInvalidSocket)
+		if (m_ListenerSocket == MBInvalidSocket)
 		{
 			//egen error hantering
-			HandleError("error at socket(): " + GetLastError(), true);
+			p_HandleError("error at socket(): " + p_GetLastError(), true);
 			//freeaddrinfo(result);
 		}
 		else
@@ -495,47 +682,47 @@ namespace MBSockets
 			//nu fixar vi specifika options, som bbland annat SO_REUSEADRR
 			//TODO Detta var copy pastat från stack overflow, men kan det vara så att det faktiskt beror på endianessen av ens dator?
 			int Enable = 1;
-			ErrorResults = setsockopt(ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof(int));
-			if (ErrorResults < 0)
+			m_ErrorResult = setsockopt(m_ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof(int));
+			if (m_ErrorResult < 0)
 			{
-				HandleError("Error at socket() when setting SO_REUSEADDR:" + GetLastError(), true);
+				p_HandleError("Error at socket() when setting SO_REUSEADDR:" + p_GetLastError(), true);
 			}
 		}
 	}
 	ServerSocket::~ServerSocket()
 	{
-		MBCloseSocket(ListenerSocket);
+		MBCloseSocket(m_ListenerSocket);
 	}
 	//END ServerSocket
 
 	//BEGIN HTTPConnectSocket
 	//class HTTPConnectSocket:: : public ConnectSocket
-	std::string HTTPConnectSocket::GetNextDecryptedData()
-	{
-		return(TLSConnectionHandler.GetApplicationData(this));
-	}
-	int HTTPConnectSocket::HTTPSendData(std::string DataToSend)
-	{
-		if (IsValid())
-		{
-			if (UsingHTTPS)
-			{
-				if (TLSConnectionHandler.ConnectionIsActive())
-				{
-					TLSConnectionHandler.SendDataAsRecord(DataToSend, this);
-				}
-				else
-				{
-					Invalid = true;
-				}
-			}
-			else
-			{
-				SendData(DataToSend.c_str(), DataToSend.size());
-			}
-		}
-		return(0);
-	}
+	//std::string HTTPConnectSocket::GetNextDecryptedData()
+	//{
+	//	return( .GetApplicationData(this));
+	//}
+	//sint HTTPConnectSocket::HTTPSendData(std::string const& DataToSend)
+	//s{
+	//s	if (IsValid())
+	//s	{
+	//s		if (UsingHTTPS)
+	//s		{
+	//s			if (TLSConnectionHandler.ConnectionIsActive())
+	//s			{
+	//s				TLSConnectionHandler.SendDataAsRecord(DataToSend, this);
+	//s			}
+	//s			else
+	//s			{
+	//s				m_Invalid = true;
+	//s			}
+	//s		}
+	//s		else
+	//s		{
+	//s			SendData(DataToSend.c_str(), DataToSend.size());
+	//s		}
+	//s	}
+	//s	return(0);
+	//s}
 	bool HTTPConnectSocket::DataIsAvailable()
 	{
 		return(!RequestFinished);
@@ -611,7 +798,7 @@ namespace MBSockets
 			size_t PreviousDataSize = ReturnValue.size();
 			if (UsingHTTPS == false)
 			{
-				ReturnValue += GetNextRequestData(MaxBytesInMemory);
+				ReturnValue += RecieveData(MaxBytesInMemory);
 			}
 			else
 			{
@@ -697,16 +884,16 @@ namespace MBSockets
 	}
 	int HTTPConnectSocket::Get(std::string Resource)
 	{
-		std::string Meddelandet = "GET /" + Resource + " " + "HTTP/1.1\nHost: " + URl + "\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
+		std::string Meddelandet = "GET /" + Resource + " " + "HTTP/1.1\r\nHost: " + URl + "\r\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
 		//SendData(Meddelandet.c_str(), Meddelandet.length());
-		HTTPSendData(Meddelandet);
+		ConnectSocket::SendData(Meddelandet);
 		return(0);
 	}
 	int HTTPConnectSocket::Head(std::string Resource)
 	{
-		std::string Meddelandet = "HEAD /" + Resource + " " + "HTTP/1.1\nHost: " + URl + "\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
+		std::string Meddelandet = "HEAD /" + Resource + " " + "HTTP/1.1\r\nHost: " + URl + "\r\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
 		//SendData(Meddelandet.c_str(), Meddelandet.length());
-		HTTPSendData(Meddelandet);
+		ConnectSocket::SendData(Meddelandet);
 		return(0);
 	}
 	std::string HTTPConnectSocket::GetDataFromRequest(const std::string& RequestType, std::string Resource)
@@ -722,18 +909,19 @@ namespace MBSockets
 		std::string ReturnValue = HTTPGetData();
 		return(ReturnValue);
 	}
-	HTTPConnectSocket::HTTPConnectSocket(std::string URL, std::string Port, TraversalProtocol TraversalProto, ApplicationProtocols ApplicationProtocol) : ConnectSocket(URL, Port, TraversalProto)
+	//HTTPConnectSocket::HTTPConnectSocket(std::string const URL, std::string const Port) : ClientSocket(URL, Port)
+	//{
+	//	this->URl = URL;
+	//}
+	HTTPConnectSocket::HTTPConnectSocket(std::string const& URL, std::string const& Port) : ClientSocket(URL,Port)
 	{
 		this->URl = URL;
-		if (ApplicationProtocol == ApplicationProtocols::HTTPS)
-		{
-			UsingHTTPS = true;
-		}
 	}
-	void HTTPConnectSocket::EstablishSecureConnetion()
-	{
-		TLSConnectionHandler.EstablishTLSConnection(this);
-	}
+
+	//void HTTPConnectSocket::EstablishSecureConnetion()
+	//{
+	//	TLSConnectionHandler.EstablishTLSConnection(this);
+	//}
 	HTTPConnectSocket::~HTTPConnectSocket()
 	{
 
@@ -989,27 +1177,27 @@ namespace MBSockets
 
 	//BEGIN HTTPServerSocket
 	//class HTTPServerSocket:: : public ServerSocket
-	void HTTPServerSocket::SendWithTls(std::string const& DataToSend)
-	{
-		if (IsValid())
-		{
-			if (SocketTlsHandler.EstablishedSecureConnection() == true)
-			{
-				if (SocketTlsHandler.ConnectionIsActive())
-				{
-					SocketTlsHandler.SendDataAsRecord(DataToSend, this);
-				}
-				else
-				{
-					Invalid = true;
-				}
-			}
-			else
-			{
-				SendData(DataToSend.c_str(), DataToSend.size());
-			}
-		}
-	}
+	//void HTTPServerSocket::SendWithTls(std::string const& DataToSend)
+	//{
+	//	if (IsValid())
+	//	{
+	//		if (SocketTlsHandler.EstablishedSecureConnection() == true)
+	//		{
+	//			if (SocketTlsHandler.ConnectionIsActive())
+	//			{
+	//				SocketTlsHandler.SendDataAsRecord(DataToSend, this);
+	//			}
+	//			else
+	//			{
+	//				m_Invalid = true;
+	//			}
+	//		}
+	//		else
+	//		{
+	//			SendData(DataToSend.c_str(), DataToSend.size());
+	//		}
+	//	}
+	//}
 	bool HTTPServerSocket::DataIsAvailable()
 	{
 		if (ChunksRemaining || (ParsedContentData != CurrentContentLength))
@@ -1022,18 +1210,18 @@ namespace MBSockets
 			return(false);
 		}
 	}
-	HTTPServerSocket::HTTPServerSocket(std::string Port, TraversalProtocol TraversalProto) : ServerSocket(Port, TraversalProto)
+	HTTPServerSocket::HTTPServerSocket(std::string const& Port) : ServerSocket(Port)
 	{
 
 	}
-	int HTTPServerSocket::GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
+	int HTTPServerSocket::p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
 	{
 		int ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
 		std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
 		OutChunkDataBeginning = ChunkHeaderEnd + 2;
 		return(std::stoi(NumberOfChunkBytes));
 	}
-	std::string HTTPServerSocket::UpdateAndDeChunkData(std::string const& ChunkedData)
+	std::string HTTPServerSocket::p_UpdateAndDeChunkData(std::string const& ChunkedData)
 	{
 		std::string ReturnValue = "";
 		int ChunkDataToReadPosition = 0;
@@ -1065,7 +1253,7 @@ namespace MBSockets
 			CurrentChunkParsed += BytesToRead;
 			if (CurrentChunkParsed == CurrentChunkSize)
 			{
-				CurrentChunkSize = GetNextChunkSize(ChunkDataToReadPosition + BytesToRead, ChunkedData, ChunkDataToReadPosition);
+				CurrentChunkSize = p_GetNextChunkSize(ChunkDataToReadPosition + BytesToRead, ChunkedData, ChunkDataToReadPosition);
 			}
 			if (CurrentChunkSize == 0)
 			{
@@ -1082,7 +1270,7 @@ namespace MBSockets
 		}
 		return(ReturnValue);
 	}
-	std::string HTTPServerSocket::GetNextRequestData()
+	std::string HTTPServerSocket::GetHTTPRequest()
 	{
 		std::string ReturnValue = "";
 		std::string ContentLengthString = "NULL";
@@ -1094,7 +1282,7 @@ namespace MBSockets
 		{
 			if (!SocketTlsHandler.EstablishedSecureConnection())
 			{
-				ReturnValue += Socket::GetNextRequestData(MaxDataInMemory - TotalRecievedData);
+				ReturnValue += RecieveData(MaxDataInMemory - TotalRecievedData);
 			}
 			else
 			{
@@ -1170,17 +1358,17 @@ namespace MBSockets
 	{
 		std::string Body = "<html>\n<body>\n" + Data + "</body>\n</html>";
 		std::string Request = GenerateRequest(Body);
-		SendWithTls(Request);
+		SendData(Request);
 	}
 	void HTTPServerSocket::SendHTTPBody(const std::string& Data)
 	{
 		std::string Request = GenerateRequest(Data);
-		SendWithTls(Request);
+		SendData(Request);
 	}
-	void HTTPServerSocket::SendFullResponse(std::string const& DataToSend)
-	{
-		SendWithTls(DataToSend);
-	}
+	//void HTTPServerSocket::SendFullResponse(std::string const& DataToSend)
+	//{
+	//	ConnectSocket::SendData(DataToSend);
+	//}
 	void HTTPServerSocket::SendHTTPDocument(HTTPDocument const& DocumentToSend)
 	{
 		//TODO egentligen vill vi väll ha support för flera byta ranges (?) men det innebär att man kommer skicka dem som en multipart form, vilket inte är det vi vill
@@ -1204,12 +1392,12 @@ namespace MBSockets
 			std::string ContentRangeHeader = "Content-Range: bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
 			NewDocument.ExtraHeaders.push_back(ContentRangeHeader);
 			std::string DataToSend = GenerateRequest(NewDocument);
-			SendWithTls(DataToSend);
+			SendData(DataToSend);
 		}
 		else
 		{
 			std::string DataToSend = GenerateRequest(DocumentToSend);
-			SendWithTls(DataToSend);
+			SendData(DataToSend);
 		}
 		if (DocumentToSend.DocumentDataFileReference != "")
 		{
@@ -1241,17 +1429,17 @@ namespace MBSockets
 			FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
 			while (!DataExtracter.IsDone())
 			{
-				SendWithTls(DataExtracter.GetNextIntervall());
+				SendData(DataExtracter.GetNextIntervall());
 			}
 			int hej = 2;
 		}
 	}
 	std::string HTTPServerSocket::GetNextChunkData()
 	{
-		std::string NewData = GetNextRequestData();
+		std::string NewData = GetHTTPRequest();
 		if (RequestIsChunked)
 		{
-			std::string ReturnValue = UpdateAndDeChunkData(NewData);
+			std::string ReturnValue = p_UpdateAndDeChunkData(NewData);
 			return(ReturnValue);
 		}
 		else

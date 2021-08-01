@@ -177,7 +177,7 @@ namespace MrPostOGet
 	public:
 		HTTPServer(std::string PathToResources, int PortToListenTo)
 		{
-			ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo), MBSockets::TraversalProtocol::TCP);
+			ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo));
 			Port = PortToListenTo;
 			ContentPath = PathToResources;
 		}
@@ -281,7 +281,7 @@ namespace MrPostOGet
 				if (ServerSocketen->IsValid())
 				{
 					NumberOfConnections += 1;
-					MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port), MBSockets::TraversalProtocol::TCP);
+					MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port));
 					ServerSocketen->TransferConnectedSocket(*NewSocket);
 					std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket, ServerRequestHandlers, ContentPath, this);
 					CurrentActiveThreads.push_back(NewThread);
@@ -295,7 +295,7 @@ namespace MrPostOGet
 	};
 	inline void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
 	{
-		MBError ConnectError = ConnectedClient->EstablishSecureConnection();
+		MBError ConnectError = ConnectedClient->EstablishTLSConnection();
 		if (!ConnectError)
 		{
 			std::cout << ConnectError.ErrorMessage << std::endl;

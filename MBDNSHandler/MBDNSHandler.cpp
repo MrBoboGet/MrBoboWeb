@@ -246,10 +246,10 @@ namespace MBDNS
 			//m_TCPSocket = MBSockets::ConnectSocket(DNSServerIP, "53", MBSockets::TraversalProtocol::TCP);
 			//m_TCPSocket.Connect();
 			//m_TCPSocket.SendData(StringToSend.c_str(), StringToSend.size());
-			MBSockets::ConnectSocket SocketToUse(DNSServerIP, "53", MBSockets::TraversalProtocol::TCP);
+			MBSockets::ClientSocket SocketToUse(DNSServerIP, "53");
 			SocketToUse.Connect();
 			SocketToUse.SendData(StringToSend.c_str(), StringToSend.size());
-			ReturnValue = SocketToUse.GetNextRequestData();
+			ReturnValue = SocketToUse.RecieveData();
 		}
 		else
 		{
@@ -266,13 +266,13 @@ namespace MBDNS
 			size_t MessageSize = p_ParseBigEndianInteger(ReturnValue, 2, 0, &TempInt);
 			while (ReturnValue.size() < MessageSize+2)
 			{
-				ReturnValue += m_TCPSocket.GetNextRequestData();
+				ReturnValue += m_TCPSocket.RecieveData();
 			}
 			return(ReturnValue.substr(2));
 		}
 		return(ReturnValue);
 	}
-	std::string IPAdressToString(uint32_t Adress)
+	std::string IPv4AdressToString(uint32_t Adress)
 	{
 		std::string ReturnValue = "";
 		for (size_t i = 0; i < 4; i++)

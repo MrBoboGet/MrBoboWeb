@@ -55,6 +55,14 @@ namespace MBCrypto
 			m_DigestSize = ShaPointer->DigestSize();
 			m_UnderlyingFunction = AssociatedFunction;
 		}
+		else if(AssociatedFunction == HashFunction::SHA1)
+		{
+			m_UnderlyingImplementation = new CryptoPP::SHA1();
+			CryptoPP::SHA1* ShaPointer = (CryptoPP::SHA1*) m_UnderlyingImplementation;
+			m_BlockSize = ShaPointer->BlockSize();
+			m_DigestSize = ShaPointer->DigestSize();
+			m_UnderlyingFunction = AssociatedFunction;
+		}
 		else
 		{
 			assert(false);
@@ -70,6 +78,11 @@ namespace MBCrypto
 			m_UnderlyingImplementation = new CryptoPP::SHA256();
 			*(CryptoPP::SHA256*)m_UnderlyingImplementation = *(CryptoPP::SHA256*)ObjectToCopy.m_UnderlyingImplementation;
 		}
+		else if (m_UnderlyingFunction == MBCrypto::HashFunction::SHA1)
+		{
+			m_UnderlyingImplementation = new CryptoPP::SHA1();
+			*(CryptoPP::SHA1*)m_UnderlyingImplementation = *(CryptoPP::SHA1*)ObjectToCopy.m_UnderlyingImplementation;
+		}
 	}
 	HashObject::HashObject(HashObject& ObjectToCopy)
 	{
@@ -80,6 +93,11 @@ namespace MBCrypto
 		{
 			m_UnderlyingImplementation = new CryptoPP::SHA256();
 			*(CryptoPP::SHA256*)m_UnderlyingImplementation = *(CryptoPP::SHA256*)ObjectToCopy.m_UnderlyingImplementation;
+		}
+		else if (m_UnderlyingFunction == MBCrypto::HashFunction::SHA1)
+		{
+			m_UnderlyingImplementation = new CryptoPP::SHA1();
+			*(CryptoPP::SHA1*)m_UnderlyingImplementation = *(CryptoPP::SHA1*)ObjectToCopy.m_UnderlyingImplementation;
 		}
 	}
 	HashObject::~HashObject()
@@ -116,6 +134,11 @@ namespace MBCrypto
 			CryptoPP::SHA256* Sha256Pointer = (CryptoPP::SHA256 *)m_UnderlyingImplementation;
 			Sha256Pointer->Update((const CryptoPP::byte*)Data, LengthOfData);
 		}
+		else if (m_UnderlyingFunction == HashFunction::SHA1)
+		{
+			CryptoPP::SHA1* Sha256Pointer = (CryptoPP::SHA1*)m_UnderlyingImplementation;
+			Sha256Pointer->Update((const CryptoPP::byte*)Data, LengthOfData);
+		}
 		else
 		{
 			assert(false);
@@ -126,6 +149,11 @@ namespace MBCrypto
 		if (m_UnderlyingFunction == HashFunction::SHA256)
 		{
 			CryptoPP::SHA256* Sha256Pointer = (CryptoPP::SHA256*)m_UnderlyingImplementation;
+			Sha256Pointer->Restart();
+		}
+		else if (m_UnderlyingFunction == HashFunction::SHA1)
+		{
+			CryptoPP::SHA1* Sha256Pointer = (CryptoPP::SHA1*)m_UnderlyingImplementation;
 			Sha256Pointer->Restart();
 		}
 		else
@@ -139,6 +167,12 @@ namespace MBCrypto
 		if (m_UnderlyingFunction == HashFunction::SHA256)
 		{
 			CryptoPP::SHA256* Sha256Pointer = (CryptoPP::SHA256*)m_UnderlyingImplementation;
+			Sha256Pointer->Final((CryptoPP::byte*)ReturnValue.data());
+			Sha256Pointer->Restart();
+		}
+		else if (m_UnderlyingFunction == HashFunction::SHA1)
+		{
+			CryptoPP::SHA1* Sha256Pointer = (CryptoPP::SHA1*)m_UnderlyingImplementation;
 			Sha256Pointer->Final((CryptoPP::byte*)ReturnValue.data());
 			Sha256Pointer->Restart();
 		}
@@ -383,6 +417,14 @@ namespace MBCrypto
 			Hasher.Update((CryptoPP::byte*)DataToHash.data(), DataToHash.size());
 			Hasher.Final(digest);
 			return(std::string((char*)digest, CryptoPP::SHA256::DIGESTSIZE));
+		}
+		if (FunctionToUse == HashFunction::SHA1)
+		{
+			CryptoPP::SHA1 Hasher;
+			CryptoPP::byte digest[CryptoPP::SHA1::DIGESTSIZE];
+			Hasher.Update((CryptoPP::byte*)DataToHash.data(), DataToHash.size());
+			Hasher.Final(digest);
+			return(std::string((char*)digest, CryptoPP::SHA1::DIGESTSIZE));
 		}
 	}
 }

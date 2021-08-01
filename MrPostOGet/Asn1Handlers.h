@@ -1,6 +1,5 @@
 #include <cstdint>
 #include <vector>
-#include <assert.h>
 #include <MrBigInt/MrBigInt.h>
 #include <math.h>
 #pragma once
