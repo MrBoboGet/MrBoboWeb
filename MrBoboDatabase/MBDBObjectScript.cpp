@@ -26,11 +26,16 @@ namespace MBDB
 	{
 		swap(*this, ObjectToMove);
 	}
-	MBDB_Object& MBDB_Object::operator=(MBDB_Object RightObject)
+	MBDB_Object& MBDB_Object::operator=(MBDB_Object RightObject) noexcept
 	{
 		swap(RightObject, *this);
 		return(*this);
 	}
+	//MBDB_Object& MBDB_Object::operator=(MBDB_Object&& RightObject) noexcept
+	//{
+	//	swap(RightObject, *this);
+	//	return(*this);
+	//}
 	void MBDB_Object::p_FreeData() const
 	{
 		if (m_AtomicData == nullptr)
@@ -102,6 +107,14 @@ namespace MBDB
 		}
 		return(*(std::string*)m_AtomicData);
 	}
+	intmax_t MBDB_Object::GetIntegerData() const
+	{
+		return(*(intmax_t*)m_AtomicData);
+	}
+	std::vector<MBDB_Object>& MBDB_Object::GetArrayData()
+	{
+		return(*(std::vector<MBDB_Object>*)m_AtomicData);
+	}
 	MBDB_Object::MBDB_Object(std::string const& StringData)
 	{
 		m_Type = MBDBO_Type::String;
@@ -112,6 +125,22 @@ namespace MBDB
 		m_Type = MBDBO_Type::Integer;
 		m_AtomicData = new intmax_t(IntegerData);
 	}
+	//MBDB_Object::MBDB_Object(std::vector<MBDB_Object>&& ArrayToMove)
+	//{
+	//	m_Type = MBDBO_Type::Array;
+	//	m_AtomicData = new std::vector<MBDB_Object>();
+	//	std::swap(*(std::vector<MBDB_Object>*)m_AtomicData, ArrayToMove);
+	//}
+	//MBDB_Object::MBDB_Object(std::vector<MBDB_Object> const& ArrayToCopy)
+	//{
+	//	m_Type = MBDBO_Type::Array;
+	//	m_AtomicData = new std::vector<MBDB_Object>();
+	//	std::vector<MBDB_Object>& ObjectData = *(std::vector<MBDB_Object>*)m_AtomicData;
+	//	for (size_t i = 0; i < ArrayToCopy.size(); i++)
+	//	{
+	//		ObjectData.push_back(ArrayToCopy[i]);
+	//	}
+	//}
 	void* MBDB_Object::p_CopyData() const
 	{
 		if (m_AtomicData == nullptr)
@@ -1067,6 +1096,7 @@ namespace MBDB
 		else if (m_Type == MBDBObjectScript_StatementType::ObjectField)
 		{
 			delete((MBDBObjectScript_ObjectFieldStatementData*)m_StatementData);
+			return;
 		}
 		else if(m_Type == MBDBObjectScript_StatementType::Null)
 		{
@@ -1177,6 +1207,47 @@ namespace MBDB
 		if (OutError != nullptr)
 		{
 			*OutError = EvaluationError;
+		}
+		return(ReturnValue);
+	}
+	MBDB_Object MBDBObjectScript_ExecutionContext::p_AddObjects(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError)
+	{
+		MBDB_Object ReturnValue;
+		MBError EvaluationError(true);
+		if (Arguments.size() != 2)
+		{
+			EvaluationError = false;
+			EvaluationError.ErrorMessage = "Invalid number of arguments for \"+\" binary operation";
+			return(ReturnValue);
+		}
+		MBDB_Object LeftOperand = EvaluateStatement(EvaluationInfo, Arguments[0], &EvaluationError);
+		if (!EvaluationError)
+		{
+			return(ReturnValue);
+		}
+		MBDB_Object RightOperand = EvaluateStatement(EvaluationInfo, Arguments[1], &EvaluationError);
+		if (!EvaluationError)
+		{
+			return(ReturnValue);
+		}
+		if (LeftOperand.GetType() != RightOperand.GetType())
+		{
+			EvaluationError = false;
+			EvaluationError.ErrorMessage = "Error when evaluating binary operator \"+\": Can only add objects of same type";
+			return(ReturnValue);
+		}
+		MBDBO_Type AddType = RightOperand.GetType();
+		if (AddType == MBDBO_Type::String)
+		{
+			ReturnValue = MBDB_Object(LeftOperand.GetStringData() + RightOperand.GetStringData());
+		}
+		else if (AddType == MBDBO_Type::Integer)
+		{
+			ReturnValue = MBDB_Object(LeftOperand.GetIntegerData() + RightOperand.GetIntegerData());
+		}
+		else if (AddType == MBDBO_Type::Array)
+		{
+
 		}
 		return(ReturnValue);
 	}

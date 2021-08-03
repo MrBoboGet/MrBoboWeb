@@ -61,11 +61,14 @@ namespace MBDB
 		MBDB_Object() {};
 		MBDB_Object(std::string const& StringData);
 		MBDB_Object(intmax_t IntegerData);
+		//MBDB_Object(std::vector<MBDB_Object>&& ArrayToMove);
+		//MBDB_Object(std::vector<MBDB_Object> const& ArrayToCopy);
 
 		MBDB_Object(MBDB_Object const& ObjectToCopy);
 		MBDB_Object(MBDB_Object&& ObjectToMove) noexcept;
 		~MBDB_Object();
-		MBDB_Object& operator=(MBDB_Object RightObject);
+		MBDB_Object& operator=(MBDB_Object RightObject) noexcept;
+		//MBDB_Object& operator=(MBDB_Object&& RightObject) noexcept; //Inte helt säker på om det här pessimiserar koden, men ville garantera att std::vector movar objekten
 
 		MBError LoadObject(std::string const& ObjectFilepath, std::string const& AssociatedUser, MBDB::MrBoboDatabase* AssociatedDatabase); //read är implicit
 		MBError LoadObject(MBDBO_EvaluationInfo& CurrentEvaluationInfo, std::string const& ObjectFilepath); //read är implicit
@@ -73,8 +76,12 @@ namespace MBDB
 		bool IsAggregate() const;
 		bool HasAttribute(std::string const& AttributeName) const;
 		MBDB_Object& GetAttribute(std::string const& AttributeName);
+		
 		MBDBO_Type GetType() const;
 		std::string GetStringData() const;
+		intmax_t GetIntegerData() const;
+		std::vector<MBDB_Object>& GetArrayData();
+		
 		std::string ToJason() const;
 
 	};
@@ -148,7 +155,7 @@ namespace MBDB
 	{
 	private:
 		std::vector<char> m_IdentifierDelimiters = { '(',')',',','.',' ','\n','\r','\t','+','-','*',';'};
-		std::vector<char> m_StatementDelimiters = { '(',')',',',';'};
+		std::vector<char> m_StatementDelimiters = { '(',')',',',';','.'};
 		std::vector<char> m_NumberChars = { '0','1','2','3','4','5','6','7','8','9' };
 		std::vector<char> m_BinaryOperators = { '+','-','*','.'};
 		std::map<std::string, MBDBObjectScript_Identifier> m_Identifiers = { 
@@ -183,9 +190,11 @@ namespace MBDB
 		std::map<std::string, MBDB_ECBuiltinFunction> m_BuiltinFunctions = { 
 			{"DBLoadObject",&MBDBObjectScript_ExecutionContext::p_DBLoadObject},
 			{"[]",&MBDBObjectScript_ExecutionContext::p_EvaluateObjectFunction},
+			{"+",&MBDBObjectScript_ExecutionContext::p_AddObjects}
 		};
 		MBDB_Object p_DBLoadObject(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
 		MBDB_Object p_EvaluateObjectFunction(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
+		MBDB_Object p_AddObjects(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
 	public:		
 		MBDB_Object EvaluateStatement(MBDBO_EvaluationInfo& EvaluationInfo,MBDBObjectScript_Statement const& StatementToEvaluate,MBError* OutError);
 	};
