@@ -20,6 +20,7 @@
 #include <MrBoboMail/MrBoboMail.h>
 #include <MBCrypto/MBCrypto.h>
 #include <MBTorrent/MBBitTorrent.h>
+#include <MrBoboDatabase/MBDBObjectScript.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -32,7 +33,7 @@ int main()
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
 	
-	MBDB_Object TestObject;
+	MBDB::MBDB_Object TestObject;
 	TestObject.LoadObject("TestMBDBO.mbdbo", "Guest", nullptr);
 	std::ofstream OutputTest = std::ofstream("TestOutputMBDBO",std::ios::out|std::ios::binary);
 	std::string ObjectJSON = TestObject.ToJason();
@@ -43,6 +44,10 @@ int main()
 	TestObject.LoadObject("TestOutputMBDBO", "Guest", nullptr);
 	std::cout << TestObject.ToJason() << std::endl;
 	std::cout << (TestObject.ToJason() == ObjectJSON) << std::endl;
+
+	MBDB::MBDB_Object TestObjectScript;
+	TestObjectScript.LoadObject("TestMBDBO_ObjectScript.mbdbo", "Guest", nullptr);
+	std::cout << TestObjectScript.ToJason() << std::endl;
 	exit(0);
 	//std::ofstream SparseFileTest("SparseFileTest",std::ios::out|std::ios::binary);
 	//SparseFileTest.seekp(10000);

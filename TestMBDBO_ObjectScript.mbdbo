@@ -1,0 +1,5 @@
+{
+  "RegularField":1337,
+   "AnotherField":"Hello",
+   "FunctionField":DBLoadObject("TestMBDBO.mbdbo");,
+}

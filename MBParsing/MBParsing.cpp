@@ -27,11 +27,12 @@ namespace MBParsing
 		}
 		*OutOffset = ParseOffset;
 	}
-	std::string ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr)
+	std::string ParseQuotedString(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		std::string ReturnValue = "";
 		size_t ParseOffset = InOffset;
 		MBError ParseError(true);
+		const char* ObjectData = (const char*)DataToParse;
 
 		if (ObjectData[ParseOffset] != '\"')
 		{
@@ -45,11 +46,11 @@ namespace MBParsing
 		}
 		ParseOffset += 1;
 		size_t StringBegin = ParseOffset;
-		while (ParseOffset < ObjectData.size())
+		while (ParseOffset < DataSize)
 		{
 			size_t PreviousParseOffset = ParseOffset;
-			ParseOffset = ObjectData.find('\"', ParseOffset);
-			if (ParseOffset >= ObjectData.size())
+			ParseOffset = std::find(ObjectData+ParseOffset,ObjectData+DataSize,'\"')-DataToParse;
+			if (ParseOffset >= DataSize)
 			{
 				ParseError = false;
 				ParseError.ErrorMessage = "End of quoted string missing";
@@ -76,7 +77,7 @@ namespace MBParsing
 			}
 			else
 			{
-				ReturnValue = ObjectData.substr(StringBegin, ParseOffset - StringBegin);
+				ReturnValue = std::string(ObjectData+StringBegin, ParseOffset - StringBegin);
 				ParseOffset += 1;
 				break;
 			}
@@ -91,7 +92,11 @@ namespace MBParsing
 		}
 		return(ReturnValue);
 	}
-	intmax_t ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr)
+	std::string ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError )
+	{
+		return(ParseQuotedString(ObjectData.data(), ObjectData.size(), InOffset, OutOffset, OutError));
+	}
+	intmax_t ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset , MBError* OutError)
 	{
 		intmax_t ReturnValue = -1;
 		size_t ParseOffset = InOffset;
@@ -128,7 +133,7 @@ namespace MBParsing
 		}
 		return(ReturnValue);
 	}
-	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse, size_t DataSize, size_t InOffset, MBError* OutError)
 	{
 		size_t ReturnValue = -1;
 		size_t ParseOffset = InOffset;
@@ -161,14 +166,10 @@ namespace MBParsing
 		{
 			*OutError = ParseError;
 		}
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = ParseOffset;
-		}
 		return(ReturnValue);
 	}
-	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, std::string const& DataToParse, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, std::string const& DataToParse, size_t InOffset, MBError* OutError)
 	{
-		return(GetNextDelimiterPosition(Delimiters, DataToParse.data(), DataToParse.size(), InOffset, OutOffset, OutError));
+		return(GetNextDelimiterPosition(Delimiters, DataToParse.data(), DataToParse.size(), InOffset, OutError));
 	}
 };
