@@ -15,14 +15,20 @@ namespace MBDB
 		Boolean,
 		Array,
 		AggregateObject,//innebär att listan av attributes
+		UnevaluatedDatabaseExpression,
 		Null
 	};
 	struct MBDBO_EvaluationInfo
 	{
+		bool ParseOnly = false;
 		std::string ObjectDirectory = "";
 		std::string EvaluatingUser = "";
 		MBDB::MrBoboDatabase* AssociatedDatabase = nullptr;
 	};
+	class MBDB_Object;
+	typedef std::vector<MBDB_Object> MBDB_Object_ArrayType;
+	typedef std::map<std::string, MBDB_Object> MBDB_Object_MapType;
+	//typedef MBDBS
 	class MBDB_Object
 	{
 	private:
@@ -31,38 +37,53 @@ namespace MBDB
 		//std::vector<std::unique_ptr<MBDB_Object>> m_ArrayObjects = {};
 		MBDBO_Type m_Type = MBDBO_Type::Null;
 		void* m_AtomicData = nullptr;
+		bool m_FullyEvaluated = true;
 
 		void* p_CopyData() const;
 		void p_FreeData() const;
+		static std::string p_ExtractTag(const void* Data,size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError = nullptr);
 		static std::string p_ExtractTag(std::string const& DataToParse, size_t InOffset, size_t* OutOffset, MBError* OutError = nullptr);
 
-		static std::string p_ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
-		static intmax_t p_ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		//static std::string p_ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		//static intmax_t p_ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 		//static MBDB_Object p_
 
-		static void p_SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset);
-		static void p_SkipWhitespace(const void* DataToParse, size_t DataLength, size_t InOffset, size_t* OutOffset);
+		//static void p_SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset);
+		//static void p_SkipWhitespace(const void* DataToParse, size_t DataLength, size_t InOffset, size_t* OutOffset);
 
-		static MBDB_Object p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& TableExpression);
-		static MBDB_Object p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
-		static MBDB_Object p_EvaluateDBObjectExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		//static MBDB_Object p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& TableExpression);
+		//static MBDB_Object p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		//static MBDB_Object p_EvaluateDBObjectExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		//static MBDB_Object p_EvaluateDBObjectExpression(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data,size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 		
 		
+		//static MBDB_Object p_ParseObject(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+
 		static MBDB_Object p_EvaluateObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		static MBDB_Object p_EvaluateObject(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data,size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		
+		static MBDB_Object p_ParseAggregateObject(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 		static MBDB_Object p_ParseAggregateObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		
+		static MBDB_Object p_ParseArrayObject(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 		static MBDB_Object p_ParseArrayObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		
+		static MBDB_Object p_ParseDatabaseExpression(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 		static MBDB_Object p_ParseDatabaseExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+		
+		static MBDB_Object p_ParseStaticAtomicObject(const void* Data,size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 		static MBDB_Object p_ParseStaticAtomicObject(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 
 		std::string p_AggregateToJSON() const;
 		std::string p_ArrayToJSON() const;
 		std::string p_AtomicToJSON() const;
+
 	public:
 		MBDB_Object() {};
 		MBDB_Object(std::string const& StringData);
 		MBDB_Object(intmax_t IntegerData);
-		//MBDB_Object(std::vector<MBDB_Object>&& ArrayToMove);
-		//MBDB_Object(std::vector<MBDB_Object> const& ArrayToCopy);
+		MBDB_Object(std::vector<MBDB_Object>&& ArrayToMove);
+		MBDB_Object(std::vector<MBDB_Object> const& ArrayToCopy);
 
 		MBDB_Object(MBDB_Object const& ObjectToCopy);
 		MBDB_Object(MBDB_Object&& ObjectToMove) noexcept;
@@ -73,21 +94,24 @@ namespace MBDB
 		MBError LoadObject(std::string const& ObjectFilepath, std::string const& AssociatedUser, MBDB::MrBoboDatabase* AssociatedDatabase); //read är implicit
 		MBError LoadObject(MBDBO_EvaluationInfo& CurrentEvaluationInfo, std::string const& ObjectFilepath); //read är implicit
 
+		static MBDB_Object ParseObject(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset,MBError* OutError);
+		static MBDB_Object ParseObject(std::string const& DataToParse, size_t InOffset, size_t* OutOffset,MBError* OutError);
+		void Evaluate(MBDBO_EvaluationInfo& EvaluationInfo,MBError* OutError);
+
 		bool IsAggregate() const;
 		bool HasAttribute(std::string const& AttributeName) const;
+		bool IsEvaluated() const;
+	
 		MBDB_Object& GetAttribute(std::string const& AttributeName);
 		
 		MBDBO_Type GetType() const;
 		std::string GetStringData() const;
 		intmax_t GetIntegerData() const;
-		std::vector<MBDB_Object>& GetArrayData();
+		MBDB_Object_ArrayType& GetArrayData();
+		MBDB_Object_ArrayType const& GetArrayData() const;
 		
 		std::string ToJason() const;
 
-	};
-	enum class MBDBObjectScript_ReturnValue
-	{
-		
 	};
 
 	enum class MBDBObjectScript_StatementType
@@ -95,6 +119,7 @@ namespace MBDB
 		FunctionCall,
 		ObjectField,
 		Literal,
+		UnevaluatedObject,
 		Null
 	};
 	class MBDBObjectScript_Statement
@@ -116,6 +141,7 @@ namespace MBDB
 		MBDBObjectScript_Statement& operator=(MBDBObjectScript_Statement ObjectToCopy);
 		~MBDBObjectScript_Statement();
 	};
+	typedef MBDBObjectScript_Statement MBDB_Object_UnevaluatedExpressionType;
 	struct MBDBObjectScript_FunctionStatementData
 	{
 		std::string FunctionIdentifier = "";
@@ -140,6 +166,10 @@ namespace MBDB
 		MBDBObjectScript_Statement ObjectToEvaluate;
 		std::string FieldIdentifier = "";
 	};
+	struct MBDBObjectScript_UnEvaluatedObjectStatementData
+	{
+		MBDB_Object UnEvaluatedObject;
+	};
 	enum class MBDBObjectScript_IdentifierType
 	{
 		Function,
@@ -154,13 +184,15 @@ namespace MBDB
 	class MBDBObjectScript_ParsingContext
 	{
 	private:
-		std::vector<char> m_IdentifierDelimiters = { '(',')',',','.',' ','\n','\r','\t','+','-','*',';'};
-		std::vector<char> m_StatementDelimiters = { '(',')',',',';','.'};
+		std::vector<char> m_IdentifierDelimiters = { '(',')',',','.',' ','\n','\r','\t','+','-','*',';','{','}','[',']'};
+		std::vector<char> m_StatementDelimiters = { '(',')',',',';','.','{','}','[',']'};
 		std::vector<char> m_NumberChars = { '0','1','2','3','4','5','6','7','8','9' };
 		std::vector<char> m_BinaryOperators = { '+','-','*','.'};
 		std::map<std::string, MBDBObjectScript_Identifier> m_Identifiers = { 
 		{"DBLoadObject",{MBDBObjectScript_IdentifierType::Function}},
 		{"DBLoadTable",{MBDBObjectScript_IdentifierType::Function}},
+		{"DBExecuteQuerry",{MBDBObjectScript_IdentifierType::Function}},
+		{"DBGetColumns",{MBDBObjectScript_IdentifierType::Function}},
 		};
 
 		std::string p_ParseIdentifier(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
@@ -189,13 +221,21 @@ namespace MBDB
 	private:
 		std::map<std::string, MBDB_ECBuiltinFunction> m_BuiltinFunctions = { 
 			{"DBLoadObject",&MBDBObjectScript_ExecutionContext::p_DBLoadObject},
+			{"LoadTable",&MBDBObjectScript_ExecutionContext::p_LoadTable},
+			{"DBExecuteQuerry",&MBDBObjectScript_ExecutionContext::p_ExecuteQuerry},
+			{"DBGetColumns",&MBDBObjectScript_ExecutionContext::p_GetColumns},
 			{"[]",&MBDBObjectScript_ExecutionContext::p_EvaluateObjectFunction},
 			{"+",&MBDBObjectScript_ExecutionContext::p_AddObjects}
 		};
 		MBDB_Object p_DBLoadObject(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
 		MBDB_Object p_EvaluateObjectFunction(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
 		MBDB_Object p_AddObjects(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
-	public:		
+		MBDB_Object p_LoadTable(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
+		MBDB_Object p_ExecuteQuerry(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
+		MBDB_Object p_GetColumns(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
+
+		MBDB_Object p_EvaluateArrayIndexing(MBDBO_EvaluationInfo& EvaluationInfo, MBDB_Object const& CallingObject,std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError);
+	public:
 		MBDB_Object EvaluateStatement(MBDBO_EvaluationInfo& EvaluationInfo,MBDBObjectScript_Statement const& StatementToEvaluate,MBError* OutError);
 	};
 }

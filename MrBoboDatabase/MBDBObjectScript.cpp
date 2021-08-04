@@ -56,11 +56,15 @@ namespace MBDB
 		}
 		else if (m_Type == MBDBO_Type::AggregateObject)
 		{
-			delete((std::map<std::string, std::unique_ptr<MBDB_Object>>*)m_AtomicData);
+			delete((MBDB_Object_MapType*)m_AtomicData);
 		}
 		else if (m_Type == MBDBO_Type::Array)
 		{
-			delete((std::vector<std::unique_ptr<MBDB_Object>>*)m_AtomicData);
+			delete((MBDB_Object_ArrayType*)m_AtomicData);
+		}
+		else if (m_Type == MBDBO_Type::UnevaluatedDatabaseExpression)
+		{
+			delete(MBDB_Object_UnevaluatedExpressionType*)m_AtomicData;
 		}
 		else
 		{
@@ -75,10 +79,15 @@ namespace MBDB
 	{
 		std::swap(LeftObject.m_Type, RightObject.m_Type);
 		std::swap(LeftObject.m_AtomicData, RightObject.m_AtomicData);
+		std::swap(LeftObject.m_FullyEvaluated, RightObject.m_FullyEvaluated);
 	}
 	bool MBDB_Object::IsAggregate() const
 	{
 		return(MBDBO_Type::AggregateObject == m_Type);
+	}
+	bool MBDB_Object::IsEvaluated() const
+	{
+		return(m_FullyEvaluated);
 	}
 	bool MBDB_Object::HasAttribute(std::string const& AttributeName) const
 	{
@@ -86,14 +95,14 @@ namespace MBDB
 		{
 			return(false);
 		}
-		std::map<std::string, std::unique_ptr<MBDB_Object>> const& AttributeMap = *(std::map<std::string, std::unique_ptr<MBDB_Object>>*)m_AtomicData;
+		MBDB_Object_MapType const& AttributeMap = *(MBDB_Object_MapType*)m_AtomicData;
 		return(AttributeMap.find(AttributeName) != AttributeMap.end());
 	}
 	MBDB_Object& MBDB_Object::GetAttribute(std::string const& AttributeName)
 	{
-		std::map<std::string, std::unique_ptr<MBDB_Object>>& AttributeMap = *(std::map<std::string, std::unique_ptr<MBDB_Object>>*)m_AtomicData;
+		MBDB_Object_MapType& AttributeMap = *(MBDB_Object_MapType*)m_AtomicData;
 
-		return(*AttributeMap[AttributeName]);
+		return(AttributeMap[AttributeName]);
 	}
 	MBDBO_Type MBDB_Object::GetType() const
 	{
@@ -115,6 +124,10 @@ namespace MBDB
 	{
 		return(*(std::vector<MBDB_Object>*)m_AtomicData);
 	}
+	MBDB_Object_ArrayType const& MBDB_Object::GetArrayData() const
+	{
+		return(*(std::vector<MBDB_Object>*)m_AtomicData);
+	}
 	MBDB_Object::MBDB_Object(std::string const& StringData)
 	{
 		m_Type = MBDBO_Type::String;
@@ -125,22 +138,22 @@ namespace MBDB
 		m_Type = MBDBO_Type::Integer;
 		m_AtomicData = new intmax_t(IntegerData);
 	}
-	//MBDB_Object::MBDB_Object(std::vector<MBDB_Object>&& ArrayToMove)
-	//{
-	//	m_Type = MBDBO_Type::Array;
-	//	m_AtomicData = new std::vector<MBDB_Object>();
-	//	std::swap(*(std::vector<MBDB_Object>*)m_AtomicData, ArrayToMove);
-	//}
-	//MBDB_Object::MBDB_Object(std::vector<MBDB_Object> const& ArrayToCopy)
-	//{
-	//	m_Type = MBDBO_Type::Array;
-	//	m_AtomicData = new std::vector<MBDB_Object>();
-	//	std::vector<MBDB_Object>& ObjectData = *(std::vector<MBDB_Object>*)m_AtomicData;
-	//	for (size_t i = 0; i < ArrayToCopy.size(); i++)
-	//	{
-	//		ObjectData.push_back(ArrayToCopy[i]);
-	//	}
-	//}
+	MBDB_Object::MBDB_Object(std::vector<MBDB_Object>&& ArrayToMove)
+	{
+		m_Type = MBDBO_Type::Array;
+		m_AtomicData = new std::vector<MBDB_Object>();
+		std::swap(*(std::vector<MBDB_Object>*)m_AtomicData, ArrayToMove);
+	}
+	MBDB_Object::MBDB_Object(std::vector<MBDB_Object> const& ArrayToCopy)
+	{
+		m_Type = MBDBO_Type::Array;
+		m_AtomicData = new std::vector<MBDB_Object>();
+		std::vector<MBDB_Object>& ObjectData = *(std::vector<MBDB_Object>*)m_AtomicData;
+		for (size_t i = 0; i < ArrayToCopy.size(); i++)
+		{
+			ObjectData.push_back(ArrayToCopy[i]);
+		}
+	}
 	void* MBDB_Object::p_CopyData() const
 	{
 		if (m_AtomicData == nullptr)
@@ -164,33 +177,40 @@ namespace MBDB
 		}
 		else if (m_Type == MBDBO_Type::AggregateObject)
 		{
-			std::map<std::string, std::unique_ptr<MBDB_Object>>* ReturnValue = new std::map<std::string, std::unique_ptr<MBDB_Object>>();
-			std::map<std::string, std::unique_ptr<MBDB_Object>> const& ObjectMap = *((const std::map<std::string, std::unique_ptr<MBDB_Object>>*)m_AtomicData);
+			MBDB_Object_MapType* ReturnValue = new MBDB_Object_MapType();
+			MBDB_Object_MapType const& ObjectMap = *((const MBDB_Object_MapType*)m_AtomicData);
 			for (auto& Key : ObjectMap)
 			{
-				(*ReturnValue)[Key.first] = std::unique_ptr<MBDB_Object>(new MBDB_Object(*(Key.second)));
+				(*ReturnValue)[Key.first] = MBDB_Object(Key.second);
 			}
 			return(ReturnValue);
 		}
 		else if (m_Type == MBDBO_Type::Array)
 		{
-			std::vector<std::unique_ptr<MBDB_Object>>* ReturnValue = new std::vector<std::unique_ptr<MBDB_Object>>();
-			std::vector<std::unique_ptr<MBDB_Object>> const& ObjectArray = *((const std::vector<std::unique_ptr<MBDB_Object>>*)m_AtomicData);
+			MBDB_Object_ArrayType* ReturnValue = new MBDB_Object_ArrayType();
+			MBDB_Object_ArrayType const& ObjectArray = *((const MBDB_Object_ArrayType*)m_AtomicData);
 			for (auto& ArrayObject : ObjectArray)
 			{
-				ReturnValue->push_back(std::unique_ptr<MBDB_Object>(new MBDB_Object(*ArrayObject)));
+				ReturnValue->push_back(MBDB_Object(ArrayObject));
 			}
 			return(ReturnValue);
 		}
+		else if (m_Type == MBDBO_Type::UnevaluatedDatabaseExpression)
+		{
+			MBDB_Object_UnevaluatedExpressionType* NewStatementData = new MBDB_Object_UnevaluatedExpressionType(*(MBDB_Object_UnevaluatedExpressionType*)m_AtomicData);
+			return(NewStatementData);
+		}
 		assert(false);
 	}
-	std::string MBDB_Object::p_ExtractTag(std::string const& DataToParse, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	std::string MBDB_Object::p_ExtractTag(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		std::string ReturnValue = "";
 		MBError ParseError = "";
 		size_t ParseOffset = InOffset;
-		p_SkipWhitespace(DataToParse, ParseOffset, &ParseOffset);
-		if (ParseOffset >= DataToParse.size())
+		const char* DataToParse = (const char*)Data;
+
+		MBParsing::SkipWhitespace(DataToParse,DataSize, ParseOffset, &ParseOffset);
+		if (ParseOffset >= DataSize)
 		{
 			ParseError = false;
 			ParseError.ErrorMessage = "No quoted string present";
@@ -200,7 +220,7 @@ namespace MBDB
 			}
 			return(ReturnValue);
 		}
-		ReturnValue = p_ParseQuotedString(DataToParse, ParseOffset, &ParseOffset, &ParseError);
+		ReturnValue = MBParsing::ParseQuotedString(DataToParse,DataSize, ParseOffset, &ParseOffset, &ParseError);
 		if (!ParseError)
 		{
 			if (OutError != nullptr)
@@ -209,8 +229,8 @@ namespace MBDB
 			}
 			return("");
 		}
-		p_SkipWhitespace(DataToParse, ParseOffset, &ParseOffset);
-		if (ParseOffset >= DataToParse.size())
+		MBParsing::SkipWhitespace(DataToParse,DataSize, ParseOffset, &ParseOffset);
+		if (ParseOffset >= DataSize)
 		{
 			ParseError = false;
 			ParseError.ErrorMessage = "No attribute value after attribute tag";
@@ -241,153 +261,158 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
-	std::string MBDB_Object::p_ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	std::string MBDB_Object::p_ExtractTag(std::string const& DataToParse, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
-		std::string ReturnValue = "";
-		size_t ParseOffset = InOffset;
-		MBError ParseError(true);
-
-		if (ObjectData[ParseOffset] != '\"')
-		{
-			ParseError = false;
-			ParseError.ErrorMessage = "String doesnt begin with \"";
-			if (OutError != nullptr)
-			{
-				*OutError = ParseError;
-			}
-			return("");
-		}
-		ParseOffset += 1;
-		size_t StringBegin = ParseOffset;
-		while (ParseOffset < ObjectData.size())
-		{
-			size_t PreviousParseOffset = ParseOffset;
-			ParseOffset = ObjectData.find('\"', ParseOffset);
-			if (ParseOffset >= ObjectData.size())
-			{
-				ParseError = false;
-				ParseError.ErrorMessage = "End of quoted string missing";
-				break;
-			}
-			size_t NumberOfBackslashes = 0;
-			size_t ReverseParseOffset = ParseOffset - 1;
-			while (ReverseParseOffset > PreviousParseOffset)
-			{
-				if (ObjectData[ReverseParseOffset] == '\\')
-				{
-					NumberOfBackslashes += 1;
-					ReverseParseOffset -= 1;
-				}
-				else
-				{
-					break;
-				}
-			}
-			if (NumberOfBackslashes & 1 != 0)
-			{
-				ParseOffset += 1;
-				continue;
-			}
-			else
-			{
-				ReturnValue = ObjectData.substr(StringBegin, ParseOffset - StringBegin);
-				ParseOffset += 1;
-				break;
-			}
-		}
-		if (OutError != nullptr)
-		{
-			*OutError = ParseError;
-		}
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = ParseOffset;
-		}
-		return(ReturnValue);
+		return(p_ExtractTag(DataToParse.data(), DataToParse.size(), InOffset, OutOffset, OutError));
 	}
-	intmax_t MBDB_Object::p_ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
-	{
-		intmax_t ReturnValue = -1;
-		size_t ParseOffset = InOffset;
-		MBError ParseError(true);
-
-		size_t IntBegin = ParseOffset;
-		size_t IntEnd = ParseOffset;
-		while (IntEnd < ObjectData.size())
-		{
-			if (!('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9'))
-			{
-				break;
-			}
-			IntEnd += 1;
-		}
-		try
-		{
-			ReturnValue = std::stoi(ObjectData.substr(IntBegin, IntEnd - IntBegin));
-			ParseOffset = IntEnd;
-		}
-		catch (const std::exception&)
-		{
-			ParseError = false;
-			ParseError.ErrorMessage = "Error parsing JSON integer";
-		}
-
-		if (OutError != nullptr)
-		{
-			*OutError = ParseError;
-		}
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = ParseOffset;
-		}
-		return(ReturnValue);
-	}
-	void MBDB_Object::p_SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset)
-	{
-		p_SkipWhitespace(DataToParse.data(), DataToParse.size(), InOffset, OutOffset);
-	}
-	void MBDB_Object::p_SkipWhitespace(const void* DataToParse, size_t DataLength, size_t InOffset, size_t* OutOffset)
-	{
-		const char* Data = (const char*)DataToParse;
-		size_t ParseOffset = InOffset;
-		while (ParseOffset < DataLength)
-		{
-			bool IsWhitespace = false;
-			IsWhitespace = IsWhitespace || (Data[ParseOffset] == ' ');
-			IsWhitespace = IsWhitespace || (Data[ParseOffset] == '\t');
-			IsWhitespace = IsWhitespace || (Data[ParseOffset] == '\n');
-			IsWhitespace = IsWhitespace || (Data[ParseOffset] == '\r');
-			if (IsWhitespace)
-			{
-				ParseOffset += 1;
-			}
-			else
-			{
-				break;
-			}
-		}
-		*OutOffset = ParseOffset;
-	}
-	MBDB_Object MBDB_Object::p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& TableExpression)
-	{
-		assert(false);
-		return(MBDB_Object());
-	}
-	MBDB_Object MBDB_Object::p_ParseArrayObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	//std::string MBDB_Object::p_ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	//{
+	//	std::string ReturnValue = "";
+	//	size_t ParseOffset = InOffset;
+	//	MBError ParseError(true);
+	//
+	//	if (ObjectData[ParseOffset] != '\"')
+	//	{
+	//		ParseError = false;
+	//		ParseError.ErrorMessage = "String doesnt begin with \"";
+	//		if (OutError != nullptr)
+	//		{
+	//			*OutError = ParseError;
+	//		}
+	//		return("");
+	//	}
+	//	ParseOffset += 1;
+	//	size_t StringBegin = ParseOffset;
+	//	while (ParseOffset < ObjectData.size())
+	//	{
+	//		size_t PreviousParseOffset = ParseOffset;
+	//		ParseOffset = ObjectData.find('\"', ParseOffset);
+	//		if (ParseOffset >= ObjectData.size())
+	//		{
+	//			ParseError = false;
+	//			ParseError.ErrorMessage = "End of quoted string missing";
+	//			break;
+	//		}
+	//		size_t NumberOfBackslashes = 0;
+	//		size_t ReverseParseOffset = ParseOffset - 1;
+	//		while (ReverseParseOffset > PreviousParseOffset)
+	//		{
+	//			if (ObjectData[ReverseParseOffset] == '\\')
+	//			{
+	//				NumberOfBackslashes += 1;
+	//				ReverseParseOffset -= 1;
+	//			}
+	//			else
+	//			{
+	//				break;
+	//			}
+	//		}
+	//		if (NumberOfBackslashes & 1 != 0)
+	//		{
+	//			ParseOffset += 1;
+	//			continue;
+	//		}
+	//		else
+	//		{
+	//			ReturnValue = ObjectData.substr(StringBegin, ParseOffset - StringBegin);
+	//			ParseOffset += 1;
+	//			break;
+	//		}
+	//	}
+	//	if (OutError != nullptr)
+	//	{
+	//		*OutError = ParseError;
+	//	}
+	//	if (OutOffset != nullptr)
+	//	{
+	//		*OutOffset = ParseOffset;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//intmax_t MBDB_Object::p_ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	//{
+	//	intmax_t ReturnValue = -1;
+	//	size_t ParseOffset = InOffset;
+	//	MBError ParseError(true);
+	//
+	//	size_t IntBegin = ParseOffset;
+	//	size_t IntEnd = ParseOffset;
+	//	while (IntEnd < ObjectData.size())
+	//	{
+	//		if (!('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9'))
+	//		{
+	//			break;
+	//		}
+	//		IntEnd += 1;
+	//	}
+	//	try
+	//	{
+	//		ReturnValue = std::stoi(ObjectData.substr(IntBegin, IntEnd - IntBegin));
+	//		ParseOffset = IntEnd;
+	//	}
+	//	catch (const std::exception&)
+	//	{
+	//		ParseError = false;
+	//		ParseError.ErrorMessage = "Error parsing JSON integer";
+	//	}
+	//
+	//	if (OutError != nullptr)
+	//	{
+	//		*OutError = ParseError;
+	//	}
+	//	if (OutOffset != nullptr)
+	//	{
+	//		*OutOffset = ParseOffset;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//void MBDB_Object::p_SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset)
+	//{
+	//	p_SkipWhitespace(DataToParse.data(), DataToParse.size(), InOffset, OutOffset);
+	//}
+	//void MBDB_Object::p_SkipWhitespace(const void* DataToParse, size_t DataLength, size_t InOffset, size_t* OutOffset)
+	//{
+	//	const char* Data = (const char*)DataToParse;
+	//	size_t ParseOffset = InOffset;
+	//	while (ParseOffset < DataLength)
+	//	{
+	//		bool IsWhitespace = false;
+	//		IsWhitespace = IsWhitespace || (Data[ParseOffset] == ' ');
+	//		IsWhitespace = IsWhitespace || (Data[ParseOffset] == '\t');
+	//		IsWhitespace = IsWhitespace || (Data[ParseOffset] == '\n');
+	//		IsWhitespace = IsWhitespace || (Data[ParseOffset] == '\r');
+	//		if (IsWhitespace)
+	//		{
+	//			ParseOffset += 1;
+	//		}
+	//		else
+	//		{
+	//			break;
+	//		}
+	//	}
+	//	*OutOffset = ParseOffset;
+	//}
+	//MBDB_Object MBDB_Object::p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& TableExpression)
+	//{
+	//	assert(false);
+	//	return(MBDB_Object());
+	//}
+	MBDB_Object MBDB_Object::p_ParseArrayObject(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		MBDB_Object ReturnValue;
 		MBError EvaluationError(true);
 		size_t ParseOffset = InOffset;
+		const char* ObjectData = (const char*)Data;
 
 		ReturnValue.m_Type = MBDBO_Type::Array;
-		p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+		MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
 		ParseOffset += 1;//gör så vi är på värdet efter den försat [
-		ReturnValue.m_AtomicData = new std::vector<std::unique_ptr<MBDB_Object>>();
-		std::vector<std::unique_ptr<MBDB_Object>>& ReturnValue_Arrays = *(std::vector<std::unique_ptr<MBDB_Object>>*)ReturnValue.m_AtomicData;
-		while (ParseOffset < ObjectData.size())
+		ReturnValue.m_AtomicData = new MBDB_Object_ArrayType();
+		MBDB_Object_ArrayType& ReturnValue_Arrays = *(MBDB_Object_ArrayType*)ReturnValue.m_AtomicData;
+		while (ParseOffset < DataSize)
 		{
-			p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-			if (ParseOffset >= ObjectData.size())
+			MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+			if (ParseOffset >= DataSize)
 			{
 				EvaluationError = false;
 				EvaluationError.ErrorMessage = "Array doesnt end";
@@ -397,16 +422,19 @@ namespace MBDB
 			{
 				break;
 			}
-			std::unique_ptr<MBDB_Object> NewObject = std::unique_ptr<MBDB_Object>(new MBDB_Object());
-			*NewObject = p_EvaluateObject(EvaluationInfo, ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
+			MBDB_Object NewObject = p_EvaluateObject(EvaluationInfo,Data,DataSize, ParseOffset, &ParseOffset, &EvaluationError);
 			if (!EvaluationError)
 			{
 				break;
 			}
+			if (!NewObject.IsEvaluated())
+			{
+				ReturnValue.m_FullyEvaluated = false;
+			}
 			ReturnValue_Arrays.push_back(std::move(NewObject));
 
-			p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-			if (ParseOffset >= ObjectData.size())
+			MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+			if (ParseOffset >= DataSize)
 			{
 				EvaluationError = false;
 				EvaluationError.ErrorMessage = "Array doesnt end";
@@ -441,51 +469,131 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
-	MBDB_Object MBDB_Object::p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	MBDB_Object MBDB_Object::p_ParseArrayObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
-		MBDB_Object ReturnValue;
-		MBError EvaluationError(true);
-		size_t ParseOffset = InOffset;
-
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = ParseOffset;
-		}
-		if (OutError != nullptr)
-		{
-			*OutError = EvaluationError;
-		}
-		return(ReturnValue);
+		return(p_ParseArrayObject(EvaluationInfo, ObjectData.data(), ObjectData.size(), InOffset, OutOffset, OutError));
 	}
-	MBDB_Object MBDB_Object::p_EvaluateDBObjectExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	//MBDB_Object MBDB_Object::p_EvaluateTableExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	//{
+	//	MBDB_Object ReturnValue;
+	//	MBError EvaluationError(true);
+	//	size_t ParseOffset = InOffset;
+	//
+	//	if (OutOffset != nullptr)
+	//	{
+	//		*OutOffset = ParseOffset;
+	//	}
+	//	if (OutError != nullptr)
+	//	{
+	//		*OutError = EvaluationError;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//MBDB_Object MBDB_Object::p_EvaluateDBObjectExpression(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr)
+	//{
+	//	MBDB_Object ReturnValue;
+	//	MBError EvaluationError(true);
+	//	size_t ParseOffset = InOffset;
+	//	const char* ObjectData = (const char*)Data;
+	//	MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+	//	std::string ObjectPath = "";
+	//	//DB_LoadObject
+	//	if (ParseOffset < DataSize)
+	//	{
+	//		if (std::string(ObjectData+ParseOffset, 13) == "DB_LoadObject")
+	//		{
+	//			ParseOffset += 14; //1 för parantesen
+	//			ObjectPath = MBParsing::ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
+	//			ParseOffset += 1;
+	//		}
+	//		else
+	//		{
+	//			EvaluationError = false;
+	//			EvaluationError.ErrorMessage = "Invalid DBObject Expression";
+	//		}
+	//	}
+	//	else
+	//	{
+	//		EvaluationError = false;
+	//		EvaluationError.ErrorMessage = "Invalid DBObject Expression";
+	//	}
+	//	//ReturnValue.LoadObject(
+	//
+	//	if (OutOffset != nullptr)
+	//	{
+	//		*OutOffset = ParseOffset;
+	//	}
+	//	if (OutError != nullptr)
+	//	{
+	//		*OutError = EvaluationError;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//MBDB_Object MBDB_Object::p_EvaluateDBObjectExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	//{
+	//	MBDB_Object ReturnValue;
+	//	MBError EvaluationError(true);
+	//	size_t ParseOffset = InOffset;
+	//	MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+	//	std::string ObjectPath = "";
+	//	//DB_LoadObject
+	//	if (ParseOffset < ObjectData.size())
+	//	{
+	//		if (ObjectData.substr(ParseOffset, 13) == "DB_LoadObject")
+	//		{
+	//			ParseOffset += 14; //1 för parantesen
+	//			ObjectPath = MBParsing::ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
+	//			ParseOffset += 1;
+	//		}
+	//		else
+	//		{
+	//			EvaluationError = false;
+	//			EvaluationError.ErrorMessage = "Invalid DBObject Expression";
+	//		}
+	//	}
+	//	else
+	//	{
+	//		EvaluationError = false;
+	//		EvaluationError.ErrorMessage = "Invalid DBObject Expression";
+	//	}
+	//	//ReturnValue.LoadObject(
+	//
+	//	if (OutOffset != nullptr)
+	//	{
+	//		*OutOffset = ParseOffset;
+	//	}
+	//	if (OutError != nullptr)
+	//	{
+	//		*OutError = EvaluationError;
+	//	}
+	//	return(ReturnValue);
+	//}
+	MBDB_Object MBDB_Object::p_ParseDatabaseExpression(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		MBDB_Object ReturnValue;
 		MBError EvaluationError(true);
 		size_t ParseOffset = InOffset;
-		p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-		std::string ObjectPath = "";
-		//DB_LoadObject
-		if (ParseOffset < ObjectData.size())
+		const char* ObjectData = (const char*)Data;
+		MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+		MBDB::MBDBObjectScript_ParsingContext ParsingContext;
+		MBDBObjectScript_Statement DatabaseExpression = ParsingContext.ParseStatement(Data,DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+		ParseOffset += 1;
+		if (EvaluationError)
 		{
-			if (ObjectData.substr(ParseOffset, 13) == "DB_LoadObject")
+			if (!EvaluationInfo.ParseOnly)
 			{
-				ParseOffset += 14; //1 för parantesen
-				ObjectPath = p_ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
-				ParseOffset += 1;
+				MBDB::MBDBObjectScript_ExecutionContext ExecutionContext;
+				ReturnValue = ExecutionContext.EvaluateStatement(EvaluationInfo, DatabaseExpression, &EvaluationError);
 			}
 			else
 			{
-				EvaluationError = false;
-				EvaluationError.ErrorMessage = "Invalid DBObject Expression";
+				ReturnValue.m_FullyEvaluated = false;
+				ReturnValue.m_Type = MBDBO_Type::UnevaluatedDatabaseExpression;
+				MBDB_Object_UnevaluatedExpressionType* NewStatement = new MBDB_Object_UnevaluatedExpressionType();
+				ReturnValue.m_AtomicData = NewStatement;
+				*NewStatement = std::move(DatabaseExpression);
 			}
 		}
-		else
-		{
-			EvaluationError = false;
-			EvaluationError.ErrorMessage = "Invalid DBObject Expression";
-		}
-		//ReturnValue.LoadObject(
-
 		if (OutOffset != nullptr)
 		{
 			*OutOffset = ParseOffset;
@@ -498,34 +606,14 @@ namespace MBDB
 	}
 	MBDB_Object MBDB_Object::p_ParseDatabaseExpression(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
-		MBDB_Object ReturnValue;
-		MBError EvaluationError(true);
-		size_t ParseOffset = InOffset;
-
-		p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-		MBDB::MBDBObjectScript_ParsingContext ParsingContext;
-		MBDBObjectScript_Statement DatabaseExpression = ParsingContext.ParseStatement(ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
-		ParseOffset += 1;
-		if (EvaluationError)
-		{
-			MBDB::MBDBObjectScript_ExecutionContext ExecutionContext;
-			ReturnValue = ExecutionContext.EvaluateStatement(EvaluationInfo, DatabaseExpression, &EvaluationError);
-		}
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = ParseOffset;
-		}
-		if (OutError != nullptr)
-		{
-			*OutError = EvaluationError;
-		}
-		return(ReturnValue);
+		return(p_ParseDatabaseExpression(EvaluationInfo, ObjectData.data(), ObjectData.size(), InOffset, OutOffset, OutError));
 	}
-	MBDB_Object MBDB_Object::p_ParseStaticAtomicObject(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	MBDB_Object MBDB_Object::p_ParseStaticAtomicObject(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		MBDB_Object ReturnValue;
 		MBError EvaluationError(true);
 		size_t ParseOffset = InOffset;
+		const char* ObjectData = (const char*) Data;
 
 		char FirstCharacter = ObjectData[ParseOffset];
 		if (FirstCharacter == 't' || FirstCharacter == 'T')
@@ -543,13 +631,13 @@ namespace MBDB
 		else if (FirstCharacter == '\"')
 		{
 			ReturnValue.m_Type = MBDBO_Type::String;
-			ReturnValue.m_AtomicData = new std::string(p_ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError));
+			ReturnValue.m_AtomicData = new std::string(MBParsing::ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError));
 		}
 		else
 		{
 			//TODO lägg till support för floats
 			ReturnValue.m_Type = MBDBO_Type::Integer;
-			ReturnValue.m_AtomicData = new intmax_t(p_ParseJSONInteger(ObjectData, ParseOffset, &ParseOffset, &EvaluationError));
+			ReturnValue.m_AtomicData = new intmax_t(MBParsing::ParseJSONInteger(ObjectData, ParseOffset, &ParseOffset, &EvaluationError));
 		}
 		if (OutOffset != nullptr)
 		{
@@ -561,22 +649,29 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
-	MBDB_Object MBDB_Object::p_ParseAggregateObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+
+	MBDB_Object MBDB_Object::p_ParseStaticAtomicObject(std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		return(p_ParseStaticAtomicObject(ObjectData.data(), ObjectData.size(), InOffset, OutOffset, OutError));
+	}
+	MBDB_Object MBDB_Object::p_ParseAggregateObject(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		MBDB_Object ReturnValue;
 		MBError EvaluationError(true);
 		size_t ParseOffset = InOffset;
+		const char* ObjectData = (const char*)Data;
+
 		ReturnValue.m_Type = MBDBO_Type::AggregateObject;
 		if (ObjectData[ParseOffset] == '{')
 		{
 			ParseOffset += 1;
 		}
-		ReturnValue.m_AtomicData = new std::map<std::string, std::unique_ptr<MBDB_Object>>();
-		std::map<std::string, std::unique_ptr<MBDB_Object>>& ReturnValue_Map = *(std::map<std::string, std::unique_ptr<MBDB_Object>>*)ReturnValue.m_AtomicData;
-		while (ParseOffset < ObjectData.size())
+		ReturnValue.m_AtomicData = new MBDB_Object_MapType();
+		MBDB_Object_MapType& ReturnValue_Map = *(MBDB_Object_MapType*)ReturnValue.m_AtomicData;
+		while (ParseOffset < DataSize)
 		{
-			p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-			if (ParseOffset >= ObjectData.size())
+			MBParsing::SkipWhitespace(Data,DataSize, ParseOffset, &ParseOffset);
+			if (ParseOffset >= DataSize)
 			{
 				EvaluationError = false;
 				EvaluationError.ErrorMessage = "Invalid end of object";
@@ -586,23 +681,26 @@ namespace MBDB
 			{
 				break;
 			}
-			std::string NewAttributeTag = p_ExtractTag(ObjectData, ParseOffset, &ParseOffset);
-			p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-			if (ParseOffset >= ObjectData.size())
+			std::string NewAttributeTag = p_ExtractTag(Data,DataSize, ParseOffset, &ParseOffset);
+			MBParsing::SkipWhitespace(Data,DataSize, ParseOffset, &ParseOffset);
+			if (ParseOffset >= DataSize)
 			{
 				EvaluationError = false;
 				EvaluationError.ErrorMessage = "Tag has no attribute value";
 				break;
 			}
-			std::unique_ptr<MBDB_Object> NewObject = std::unique_ptr<MBDB_Object>(new MBDB_Object());
-			*NewObject = p_EvaluateObject(EvaluationInfo, ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
+			MBDB_Object NewObject = p_EvaluateObject(EvaluationInfo, Data,DataSize, ParseOffset, &ParseOffset, &EvaluationError);
 			if (!EvaluationError)
 			{
 				break;
 			}
+			if (!NewObject.IsEvaluated())
+			{
+				ReturnValue.m_FullyEvaluated = false;
+			}
 			ReturnValue_Map[NewAttributeTag] = std::move(NewObject);
-			p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-			if (ParseOffset >= ObjectData.size())
+			MBParsing::SkipWhitespace(Data,DataSize, ParseOffset, &ParseOffset);
+			if (ParseOffset >= DataSize)
 			{
 				EvaluationError = false;
 				EvaluationError.ErrorMessage = "Invalid Delimiter";
@@ -635,6 +733,53 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
+	MBDB_Object MBDB_Object::p_ParseAggregateObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		return(p_ParseAggregateObject(EvaluationInfo, ObjectData.data(), ObjectData.size(), InOffset, OutOffset, OutError));
+	}
+	MBDB_Object MBDB_Object::p_EvaluateObject(MBDBO_EvaluationInfo& EvaluationInfo, const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		MBDB_Object ReturnValue;
+		const char* ObjectData = (const char*)Data;
+
+		if (DataSize == 0)
+		{
+			if (OutError != nullptr)
+			{
+				*OutError = false;
+				OutError->ErrorMessage = "Cant parse empty string as object";
+			}
+			return(ReturnValue);
+		}
+		MBError EvaluationError(true);
+		size_t ParseOffset = InOffset;
+		MBParsing::SkipWhitespace(ObjectData,DataSize, ParseOffset, &ParseOffset);
+		if (ObjectData[ParseOffset] == '{')
+		{
+			ReturnValue = p_ParseAggregateObject(EvaluationInfo, ObjectData,DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+		}
+		else if (ObjectData[ParseOffset] == '[')
+		{
+			ReturnValue = p_ParseArrayObject(EvaluationInfo, ObjectData,DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+		}
+		else if (ObjectData[ParseOffset] == 'D')
+		{
+			ReturnValue = p_ParseDatabaseExpression(EvaluationInfo, ObjectData,DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+		}
+		else
+		{
+			ReturnValue = p_ParseStaticAtomicObject(ObjectData,DataSize, ParseOffset, &ParseOffset, &EvaluationError); //base caset i recursionen
+		}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = ParseOffset;
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = EvaluationError;
+		}
+		return(ReturnValue);
+	}
 	MBDB_Object MBDB_Object::p_EvaluateObject(MBDBO_EvaluationInfo& EvaluationInfo, std::string const& ObjectData, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		MBDB_Object ReturnValue;
@@ -649,7 +794,7 @@ namespace MBDB
 		}
 		MBError EvaluationError(true);
 		size_t ParseOffset = InOffset;
-		p_SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
+		MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
 		if (ObjectData[ParseOffset] == '{')
 		{
 			ReturnValue = p_ParseAggregateObject(EvaluationInfo, ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
@@ -679,12 +824,12 @@ namespace MBDB
 	std::string MBDB_Object::p_AggregateToJSON() const
 	{
 		std::string ReturnValue = "{";
-		std::map<std::string, std::unique_ptr<MBDB_Object>> const& Attributes = *(std::map<std::string, std::unique_ptr<MBDB_Object>>*)m_AtomicData;
+		MBDB_Object_MapType const& Attributes = *(MBDB_Object_MapType*)m_AtomicData;
 		for (auto& Key : Attributes)
 		{
 			ReturnValue += ::ToJason(Key.first);
 			ReturnValue += ":";
-			ReturnValue += Key.second->ToJason();
+			ReturnValue += Key.second.ToJason();
 			ReturnValue += ",";
 		}
 		ReturnValue.resize(ReturnValue.size() - 1);
@@ -694,10 +839,10 @@ namespace MBDB
 	std::string MBDB_Object::p_ArrayToJSON() const
 	{
 		std::string ReturnValue = "[";
-		std::vector<std::unique_ptr<MBDB_Object>> const& Arrays = *(std::vector<std::unique_ptr<MBDB_Object>>*)m_AtomicData;
+		MBDB_Object_ArrayType const& Arrays = *(MBDB_Object_ArrayType*)m_AtomicData;
 		for (size_t i = 0; i < Arrays.size(); i++)
 		{
-			ReturnValue += Arrays[i]->ToJason();
+			ReturnValue += Arrays[i].ToJason();
 			if (i + 1 < Arrays.size())
 			{
 				ReturnValue += ",";
@@ -776,6 +921,81 @@ namespace MBDB
 		EvaluationInfo.ObjectDirectory = MBUnicode::PathToUTF8(std::filesystem::path(ObjectFilepath).parent_path());
 		EvaluationInfo.ObjectDirectory += '/';
 		return(LoadObject(EvaluationInfo,ObjectFilepath));
+	}
+	MBDB_Object MBDB_Object::ParseObject(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		MBDB_Object ReturnValue;
+		MBError EvaluationError(true);
+		size_t ParseOffset = InOffset;
+
+		MBDBO_EvaluationInfo ParseOnlyInfo;
+		ParseOnlyInfo.ParseOnly = true;
+		ReturnValue = p_EvaluateObject(ParseOnlyInfo, Data, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+		if (OutError != nullptr)
+		{
+			*OutError = EvaluationError;
+		}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = ParseOffset;
+		}
+		return(ReturnValue);
+	}
+	MBDB_Object MBDB_Object::ParseObject(std::string const& DataToParse, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		return(ParseObject(DataToParse.data(), DataToParse.size(), InOffset, OutOffset, OutError));
+	}
+	void MBDB_Object::Evaluate(MBDBO_EvaluationInfo& EvaluationInfo,MBError* OutError)
+	{
+		MBError EvaluationError(true);
+		if (m_Type == MBDBO_Type::AggregateObject)
+		{
+			MBDB_Object_MapType& ObjectData = *(MBDB_Object_MapType*)m_AtomicData;
+			for (auto& Object : ObjectData)
+			{
+				if (!Object.second.IsEvaluated())
+				{
+					Object.second.Evaluate(EvaluationInfo,&EvaluationError);
+					if (!EvaluationError)
+					{
+						break;
+					}
+				}
+			}
+		}
+		else if (m_Type == MBDBO_Type::Array)
+		{
+			MBDB_Object_ArrayType& ObjectData = *(MBDB_Object_ArrayType*)m_AtomicData;
+			for (auto& Object : ObjectData)
+			{
+				if (!Object.IsEvaluated())
+				{
+					Object.Evaluate(EvaluationInfo,&EvaluationError);
+					if (!EvaluationError)
+					{
+						break;
+					}
+				}
+			}
+		}
+		else if (m_Type == MBDBO_Type::UnevaluatedDatabaseExpression)
+		{
+			MBDB_Object_UnevaluatedExpressionType& ExpressionToEvaluate = *(MBDB_Object_UnevaluatedExpressionType*)m_AtomicData;
+			MBDBObjectScript_ExecutionContext ExecutionContext;
+			MBDB_Object EvaluatedObject = ExecutionContext.EvaluateStatement(EvaluationInfo, ExpressionToEvaluate, &EvaluationError);
+			if (EvaluationError)
+			{
+				std::swap(*this, EvaluatedObject);
+			}
+		}
+		if (EvaluationError)
+		{
+			m_FullyEvaluated = true;
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = std::move(EvaluationError);
+		}
 	}
 	//MBDBObjectScript_ParsingContext::
 	std::string MBDBObjectScript_ParsingContext::p_ParseIdentifier(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
@@ -929,13 +1149,26 @@ namespace MBDB
 					NewStatement.m_Type = MBDBObjectScript_StatementType::FunctionCall;
 					ParsedStatements.push_back(std::move(NewStatement));
 				}
+				else if (DataToParse[ParseOffset] == '{')
+				{
+					//ANTAGANDE om jag någonsin lägger till support för att if statements osv så kommer det skilj sig genom att parsingen av reserved ordet handlar { själv
+					ParseOffset += 1;
+					MBDB_Object UnEvaluatedStatement = MBDB_Object::ParseObject(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+					MBDBObjectScript_UnEvaluatedObjectStatementData* NewStatementData = new MBDBObjectScript_UnEvaluatedObjectStatementData();
+					NewStatementData->UnEvaluatedObject = std::move(UnEvaluatedStatement);
+					MBDBObjectScript_Statement NewStatement;
+					NewStatement.m_Type = MBDBObjectScript_StatementType::UnevaluatedObject;
+					NewStatement.m_StatementData = NewStatementData;
+					ParseOffset += 1;
+					ParsedStatements.push_back(std::move(NewStatement));
+				}
 				else
 				{
 					//ParseOffset += 1;
 					break;
 				}
 			}
-			if (std::find(m_BinaryOperators.begin(), m_BinaryOperators.end(), DataToParse[ParseOffset]) != m_BinaryOperators.end())
+			else if (std::find(m_BinaryOperators.begin(), m_BinaryOperators.end(), DataToParse[ParseOffset]) != m_BinaryOperators.end())
 			{
 				ParsedBinaryOperators.push_back(DataToParse[ParseOffset]);
 				ParseOffset += 1;
@@ -945,37 +1178,50 @@ namespace MBDB
 					EvaluationError.ErrorMessage = "Binary operator without operand";
 					break;
 				}
-			}
-			std::string NextIdentifier = p_ParseIdentifier(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
-			if (!EvaluationError)
-			{
-				break;
-			}
-			if (p_IdentifierIsLiteral(NextIdentifier))
-			{
-				ParsedStatements.push_back(p_GetLiteralStatement(NextIdentifier));
-			}
-			else if (m_Identifiers.find(NextIdentifier) != m_Identifiers.end())
-			{
-				MBDBObjectScript_Identifier const& IdentifierType = m_Identifiers[NextIdentifier];
-				if (IdentifierType.Type == MBDBObjectScript_IdentifierType::Function)
-				{
-					MBDBObjectScript_Statement NewStatement;
-					MBDBObjectScript_FunctionStatementData* NewStatementData = new MBDBObjectScript_FunctionStatementData();
-					NewStatementData->FunctionIdentifier = NextIdentifier;
-					NewStatementData->FunctionArguments = p_ParseFunctionArguments(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
-					NewStatement.m_StatementData = NewStatementData;
-					NewStatement.m_Type = MBDBObjectScript_StatementType::FunctionCall;
-					ParsedStatements.push_back(std::move(NewStatement));
-				}
+				continue;
 			}
 			else
 			{
-				EvaluationError = false;
-				EvaluationError.ErrorMessage = "Identifier Unknown";
-				break;
+				std::string NextIdentifier = p_ParseIdentifier(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+				if (!EvaluationError)
+				{
+					break;
+				}
+				if (p_IdentifierIsLiteral(NextIdentifier))
+				{
+					ParsedStatements.push_back(p_GetLiteralStatement(NextIdentifier));
+				}
+				else if (m_Identifiers.find(NextIdentifier) != m_Identifiers.end())
+				{
+					MBDBObjectScript_Identifier const& IdentifierType = m_Identifiers[NextIdentifier];
+					if (IdentifierType.Type == MBDBObjectScript_IdentifierType::Function)
+					{
+						MBDBObjectScript_Statement NewStatement;
+						MBDBObjectScript_FunctionStatementData* NewStatementData = new MBDBObjectScript_FunctionStatementData();
+						NewStatementData->FunctionIdentifier = NextIdentifier;
+						NewStatementData->FunctionArguments = p_ParseFunctionArguments(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
+						NewStatement.m_StatementData = NewStatementData;
+						NewStatement.m_Type = MBDBObjectScript_StatementType::FunctionCall;
+						ParsedStatements.push_back(std::move(NewStatement));
+					}
+				}
+				else
+				{
+					EvaluationError = false;
+					EvaluationError.ErrorMessage = "Identifier Unknown";
+					break;
+				}
 			}
-			if (ParsedBinaryOperators.size() > 0 && ParsedStatements.size() > 0)
+			bool ShouldCombineOperators = ParsedBinaryOperators.size() > 0 && ParsedStatements.size() > 0;
+			MBParsing::SkipWhitespace(DataToParse, DataSize, ParseOffset, &ParseOffset);
+			if(ParseOffset < DataSize)
+			{
+				if (DataToParse[ParseOffset] == '[')
+				{
+					ShouldCombineOperators = false;
+				}
+			}
+			if (ShouldCombineOperators)
 			{
 				std::string Operand = std::string(1,ParsedBinaryOperators.back());
 				ParsedBinaryOperators.pop_back();
@@ -1027,7 +1273,7 @@ namespace MBDB
 		while (ParseOffset < DataSize)
 		{
 			MBParsing::SkipWhitespace(DataToParse, ParseOffset, &ParseOffset);
-			if (DataToParse[ParseOffset] == ')')
+			if (DataToParse[ParseOffset] == ')' || DataToParse[ParseOffset] == ']')
 			{
 				ParseOffset += 1;
 				break;
@@ -1102,6 +1348,11 @@ namespace MBDB
 		{
 			return;
 		}
+		else if (m_Type == MBDBObjectScript_StatementType::UnevaluatedObject)
+		{
+			delete((MBDBObjectScript_UnEvaluatedObjectStatementData*)m_StatementData);
+			return;
+		}
 		assert(false);
 	}
 	void* MBDBObjectScript_Statement::p_CopyData() const
@@ -1131,6 +1382,13 @@ namespace MBDB
 			MBDBObjectScript_ObjectFieldStatementData& ObjectData = *(MBDBObjectScript_ObjectFieldStatementData*)m_StatementData;
 			*NewStatementData = ObjectData;
 			ReturnValue = NewStatementData;
+		}
+		else if (m_Type == MBDBObjectScript_StatementType::UnevaluatedObject)
+		{
+			MBDBObjectScript_UnEvaluatedObjectStatementData* NewStatementData = new MBDBObjectScript_UnEvaluatedObjectStatementData();
+			NewStatementData->UnEvaluatedObject = (*(MBDBObjectScript_UnEvaluatedObjectStatementData*)m_StatementData).UnEvaluatedObject;
+			ReturnValue = NewStatementData;
+
 		}
 		return(ReturnValue);
 	}
@@ -1198,15 +1456,99 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
+	MBDB_Object MBDBObjectScript_ExecutionContext::p_EvaluateArrayIndexing(MBDBO_EvaluationInfo& EvaluationInfo, MBDB_Object const& CallingObject, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError)
+	{
+		MBError EvaluationError = true;
+		MBDB_Object ReturnValue;
+		if (Arguments.size() >= 2)
+		{
+			std::vector<MBDB_Object> const& ArrayToIndex = CallingObject.GetArrayData();
+			std::vector<MBDB_Object> ResultVector = {};
+			for (size_t i = 1; i < Arguments.size(); i++)
+			{
+				MBDB_Object Index = EvaluateStatement(EvaluationInfo, Arguments[i], &EvaluationError);
+				if (EvaluationError)
+				{
+					if (Index.GetType() == MBDBO_Type::Integer)
+					{
+						size_t IndexToUse = Index.GetIntegerData();
+						if (IndexToUse < 0)
+						{
+							IndexToUse = ArrayToIndex.size() + IndexToUse;
+						}
+						if (IndexToUse < 0 || IndexToUse >= ArrayToIndex.size())
+						{
+							EvaluationError = false;
+							EvaluationError.ErrorMessage = "Error evaluating function: operator [] called on array of size " + std::to_string(ArrayToIndex.size()) + " with index " + std::to_string(IndexToUse);
+							break;
+						}
+						else
+						{
+							ResultVector.push_back(CallingObject.GetArrayData()[IndexToUse]);
+						}
+					}
+					else
+					{
+						EvaluationError = false;
+						EvaluationError.ErrorMessage = "Error evaluating funtion call: operator [] called on array with invalid index type";
+					}
+				}
+				else
+				{
+					break;
+				}
+			}
+			if (EvaluationError)
+			{
+				if (ResultVector.size() == 1)
+				{
+					ReturnValue = std::move(ResultVector[0]);
+				}
+				else
+				{
+					ReturnValue = MBDB_Object(std::move(ResultVector));
+				}
+			}
+		}
+		else
+		{
+			EvaluationError = false;
+			EvaluationError.ErrorMessage = "Error evaluating function call: [] operator called on array without index";
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = std::move(EvaluationError);
+		}
+		return(ReturnValue);
+	}
 	MBDB_Object MBDBObjectScript_ExecutionContext::p_EvaluateObjectFunction(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError)
 	{
 		MBError EvaluationError = true;
 		MBDB_Object ReturnValue;
-
-
+		if (Arguments.size() == 0)
+		{
+			EvaluationError = false;
+			EvaluationError.ErrorMessage = "Error evaluating function call: operator [] without associated object";
+		}
+		else
+		{
+			MBDB_Object CallingObject = EvaluateStatement(EvaluationInfo, Arguments[0],&EvaluationError);
+			if (EvaluationError)
+			{
+				if (CallingObject.GetType() == MBDBO_Type::Array)
+				{
+					ReturnValue = p_EvaluateArrayIndexing(EvaluationInfo,CallingObject, Arguments, &EvaluationError);
+				}
+				else
+				{
+					EvaluationError = false;
+					EvaluationError.ErrorMessage = "Error evaluating function call: operator [] used on invalid type";
+				}
+			}
+		}
 		if (OutError != nullptr)
 		{
-			*OutError = EvaluationError;
+			*OutError = std::move(EvaluationError);
 		}
 		return(ReturnValue);
 	}
@@ -1247,7 +1589,181 @@ namespace MBDB
 		}
 		else if (AddType == MBDBO_Type::Array)
 		{
-
+			//ANTAGANDE Vi jobbar med pvalues här
+			std::vector<MBDB_Object> NewArray = {};
+			MBDB_Object_ArrayType& LeftArray = LeftOperand.GetArrayData();
+			MBDB_Object_ArrayType& RightArray = RightOperand.GetArrayData();
+			for (size_t i = 0; i < LeftArray.size(); i++)
+			{
+				NewArray.push_back(std::move(LeftArray[i]));
+			}
+			for (size_t i = 0; i < RightArray.size(); i++)
+			{
+				NewArray.push_back(std::move(RightArray[i]));
+			}
+			ReturnValue = MBDB_Object(std::move(NewArray));
+		}
+		return(ReturnValue);
+	}
+	MBDB_Object MBDBObjectScript_ExecutionContext::p_LoadTable(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError)
+	{
+		return(MBDB_Object());
+	}
+	MBDB_Object MBDBObjectScript_ExecutionContext::p_ExecuteQuerry(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError)
+	{
+		//EvaluationInfo.AssociatedDatabase->GetResultIterator();
+		MBDB_Object ReturnValue;
+		MBError EvaluationError(true);
+		if (Arguments.size() != 1)
+		{
+			EvaluationError = false;
+			EvaluationError.ErrorMessage = "Error in evaluating function call: Invalid number of arguments for function \"ExecuteQuerry\"";
+		}
+		else
+		{
+			MBDB_Object QuerryStringObject = EvaluateStatement(EvaluationInfo, Arguments[0], &EvaluationError);
+			if (EvaluationError)
+			{
+				if (QuerryStringObject.GetType() != MBDBO_Type::String)
+				{
+					EvaluationError = false;
+					EvaluationError.ErrorMessage = "Error in evaluationg function call: \"ExecuteQuerry\" Requires string argument";
+				}
+				else
+				{
+					std::vector<MBDB_RowData> QuerryResult = EvaluationInfo.AssociatedDatabase->GetAllRows(QuerryStringObject.GetStringData(), &EvaluationError);
+					if (EvaluationError)
+					{
+						std::vector<MBDB_Object> Result = {};
+						for (size_t i = 0; i < QuerryResult.size(); i++)
+						{
+							size_t NumberOfColumns = QuerryResult[0].GetNumberOfColumns();
+							std::vector<MBDB_Object> CurrentRow = {};
+							for (size_t j = 0; j < NumberOfColumns; j++)
+							{
+								if (QuerryResult[i].ColumnValueIsNull(j))
+								{
+									CurrentRow.push_back(MBDB_Object());
+								}
+								else
+								{
+									MBDB_ColumnValueTypes CurrentType = QuerryResult[i].GetColumnValueType(j);
+									if (CurrentType == MBDB_ColumnValueTypes::Text)
+									{
+										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<std::string>(j)));
+									}
+									else if (CurrentType == MBDB_ColumnValueTypes::Int32)
+									{
+										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<int>(j)));
+									}
+									else if (CurrentType == MBDB_ColumnValueTypes::Int64)
+									{
+										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<long long>(j)));
+									}
+									else
+									{
+										assert(false);
+									}
+								}
+							}
+							Result.push_back(MBDB_Object(std::move(CurrentRow)));
+						}
+						ReturnValue = MBDB_Object(std::move(Result));
+					}
+				}
+			}
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = std::move(EvaluationError);
+		}
+		return(ReturnValue);
+	}
+	MBDB_Object MBDBObjectScript_ExecutionContext::p_GetColumns(MBDBO_EvaluationInfo& EvaluationInfo, std::vector<MBDBObjectScript_Statement> const& Arguments, MBError* OutError)
+	{
+		MBDB_Object ReturnValue;
+		MBError EvaluationError(true);
+		try
+		{
+			if (Arguments.size() < 2)
+			{
+				EvaluationError = false;
+				EvaluationError.ErrorMessage = "Invalind number of arguments for function \"GetColumns\"";
+			}
+			else
+			{
+				MBDB_Object ArrayObject = EvaluateStatement(EvaluationInfo, Arguments[0], &EvaluationError);
+				if (EvaluationError)
+				{
+					if (ArrayObject.GetType() == MBDBO_Type::Array)
+					{
+						std::vector<MBDB_Object>& Array = ArrayObject.GetArrayData();
+						std::vector<MBDB_Object> Result = {};
+						std::vector<size_t> ColumnIndexesToGet = {};
+						for (size_t i = 1; i < Arguments.size(); i++)
+						{
+							MBDB_Object IntegerObject = EvaluateStatement(EvaluationInfo, Arguments[i], &EvaluationError);
+							if (!EvaluationError)
+							{
+								break;
+							}
+							if (IntegerObject.GetType() != MBDBO_Type::Integer)
+							{
+								EvaluationError = false;
+								EvaluationError.ErrorMessage = "Error when evaluating function: GetColumns require integer indexes";
+								break;
+							}
+							if (IntegerObject.GetIntegerData() < 0)
+							{
+								EvaluationError = false;
+								EvaluationError.ErrorMessage = "Error when evaluating function: GetColumns require positive indexes";
+								break;
+							}
+							ColumnIndexesToGet.push_back(IntegerObject.GetIntegerData());
+						}
+						if (EvaluationError)
+						{
+							if (ColumnIndexesToGet.size() == 1)
+							{
+								for (size_t i = 0; i < Array.size(); i++)
+								{
+									Result.push_back(std::move(Array[i].GetArrayData()[ColumnIndexesToGet[0]]));
+								}
+							}
+							else
+							{
+								for (size_t i = 0; i < Array.size(); i++)
+								{
+									std::vector<MBDB_Object> ArrayToAdd = std::vector<MBDB_Object>(ColumnIndexesToGet.size());
+									std::vector<MBDB_Object>& CurrentArray = Array[i].GetArrayData();
+									for (size_t j = 0; j < ColumnIndexesToGet.size(); j++)
+									{
+										ArrayToAdd[j] = std::move(CurrentArray[ColumnIndexesToGet[j]]);
+									}
+									Result.push_back(MBDB_Object(std::move(ArrayToAdd)));
+								}
+							}
+							ReturnValue = MBDB_Object(std::move(Result));
+						}
+					}
+					else
+					{
+						EvaluationError = false;
+						EvaluationError.ErrorMessage = "Error when evaluating function: GetColumns require array as first argument";
+					}
+				}
+				std::vector<MBDB_Object> Result;
+			}
+		}
+		catch (const std::exception&)
+		{
+			ReturnValue = MBDB_Object();
+			EvaluationError = false;
+			EvaluationError.ErrorMessage = "Invalid indexes for arrays in GetColumns";
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = std::move(EvaluationError);
 		}
 		return(ReturnValue);
 	}
@@ -1293,6 +1809,16 @@ namespace MBDB
 						ReturnValue = std::move(ObjectWithField.GetAttribute(FieldStatementData.FieldIdentifier));
 					}
 				}
+			}
+		}
+		else if (StatementToEvaluate.m_Type == MBDBObjectScript_StatementType::UnevaluatedObject)
+		{
+			MBDBObjectScript_UnEvaluatedObjectStatementData const& FieldStatementData = *(MBDBObjectScript_UnEvaluatedObjectStatementData*)StatementToEvaluate.m_StatementData;
+			MBDB_Object NewObject = FieldStatementData.UnEvaluatedObject;
+			NewObject.Evaluate(EvaluationInfo, &EvaluationError);
+			if (EvaluationError)
+			{
+				ReturnValue = std::move(NewObject);
 			}
 		}
 		if (OutError != nullptr)

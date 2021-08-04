@@ -44,9 +44,10 @@ int main()
 	TestObject.LoadObject("TestOutputMBDBO", "Guest", nullptr);
 	std::cout << TestObject.ToJason() << std::endl;
 	std::cout << (TestObject.ToJason() == ObjectJSON) << std::endl;
-
+	
 	MBDB::MBDB_Object TestObjectScript;
-	TestObjectScript.LoadObject("TestMBDBO_ObjectScript.mbdbo", "Guest", nullptr);
+	MBDB::MrBoboDatabase TestDatabase("TestDatabas", 0);
+	TestObjectScript.LoadObject("TestMBDBO_ObjectScript.mbdbo", "Guest", &TestDatabase);
 	std::cout << TestObjectScript.ToJason() << std::endl;
 	exit(0);
 	//std::ofstream SparseFileTest("SparseFileTest",std::ios::out|std::ios::binary);

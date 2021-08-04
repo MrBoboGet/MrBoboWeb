@@ -95,6 +95,7 @@ namespace MBDB
 		}
 		MBDB_ColumnValueTypes GetColumnValueType(int ColumnIndex);
 		bool ColumnValueIsNull(int ColumnIndex);
+		size_t GetNumberOfColumns() { return(RawColumnData.size()); }
 	};
 	void swap(MBDB::MBDB_RowData& Row1, MBDB::MBDB_RowData& Row2);
 
@@ -165,7 +166,7 @@ namespace MBDB
 	public:
 		MrBoboDatabase(std::string const& DatabaseFile,unsigned int Options);
 		std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn = nullptr);
-		std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MrBoboDatabase* StructPointer,MBError* ErrorToReturn = nullptr);
+		//std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MrBoboDatabase* StructPointer,MBError* ErrorToReturn = nullptr);
 		std::vector<MBDB_RowData> GetAllRows(SQLStatement*,MBError* ErrorToReturn = nullptr);
 		std::vector<std::string> GetAllTableNames();
 		std::vector<ColumnInfo> GetColumnInfo(std::string const& TableName);
