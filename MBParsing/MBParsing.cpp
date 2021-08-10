@@ -1,4 +1,6 @@
 #include "MBParsing.h"
+#include <cstring>
+#include <algorithm>
 namespace MBParsing
 {
 	void SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset)
@@ -49,7 +51,7 @@ namespace MBParsing
 		while (ParseOffset < DataSize)
 		{
 			size_t PreviousParseOffset = ParseOffset;
-			ParseOffset = std::find(ObjectData+ParseOffset,ObjectData+DataSize,'\"')-DataToParse;
+			ParseOffset = std::find(ObjectData+ParseOffset,ObjectData+DataSize,'\"')-ObjectData;
 			if (ParseOffset >= DataSize)
 			{
 				ParseError = false;
@@ -70,7 +72,7 @@ namespace MBParsing
 					break;
 				}
 			}
-			if (NumberOfBackslashes & 1 != 0)
+			if ((NumberOfBackslashes & 1) != 0)
 			{
 				ParseOffset += 1;
 				continue;
