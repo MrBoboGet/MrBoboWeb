@@ -1,6 +1,9 @@
 #pragma once
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <MBParsing/MBParsing.h>
+#include <MBSearchEngine/MBUnicode.h>
 namespace MBMIME
 {
 	enum class MIMEType
@@ -71,5 +74,26 @@ namespace MBMIME
 	public:
 		MIMETypeTuple GetTupleFromExtension(std::string const& Extension);
 		MIMETypeTuple GetTupleFromDocumentType(MIMEType DocumentType);
+	};
+	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(const void* Data,size_t DataSize, size_t ParseOffset,size_t* OutOffset = nullptr);
+	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(std::string const& DataToParse, size_t* ParseOffset);
+
+	class MIMEMultipartDocumentExtractor
+	{
+	private:
+		const void* m_DocumentData = nullptr;
+		size_t m_DataSize = 0;
+		size_t m_ParseOffset = 0;
+
+		std::string m_LastBodyDataEnd = "";
+		std::string m_ContentBoundary = "";
+		bool m_Finished = false;
+		bool m_PartDataIsAvailable = false;
+	public:
+		MIMEMultipartDocumentExtractor(const void* Data,size_t DataSize, size_t ParseOffset);
+		std::unordered_map<std::string,std::string> ExtractHeaders();
+		std::string ExtractPartData(size_t MaxNumberOfBytes = -1);
+		bool PartDataIsAvailable();
+		bool Finished();
 	};
 };

@@ -1,0 +1,27 @@
+<HTML>
+    <head>
+        #{include(GeneralMetaTags)}
+        <link rel="stylesheet" href="/WebsidanStil.css">
+    </head>
+    <BODY>
+        #{include(TopMenu.html)}
+        <h1>
+            ${UploadMessage}
+        </h1>
+        <h1>
+            OperationBlipp
+        </h1>
+        <form id="BlippUpdate" method="post" enctype ="multipart/form-data" class="center">
+            <input type="file" id="FileToUpload" name="filename">
+            <br>
+            <input type="date" id ="UploadedDate" name="Date">
+            <br>
+            <input type="submit">
+        </form>
+        <div class = "CenterChildren">
+            <a href="/operationblipp/latest" class="center">Latest version</a>
+        </div>
+        <script src=DBLibrary.js></script>
+        <script src=operationblipp.js></script>
+        </BODY>
+</HTML>

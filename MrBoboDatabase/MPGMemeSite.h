@@ -42,4 +42,7 @@ MBSockets::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestDat
 bool DBLogin_Predicate(std::string const& RequestData);
 MBSockets::HTTPDocument DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection);
 
+bool DBOperationBlipp_Predicate(std::string const& RequestData);
+MBSockets::HTTPDocument DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection);
+
 int MBGWebsiteMain();

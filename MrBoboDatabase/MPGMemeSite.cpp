@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <MBSearchEngine/MBUnicode.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
+#include <MBMime/MBMime.h>
 //username cookie = 
 //password cookie = 
 enum class DBPermissions
@@ -94,6 +95,7 @@ int MBGWebsiteMain()
 	TestServer.AddRequestHandler({ DBAdd_Predicate,DBAdd_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBGeneralAPI_Predicate,DBGeneralAPI_ResponseGenerator });
 	TestServer.AddRequestHandler({ DBUpdate_Predicate,DBUpdate_ResponseGenerator });
+	TestServer.AddRequestHandler({ DBOperationBlipp_Predicate,DBOperatinBlipp_ResponseGenerator });
 	TestServer.StartListening();
 	return(0);
 }
@@ -1251,5 +1253,103 @@ MBSockets::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestDat
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
 	std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
 	ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBUpdate.html", ResourcePath);
+	return(ReturnValue);
+}
+bool DBOperationBlipp_Predicate(std::string const& RequestData)
+{
+	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	if (Directorys.size() >= 1)
+	{
+		if (Directorys[0] == "operationblipp")
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+{
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+	std::string RequestType = MBSockets::GetRequestType(RequestData);
+	std::string MBDBResources = MBDBGetResourceFolderPath();
+	std::string HTMLFolder = AssociatedServer->GetResourcePath("mrboboget.se");
+	std::string DefaultPage = HTMLFolder + "/operationblipp.html";
+	std::vector<std::string> PathComponents = MBUtility::Split(MBSockets::GetReqestResource(RequestData),"/");
+	if (RequestType == "GET")
+	{
+		if (PathComponents.size() == 1)
+		{
+			std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
+			std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage",""} };
+			ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
+			ReturnValue.DocumentData = ResourceData;
+			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+		}
+		else
+		{
+			if (PathComponents[1] == "archives")
+			{
+				std::string TableData = "";
+				std::unordered_map<std::string, std::string> VariableMap = {};
+
+			}
+			else if (PathComponents[1] == "latest")
+			{
+				ReturnValue = AssociatedServer->GetResource(MBDBResources + "/operationblipp/archives/latest");
+			}
+		}
+	}
+	if (RequestType == "POST")
+	{
+		try
+		{
+			size_t HeaderStart = RequestData.find("\r\n") + 2;
+			MBMIME::MIMEMultipartDocumentExtractor MimeExtractor(RequestData.data(), RequestData.size(), HeaderStart);
+			MimeExtractor.ExtractHeaders();
+			MimeExtractor.ExtractHeaders();
+			//vi vill bara parsa ett visst antal stycken, om dem inte är rätt så bara avbryter vi
+			bool ErrorWithParsing = false;
+			std::string FileData = MimeExtractor.ExtractPartData();
+			MimeExtractor.ExtractHeaders();
+			std::string DateString = MimeExtractor.ExtractPartData();
+			if (!ErrorWithParsing)
+			{
+				std::ofstream LatestFile = std::ofstream(MBDBResources + "/operationblipp/archives/latest", std::ios::out | std::ios::binary);
+				LatestFile << FileData;
+				LatestFile.flush();
+				LatestFile.close();
+				std::string ArchiveFilepath = MBDBResources + "/operationblipp/archives/"+DateString+"_";
+				size_t NumberOfFilesSameDay = 0;
+				while (std::filesystem::exists(ArchiveFilepath + std::to_string(NumberOfFilesSameDay)))
+				{
+					NumberOfFilesSameDay += 1;
+				}
+				ArchiveFilepath += std::to_string(NumberOfFilesSameDay);
+				std::ofstream ArchiveFile = std::ofstream(ArchiveFilepath, std::ios::out | std::ios::binary);
+				ArchiveFile << FileData;
+				ArchiveFile.flush();
+				ArchiveFile.close();
+				std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
+				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Succesfully uploaded file"} };
+				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
+				ReturnValue.DocumentData = ResourceData;
+				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			}
+			else
+			{
+				std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
+				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error uploading file"} };
+				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
+				ReturnValue.DocumentData = ResourceData;
+				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			}
+		}
+		catch (const std::exception&)
+		{
+			ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::Conflict;
+		}
+	}
 	return(ReturnValue);
 }

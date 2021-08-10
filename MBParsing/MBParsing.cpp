@@ -172,4 +172,29 @@ namespace MBParsing
 	{
 		return(GetNextDelimiterPosition(Delimiters, DataToParse.data(), DataToParse.size(), InOffset, OutError));
 	}
+	size_t FindSubstring(const void* Data, size_t DataSize, const void* Data2, size_t Data2Size, size_t InOffset)
+	{
+		size_t ReturnValue = -1;
+		const char* StringToSearch = (char*)Data;
+		const char* SubstringToFind = (char*)Data2;
+		size_t ParseOffset = InOffset;
+		if (Data2Size == 0)
+		{
+			return(-1);
+		}
+		while (ParseOffset <DataSize && (ParseOffset+Data2Size <= DataSize)) 
+		{
+			if (std::memcmp(StringToSearch+ParseOffset, SubstringToFind, Data2Size) == 0)
+			{
+				ReturnValue = ParseOffset;
+				break;
+			}
+			ParseOffset += 1;
+		}
+		return(ReturnValue);
+	}
+	size_t FindSubstring(std::string const& StringToSearch, std::string const& Substring, size_t ParseOffset)
+	{
+		return(FindSubstring(StringToSearch.data(), StringToSearch.size(), Substring.data(), Substring.size(), ParseOffset));
+	}
 };

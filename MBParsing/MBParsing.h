@@ -9,6 +9,9 @@ namespace MBParsing
 		MBError ParseError = MBError(true);
 	};
 
+	size_t FindSubstring(const void* Data, size_t DataSize, const void* Data2, size_t Data2Size,size_t ParseOffset);
+	size_t FindSubstring(std::string const& StringToSearch, std::string const& Substring, size_t ParseOffset);
+
 	void SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset);
 	void SkipWhitespace(const void* DataToParse, size_t DataLength, size_t InOffset, size_t* OutOffset);
 	std::string ParseQuotedString(void const* DataToParse,size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
