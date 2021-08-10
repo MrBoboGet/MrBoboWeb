@@ -282,7 +282,7 @@ namespace MBTorrent
 	void MBBitTorrentPeerConnection::p_SendPieceDataRequests()
 	{
 		size_t MaxSimultaneousRequests = 10;
-		size_t MaxRequestBytes = 1 << 14;
+		uintmax_t MaxRequestBytes = 1 << 14;
 		std::string ConcattenatedMessageData = "";
 		size_t NumberOfRequests = 0;
 		size_t CurrentPieceRequestedData = 0;
@@ -801,7 +801,7 @@ namespace MBTorrent
 				}
 			}
 			InfoToAdd.SaveOffset = TotalCurrentOffset;
-			size_t NumberOfBytesToWrite = std::min(PieceData.size() - PieceDataOffset, CurrentFile.FileSize - TotalCurrentOffset);
+			size_t NumberOfBytesToWrite = std::min((size_t)PieceData.size() - PieceDataOffset,(size_t) CurrentFile.FileSize - TotalCurrentOffset);
 			InfoToAdd.NumberOfBytesToSave = NumberOfBytesToWrite;
 			PieceDataOffset += NumberOfBytesToWrite;
 		}

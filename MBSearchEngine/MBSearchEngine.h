@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <array>
 #include <map>
+#include <cstring>
 
 #include <MBSearchEngine/BooleanParse.h>
 #include <MrPostOGet/MBHTMLParser.h>

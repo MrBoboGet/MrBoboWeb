@@ -1,4 +1,7 @@
 #include "MBMime.h"
+#include <cstring>
+#include <algorithm>
+
 namespace MBMIME
 {
 	MIMETypeTuple MIMETypeConnector::GetTupleFromExtension(std::string const& Extension)
@@ -34,7 +37,7 @@ namespace MBMIME
 		size_t ParseOffset = InOffset;
 		while(ParseOffset < DataSize)
 		{
-			if (memcmp(DataToParse + ParseOffset, "\r\n", 2) == 0)
+			if (std::memcmp(DataToParse + ParseOffset, "\r\n", 2) == 0)
 			{
 				ParseOffset += 2;
 				break;

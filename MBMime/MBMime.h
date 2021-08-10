@@ -76,7 +76,7 @@ namespace MBMIME
 		MIMETypeTuple GetTupleFromDocumentType(MIMEType DocumentType);
 	};
 	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(const void* Data,size_t DataSize, size_t ParseOffset,size_t* OutOffset = nullptr);
-	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(std::string const& DataToParse, size_t* ParseOffset);
+	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(std::string const& DataToParse,size_t InOffset, size_t* ParseOffset);
 
 	class MIMEMultipartDocumentExtractor
 	{
