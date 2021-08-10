@@ -207,7 +207,7 @@ set(ALL_FILES
 
 #MBSE grejer
 set (MB_STANDARD_LIBRARY_DIR
-    "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
 )
 
 set (MBSE_HEADERS
@@ -232,12 +232,22 @@ set (MBSE_ALL_FILES
    ${MBSE_HEADERS}
    ${MBSE_SOURCES}
 )
+if(UNIX)
+set (MBSE_ADDITIONAL_LIBRARIES
+    "stdc++fs"
+)
+else()
+set (MBSE_ADDITIONAL_LIBRARIES
+    ""
+)
+endif()
 add_executable("mbse" ${MBSE_ALL_FILES})
 target_compile_features("mbse" PRIVATE cxx_std_17)
 target_include_directories("mbse" PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/.;"
     "${MB_STANDARD_LIBRARY_DIR}"
 )
+target_link_libraries("mbse" PRIVATE "${MBSE_ADDITIONAL_LIBRARIES}")
 
 #hokus pokus
 
@@ -455,7 +465,7 @@ set (FFMPEG_LIBS
 
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES 
-        "stdc++fs";
+        "stdc++fs"
         "${EXTLIBS_DIR}/SQLite/sqlite3.a"
         "${EXTLIBS_DIR}/cryptopp/libcryptopp.a"
         "dl"

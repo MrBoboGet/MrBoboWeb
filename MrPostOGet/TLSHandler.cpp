@@ -2107,7 +2107,7 @@ std::string TLSHandler::p_DecryptRecord(std::string const& Data)
 void TLSHandler::SendDataAsRecord(const void* Data, size_t SizeOfData, MBSockets::ConnectSocket* AssociatedSocket)
 {
 	std::vector<std::string> RecordsData = std::vector<std::string>(0);
-	uint64_t Offset = 0;
+	size_t Offset = 0;
 	size_t MacLengthOfRecord = 16384;
 	while (Offset < SizeOfData)
 	{
