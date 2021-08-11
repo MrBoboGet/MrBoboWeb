@@ -4,6 +4,7 @@
 #include <MBSearchEngine/MBUnicode.h>
 #include <MBParsing/MBParsing.h>
 #include <deque>
+#include <algorithm>
 namespace MBDB
 {
 	MBDB_Object::MBDB_Object(MBDB_Object const& ObjectToCopy)
