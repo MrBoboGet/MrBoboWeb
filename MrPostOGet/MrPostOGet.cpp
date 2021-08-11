@@ -5,7 +5,32 @@
 #include <MBMime/MBMime.h>
 namespace MrPostOGet
 {
-
+	std::vector<Cookie> GetCookiesFromRequest(HTTPClientRequest const& RequestData)
+	{
+		std::vector<Cookie> ReturnValue = {};
+		std::vector<std::string> Cookies = MBUtility::Split(RequestData.Headers.at("cookie"),"; ");
+		for (size_t i = 0; i < Cookies.size(); i++)
+		{
+			size_t FirstEqualSignPos = Cookies[i].find_first_of("=");
+			std::string CookieName = Cookies[i].substr(0, FirstEqualSignPos);
+			std::string CookieValue = Cookies[i].substr(FirstEqualSignPos + 1);
+			ReturnValue.push_back({ CookieName, CookieValue });
+		}
+		return(ReturnValue);
+	}
+	std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData)
+	{
+		std::vector<Cookie> ReturnValue = {};
+		std::vector<std::string> Cookies = MBUtility::Split(MBSockets::GetHeaderValue("Cookie", RequestData), "; ");
+		for (size_t i = 0; i < Cookies.size(); i++)
+		{
+			size_t FirstEqualSignPos = Cookies[i].find_first_of("=");
+			std::string CookieName = Cookies[i].substr(0, FirstEqualSignPos);
+			std::string CookieValue = Cookies[i].substr(FirstEqualSignPos + 1);
+			ReturnValue.push_back({ CookieName, CookieValue });
+		}
+		return(ReturnValue);
+	}
 	MBSockets::HTTPDocumentType MimeSniffDocument(std::string const& FilePath)
 	{
 		std::fstream DocumentToSniff = std::fstream(FilePath);
@@ -215,10 +240,13 @@ namespace MrPostOGet
 	}
 	void HTTPServer::m_HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient)
 	{
-		MBError ConnectError = ConnectedClient->EstablishTLSConnection();
-		if (!ConnectError)
+		if (m_UseSecureConnection.load())
 		{
-			std::cout << ConnectError.ErrorMessage << std::endl;
+			MBError ConnectError = ConnectedClient->EstablishTLSConnection();
+			if (!ConnectError)
+			{
+				std::cout << ConnectError.ErrorMessage << std::endl;
+			}
 		}
 		std::string RequestData;
 		HTTPClientConnectionState ConnectionState;
@@ -331,7 +359,7 @@ namespace MrPostOGet
 	{
 		ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo));
 		Port = PortToListenTo;
-		ContentPath = PathToResources;
+		m_DefaultResourcePath = PathToResources;
 	}
 	std::string HTTPServer::GenerateResponse(MBSockets::HTTPDocument const& Document)
 	{
@@ -339,7 +367,31 @@ namespace MrPostOGet
 	}
 	std::string HTTPServer::GetResourcePath(std::string const& DomainName)
 	{
-		return(ContentPath);
+		std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+		if (m_DomainResourcePaths.find(DomainName) != m_DomainResourcePaths.end())
+		{
+			return(m_DomainResourcePaths[DomainName]);
+		}
+		return(m_DefaultResourcePath);
+	}
+	void HTTPServer::LoadDomainResourcePaths(std::string const& ConfigFile)
+	{
+		std::string ConfigData = LoadWholeFile(ConfigFile);
+		size_t ParseOffset = 0;
+		std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+		while (ParseOffset < ConfigData.size())
+		{
+			size_t NextEqualSign = ConfigData.find('=', ParseOffset);
+			std::string NewDomain = ConfigData.substr(ParseOffset, NextEqualSign - ParseOffset);
+			size_t LineEnd = std::min(ConfigData.find('\n', ParseOffset),ConfigData.size());
+			std::string NewPath = ConfigData.substr(NextEqualSign + 1, LineEnd - NextEqualSign - 1);
+			if (NewPath.back() == '\r')
+			{
+				NewPath.resize(NewPath.size() - 1);
+			}
+			m_DomainResourcePaths[NewDomain] = NewPath;
+			ParseOffset = LineEnd + 1;
+		}
 	}
 	std::string HTTPServer::LoadWholeFile(std::string const& FilePath)
 	{
@@ -351,6 +403,10 @@ namespace MrPostOGet
 		size_t ReadCharacters = t.gcount();
 		std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
 		return(FileData);
+	}
+	void HTTPServer::UseTLS(bool ShouldUse)
+	{
+		m_UseSecureConnection.store(ShouldUse);
 	}
 	//std::string HTTPServer::LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges)
 	//{

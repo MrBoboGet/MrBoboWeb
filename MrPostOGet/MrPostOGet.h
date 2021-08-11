@@ -65,15 +65,25 @@ namespace MrPostOGet
 		bool HandlesRequest(HTTPClientRequest const& RequestToHandle, HTTPClientConnectionState const& ConnectionState, HTTPServer* AssociatedServer) override;
 		MBSockets::HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, HTTPServer*) override;
 	};
-
+	struct Cookie
+	{
+		std::string Name = "";
+		std::string Value = "";
+	};
+	std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData);
+	//std::vector<Cookie> GetCookiesFromRequest(HTTPClientRequest const& RequestData);
 	class HTTPServer
 	{
 	private:
-		std::string ContentPath = "";
 		uint16_t Port = -1;
 		size_t MaxDocumentInMemorySize = 100000;
 		MBSockets::HTTPServerSocket* ServerSocketen;
 		
+		std::string m_DefaultResourcePath = "";
+		std::unordered_map<std::string, std::string> m_DomainResourcePaths = {};
+
+		std::atomic<bool> m_UseSecureConnection{ true };
+
 		std::mutex m_InternalsMutex;
 		std::vector<std::unique_ptr<HTTPRequestHandler>> m_RequestHandlers = std::vector<std::unique_ptr<HTTPRequestHandler>>(0);
 
@@ -85,8 +95,10 @@ namespace MrPostOGet
 	public:
 		HTTPServer(std::string PathToResources, int PortToListenTo);
 		std::string GenerateResponse(MBSockets::HTTPDocument const& Document);
+		void LoadDomainResourcePaths(std::string const& ConfigFile);
 		std::string GetResourcePath(std::string const& DomainName);
 		std::string LoadWholeFile(std::string const& FilePath);
+		void UseTLS(bool ShouldUse);
 		//std::string LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges);
 		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges = {});
 		void AddRequestHandler(RequestHandler HandlerToAdd);

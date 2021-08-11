@@ -21,26 +21,9 @@ enum class DBPermissions
 //bool m_IsAtomic = false;
 //std::string m_AtomicValue = "";
 
-std::mutex DatabaseMutex;
-//MBDB::MrBoboDatabase DBSite_Database("./TestDatabas",0);
-MBDB::MrBoboDatabase* WebsiteDatabase = nullptr;
-std::mutex WritableDatabaseMutex;
-MBDB::MrBoboDatabase* WritableDatabase = nullptr;
-std::mutex LoginDatabaseMutex;
-MBDB::MrBoboDatabase* LoginDatabase = nullptr;
-std::mutex DBIndexMapMutex;
-std::unordered_map<std::string, MBSearchEngine::MBIndex>* __DBIndexMap = nullptr;
-
-std::mutex __MBTopResourceFolderMutex;
-std::string __MBTopResourceFolder = "./";
-std::string MBDBGetResourceFolderPath()
+//BEGIN MBDB_Website
+void MBDB_Website::m_InitDatabase()
 {
-	std::lock_guard<std::mutex> Lock(__MBTopResourceFolderMutex);
-	return(__MBTopResourceFolder + "/MBDBResources/");
-}
-void InitDatabase()
-{
-	//utgår från den foldern som programmet körs i
 	std::fstream MBDBConfigFile("./MBDBConfigFile");
 	std::string CurrentFileLine = "";
 	std::string ResourceFolderConfig = "MBDBTopFolder=";
@@ -55,21 +38,22 @@ void InitDatabase()
 		}
 	}
 	std::cout << __MBTopResourceFolder << std::endl;
-	if (WebsiteDatabase == nullptr)
+	if (m_ReadonlyDatabase == nullptr)
 	{
-		WebsiteDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/TestDatabas", 0);
+		m_ReadonlyDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/TestDatabas", 0);
 	}
 	if (WritableDatabase == nullptr)
 	{
-		WritableDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/TestDatabas", 1);
+		WritableDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/TestDatabas", 1);
 	}
-	if (LoginDatabase == nullptr)
+	if (m_LoginDatabase == nullptr)
 	{
-		LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder+"/MBGLoginDatabase", 0);
+		m_LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/MBGLoginDatabase", 0);
 	}
 	//läser in mbdb config filen och initaliserar directoryn med rätt
 	__DBIndexMap = new std::unordered_map<std::string, MBSearchEngine::MBIndex>();
-	std::filesystem::directory_iterator IndexIterator(MBDBGetResourceFolderPath() + "Indexes");
+	m_MBDBResourceFolder = __MBTopResourceFolder + "/MBDBResources/";
+	std::filesystem::directory_iterator IndexIterator(GetResourceFolderPath() + "Indexes");
 	for (auto& DirectoryEntry : IndexIterator)
 	{
 		if (DirectoryEntry.is_regular_file())
@@ -78,64 +62,100 @@ void InitDatabase()
 		}
 	}
 }
+MBDB_Website::~MBDB_Website()
+{
+	delete m_ReadonlyDatabase;
+	delete WritableDatabase;
+	delete m_LoginDatabase;
+	delete __DBIndexMap;
+}
+
+MBDB_Website::MBDB_Website()
+{
+	m_InitDatabase();
+	__LegacyRequestHandlers = {
+		{ &MBDB_Website::DBLogin_Predicate,				&MBDB_Website::DBLogin_ResponseGenerator },
+		{ &MBDB_Website::DBSite_Predicate,				&MBDB_Website::DBSite_ResponseGenerator },
+		{ &MBDB_Website::UploadFile_Predicate,			&MBDB_Website::UploadFile_ResponseGenerator },
+		{ &MBDB_Website::DBGet_Predicate,				&MBDB_Website::DBGet_ResponseGenerator },
+		{ &MBDB_Website::DBView_Predicate,				&MBDB_Website::DBView_ResponseGenerator },
+		{ &MBDB_Website::DBViewEmbedd_Predicate,		&MBDB_Website::DBViewEmbedd_ResponseGenerator },
+		{ &MBDB_Website::DBAdd_Predicate,				&MBDB_Website::DBAdd_ResponseGenerator },
+		{ &MBDB_Website::DBGeneralAPI_Predicate,		&MBDB_Website::DBGeneralAPI_ResponseGenerator },
+		{ &MBDB_Website::DBUpdate_Predicate,			&MBDB_Website::DBUpdate_ResponseGenerator },
+		{ &MBDB_Website::DBOperationBlipp_Predicate,	&MBDB_Website::DBOperatinBlipp_ResponseGenerator } };
+	__NumberOfHandlers.store(__LegacyRequestHandlers.size());
+	__HandlersData.store(__LegacyRequestHandlers.data());
+}
+bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
+{
+	LegacyRequestHandler* HandlersData = __HandlersData.load();
+	for (size_t i = 0; i < __NumberOfHandlers.load(); i++)
+	{
+		if ((this->*(HandlersData[i].Predicate))(RequestToHandle.RawRequestData))
+		{
+			return(true);
+		}
+	}
+	return(false);
+}
+MBSockets::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket* Connection, MrPostOGet::HTTPServer* Server)
+{
+	LegacyRequestHandler* HandlersData = __HandlersData.load();
+	for (size_t i = 0; i < __NumberOfHandlers.load(); i++)
+	{
+		if ((this->*(HandlersData[i].Predicate))(Request.RawRequestData))
+		{
+			return((this->*(HandlersData[i].Generator))(Request.RawRequestData,Server,Connection));
+		}
+	}
+	assert(false);
+}
+
+std::string const& MBDB_Website::GetResourceFolderPath()
+{
+	std::lock_guard<std::mutex> Lock(__MBTopResourceFolderMutex);
+	return(m_MBDBResourceFolder);
+	//return(__MBTopResourceFolder + "/MBDBResources/");
+}
+void InitDatabase()
+{
+	//utgår från den foldern som programmet körs i
+}
 int MBGWebsiteMain()
 {
 #ifndef NDEBUG
 	std::cout << "Is Debug" << std::endl;
 #endif // DEBUG
 	MBSockets::Init();
-	InitDatabase();
+
 	MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
-	TestServer.AddRequestHandler({ DBLogin_Predicate,DBLogin_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBSite_Predicate,DBSite_ResponseGenerator });
-	TestServer.AddRequestHandler({ UploadFile_Predicate,UploadFile_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBGet_Predicate,DBGet_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBView_Predicate,DBView_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBViewEmbedd_Predicate,DBViewEmbedd_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBAdd_Predicate,DBAdd_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBGeneralAPI_Predicate,DBGeneralAPI_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBUpdate_Predicate,DBUpdate_ResponseGenerator });
-	TestServer.AddRequestHandler({ DBOperationBlipp_Predicate,DBOperatinBlipp_ResponseGenerator });
+	//MrPostOGet::HTTPServer TestServer("", 443);
+	TestServer.LoadDomainResourcePaths("MPGDomainResourcePaths.txt");
+	//TestServer.UseTLS(false);
+	TestServer.AddRequestHandler(new MBDB_Website());
 	TestServer.StartListening();
 	return(0);
 }
-struct Cookie
-{
-	std::string Name = "";
-	std::string Value = "";
-};
-std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData)
-{
-	std::vector<Cookie> ReturnValue = {};
-	std::vector<std::string> Cookies = Split(MBSockets::GetHeaderValue("Cookie", RequestData), "; ");
-	for (size_t i = 0; i < Cookies.size(); i++)
-	{
-		size_t FirstEqualSignPos = Cookies[i].find_first_of("=");
-		std::string CookieName = Cookies[i].substr(0, FirstEqualSignPos);
-		std::string CookieValue = Cookies[i].substr(FirstEqualSignPos+1);
-		ReturnValue.push_back({ CookieName, CookieValue });
-	}
-	return(ReturnValue);
-}
-std::vector<MBDB::MBDB_RowData> DB_GetUser(std::string const& UserName, std::string const& PasswordHash)
+std::vector<MBDB::MBDB_RowData> MBDB_Website::m_GetUser(std::string const& UserName, std::string const& PasswordHash)
 {
 	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=? AND PasswordHash=?;";
 	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
 	{
-		std::lock_guard<std::mutex> Lock(LoginDatabaseMutex);
-		MBDB::SQLStatement* NewStatement = LoginDatabase->GetSQLStatement(SQLStatement);
+		std::lock_guard<std::mutex> Lock(m_LoginDatabaseMutex);
+		MBDB::SQLStatement* NewStatement = m_LoginDatabase->GetSQLStatement(SQLStatement);
 		NewStatement->BindString(UserName, 1);
 		NewStatement->BindString(PasswordHash, 2);
-		QuerryResult = LoginDatabase->GetAllRows(NewStatement);
+		QuerryResult = m_LoginDatabase->GetAllRows(NewStatement);
 		NewStatement->FreeData();
-		LoginDatabase->FreeSQLStatement(NewStatement);
+		m_LoginDatabase->FreeSQLStatement(NewStatement);
 	}
 	return(QuerryResult);
 }
-DBPermissionsList GetConnectionPermissions(std::string const& RequestData)
+DBPermissionsList MBDB_Website::m_GetConnectionPermissions(std::string const& RequestData)
 {
 	DBPermissionsList ReturnValue;
-	std::vector<Cookie> Cookies = GetCookiesFromRequest(RequestData);
+	std::vector<MrPostOGet::Cookie> Cookies = MrPostOGet::GetCookiesFromRequest(RequestData);
 	std::string UserName = "";
 	std::string PasswordHash = "";
 	for (size_t i = 0; i < Cookies.size(); i++)
@@ -150,7 +170,7 @@ DBPermissionsList GetConnectionPermissions(std::string const& RequestData)
 		}
 	}
 	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=?;";
-	std::vector<MBDB::MBDB_RowData> QuerryResult = DB_GetUser(UserName, PasswordHash);
+	std::vector<MBDB::MBDB_RowData> QuerryResult = m_GetUser(UserName, PasswordHash);
 	if (QuerryResult.size() != 0)
 	{
 		std::tuple<int, std::string, std::string, int, int, int> UserInfo = QuerryResult[0].GetTuple<int, std::string, std::string, int, int, int>();
@@ -174,10 +194,10 @@ DBPermissionsList GetConnectionPermissions(std::string const& RequestData)
 	}
 	return(ReturnValue);
 }
-std::string DBGetUsername(std::string const& RequestData)
+std::string MBDB_Website::m_GetUsername(std::string const& RequestData)
 {
 	std::string ReturnValue = "";
-	std::vector<Cookie> Cookies = GetCookiesFromRequest(RequestData);
+	std::vector<MrPostOGet::Cookie> Cookies = MrPostOGet::GetCookiesFromRequest(RequestData);
 	for (size_t i = 0; i < Cookies.size(); i++)
 	{
 		if (Cookies[i].Name == "DBUsername")
@@ -188,10 +208,10 @@ std::string DBGetUsername(std::string const& RequestData)
 	}
 	return(ReturnValue);
 }
-std::string DBGetPassword(std::string const& RequestData)
+std::string MBDB_Website::sp_GetPassword(std::string const& RequestData)
 {
 	std::string ReturnValue = "";
-	std::vector<Cookie> Cookies = GetCookiesFromRequest(RequestData);
+	std::vector<MrPostOGet::Cookie> Cookies = MrPostOGet::GetCookiesFromRequest(RequestData);
 	for (size_t i = 0; i < Cookies.size(); i++)
 	{
 		if (Cookies[i].Name == "DBPassword")
@@ -202,7 +222,7 @@ std::string DBGetPassword(std::string const& RequestData)
 	}
 	return(ReturnValue);
 }
-bool p_StringIsPath(std::string const& StringToCheck)
+bool MBDB_Website::p_StringIsPath(std::string const& StringToCheck)
 {
 	bool ReturnValue = true;
 	bool ContainsNewline = StringToCheck.find('\n') != StringToCheck.npos;
@@ -214,7 +234,7 @@ bool p_StringIsPath(std::string const& StringToCheck)
 	}
 	return(ReturnValue);
 }
-bool DBLogin_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBLogin_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -227,17 +247,17 @@ bool DBLogin_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	std::string ServerResources = AssociatedServer->GetResourcePath("mrboboget.se");
 	MBSockets::HTTPDocument ReturnValue;
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
 	std::unordered_map<std::string, std::string> FileVariables = {};
 	
-	std::string RequestUsername = DBGetUsername(RequestData);
-	std::string RequestPassword = DBGetPassword(RequestData); 
+	std::string RequestUsername = m_GetUsername(RequestData);
+	std::string RequestPassword = sp_GetPassword(RequestData); 
 	FileVariables["LoginValue"] = RequestUsername;
-	if (DB_GetUser(RequestUsername,RequestPassword).size() != 0)
+	if (m_GetUser(RequestUsername,RequestPassword).size() != 0)
 	{
 		FileVariables["LoginValue"] = "Currently logged in as: " + FileVariables["LoginValue"];
 	}
@@ -245,7 +265,7 @@ MBSockets::HTTPDocument DBLogin_ResponseGenerator(std::string const& RequestData
 	return(ReturnValue);
 }
 
-bool DBSite_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBSite_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -259,7 +279,7 @@ bool DBSite_Predicate(std::string const& RequestData)
 	return(false);
 }
 
-MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
 	MBSockets::HTTPDocument NewDocument;
@@ -280,7 +300,7 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 	}
 	else
 	{
-		DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
+		DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
 		if (!ConnectionPermissions.Read)
 		{
 			MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: Require permissions to read</p>"} };
@@ -292,8 +312,8 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 			MBError SQLError(true);
 			std::vector<MBDB::MBDB_RowData> SQLResult = {};
 			{
-				std::lock_guard<std::mutex> Lock(DatabaseMutex);
-				SQLResult = WebsiteDatabase->GetAllRows(SQLCommand, &SQLError);
+				std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+				SQLResult = m_ReadonlyDatabase->GetAllRows(SQLCommand, &SQLError);
 				if (!SQLError)
 				{
 					CommandSuccesfull = false;
@@ -312,7 +332,7 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 						std::string ElementData = SQLResult[i].ColumnToString(j);
 						if (p_StringIsPath(ElementData))
 						{
-							ElementData = GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"));
+							ElementData = p_GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"));
 						}
 						NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
 						NewRow.AppendChild(std::move(NewColumn));
@@ -331,7 +351,7 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 	return(NewDocument);
 }
 
-bool UploadFile_Predicate(std::string const& RequestData)
+bool MBDB_Website::UploadFile_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -344,10 +364,10 @@ bool UploadFile_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	//Content-Type: multipart/form-data; boundary=---------------------------226143532618736951363968904467
-	DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
+	DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
 	MBSockets::HTTPDocument NewDocument;
 	NewDocument.Type = MBSockets::HTTPDocumentType::json;
 	std::string Boundary = "";
@@ -380,7 +400,7 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	//hardcodat eftersom vi vet formtatet av formuläret
 	std::vector<std::string> FirstFieldValues = Split(FieldParameters, "; ");
 	std::string FileNameHeader = "filename=\"";
-	std::string FileName =MBDBGetResourceFolderPath()+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
+	std::string FileName =GetResourceFolderPath()+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
 	int FilesWithSameName = 0;
 	while(std::filesystem::exists(FileName))
 	{
@@ -416,7 +436,7 @@ MBSockets::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestD
 	return(NewDocument);
 }
 
-bool DBGet_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBGet_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -429,9 +449,9 @@ bool DBGet_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBGet_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
-	std::string DatabaseResourcePath = MBDBGetResourceFolderPath();
+	std::string DatabaseResourcePath = GetResourceFolderPath();
 	std::string URLResource = MBSockets::GetReqestResource(RequestData);
 	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
 	if (!std::filesystem::exists(DatabaseResourcePath+DatabaseResourceToGet))
@@ -510,7 +530,7 @@ std::string GetEmbeddedPDF(std::string const& ImagePath)
 {
 	return("<iframe src=\"/DB/" + ImagePath + "\" style=\"width: 100%; height: 100%;max-height: 100%; max-width: 100%;\"></iframe>");
 }
-bool DBView_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBView_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -523,7 +543,7 @@ bool DBView_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-std::string GetEmbeddedResource(std::string const& MBDBResource,std::string const& ResourceFolder)
+std::string MBDB_Website::p_GetEmbeddedResource(std::string const& MBDBResource,std::string const& ResourceFolder)
 {
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
@@ -531,7 +551,7 @@ std::string GetEmbeddedResource(std::string const& MBDBResource,std::string cons
 	bool IsMBDBResource = true;
 	if (IsMBDBResource)
 	{
-		if (!std::filesystem::exists(MBDBGetResourceFolderPath() + MBDBResource))
+		if (!std::filesystem::exists(GetResourceFolderPath() + MBDBResource))
 		{
 			return("<p>File does not exist<p>");
 		}
@@ -558,7 +578,7 @@ std::string GetEmbeddedResource(std::string const& MBDBResource,std::string cons
 	}
 	return(ReturnValue);
 }
-MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	MBSockets::HTTPDocument ReturnValue;
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
@@ -566,7 +586,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 
 	std::string HandlerName = "DBView";
 	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
-	std::string DBResourcesPath = MBDBGetResourceFolderPath();
+	std::string DBResourcesPath = GetResourceFolderPath();
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
 	if (!std::filesystem::exists(DBResourcesPath+DBResource))
@@ -580,7 +600,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 	if (!std::filesystem::is_directory(DBResourcesPath + DBResource) && DBResource != "")
 	{
 		MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
-		EmbeddedElement = GetEmbeddedResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		EmbeddedElement = p_GetEmbeddedResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 		std::unordered_map<std::string, std::string> MapData = {};
 		MapData["EmbeddedMedia"] = EmbeddedElement;
 		std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
@@ -595,7 +615,7 @@ MBSockets::HTTPDocument DBView_ResponseGenerator(std::string const& RequestData,
 	return(ReturnValue);
 }
 
-bool DBViewEmbedd_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBViewEmbedd_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -608,12 +628,12 @@ bool DBViewEmbedd_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBViewEmbedd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBViewEmbedd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	MBSockets::HTTPDocument ReturnValue = MBSockets::HTTPDocument();
 	std::string HandlerName = "DBViewEmbedd/";
 	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
-	std::string DBResourcesPath = MBDBGetResourceFolderPath();
+	std::string DBResourcesPath = GetResourceFolderPath();
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
 	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
@@ -633,7 +653,7 @@ MBSockets::HTTPDocument DBViewEmbedd_ResponseGenerator(std::string const& Reques
 	return(ReturnValue);
 }
 
-bool DBAdd_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBAdd_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -646,7 +666,7 @@ bool DBAdd_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBAdd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBAdd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	//std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	//std::string TableName = RequestData.substr(RequestResource.find("DBAdd/") + 6);
@@ -659,7 +679,7 @@ MBSockets::HTTPDocument DBAdd_ResponseGenerator(std::string const& RequestData, 
 	return(ReturnValue);
 }
 
-bool DBGeneralAPI_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBGeneralAPI_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -673,13 +693,13 @@ bool DBGeneralAPI_Predicate(std::string const& RequestData)
 	return(false);
 }
 
-std::string DBGeneralAPIGetDirective(std::string const& RequestBody)
+std::string MBDB_Website::DBGeneralAPIGetDirective(std::string const& RequestBody)
 {
 	size_t FirstSpace = RequestBody.find(" ");
 	std::string APIDirective = RequestBody.substr(0, FirstSpace);
 	return(APIDirective);
 }
-std::vector<std::string> DBGeneralAPIGetArguments(std::string const& RequestBody,MBError* OutError = nullptr)
+std::vector<std::string> MBDB_Website::DBGeneralAPIGetArguments(std::string const& RequestBody,MBError* OutError)
 {
 	size_t FirstSpace = RequestBody.find(" ");
 	std::vector<std::string> ReturnValue = {};
@@ -709,29 +729,18 @@ std::vector<std::string> DBGeneralAPIGetArguments(std::string const& RequestBody
 }
 
 
-std::string GetTableNamesBody(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::GetTableNamesBody(std::vector<std::string> const& Arguments)
 {
 	std::vector<std::string> TableNames = {};
 	{
-		std::lock_guard<std::mutex> Lock(DatabaseMutex);
-		TableNames = WebsiteDatabase->GetAllTableNames();
+		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+		TableNames = m_ReadonlyDatabase->GetAllTableNames();
 	}
 	std::string JSONTableNames = "\"TableNames\":"+MakeJasonArray(TableNames);
-	//std::string JsonRespone = "{[";
-	//size_t TableNamesSize = TableNames.size();
-	//for (size_t i = 0; i < TableNamesSize; i++)
-	//{
-	//	JsonRespone += MBDB::ToJason(TableNames[i]);
-	//	if (i + 1 < TableNamesSize)
-	//	{
-	//		JsonRespone += ",";
-	//	}
-	//}
-	//JsonRespone += "]}";
 	std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\"," + JSONTableNames + "}";
 	return(JsonResponse);
 }
-std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::GetTableInfoBody(std::vector<std::string> const& Arguments)
 {
 	//första argumentet är tablen vi vill ha
 	if (Arguments.size() == 0)
@@ -740,8 +749,8 @@ std::string GetTableInfoBody(std::vector<std::string> const& Arguments)
 	}
 	std::vector<MBDB::ColumnInfo> TableInfo = {};
 	{
-		std::lock_guard<std::mutex> Lock(DatabaseMutex);
-		TableInfo = WebsiteDatabase->GetColumnInfo(Arguments[0]);
+		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+		TableInfo = m_ReadonlyDatabase->GetColumnInfo(Arguments[0]);
 	}
 	std::string JSONResponse = "{\"MBAPI_Status\":\"ok\",\"TableInfo\":" + MakeJasonArray(TableInfo) + "}";
 	return(JSONResponse);
@@ -760,7 +769,7 @@ inline long long StringToInt(std::string const& IntData, MBError* OutError = nul
 	}
 	return(ReturnValue);
 }
-std::vector<MBDB::MBDB_RowData> EvaluateBoundSQLStatement(std::string SQLCommand,std::vector<std::string> const& ColumnValues,
+std::vector<MBDB::MBDB_RowData> MBDB_Website::EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
 	std::vector<int> ColumnIndex,std::string TableName,MBError* OutError)
 {
 	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
@@ -796,7 +805,7 @@ std::vector<MBDB::MBDB_RowData> EvaluateBoundSQLStatement(std::string SQLCommand
 	WritableDatabase->FreeSQLStatement(NewStatement);
 	return(QuerryResult);
 }
-std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 {
 	std::string ReturnValue = "";
 	std::string SQLCommand = "INSERT INTO " + Arguments[0] + "("; //VALUES (";
@@ -847,7 +856,7 @@ std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
 	}
 	return(ReturnValue);
 }
-std::string DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
 {
 	//UPDATE table_name
 	//SET column1 = value1, column2 = value2, ...
@@ -1016,11 +1025,11 @@ std::string ToJason(MBDirectoryEntry const& EntryToEncode)
 	return(ReturnValue);
 }
 //First argument is relative path in MBDBResources folder
-std::string DBAPI_GetFolderContents(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_GetFolderContents(std::vector<std::string> const& Arguments)
 {
 	std::string ReturnValue = "";
 	MBError ErrorResult(true);
-	std::vector<MBDirectoryEntry> DirectoryEntries = GetDirectoryEntries(MBDBGetResourceFolderPath()+Arguments[0],&ErrorResult);
+	std::vector<MBDirectoryEntry> DirectoryEntries = GetDirectoryEntries(GetResourceFolderPath()+Arguments[0],&ErrorResult);
 	if (!ErrorResult)
 	{
 		return("{\"MBDBAPI_Status\":\""+ErrorResult.ErrorMessage+"\"}");
@@ -1034,7 +1043,7 @@ std::string DBAPI_GetFolderContents(std::vector<std::string> const& Arguments)
 	ReturnValue = "{" + ErrorPart + "," + DirectoryPart + "}";
 	return(ReturnValue);
 }
-std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments)
 {
 	//ett arguments som är WhereStringen, ghetto aff egetntligen men men,måste vara på en immutable table så vi inte fuckar grejer
 	std::string ReturnValue = "";
@@ -1045,7 +1054,7 @@ std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments
 	std::vector<MBDB::MBDB_RowData> RowResponse = {};
 	MBError DatabaseError(true);
 	{
-		std::lock_guard<std::mutex> Lock(DatabaseMutex);
+		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
 		std::string SQlQuerry = "SELECT * FROM " + Arguments[0] + " " + Arguments[1];
 		RowResponse = WritableDatabase->GetAllRows(SQlQuerry, &DatabaseError);
 	}
@@ -1056,24 +1065,24 @@ std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments
 	ReturnValue = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":" + MakeJasonArray(RowResponse)+"}";
 	return(ReturnValue);
 }
-std::string DBAPI_Login(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_Login(std::vector<std::string> const& Arguments)
 {
 	if (Arguments.size() != 2)
 	{
 		return("{\"MBDBAPI_Status\":\"Invalid Function call\"}");
 	}
-	std::vector<MBDB::MBDB_RowData> UserResult = DB_GetUser(Arguments[0], Arguments[1]);
+	std::vector<MBDB::MBDB_RowData> UserResult = m_GetUser(Arguments[0], Arguments[1]);
 	if (UserResult.size() == 0)
 	{
 		return("{\"MBDBAPI_Status\":\"Invalid UserName or Password\"}");
 	}
 	return("{\"MBDBAPI_Status\":\"ok\"}");
 }
-std::string DBAPI_GetAvailableIndexes(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_GetAvailableIndexes(std::vector<std::string> const& Arguments)
 {
 	std::string ReturnValue = "{\"MBDBAPI_Status\":\"ok\",";
 	std::vector<std::string> AvailableIndexes = {};
-	std::filesystem::directory_iterator DirectoryIterator(MBDBGetResourceFolderPath() + "Indexes");
+	std::filesystem::directory_iterator DirectoryIterator(GetResourceFolderPath() + "Indexes");
 	for (auto& DirectoryEntry : DirectoryIterator)
 	{
 		AvailableIndexes.push_back(DirectoryEntry.path().filename().generic_string());
@@ -1081,11 +1090,11 @@ std::string DBAPI_GetAvailableIndexes(std::vector<std::string> const& Arguments)
 	ReturnValue += ToJason(std::string("AvailableIndexes"))+":"+MakeJasonArray(AvailableIndexes)+"}";
 	return(ReturnValue);
 }
-bool DB_IndexExists(std::string const& IndexToCheck)
+bool MBDB_Website::DB_IndexExists(std::string const& IndexToCheck)
 {
-	return(std::filesystem::exists(MBDBGetResourceFolderPath() + "/Indexes/" + IndexToCheck));
+	return(std::filesystem::exists(GetResourceFolderPath() + "/Indexes/" + IndexToCheck));
 }
-std::string DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments)
+std::string MBDB_Website::DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments)
 {
 	std::string ReturnValue = "{\"MBDBAPI_Status\":";
 	if (Arguments.size() < 3)
@@ -1099,7 +1108,7 @@ std::string DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments
 	else
 	{
 		ReturnValue += "\"ok\",";
-		std::lock_guard<std::mutex> Lock(DBIndexMapMutex);
+		std::lock_guard<std::mutex> Lock(__DBIndexMapMutex);
 		MBSearchEngine::MBIndex& IndexToSearch = (*__DBIndexMap)[Arguments[0]];
 		std::vector<std::string> Result = {};
 		if (Arguments[1] == "Boolean")
@@ -1116,7 +1125,7 @@ std::string DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments
 	return(ReturnValue);
 }
 //
-MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
 	std::string RequestBody = MrPostOGet::GetRequestContent(RequestData);
@@ -1131,7 +1140,7 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 		size_t FirstSpace = RequestBody.find(" ");
 		std::string APIDirective = DBGeneralAPIGetDirective(RequestBody);
 		std::vector<std::string> APIDirectiveArguments = DBGeneralAPIGetArguments(RequestBody);
-		DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
+		DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
 		if (APIDirective == "GetTableNames")
 		{
 			if (ConnectionPermissions.Read)
@@ -1222,10 +1231,10 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 			else
 			{
 				std::string NewDocumentData = "{\"MBDBAPI_Status\":\"ok\",";
-				NewDocumentData += "\"FileExists\":" + ToJason(std::filesystem::exists(MBDBGetResourceFolderPath() + APIDirectiveArguments[0]))+",";
+				NewDocumentData += "\"FileExists\":" + ToJason(std::filesystem::exists(GetResourceFolderPath() + APIDirectiveArguments[0]))+",";
 				std::filesystem::path NewFilepath(APIDirectiveArguments[0]);
 				NewFilepath = NewFilepath.parent_path();
-				std::filesystem::path BaseFilepath(MBDBGetResourceFolderPath());
+				std::filesystem::path BaseFilepath(GetResourceFolderPath());
 				bool FoldersExists = true;
 				for (auto const& Directory : NewFilepath)
 				{
@@ -1263,7 +1272,7 @@ MBSockets::HTTPDocument DBGeneralAPI_ResponseGenerator(std::string const& Reques
 	std::cout << ReturnValue.DocumentData << std::endl;
 	return(ReturnValue);
 }
-bool DBUpdate_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBUpdate_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -1276,7 +1285,7 @@ bool DBUpdate_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	MBSockets::HTTPDocument ReturnValue;
 	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
@@ -1284,7 +1293,7 @@ MBSockets::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestDat
 	ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBUpdate.html", ResourcePath);
 	return(ReturnValue);
 }
-bool DBOperationBlipp_Predicate(std::string const& RequestData)
+bool MBDB_Website::DBOperationBlipp_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
@@ -1297,12 +1306,12 @@ bool DBOperationBlipp_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	MBSockets::HTTPDocument ReturnValue;
 	ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
-	std::string MBDBResources = MBDBGetResourceFolderPath();
+	std::string MBDBResources = GetResourceFolderPath();
 	std::string HTMLFolder = AssociatedServer->GetResourcePath("mrboboget.se");
 	std::string DefaultPage = HTMLFolder + "/operationblipp.html";
 	std::vector<std::string> PathComponents = MBUtility::Split(MBSockets::GetReqestResource(RequestData),"/");
