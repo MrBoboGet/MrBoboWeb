@@ -10,9 +10,7 @@ namespace MrPostOGet
 	{
 		bool (*RequestPredicate)(const std::string& RequestData);
 		MBSockets::HTTPDocument(*RequestResponse)(const std::string& ResoureData, HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedSocket);
-	};
-	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer);
-	
+	};	
 	
 	MBSockets::HTTPDocumentType MimeSniffDocument(std::string const& FilePath);
 	//convinience funktioner
@@ -23,30 +21,76 @@ namespace MrPostOGet
 	std::string LoadFileWithPreprocessing(std::string const& Filepath, std::string const& ResourcesPath);
 	std::string GetFileExtension(std::string const& StringData);
 	
-
-	class HTTP
+	enum class HTTPRequestType
 	{
+		POST,
+		GET,
+		PUT,
+		Null
+	};
+	struct HTTPClientRequest
+	{
+		HTTPRequestType Type = HTTPRequestType::Null;
+		std::string RequestResource = "";
+		std::unordered_map<std::string, std::string> SearchParameters = {};
+		std::unordered_map<std::string, std::string> Headers = {};
+		std::string BodyData = "";
 
+		std::string RawRequestData = "";
+	};
+	struct HTTPClientConnectionState
+	{
+	private:
+	public:
+		//void* UnspecifiedData = nullptr;
+		//void (*UnspecifiedDataDeallocator)(void* DataToDeallocate);
+	};
+	class HTTPRequestHandler
+	{
+	private:
+
+	public:
+		virtual bool HandlesRequest(HTTPClientRequest const& RequestToHandle, HTTPClientConnectionState const& ConnectionState, HTTPServer* AssociatedServer) { return false; };
+		virtual MBSockets::HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, HTTPServer*) 
+		{
+			return(MBSockets::HTTPDocument()); 
+		};
+	};
+	class StaticRequestHandler : public HTTPRequestHandler
+	{
+	private:
+		RequestHandler m_InternalHandler = { nullptr,nullptr };
+	public:
+		StaticRequestHandler(RequestHandler HandlerToConvert);
+		bool HandlesRequest(HTTPClientRequest const& RequestToHandle, HTTPClientConnectionState const& ConnectionState, HTTPServer* AssociatedServer) override;
+		MBSockets::HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, HTTPServer*) override;
 	};
 
 	class HTTPServer
 	{
 	private:
 		std::string ContentPath = "";
-		int Port = -1;
+		uint16_t Port = -1;
 		size_t MaxDocumentInMemorySize = 100000;
 		MBSockets::HTTPServerSocket* ServerSocketen;
-		MBSockets::TraversalProtocol TraversalProtocolet = MBSockets::TraversalProtocol::TCP;
-		std::vector<RequestHandler> ServerRequestHandlers = std::vector<RequestHandler>(0);
+		
+		std::mutex m_InternalsMutex;
+		std::vector<std::unique_ptr<HTTPRequestHandler>> m_RequestHandlers = std::vector<std::unique_ptr<HTTPRequestHandler>>(0);
+
+		void m_HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient);
+		static MBSockets::HTTPDocument m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath,HTTPServer* AssociatedServer);
+		static void p_ParseHTTPClientRequest(HTTPClientRequest& ClientRequest, std::string& RawData);
+		static std::unordered_map<std::string, std::string> p_ParseSearchParameters(std::string const& URL);
 		//std::mutex HTTPServerResourcesMutex;
 	public:
 		HTTPServer(std::string PathToResources, int PortToListenTo);
 		std::string GenerateResponse(MBSockets::HTTPDocument const& Document);
 		std::string GetResourcePath(std::string const& DomainName);
 		std::string LoadWholeFile(std::string const& FilePath);
-		std::string LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges);
+		//std::string LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges);
 		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges = {});
 		void AddRequestHandler(RequestHandler HandlerToAdd);
+		void AddRequestHandler(HTTPRequestHandler* HandlerToAdd);
 		void StartListening();
 		~HTTPServer();
 	};

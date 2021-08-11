@@ -1070,7 +1070,7 @@ namespace MBSockets
 		//Vary: Accept-Encoding
 		Content-Length: 390
 		*/
-		std::string Request = "HTTP/1.1 200 OK\nContent-Type: text/html\nAccept-Ranges: bytes\nContent-Length: " + std::to_string(HTMLBody.size()) + "\n\r\n" + HTMLBody;
+		std::string Request = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: " + std::to_string(HTMLBody.size()) + "\r\n\r\n" + HTMLBody;
 		return(Request);
 	}
 	std::string GetHeaderValue(std::string Header, const std::string& HeaderContent)

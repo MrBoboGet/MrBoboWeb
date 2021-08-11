@@ -309,10 +309,10 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 					{
 						MrPostOGet::HTMLNode NewColumn = MrPostOGet::HTMLNode::CreateElement("td");
 						NewColumn["style"] = "height: 100%";
-						std::string ElementData = SQLResult[i].JSONEncodeValue(j);
+						std::string ElementData = SQLResult[i].ColumnToString(j);
 						if (p_StringIsPath(ElementData))
 						{
-							ElementData = GetEmbeddedResource(ElementData.substr(1,ElementData.size()-2), AssociatedServer->GetResourcePath("mrboboget.se"));
+							ElementData = GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"));
 						}
 						NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
 						NewRow.AppendChild(std::move(NewColumn));

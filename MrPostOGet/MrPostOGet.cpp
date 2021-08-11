@@ -2,6 +2,7 @@
 #include <MBStrings.h>
 #include <MBSearchEngine/MBUnicode.h>
 #include <MBParsing/MBParsing.h>
+#include <MBMime/MBMime.h>
 namespace MrPostOGet
 {
 
@@ -153,7 +154,66 @@ namespace MrPostOGet
 		}
 		return(ReturnValue);
 	}
-	void HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient, std::vector<RequestHandler> RequestHandlers, std::string ResourcesPath, HTTPServer* AssociatedServer)
+	std::unordered_map<std::string, std::string> HTTPServer::p_ParseSearchParameters(std::string const& URL)
+	{
+		std::unordered_map<std::string, std::string> ReturnValue = {};
+		size_t ParametersBegin = URL.find('?');
+		if (ParametersBegin != URL.npos)
+		{
+			size_t ParseOffset = ParametersBegin + 1;
+			while (ParseOffset < URL.size())
+			{
+				size_t NextEqualSign = URL.find('=', ParseOffset);
+				std::string AttributeName = URL.substr(ParseOffset, NextEqualSign - ParseOffset);
+				size_t AttributeBegin = NextEqualSign + 1;
+				size_t AttributeEnd = std::min(URL.find('&', AttributeBegin), URL.size());
+				ReturnValue[AttributeName] = URL.substr(AttributeBegin, AttributeEnd - AttributeBegin);
+
+				ParseOffset = AttributeEnd;
+				if (ParseOffset < URL.size())
+				{
+					ParseOffset += 1;
+				}
+			}
+		}
+		return(ReturnValue);
+	}
+	void HTTPServer::p_ParseHTTPClientRequest(HTTPClientRequest& ClientRequest, std::string& RawData)
+	{
+		size_t FirstSlash = RawData.find('/');
+		size_t SpaceAfter = RawData.find(' ', FirstSlash);
+		std::string RawURL = RawData.substr(FirstSlash, SpaceAfter - FirstSlash);
+		bool Error = false;
+		ClientRequest.RequestResource = MBUtility::URLDecodeData(RawURL,&Error);
+		ClientRequest.SearchParameters = p_ParseSearchParameters(RawURL);
+		size_t HeadersBegin = RawData.find("\r\n") + 2;
+		ClientRequest.Headers = MBMIME::ExtractMIMEHeaders(RawData.data(), HeadersBegin, nullptr);
+
+		std::string RequestType = MBSockets::GetRequestType(RawData);
+		if (RequestType == "GET")
+		{
+			ClientRequest.Type = HTTPRequestType::GET;
+		}
+		else if(RequestType == "POST")
+		{
+			ClientRequest.Type = HTTPRequestType::POST;
+		}
+		else if (RequestType == "PUT")
+		{
+			ClientRequest.Type = HTTPRequestType::PUT;
+		}
+		else
+		{
+			assert(false);
+		}
+		//ANTAGANDE körs alltid på något som har dess headers skickade
+		size_t BodyStart = RawData.find("\r\n\r\n") + 4;
+		ClientRequest.BodyData = RawData.substr(BodyStart);
+
+
+		ClientRequest.RawRequestData = std::move(RawData);
+	}
+	void HTTPServer::m_HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient)
 	{
 		MBError ConnectError = ConnectedClient->EstablishTLSConnection();
 		if (!ConnectError)
@@ -161,8 +221,7 @@ namespace MrPostOGet
 			std::cout << ConnectError.ErrorMessage << std::endl;
 		}
 		std::string RequestData;
-		std::cout << RequestData << std::endl;
-		//v�ldigt enkelt system, tar bara emot get requests, och skickar bara datan som kopplad till filepathen
+		HTTPClientConnectionState ConnectionState;
 		while ((RequestData = ConnectedClient->GetNextChunkData()) != "")
 		{
 			if (!ConnectedClient->IsConnected())
@@ -171,16 +230,25 @@ namespace MrPostOGet
 			}
 			if (!ConnectedClient->IsValid())
 			{
-
+				break;
 			}
-			//vi kollar om request handlersen har n�gon �sikt om datan, annars l�ter vi v�ran default getrequest handlar sk�ta allt 
+			HTTPClientRequest CurrentRequest;
+			p_ParseHTTPClientRequest(CurrentRequest, RequestData);
+			//ANTAGANDE när man väl lyssnar läggs inga handlers till, vilket gör att nedstående trick fungerar
 			bool HandlerHasHandled = false;
-			for (size_t i = 0; i < RequestHandlers.size(); i++)
+			size_t NumberOfHandlers = 0;
+			std::unique_ptr<HTTPRequestHandler>* RequestHandlers = nullptr;
 			{
-				if (RequestHandlers[i].RequestPredicate(RequestData))
+				std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+				NumberOfHandlers = m_RequestHandlers.size();
+				RequestHandlers = m_RequestHandlers.data();
+			}
+			for (size_t i = 0; i < NumberOfHandlers; i++)
+			{
+				if (RequestHandlers[i]->HandlesRequest(CurrentRequest,ConnectionState,this))
 				{
 					//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
-					MBSockets::HTTPDocument RequestResponse = RequestHandlers[i].RequestResponse(RequestData, AssociatedServer, ConnectedClient);
+					MBSockets::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient,this);
 					ConnectedClient->SendHTTPDocument(RequestResponse);
 					HandlerHasHandled = true;
 					break;
@@ -190,71 +258,74 @@ namespace MrPostOGet
 			{
 				continue;
 			}
-			//om v�ra handlers inte har handlat datan s� g�r v�r default handler det. Denna funkar enbart f�r get, eftersom dem andra requestsen inte makar mycket sense i sammanhanget
-			if (MBSockets::GetRequestType(RequestData) != "GET")
-			{
-				ConnectedClient->SendDataAsHTTPBody("Bad Request");
-			}
-			else
-			{
-				//std::cout << RequestData << std::endl;
-				std::string ResourceToGet = ResourcesPath + MBSockets::GetReqestResource(RequestData);
-				std::string ResourceExtension = GetFileExtension(ResourceToGet);
-				std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/" + ResourceToGet);
-				//std::cout << ResourceToGet << std::endl;
-				MBSockets::HTTPDocument DocumentToSend;
-				if (std::filesystem::exists(ActualResourcePath))
-				{
-					if (ResourceToGet == ResourcesPath)
-					{
-						DocumentToSend.Type = MBSockets::HTTPDocumentType::HTML;
-						DocumentToSend.DocumentData = LoadFileWithPreprocessing(ResourcesPath + "index.htm", AssociatedServer->GetResourcePath("mrboboget.se"));
-						ConnectedClient->SendHTTPDocument(DocumentToSend);
-					}
-					else
-					{
-						//väldigt ful undantagsfall för att få acme protokollet att fungera
-						std::string ChallengeFolder = "./ServerResources/mrboboget.se/HTMLResources/.well-known/acme-challenge/";
-						if (ResourceToGet.substr(0, ChallengeFolder.size()) == ChallengeFolder)
-						{
-							MBSockets::HTTPDocument NewDocument;
-							NewDocument.Type = MBSockets::HTTPDocumentType::OctetString;
-							std::string DocumentData = "";
-							TextReader Data(ResourceToGet);
-							for (int i = 0; i < Data.Size(); i++)
-							{
-								DocumentData += Data[i];
-							}
-							NewDocument.DocumentData = DocumentData;
-							ConnectedClient->SendHTTPDocument(NewDocument);
-						}
-						else
-						{
-							//undantagsfall utifall det är ett hmtl dokument, då vill vi ta och skicka den med includes
-							if (ResourceExtension == "html" || ResourceExtension == "htm")
-							{
-								DocumentToSend.Type = MBSockets::HTTPDocumentType::HTML;
-								//TODO fixa så att hosten faktiskt är en del av detta, nu hardcodas det
-								DocumentToSend.DocumentData = LoadFileWithPreprocessing(ResourceToGet, AssociatedServer->GetResourcePath("mrboboget.se"));
-								ConnectedClient->SendHTTPDocument(DocumentToSend);
-							}
-							else
-							{
-								DocumentToSend = AssociatedServer->GetResource(ResourceToGet);
-								ConnectedClient->SendHTTPDocument(DocumentToSend);
-							}
-						}
-					}
-				}
-				else
-				{
-					ConnectedClient->SendDataAsHTTPBody("Bad Request");
-				}
-			}
+			MBSockets::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"),this);
+			ConnectedClient->SendHTTPDocument(DocumentToSend);
 		}
 		//delete ConnectedClient;
 	}
-
+	MBSockets::HTTPDocument HTTPServer::m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath, HTTPServer* AssociatedServer)
+	{
+		MBSockets::HTTPDocument ReturnValue;
+		if (Request.Type != HTTPRequestType::GET)
+		{
+			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+			ReturnValue.DocumentData = "<html><body>Bad Request</body><html>";
+		}
+		else
+		{
+			//std::cout << RequestData << std::endl;
+			std::string ResourceToGet = ResourcePath + Request.RequestResource;
+			std::string ResourceExtension = GetFileExtension(ResourceToGet);
+			std::filesystem::path ActualResourcePath = std::filesystem::current_path().concat("/" + ResourceToGet);
+			//std::cout << ResourceToGet << std::endl;
+			if (std::filesystem::exists(ActualResourcePath))
+			{
+				if (Request.RequestResource == "/")
+				{
+					ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+					ReturnValue.DocumentData = LoadFileWithPreprocessing(ResourcePath + "index.htm", ResourcePath);
+				}
+				else
+				{
+					//väldigt ful undantagsfall för att få acme protokollet att fungera
+					std::string ChallengeFolder = "./ServerResources/mrboboget.se/HTMLResources/.well-known/acme-challenge/";
+					if (ResourceToGet.substr(0, ChallengeFolder.size()) == ChallengeFolder)
+					{
+						ReturnValue.Type = MBSockets::HTTPDocumentType::OctetString;
+						std::string DocumentData = "";
+						TextReader Data(ResourceToGet);
+						for (int i = 0; i < Data.Size(); i++)
+						{
+							DocumentData += Data[i];
+						}
+						ReturnValue.DocumentData = DocumentData;
+					}
+					else
+					{
+						//undantagsfall utifall det är ett hmtl dokument, då vill vi ta och skicka den med includes
+						if (ResourceExtension == "html" || ResourceExtension == "htm")
+						{
+							ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+							//TODO fixa så att hosten faktiskt är en del av detta, nu hardcodas det
+							ReturnValue.DocumentData = LoadFileWithPreprocessing(ResourceToGet,ResourcePath);
+						}
+						else
+						{
+							ReturnValue = AssociatedServer->GetResource(ResourceToGet);
+						}
+					}
+				}
+			}
+			else
+			{
+				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+				ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+				ReturnValue.DocumentData = "<html><body>Bad Request</body><html>";
+			}
+		}
+		return(ReturnValue);
+	}
 	//HTTPServer
 	HTTPServer::HTTPServer(std::string PathToResources, int PortToListenTo)
 	{
@@ -281,29 +352,29 @@ namespace MrPostOGet
 		std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
 		return(FileData);
 	}
-	std::string HTTPServer::LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges)
-	{
-		std::string ReturnValue = "";
-		std::ifstream FileToRead(FilePath, std::ifstream::in | std::ifstream::binary);
-		//size_t LastBytePosition = std::filesystem::file_size(FilePath) - 1;
-		size_t LastBytePosition = MBGetFileSize(FilePath) - 1;
-		for (size_t i = 0; i < ByteRanges.size(); i++)
-		{
-			int NumberOfBytesToRead = ByteRanges[i].LastByte - ByteRanges[i].FirstByte;
-			if (NumberOfBytesToRead < 0)
-			{
-				NumberOfBytesToRead = LastBytePosition - ByteRanges[i].FirstByte + 1;
-			}
-			int FirstByteToReadPosition = ByteRanges[i].FirstByte;
-			if (FirstByteToReadPosition < 0)
-			{
-				NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
-
-			}
-			char* NewData = new char[500];
-		}
-		return(ReturnValue);
-	}
+	//std::string HTTPServer::LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges)
+	//{
+	//	std::string ReturnValue = "";
+	//	std::ifstream FileToRead(FilePath, std::ifstream::in | std::ifstream::binary);
+	//	//size_t LastBytePosition = std::filesystem::file_size(FilePath) - 1;
+	//	size_t LastBytePosition = MBGetFileSize(FilePath) - 1;
+	//	for (size_t i = 0; i < ByteRanges.size(); i++)
+	//	{
+	//		size_t NumberOfBytesToRead = ByteRanges[i].LastByte - ByteRanges[i].FirstByte;
+	//		if (NumberOfBytesToRead < 0)
+	//		{
+	//			NumberOfBytesToRead = LastBytePosition - ByteRanges[i].FirstByte + 1;
+	//		}
+	//		size_t FirstByteToReadPosition = ByteRanges[i].FirstByte;
+	//		if (FirstByteToReadPosition < 0)
+	//		{
+	//			NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
+	//
+	//		}
+	//		char* NewData = new char[500];
+	//	}
+	//	return(ReturnValue);
+	//}
 	MBSockets::HTTPDocument HTTPServer::GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges)
 	{
 		MBSockets::HTTPDocument ReturnValue;
@@ -341,7 +412,11 @@ namespace MrPostOGet
 	}
 	void HTTPServer::AddRequestHandler(RequestHandler HandlerToAdd)
 	{
-		ServerRequestHandlers.push_back(HandlerToAdd);
+		m_RequestHandlers.push_back(std::unique_ptr<HTTPRequestHandler>(new StaticRequestHandler(HandlerToAdd)));
+	}
+	void HTTPServer::AddRequestHandler(HTTPRequestHandler* HandlerToAdd)
+	{
+		m_RequestHandlers.push_back(std::unique_ptr<HTTPRequestHandler>(HandlerToAdd));
 	}
 	void HTTPServer::StartListening()
 	{
@@ -365,7 +440,7 @@ namespace MrPostOGet
 				NumberOfConnections += 1;
 				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port));
 				ServerSocketen->TransferConnectedSocket(*NewSocket);
-				std::thread* NewThread = new std::thread(HandleConnectedSocket, NewSocket, ServerRequestHandlers, ContentPath, this);
+				std::thread* NewThread = new std::thread(&HTTPServer::m_HandleConnectedSocket,this, NewSocket);
 				CurrentActiveThreads.push_back(NewThread);
 				std::cout << NumberOfConnections << std::endl;
 			}
@@ -524,7 +599,7 @@ namespace MrPostOGet
 		TextToStore = MBUtility::RemoveDuplicates(TextToStore, " ");
 		TextToStore = MBUtility::RemoveLeadingString(TextToStore, " ");
 		m_RawText = TextToStore;
-		assert(TextToStore != "");
+		//assert(TextToStore != "");
 		m_IsRawtext = true;
 	}
 	std::string HTMLNode::GetVisableText() const
@@ -839,4 +914,19 @@ namespace MrPostOGet
 	}
 
 	//END HTMLNode
+
+	//BEGIN StaticRequestHandler
+	StaticRequestHandler::StaticRequestHandler(RequestHandler HandlerToConvert)
+	{
+		m_InternalHandler = HandlerToConvert;
+	}
+	bool StaticRequestHandler::HandlesRequest(HTTPClientRequest const& RequestToHandle, HTTPClientConnectionState const& ConnectionState, HTTPServer* AssociatedServer)
+	{
+		return(m_InternalHandler.RequestPredicate(RequestToHandle.RawRequestData));
+	}
+	MBSockets::HTTPDocument StaticRequestHandler::GenerateResponse(HTTPClientRequest const& Request, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket* Server, HTTPServer* Connection)
+	{
+		return(m_InternalHandler.RequestResponse(Request.RawRequestData, Connection, Server));
+	}
+	//END StaticRequestHandler
 };

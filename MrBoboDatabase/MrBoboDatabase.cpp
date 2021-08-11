@@ -134,11 +134,11 @@ namespace MBDB
 		swap(*this, RowToCopy);
 		return(*this);
 	}
-	MBDB_RowData::MBDB_RowData(MBDB_RowData&& RowToCopy)
+	MBDB_RowData::MBDB_RowData(MBDB_RowData&& RowToCopy) noexcept
 	{
 		swap(*this, RowToCopy);
 	}
-	MBDB_RowData& MBDB_RowData::operator=(MBDB_RowData&& RowToCopy)
+	MBDB_RowData& MBDB_RowData::operator=(MBDB_RowData&& RowToCopy) noexcept
 	{
 		//Eftersom vi definierat en copy constructer kan vi ta detta by value
 		swap(*this, RowToCopy);
@@ -181,7 +181,7 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
-	MBDB_ColumnValueTypes MBDB_RowData::GetColumnValueType(int ColumnIndex)
+	MBDB_ColumnValueTypes MBDB_RowData::GetColumnValueType(int ColumnIndex) const
 	{
 		return(ColumnValueTypes[ColumnIndex]);
 	}
@@ -192,6 +192,37 @@ namespace MBDB
 	std::string MBDB_RowData::JSONEncodeValue(size_t ColumnIndex) const
 	{
 		return(JsonEncodeValue(ColumnValueTypes[ColumnIndex], RawColumnData[ColumnIndex]));
+	}
+	std::string MBDB_RowData::ColumnToString(size_t ColumnIndex) const
+	{
+		std::string ReturnValue = "";
+		MBDB_ColumnValueTypes DataType = GetColumnValueType(ColumnIndex);
+		void* RawData = RawColumnData[ColumnIndex];
+		if (DataType == MBDB_ColumnValueTypes::Float)
+		{
+			ReturnValue += std::to_string(*(float*)RawData);
+		}
+		else if (DataType == MBDB_ColumnValueTypes::Double)
+		{
+			ReturnValue += std::to_string(*(double*)RawData);
+		}
+		else if (DataType == MBDB_ColumnValueTypes::Int32)
+		{
+			ReturnValue += std::to_string(*(int*)RawData);
+		}
+		else if (DataType == MBDB_ColumnValueTypes::Int64)
+		{
+			ReturnValue += std::to_string(*(long long*)RawData);
+		}
+		else if (DataType == MBDB_ColumnValueTypes::Text)
+		{
+			ReturnValue += *(std::string*)RawData;
+		}
+		else if (DataType == MBDB_ColumnValueTypes::Null)
+		{
+			ReturnValue += "null";
+		}
+		return(ReturnValue);
 	}
 	std::string MBDB_RowData::ToJason() const
 	{

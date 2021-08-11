@@ -72,14 +72,15 @@ namespace MBDB
 		friend MBDB_RowData CreateRowFromSQLiteStatement(sqlite3_stmt* StatementToInterpret);
 		MBDB_RowData(MBDB_RowData& RowToCopy);
 		MBDB_RowData& operator=(MBDB_RowData RowToCopy);
-		MBDB_RowData(MBDB_RowData&& RowToCopy);
-		MBDB_RowData& operator=(MBDB_RowData&& RowToCopy);
+		MBDB_RowData(MBDB_RowData&& RowToCopy) noexcept;
+		MBDB_RowData& operator=(MBDB_RowData&& RowToCopy) noexcept;
 		~MBDB_RowData();
 
 		MBDB_RowData() {};
 
 		std::string ToJason() const;
 		std::string JSONEncodeValue(size_t ColumnIndex) const;
+		std::string ColumnToString(size_t ColumnIndex) const;
 
 		template<typename... Args>
 		std::tuple<Args...> GetTuple()
@@ -94,7 +95,7 @@ namespace MBDB
 			T ValueToReturn = *((T*)RawColumnData[ColumnIndex]);
 			return(ValueToReturn);
 		}
-		MBDB_ColumnValueTypes GetColumnValueType(int ColumnIndex);
+		MBDB_ColumnValueTypes GetColumnValueType(int ColumnIndex) const;
 		bool ColumnValueIsNull(int ColumnIndex);
 		size_t GetNumberOfColumns() { return(RawColumnData.size()); }
 	};
