@@ -1,10 +1,10 @@
-var wage = document.getElementById("SearchBox");
-wage.addEventListener("keydown", function (e) {
-if (e.keyCode === 13) 
-{  //checks whether the pressed key is "Enter"
-validate(e);
-}
-});
+//var wage = document.getElementById("SearchBox");
+//wage.addEventListener("keydown", function (e) {
+//if (e.keyCode === 13) 
+//{  //checks whether the pressed key is "Enter"
+//validate(e);
+//}
+//});
 
 let G_ResultMediaElements = [];
 let G_CurrentMediaElementIndex = 0;
@@ -243,3 +243,18 @@ async function validate(e)
   DBSite_CreateMediaElementPlaylist();
 });
 }
+
+function DBSite_UpdateSearchBar()
+{
+  let SearchBar = document.getElementById("SearchBox");
+  if(SearchBar != null)
+  {
+    let SearchParams = new URLSearchParams(window.location.search);
+    if(SearchParams.has("SQLQuerry"))
+    {
+      SearchBar.value = SearchParams.get("SQLQuerry");
+    }
+  }
+}
+DBSite_CreateMediaElementPlaylist();
+DBSite_UpdateSearchBar();

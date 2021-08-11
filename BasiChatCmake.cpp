@@ -30,8 +30,15 @@
 int main()
 {
 	MBSockets::Init();
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
-
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//Test för att se att HTML parsingen fungerar
+	std::string HTMLData = MrPostOGet::LoadWholeFile("./remar.se/daniel/__#faqfont");
+	//HTMLNode TestNode(HTMLData,0);
+	MrPostOGet::HTMLNode NewNode = MrPostOGet::HTMLNode::ParseNode(HTMLData, 0);
+	//std::cout << TestNode.GetVisableText() << std::endl;
+	std::cout << NewNode.GetVisableText() << std::endl;
+	//std::cout << (NewNode.GetVisableText() == TestNode.GetVisableText()) << std::endl;
+	//std::cout << bool(TestNode.GetVisableText() == NewNode.GetVisableText()) << std::endl;
 	return(MBGWebsiteMain());
 	MBDB::MBDB_Object TestObject;
 	TestObject.LoadObject("TestMBDBO.mbdbo", "Guest", nullptr);

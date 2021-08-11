@@ -189,6 +189,10 @@ namespace MBDB
 	{
 		return(RawColumnData[ColumnIndex] == nullptr);
 	}
+	std::string MBDB_RowData::JSONEncodeValue(size_t ColumnIndex) const
+	{
+		return(JsonEncodeValue(ColumnValueTypes[ColumnIndex], RawColumnData[ColumnIndex]));
+	}
 	std::string MBDB_RowData::ToJason() const
 	{
 		size_t NumberOfColumns = RawColumnData.size();

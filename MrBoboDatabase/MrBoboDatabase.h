@@ -79,6 +79,7 @@ namespace MBDB
 		MBDB_RowData() {};
 
 		std::string ToJason() const;
+		std::string JSONEncodeValue(size_t ColumnIndex) const;
 
 		template<typename... Args>
 		std::tuple<Args...> GetTuple()

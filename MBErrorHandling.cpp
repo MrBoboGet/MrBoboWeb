@@ -2,7 +2,7 @@
 //class MBError
 //operator bool() const { return(Type == MBErrorType::OK); }
 
-#define MBERROR_ASSERT
+//#define MBERROR_ASSERT
 
 #ifdef MBERROR_ASSERT
 #include <assert.h>

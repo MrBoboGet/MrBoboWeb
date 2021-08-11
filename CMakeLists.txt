@@ -193,6 +193,7 @@ set(Source_Files
     "MBTorrent/MBBitTorrent.cpp"
     "MBParsing/MBParsing.cpp"
     "MrBoboDatabase/MBDBObjectScript.cpp"
+    "MrPostOGet/MrPostOGet.cpp"
     ${EXTLIBS_SOURCE_FILES}
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
@@ -219,12 +220,15 @@ set (MBSE_HEADERS
     "MBSearchEngine/MBUnicodeMacros.h"
     "MBSearchEngine/MBSearchEngineCLIClass.h"
     "MBSearchEngine/MBRecursiveDirectoryIterator.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
+
 )
 set (MBSE_SOURCES
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBSearchEngine/MBSearchEngineCLIMain.cpp"
     "MBSearchEngine/MBSearchEngineCLIClass.cpp"
     "MBSearchEngine/MBUnicode.cpp"
+    "MBParsing/MBParsing.cpp"
     #TODO flytta error handlingen till MB_STANDARD_LIBRARY
     "MBErrorHandling.cpp"
 )
@@ -246,7 +250,20 @@ target_compile_features("mbse" PRIVATE cxx_std_17)
 target_include_directories("mbse" PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/.;"
     "${MB_STANDARD_LIBRARY_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/;"
 )
+#target_include_directories(${PROJECT_NAME} PUBLIC
+#    #"${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
+#    "${EXTLIBS_DIR}/ffmpeg/"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/.;"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/PicoSHA2/;"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/;"
+#    #"${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/plusaes/include/plusaes/"
+#)
 target_link_libraries("mbse" PRIVATE "${MBSE_ADDITIONAL_LIBRARIES}")
 
 #hokus pokus

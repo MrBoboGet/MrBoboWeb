@@ -9,6 +9,8 @@ namespace MBParsing
 		MBError ParseError = MBError(true);
 	};
 
+	void UpdateParseState(size_t CurrentOffset, MBError& ErrorToMove, size_t* OutOffset, MBError* OutError);
+
 	size_t FindSubstring(const void* Data, size_t DataSize, const void* Data2, size_t Data2Size,size_t ParseOffset);
 	size_t FindSubstring(std::string const& StringToSearch, std::string const& Substring, size_t ParseOffset);
 

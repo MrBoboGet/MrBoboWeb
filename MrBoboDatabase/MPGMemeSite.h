@@ -12,6 +12,9 @@ struct DBPermissionsList
 };
 
 
+bool p_StringIsPath(std::string const& StringToCheck);
+bool p_StringIsExternalWebsite(std::string const& StringToCheck);
+std::string GetEmbeddedResource(std::string const& MBDBResource, std::string const& ResourceFolder);
 
 void InitDatabase();
 

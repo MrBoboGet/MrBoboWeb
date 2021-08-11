@@ -3,6 +3,18 @@
 #include <algorithm>
 namespace MBParsing
 {
+	void UpdateParseState(size_t CurrentOffset, MBError& ErrorToMove, size_t* OutOffset, MBError* OutError)
+	{
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = CurrentOffset;
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = std::move(ErrorToMove);
+		}
+	}
+
 	void SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset)
 	{
 		SkipWhitespace(DataToParse.data(), DataToParse.size(), InOffset, OutOffset);
@@ -36,22 +48,23 @@ namespace MBParsing
 		MBError ParseError(true);
 		const char* ObjectData = (const char*)DataToParse;
 
-		if (ObjectData[ParseOffset] != '\"')
+		if (ObjectData[ParseOffset] != '\"' && ObjectData[ParseOffset] != '\'')
 		{
 			ParseError = false;
-			ParseError.ErrorMessage = "String doesnt begin with \"";
+			ParseError.ErrorMessage = "String doesnt begin with \' or \"";
 			if (OutError != nullptr)
 			{
 				*OutError = ParseError;
 			}
 			return("");
 		}
+		char StringDelimiter = ObjectData[ParseOffset];
 		ParseOffset += 1;
 		size_t StringBegin = ParseOffset;
 		while (ParseOffset < DataSize)
 		{
 			size_t PreviousParseOffset = ParseOffset;
-			ParseOffset = std::find(ObjectData+ParseOffset,ObjectData+DataSize,'\"')-ObjectData;
+			ParseOffset = std::find(ObjectData+ParseOffset,ObjectData+DataSize, StringDelimiter)-ObjectData;
 			if (ParseOffset >= DataSize)
 			{
 				ParseError = false;

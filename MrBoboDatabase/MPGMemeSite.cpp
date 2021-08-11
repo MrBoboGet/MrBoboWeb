@@ -202,6 +202,18 @@ std::string DBGetPassword(std::string const& RequestData)
 	}
 	return(ReturnValue);
 }
+bool p_StringIsPath(std::string const& StringToCheck)
+{
+	bool ReturnValue = true;
+	bool ContainsNewline = StringToCheck.find('\n') != StringToCheck.npos;
+	bool ContainsSpace = StringToCheck.find(' ') != StringToCheck.npos;
+	bool ContainsSlash = StringToCheck.find('/') != StringToCheck.npos;
+	if (ContainsNewline || ContainsSpace || !ContainsSlash)
+	{
+		ReturnValue = false;
+	}
+	return(ReturnValue);
+}
 bool DBLogin_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
@@ -251,24 +263,31 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 {
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
 	MBSockets::HTTPDocument NewDocument;
-	if (RequestType == "GET")
+	NewDocument.Type = MBSockets::HTTPDocumentType::HTML;
+	NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBSite.html", AssociatedServer->GetResourcePath("mrboboget.se"));
+	std::unordered_map<std::string, std::string> MapKeys = {};
+	
+	std::string QuerryString = "";
+	std::string RequestURL = MBSockets::GetReqestResource(RequestData);
+	size_t QuerryStringPosition = RequestURL.find("?SQLQuerry=");
+	if (QuerryStringPosition != RequestURL.npos)
 	{
-		NewDocument.Type = MBSockets::HTTPDocumentType::HTML;
-		NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se")+ "/DBSite.html",AssociatedServer->GetResourcePath("mrboboget.se"));
+		QuerryString =RequestURL.substr(QuerryStringPosition + 11);
 	}
-	else if(RequestType == "POST")
+	if (QuerryString == "")
+	{
+		MapKeys = { {"SQLResult",""} };
+	}
+	else
 	{
 		DBPermissionsList ConnectionPermissions = GetConnectionPermissions(RequestData);
 		if (!ConnectionPermissions.Read)
 		{
-			NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"Invalid permissions: Require permissions to read\",\"Rows\":[]}";
+			MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: Require permissions to read</p>"} };
 		}
 		else
 		{
-			NewDocument.Type = MBSockets::HTTPDocumentType::json;
-			//vi behöver parsa kroppen så vi får SQL koden som den enkoder i sin kropp
-			std::string SQLCommand = MrPostOGet::GetRequestContent(RequestData);
-			std::cout << SQLCommand << std::endl;
+			std::string SQLCommand = QuerryString;
 			bool CommandSuccesfull = true;
 			MBError SQLError(true);
 			std::vector<MBDB::MBDB_RowData> SQLResult = {};
@@ -280,29 +299,35 @@ MBSockets::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData,
 					CommandSuccesfull = false;
 				}
 			}
-			//std::vector<std::string> ColumnNames = { "MemeID","MemeSource","MemeTags" };
 			if (CommandSuccesfull)
 			{
-				std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":[";
-				size_t NumberOfRows = SQLResult.size();
-				for (size_t i = 0; i < NumberOfRows; i++)
+				std::string TotalRowData = "";
+				for (size_t i = 0; i < SQLResult.size(); i++)
 				{
-					JsonResponse += SQLResult[i].ToJason();
-					if (i + 1 < NumberOfRows)
+					MrPostOGet::HTMLNode NewRow = MrPostOGet::HTMLNode::CreateElement("tr");
+					for (size_t j = 0; j < SQLResult[0].GetNumberOfColumns(); j++)
 					{
-						JsonResponse += ",";
+						MrPostOGet::HTMLNode NewColumn = MrPostOGet::HTMLNode::CreateElement("td");
+						NewColumn["style"] = "height: 100%";
+						std::string ElementData = SQLResult[i].JSONEncodeValue(j);
+						if (p_StringIsPath(ElementData))
+						{
+							ElementData = GetEmbeddedResource(ElementData.substr(1,ElementData.size()-2), AssociatedServer->GetResourcePath("mrboboget.se"));
+						}
+						NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
+						NewRow.AppendChild(std::move(NewColumn));
 					}
+					TotalRowData += NewRow.ToString();
 				}
-				JsonResponse += "]}";
-				NewDocument.DocumentData = JsonResponse;
+				MapKeys["SQLResult"] = std::move(TotalRowData);
 			}
 			else
 			{
-				NewDocument.DocumentData = "{\"MBDBAPI_Status\":" + ToJason(SQLError.ErrorMessage) + ",\"Rows\":[]}";
+				MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: "+ SQLError.ErrorMessage+"</p>"} };
 			}
-			//std::cout << "JsonResponse sent: " << JsonResponse << std::endl;
 		}
 	}
+	NewDocument.DocumentData = MrPostOGet::ReplaceMPGVariables(NewDocument.DocumentData, MapKeys);
 	return(NewDocument);
 }
 
@@ -500,13 +525,17 @@ bool DBView_Predicate(std::string const& RequestData)
 }
 std::string GetEmbeddedResource(std::string const& MBDBResource,std::string const& ResourceFolder)
 {
-	if (!std::filesystem::exists(MBDBGetResourceFolderPath()+MBDBResource))
-	{
-		return("<p>File does not exist<p>");
-	}
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
 	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	bool IsMBDBResource = true;
+	if (IsMBDBResource)
+	{
+		if (!std::filesystem::exists(MBDBGetResourceFolderPath() + MBDBResource))
+		{
+			return("<p>File does not exist<p>");
+		}
+	}
 	if (ResourceMedia == MBSockets::MediaType::Image)
 	{
 		ReturnValue = GetEmbeddedImage(MBDBResource);
@@ -1293,7 +1322,8 @@ MBSockets::HTTPDocument DBOperatinBlipp_ResponseGenerator(std::string const& Req
 			{
 				std::string TableData = "";
 				std::unordered_map<std::string, std::string> VariableMap = {};
-
+				MrPostOGet::HTMLNode ArchiveTable = MrPostOGet::HTMLNode::CreateElement("table");
+				
 			}
 			else if (PathComponents[1] == "latest")
 			{

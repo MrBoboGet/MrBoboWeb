@@ -10,12 +10,17 @@
         </h1>
         <p id="DBStatus" style="color:green;text-align:center"></p>
         <div style="text-align:center;">
-            <input type="text" id="SearchBox" name="fname" style="width:100%">
+            <form style="width:100%">
+                <input type="text" id="SearchBox" name="SQLQuerry" style="width:100%" class ="MBButton">
+                <br>
+                <input type="submit" class ="MBButton" value="Querry">
+            </form>
         </div>
         <table id="SQLResultTable" style="width:100%">
+            ${SQLResult}
         </table>
         <script src=/DBLibrary.js></script>
         <script src="/DBSite_Script.js">
         </script>
     </BODY>
-    </HTML>
+</HTML>

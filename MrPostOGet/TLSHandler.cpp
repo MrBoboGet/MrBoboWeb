@@ -10,6 +10,8 @@
 #include <mutex>
 #include <MrPostOGet/TinySha1.h>
 #include <MBStrings.h>
+#include <ostream>
+#include <iostream>
 //MBSockets::Socket* AssociatedSocket = nullptr;
 
 //TODO Vi vill helst bli av med denna depenadncy, exempelvis genom att optimera min klass

@@ -2,6 +2,8 @@
 #include <chrono>
 #include <MBCrypto/MBCrypto.h>
 #include <MBSearchEngine/MBUnicode.h>
+#include <iostream>
+#include <fstream>
 namespace MBMail
 {
 	//void MBMailSender::p_SendAttachmentData(SMTPConnectionState& AssociatedConnection, MailAttachment const& AttachmentToSend)

@@ -937,18 +937,8 @@ namespace MBSockets
 		int FirstSlashPos = RequestData.find("/");
 		int FirstSpaceAfterSlash = RequestData.find(" ", FirstSlashPos);
 		std::string ReturnValue = RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1);
-		int NextPercent = ReturnValue.find("%");
-		while (NextPercent != ReturnValue.npos)
-		{
-			std::string CharactersToDecode = ReturnValue.substr(NextPercent + 1, 2);
-			bool ParseError = true;
-			char NewCharacter = MBUtility::HexValueToByte(CharactersToDecode, &ParseError);
-			if (ParseError)
-			{
-				ReturnValue = ReturnValue.substr(0, NextPercent) + NewCharacter + ReturnValue.substr(NextPercent + 3);
-			}
-			NextPercent = ReturnValue.find("%", NextPercent + 1);
-		}
+		bool Error = true; // borde göra något med denna med aja
+		ReturnValue = MBUtility::URLDecodeData(ReturnValue, &Error);
 		return(ReturnValue);
 	}
 	//BEGIN HTTPTypeTuple

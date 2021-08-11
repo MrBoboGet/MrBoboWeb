@@ -9,7 +9,6 @@
 #include <MBSearchEngine/MBUnicode.h>
 #include <map>
 #include <cmath>
-
 #include <MBSearchEngine/MBISaveIndexSpec.h>
 namespace MBSearchEngine
 {
@@ -1534,8 +1533,9 @@ namespace MBSearchEngine
 	}
 	MBError MBIndex::IndexHTMLData(std::string const& DocumentData, std::string const& DocumentIdentifier)
 	{
-		HTMLNode HTMLDocument(DocumentData, 0);
-		MBError ReturnValue = HTMLDocument.GetParseError();
+		MBError ReturnValue(true);
+		HTMLNode HTMLDocument(DocumentData,0);
+		//MBError ReturnValue = HTMLDocument.GetParseError();
 		//if (!ReturnValue)
 		//{
 		//	std::cout << "Fel i parsingen" << std::endl;

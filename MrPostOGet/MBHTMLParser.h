@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <MBStrings.h>
 #include <assert.h>
+#include <MBParsing/MBParsing.h>
 inline std::string StringToLower(std::string const& StringToLowercase)
 {
 	std::string ReturnValue = "";
@@ -218,6 +219,7 @@ public:
 	{
 		int CurrentTagDepth = 0;
 		bool IsTagElement = false;
+		MBParsing::SkipWhitespace(HTMLToParse, ParseOffset, &ParseOffset);
 		if (HTMLToParse.substr(ParseOffset, 3) == "<!D" || HTMLToParse.substr(ParseOffset, 3) == "<!d")
 		{
 			ParseOffset = HTMLToParse.find("<", ParseOffset + 1);
