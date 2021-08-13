@@ -30,7 +30,7 @@
 int main()
 {
 	MBSockets::Init();
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 	return(MBGWebsiteMain());
 
 }

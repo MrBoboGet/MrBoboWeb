@@ -78,6 +78,10 @@ namespace MBDB
 		std::string p_ArrayToJSON() const;
 		std::string p_AtomicToJSON() const;
 
+		std::string p_AggregateToFormattedJSON(size_t SpacesBefore) const;
+		std::string p_ArrayToFormattedJSON(size_t SpacesBefore) const;
+		std::string p_AtomicToFormattedJSON(size_t SpacesBefore) const;
+
 	public:
 		MBDB_Object() {};
 		MBDB_Object(std::string const& StringData);
@@ -103,6 +107,7 @@ namespace MBDB
 		bool IsEvaluated() const;
 	
 		MBDB_Object& GetAttribute(std::string const& AttributeName);
+		MBDB_Object const& GetAttribute(std::string const& AttributeName) const;
 		
 		MBDBO_Type GetType() const;
 		std::string GetStringData() const;
@@ -111,7 +116,7 @@ namespace MBDB
 		MBDB_Object_ArrayType const& GetArrayData() const;
 		
 		std::string ToJason() const;
-
+		std::string ToFormattedJason(size_t CurrentDepth = 0) const;
 	};
 
 	enum class MBDBObjectScript_StatementType

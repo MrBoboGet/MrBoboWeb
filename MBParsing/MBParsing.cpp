@@ -60,7 +60,7 @@ namespace MBParsing
 		}
 		char StringDelimiter = ObjectData[ParseOffset];
 		ParseOffset += 1;
-		size_t StringBegin = ParseOffset;
+		//size_t StringBegin = ParseOffset;
 		while (ParseOffset < DataSize)
 		{
 			size_t PreviousParseOffset = ParseOffset;
@@ -87,12 +87,14 @@ namespace MBParsing
 			}
 			if ((NumberOfBackslashes & 1) != 0)
 			{
+				//ett ojämnt antal \\, vilket innebär att det ska decodas som en "
+				ReturnValue += std::string(ObjectData + PreviousParseOffset, ParseOffset - PreviousParseOffset - 1) + '"';
 				ParseOffset += 1;
 				continue;
 			}
 			else
 			{
-				ReturnValue = std::string(ObjectData+StringBegin, ParseOffset - StringBegin);
+				ReturnValue += std::string(ObjectData+ PreviousParseOffset, ParseOffset - PreviousParseOffset);
 				ParseOffset += 1;
 				break;
 			}

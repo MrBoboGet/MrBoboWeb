@@ -105,6 +105,12 @@ namespace MBDB
 
 		return(AttributeMap[AttributeName]);
 	}
+	MBDB_Object const& MBDB_Object::GetAttribute(std::string const& AttributeName) const
+	{
+		MBDB_Object_MapType const& AttributeMap = *(MBDB_Object_MapType*)m_AtomicData;
+
+		return(AttributeMap.at(AttributeName));
+	}
 	MBDBO_Type MBDB_Object::GetType() const
 	{
 		return(m_Type);
@@ -883,6 +889,49 @@ namespace MBDB
 		}
 		return(ReturnValue);
 	}
+	std::string MBDB_Object::p_AggregateToFormattedJSON(size_t SpacesBefore) const
+	{
+		std::string ReturnValue = "{\n";
+		MBDB_Object_MapType const& Attributes = *(MBDB_Object_MapType*)m_AtomicData;
+		size_t NewDepth = SpacesBefore + 1+4;
+		for (auto& Key : Attributes)
+		{
+			std::string KeyDataToAdd = ::ToJason(Key.first)+':';
+			ReturnValue +=std::string(NewDepth,' ')+ KeyDataToAdd;
+			size_t ArgumentDepth = NewDepth + KeyDataToAdd.size();
+			ReturnValue += Key.second.ToFormattedJason(ArgumentDepth);
+			ReturnValue += ",\n";
+		}
+		//ReturnValue.resize(ReturnValue.size() - 1);
+		ReturnValue += std::string(SpacesBefore,' ')+ '}';
+		return(ReturnValue);
+	}
+	std::string MBDB_Object::p_ArrayToFormattedJSON(size_t SpacesBefore) const
+	{
+		std::string ReturnValue = "[\n";
+		MBDB_Object_ArrayType const& Arrays = *(MBDB_Object_ArrayType*)m_AtomicData;
+		if (Arrays.size() <= 3)
+		{
+			return(this->ToJason());
+		}
+		size_t NewDepth = SpacesBefore + 1 + 4;
+		for (size_t i = 0; i < Arrays.size(); i++)
+		{
+			ReturnValue += std::string(NewDepth, ' ');
+			ReturnValue += Arrays[i].ToFormattedJason(NewDepth);
+			if (i + 1 < Arrays.size())
+			{
+				ReturnValue += ",";
+			}
+			ReturnValue += '\n';
+		}
+		ReturnValue += std::string(SpacesBefore, ' ') + "]";
+		return(ReturnValue);
+	}
+	std::string MBDB_Object::p_AtomicToFormattedJSON(size_t SpacesBefore) const
+	{
+		return(p_AtomicToJSON());
+	}
 	std::string MBDB_Object::ToJason() const
 	{
 		std::string ReturnValue = "";
@@ -893,6 +942,23 @@ namespace MBDB
 		else if(m_Type == MBDBO_Type::AggregateObject)
 		{
 			ReturnValue = p_AggregateToJSON();
+		}
+		else
+		{
+			ReturnValue = p_AtomicToJSON();
+		}
+		return(ReturnValue);
+	}
+	std::string MBDB_Object::ToFormattedJason(size_t CurrentDepth) const
+	{
+		std::string ReturnValue = "";
+		if (m_Type == MBDBO_Type::Array)
+		{
+			ReturnValue = p_ArrayToFormattedJSON(CurrentDepth);
+		}
+		else if (m_Type == MBDBO_Type::AggregateObject)
+		{
+			ReturnValue = p_AggregateToFormattedJSON(CurrentDepth);
 		}
 		else
 		{

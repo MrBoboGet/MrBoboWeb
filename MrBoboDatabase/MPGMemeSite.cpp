@@ -86,6 +86,9 @@ MBDB_Website::MBDB_Website()
 		{ &MBDB_Website::DBOperationBlipp_Predicate,	&MBDB_Website::DBOperatinBlipp_ResponseGenerator } };
 	__NumberOfHandlers.store(__LegacyRequestHandlers.size());
 	__HandlersData.store(__LegacyRequestHandlers.data());
+	__ModernRequestHandlers = { {&MBDB_Website::p_Edit_Predicate,&MBDB_Website::p_Edit_ResponseGenerator} };
+	__ModernHandlersCount.store(__ModernRequestHandlers.size());
+	__ModernHandlersData.store(__ModernRequestHandlers.data());
 }
 bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
 {
@@ -97,9 +100,18 @@ bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestTo
 			return(true);
 		}
 	}
+	ModernRequestHandler* ModernData = __ModernHandlersData.load();
+	for (size_t i = 0; i < __ModernHandlersCount.load(); i++)
+	{
+		if ((this->*(ModernData[i].Predicate))(RequestToHandle, ConnectionState, AssociatedServer))
+		{
+			return(true);
+		}
+	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket* Connection, MrPostOGet::HTTPServer* Server)
+MBSockets::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const& ConnectionState
+	, MBSockets::HTTPServerSocket* Connection, MrPostOGet::HTTPServer* Server)
 {
 	LegacyRequestHandler* HandlersData = __HandlersData.load();
 	for (size_t i = 0; i < __NumberOfHandlers.load(); i++)
@@ -109,10 +121,18 @@ MBSockets::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientReq
 			return((this->*(HandlersData[i].Generator))(Request.RawRequestData,Server,Connection));
 		}
 	}
+	ModernRequestHandler* ModernData = __ModernHandlersData.load();
+	for (size_t i = 0; i < __ModernHandlersCount.load(); i++)
+	{
+		if ((this->*(ModernData[i].Predicate))(Request, ConnectionState, Server))
+		{
+			return((this->*(ModernData[i].Generator))(Request, ConnectionState, Connection, Server));
+		}
+	}
 	assert(false);
 }
 
-std::string const& MBDB_Website::GetResourceFolderPath()
+std::string MBDB_Website::GetResourceFolderPath()
 {
 	std::lock_guard<std::mutex> Lock(__MBTopResourceFolderMutex);
 	return(m_MBDBResourceFolder);
@@ -169,6 +189,7 @@ DBPermissionsList MBDB_Website::m_GetConnectionPermissions(std::string const& Re
 			PasswordHash = Cookies[i].Value;
 		}
 	}
+	ReturnValue.AssociatedUser = UserName;
 	std::string SQLStatement = "SELECT * FROM Users WHERE UserName=?;";
 	std::vector<MBDB::MBDB_RowData> QuerryResult = m_GetUser(UserName, PasswordHash);
 	if (QuerryResult.size() != 0)
@@ -332,7 +353,7 @@ MBSockets::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const
 						std::string ElementData = SQLResult[i].ColumnToString(j);
 						if (p_StringIsPath(ElementData))
 						{
-							ElementData = p_GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"));
+							ElementData = p_GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"), ConnectionPermissions);
 						}
 						NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
 						NewRow.AppendChild(std::move(NewColumn));
@@ -490,7 +511,7 @@ MBSockets::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const&
 	MBSockets::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath+DatabaseResourceToGet,ByteIntervalls);
 	return(ReturnValue);
 }
-std::string GetEmbeddedVideo(std::string const& VideoPath, std::string const& WebsiteResourcePath)
+std::string MBDB_Website::p_GetEmbeddedVideo(std::string const& VideoPath, std::string const& WebsiteResourcePath)
 {
 	std::string ReturnValue = "";
 	std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
@@ -510,7 +531,7 @@ std::string GetEmbeddedVideo(std::string const& VideoPath, std::string const& We
 	}
 	return(ReturnValue);
 }
-std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath)
+std::string MBDB_Website::p_GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath)
 {
 	std::unordered_map<std::string, std::string> VariableValues = {};
 	std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
@@ -521,12 +542,12 @@ std::string GetEmbeddedAudio(std::string const& VideoPath, std::string const& We
 	std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
 	return(ReturnValue);
 }
-std::string GetEmbeddedImage(std::string const& ImagePath)
+std::string MBDB_Website::p_GetEmbeddedImage(std::string const& ImagePath)
 {
 	std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\" style=\"max-width:100%\"></image>";
 	return(ReturnValue);
 }
-std::string GetEmbeddedPDF(std::string const& ImagePath)
+std::string MBDB_Website::p_GetEmbeddedPDF(std::string const& ImagePath)
 {
 	return("<iframe src=\"/DB/" + ImagePath + "\" style=\"width: 100%; height: 100%;max-height: 100%; max-width: 100%;\"></iframe>");
 }
@@ -543,7 +564,329 @@ bool MBDB_Website::DBView_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-std::string MBDB_Website::p_GetEmbeddedResource(std::string const& MBDBResource,std::string const& ResourceFolder)
+MBDB::MBDB_Object MBDB_Website::p_LoadMBDBObject(std::string const& ValidatedUser, std::string const& ObjectPath, MBError* OutError)
+{
+
+	MBDB::MBDB_Object ReturnValue;
+	std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+	MBError EvaluationResult = ReturnValue.LoadObject(ObjectPath, ValidatedUser, m_ReadonlyDatabase);
+	if (OutError != nullptr)
+	{
+		*OutError = std::move(EvaluationResult);
+	}
+	return(ReturnValue);
+}
+
+std::string MBDB_Website::p_GetEmbeddedMBDBObject(std::string const& MBDBResource, std::string const& HTMLFolder, DBPermissionsList const& Permissions)
+{
+	std::string ReturnValue = "";
+	MBError EvaluationError(true);
+	//MBDB::MBDB_Object ObjectToEmbedd = p_LoadMBDBObject(Permissions.AssociatedUser, GetResourceFolderPath() + MBDBResource, &EvaluationError);
+	MBDB::MBDB_Object ObjectToEmbedd;
+	std::string ObjectFilePath = GetResourceFolderPath() + MBDBResource;
+	if (std::filesystem::exists(ObjectFilePath))
+	{
+		std::string ObjectData = MrPostOGet::LoadWholeFile(ObjectFilePath);
+		ObjectToEmbedd = MBDB::MBDB_Object::ParseObject(ObjectData, 0, nullptr, &EvaluationError);
+	}
+	else
+	{
+		EvaluationError = false;
+		EvaluationError.ErrorMessage = "Object does not exist";
+	}
+	MrPostOGet::HTMLNode NodeToEmbedd = MrPostOGet::HTMLNode::CreateElement("a");
+	NodeToEmbedd["href"] = "/DBView/"+MBDBResource;
+
+	if (EvaluationError)
+	{
+		if (ObjectToEmbedd.HasAttribute("Banner"))
+		{
+			MBDB::MBDB_Object& BannerObject = ObjectToEmbedd.GetAttribute("Banner");
+			if (!BannerObject.IsEvaluated())
+			{
+				std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+				MBDB::MBDBO_EvaluationInfo EvaluationInfo;
+				EvaluationInfo.AssociatedDatabase = m_ReadonlyDatabase;
+				EvaluationInfo.EvaluatingUser = Permissions.AssociatedUser;
+				EvaluationInfo.ObjectDirectory = MBUnicode::PathToUTF8(std::filesystem::path(GetResourceFolderPath() + MBDBResource).parent_path());
+				BannerObject.Evaluate(EvaluationInfo, &EvaluationError);
+			}
+			//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">" + p_GetEmbeddedResource(ObjectToEmbedd.GetAttribute("Banner"),HTMLFolder,Permissions) + "</a>"
+			if (EvaluationError)
+			{
+				if (BannerObject.GetType() != MBDB::MBDBO_Type::String)
+				{
+					NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Invalid banner type"));
+				}
+				else
+				{
+					NodeToEmbedd.AppendChild(p_GetEmbeddedImage(BannerObject.GetStringData()));
+				}
+			}
+			else
+			{
+				NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Error embedding resource: " + EvaluationError.ErrorMessage));
+			}
+		}
+		else
+		{
+			//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">" + MBDBResource + "</a>";
+			NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode(MBDBResource));
+		}
+	}
+	else
+	{
+		//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">Error embedding resource: " + EvaluationError.ErrorMessage + "</a>";
+		NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Error embedding resource: " + EvaluationError.ErrorMessage));
+	}
+	ReturnValue = NodeToEmbedd.ToString();
+	return(ReturnValue);
+}
+bool MBDB_Website::p_ObjectIsMBPlaylist(MBDB::MBDB_Object const& ObjectToCheck)
+{
+	bool ReturnValue = true;
+	if (ObjectToCheck.HasAttribute("Banner") == false)
+	{
+		ReturnValue = false;
+	}
+	else
+	{
+		if (ObjectToCheck.GetAttribute("Banner").GetType() != MBDB::MBDBO_Type::String)
+		{
+			ReturnValue = false;
+		}
+	}
+	if (ObjectToCheck.HasAttribute("Songs") == false)
+	{
+		ReturnValue = false;
+	}
+	else
+	{
+		if (ObjectToCheck.GetAttribute("Songs").GetType() != MBDB::MBDBO_Type::Array)
+		{
+			ReturnValue = false;
+		}
+	}
+	if (ObjectToCheck.HasAttribute("Name") == false)
+	{
+		ReturnValue = false;
+	}
+	else
+	{
+		if (ObjectToCheck.GetAttribute("Name").GetType() != MBDB::MBDBO_Type::String)
+		{
+			ReturnValue = false;
+		}
+	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::p_ViewMBDBPlaylist(MBDB::MBDB_Object const& EvaluatedObject, std::string const& HTMLFolder,DBPermissionsList const& Permissions)
+{
+	std::string ReturnValue = "";
+	//Attributer som den har, Name,Banner,Songs,Tags kanske?
+	//MrPostOGet::HTMLNode NodeToAdd = MrPostOGet::HTMLNode::CreateElement("div");
+
+	bool PlaylistIsValid = p_ObjectIsMBPlaylist(EvaluatedObject);
+	
+	std::cout << EvaluatedObject.ToJason() << std::endl;
+
+	if (PlaylistIsValid)
+	{
+		MrPostOGet::HTMLNode NameNode = MrPostOGet::HTMLNode::CreateElement("h2");
+		NameNode["style"] = "text-align: center";
+		NameNode["class"] = "center";
+		NameNode.AppendChild(MrPostOGet::HTMLNode(EvaluatedObject.GetAttribute("Name").GetStringData()));
+
+		MrPostOGet::HTMLNode TableNode = MrPostOGet::HTMLNode::CreateElement("table");
+		TableNode["style"] = "width: 100%";
+		auto const& PlaylistSongs = EvaluatedObject.GetAttribute("Songs").GetArrayData();
+		for (auto const& Song : PlaylistSongs)
+		{
+			MrPostOGet::HTMLNode NewRow = MrPostOGet::HTMLNode::CreateElement("tr");
+			//en song består av en path till den, samt namn
+			auto const& SongColumns = Song.GetArrayData();
+			MrPostOGet::HTMLNode SongColumn = MrPostOGet::HTMLNode::CreateElement("td");
+			SongColumn["style"] = "height: 100%";
+			SongColumn.AppendChild(MrPostOGet::HTMLNode(p_GetEmbeddedResource(SongColumns[0].GetStringData(), HTMLFolder, Permissions)));
+			MrPostOGet::HTMLNode NameColumn = MrPostOGet::HTMLNode::CreateElement("td");
+			NameColumn["style"] = "height: 100%";
+			NameColumn.AppendChild(MrPostOGet::HTMLNode(SongColumns[1].GetStringData()));
+			NewRow.AppendChild(std::move(SongColumn));
+			NewRow.AppendChild(std::move(NameColumn));
+			TableNode.AppendChild(std::move(NewRow));
+		}
+		ReturnValue += MrPostOGet::HTMLNode(p_GetEmbeddedImage(EvaluatedObject.GetAttribute("Banner").GetStringData())).ToString();
+		ReturnValue += NameNode.ToString();
+		ReturnValue += TableNode.ToString();
+		MrPostOGet::HTMLNode PlaylistElement = MrPostOGet::HTMLNode::CreateElement("script");
+		ReturnValue += "<script src=\"/DBLibrary.js\"></script>";
+		PlaylistElement["src"] = "/DBCreatePlaylist.js";
+		ReturnValue += PlaylistElement.ToString();
+	}
+	else
+	{
+		ReturnValue = "<p>Playlist is formatted incorrectly</p>";
+	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::p_ViewMBDBObject(std::string const& MBDBResource, std::string const& HTMLFolder, DBPermissionsList const& Permissions)
+{
+	std::string ReturnValue = "";
+	MBError EvaluationError(true);
+	MBDB::MBDB_Object ObjectToView = p_LoadMBDBObject(Permissions.AssociatedUser, GetResourceFolderPath() + MBDBResource, &EvaluationError);
+	//MrPostOGet::HTMLNode NodeToEmbedd = MrPostOGet::HTMLNode::CreateElement("div");
+	if (EvaluationError)
+	{
+		bool ShouldDisplayText = false;
+		if (ObjectToView.HasAttribute("Type"))
+		{
+			if (ObjectToView.GetAttribute("Type").GetType() == MBDB::MBDBO_Type::String)
+			{
+				std::string ObjectType = ObjectToView.GetAttribute("Type").GetStringData();
+				if (ObjectType == "MBPlaylist")
+				{
+					ReturnValue = p_ViewMBDBPlaylist(ObjectToView, HTMLFolder,Permissions);
+				}
+				else
+				{
+					ShouldDisplayText = true;
+				}
+			}
+			else
+			{
+				ShouldDisplayText = true;
+			}
+		}
+		else
+		{
+			ShouldDisplayText = true;
+		}
+		if (ShouldDisplayText)
+		{
+			MrPostOGet::HTMLNode TextDisplay = MrPostOGet::HTMLNode::CreateElement("p");
+
+
+			TextDisplay["class"] = "MBTextArea";
+			TextDisplay.AppendChild(MrPostOGet::HTMLNode(ObjectToView.ToFormattedJason()));
+			ReturnValue += "<h2>" + MBDBResource + "</h2>";
+			ReturnValue += TextDisplay.ToString();
+		}
+	}
+	else
+	{
+		MrPostOGet::HTMLNode NodeToEmbedd = MrPostOGet::HTMLNode::CreateElement("p");
+		NodeToEmbedd["style"] = "color: red; text-align: center";
+		NodeToEmbedd["class"] = "center";
+		NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Error in evaluating object: " + EvaluationError.ErrorMessage));
+		ReturnValue = NodeToEmbedd.ToString();
+	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::p_DBEdit_GetTextfileEditor(std::string const& MBDBResource, std::string const& HTMLFolder, DBPermissionsList const& Permissions)
+{
+	std::string ReturnValue = "";
+
+	std::string FileToEditPath = GetResourceFolderPath() + MBDBResource;
+	if (!std::filesystem::exists(FileToEditPath))
+	{
+		ReturnValue = "<p style=\"color: red\">Error in editing file: file doesnt exist</p>";
+	}
+	else
+	{
+		//<form id="BlippUpdate" method="post" enctype ="multipart/form-data" class="center">
+		MrPostOGet::HTMLNode FormNode = MrPostOGet::HTMLNode::CreateElement("form");
+		FormNode["id"] = "EditForm";
+		FormNode["name"] = "EditForm";
+		FormNode["method"] = "post";
+		FormNode["enctype"] = "multipart/form-data";
+		MrPostOGet::HTMLNode SubmitButton = MrPostOGet::HTMLNode::CreateElement("input");
+		SubmitButton["type"] = "submit";
+		SubmitButton["class"] = "MBButton";
+		SubmitButton["value"] = "Send Update";
+		SubmitButton["form"] = "EditForm";
+
+		//FormNode.AppendChild(std::move(SubmitButton));
+
+		MrPostOGet::HTMLNode FileName = MrPostOGet::HTMLNode::CreateElement("h2");
+		FileName.AppendChild(MrPostOGet::HTMLNode(MBDBResource));
+
+		MrPostOGet::HTMLNode TextArea = MrPostOGet::HTMLNode::CreateElement("textarea");
+		TextArea["style"] = "overflow-y: scroll; resize: none; width: 100%; height: 100%";
+		TextArea["form"] = "EditForm";
+		TextArea["class"] = "MBTextArea";
+		TextArea.AppendChild(MrPostOGet::HTMLNode(MrPostOGet::LoadWholeFile(FileToEditPath)));
+		TextArea["name"] = "InputElement";
+
+		//FormNode.AppendChild(std::move(TextArea));
+		//FormNode.AppendChild(std::move(SubmitButton));
+
+		ReturnValue += FileName.ToString();
+		ReturnValue += FormNode.ToString();
+		ReturnValue += TextArea.ToString();
+		ReturnValue += SubmitButton.ToString();
+	}
+
+
+	return(ReturnValue);
+}
+MBError MBDB_Website::p_DBEdit_Textfile_Update(MrPostOGet::HTTPClientRequest const& Request, std::string const& MBDBResource, DBPermissionsList const& Permissions)
+{
+	MBError UpdateError(true);
+
+	//Post request med enbart 1 värde, den nya texten
+	//ANTAGANDE all data som skickas är här, blir fel annars
+	//std::string DataToParse = reqe
+
+	MBMIME::MIMEMultipartDocumentExtractor DocumentExtractor(Request.RawRequestData.data(),Request.RawRequestData.size(),0);
+	DocumentExtractor.ExtractHeaders();
+	DocumentExtractor.ExtractHeaders();
+	std::string NewData = DocumentExtractor.ExtractPartData();
+
+	std::ofstream FileToUpdate = std::ofstream(GetResourceFolderPath() + MBDBResource, std::ios::out | std::ios::binary);
+	if (!FileToUpdate.is_open() || !FileToUpdate.good())
+	{
+		UpdateError = false;
+		UpdateError.ErrorMessage = "Error updating file";
+	}
+	else
+	{
+		FileToUpdate << NewData;
+	}
+
+	return(UpdateError);
+}
+
+std::string MBDB_Website::p_ViewResource(std::string const& MBDBResource, std::string const& ResourceFolder, DBPermissionsList const& Permissions)
+{
+	std::string ReturnValue = "";
+	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
+	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	if (ResourceExtension != "mbdbo")
+	{
+		ReturnValue = p_GetEmbeddedResource(MBDBResource, ResourceFolder, Permissions);
+	}
+	else
+	{
+		ReturnValue = p_ViewMBDBObject(MBDBResource,ResourceFolder, Permissions);
+	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::p_EditResource(std::string const& MBDBResource, std::string const& ResourceFolder, DBPermissionsList const& Permissions)
+{
+	std::string ReturnValue = "";
+	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
+	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	if (ResourceExtension == "mbdb")
+	{
+		ReturnValue = p_DBEdit_GetTextfileEditor(MBDBResource, ResourceFolder, Permissions);
+	}
+	else
+	{
+		ReturnValue = "<p class=\"center\" style=\"text-align: center\">Resource is not Editable</p>";
+	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::p_GetEmbeddedResource(std::string const& MBDBResource,std::string const& ResourceFolder,DBPermissionsList const& Permissions)
 {
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
@@ -558,24 +901,89 @@ std::string MBDB_Website::p_GetEmbeddedResource(std::string const& MBDBResource,
 	}
 	if (ResourceMedia == MBSockets::MediaType::Image)
 	{
-		ReturnValue = GetEmbeddedImage(MBDBResource);
+		ReturnValue = p_GetEmbeddedImage(MBDBResource);
 	}
 	else if (ResourceMedia == MBSockets::MediaType::Video)
 	{
-		ReturnValue = GetEmbeddedVideo(MBDBResource, ResourceFolder);
+		ReturnValue = p_GetEmbeddedVideo(MBDBResource, ResourceFolder);
 	}
 	else if (ResourceMedia == MBSockets::MediaType::Audio)
 	{
-		ReturnValue = GetEmbeddedAudio(MBDBResource, ResourceFolder);
+		ReturnValue = p_GetEmbeddedAudio(MBDBResource, ResourceFolder);
 	}
 	else if (ResourceMedia == MBSockets::MediaType::PDF)
 	{
-		ReturnValue = GetEmbeddedPDF(MBDBResource);
+		ReturnValue = p_GetEmbeddedPDF(MBDBResource);
+	}
+	else if (ResourceExtension == "mbdbo")
+	{
+		ReturnValue = p_GetEmbeddedMBDBObject(MBDBResource, ResourceFolder, Permissions);
 	}
 	else
 	{
 		ReturnValue = "<p>File in unrecognized format</p><br><a href=\"/DB/" + MBDBResource + "\">/DB/" + MBDBResource + "</a>";
 	}
+	return(ReturnValue);
+}
+bool MBDB_Website::p_Edit_Predicate(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
+{
+	//TODO borde det här helt enkelt vara en del av parsingen istället?
+	std::string NormalizedPath = RequestToHandle.RequestResource;
+	if (NormalizedPath.substr(0, 8) == "/DBEdit/" && NormalizedPath.size() > 8) //vi vill inte deala med att scrolal till dem nu
+	{
+		return(true);
+	}
+	return(false);
+}
+MBSockets::HTTPDocument MBDB_Website::p_Edit_ResponseGenerator(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, MrPostOGet::HTTPServer* Server)
+{
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	std::string FileExtension = "";
+	size_t LastDot = Request.RequestResource.find_last_of('.');
+	
+	std::string MBDBResource = Request.RequestResource.substr(Request.RequestResource.find("DBEdit/") + 7);
+	std::string FileToEditPath = GetResourceFolderPath() + MBDBResource;
+	std::string HTMLFolderPath = Server->GetResourcePath("mrboboget.se");
+	std::string TemplateData = MrPostOGet::LoadFileWithPreprocessing(HTMLFolderPath + "DBEditTemplate.html", HTMLFolderPath);
+	std::string EmbeddedElement = "";
+	std::unordered_map<std::string, std::string> MapKeys = {};
+	MapKeys["UpdateResponse"] = "";
+	DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(Request.RawRequestData);
+	
+	if (ConnectionPermissions.Edit && ConnectionPermissions.Read)
+	{
+		if (Request.Type == MrPostOGet::HTTPRequestType::POST)
+		{
+			MBError Result = p_DBEdit_Textfile_Update(Request, MBDBResource, ConnectionPermissions);
+			if (Result)
+			{
+				MapKeys["UpdateResponse"] = "<p style=\"color: green\">Successfully updated file</p>";
+			}
+			else
+			{
+				MapKeys["UpdateResponse"] = "<p style=\"color: red\">Error updating file" + Result.ErrorMessage + "</p>";
+			}
+		}
+		if (LastDot != Request.RequestResource.npos)
+		{
+			FileExtension = Request.RequestResource.substr(LastDot + 1);
+		}
+		if (FileExtension == "txt" || "mbdbo" || MBGetFileSize(FileToEditPath) > 10000)
+		{
+			EmbeddedElement = p_DBEdit_GetTextfileEditor(MBDBResource, HTMLFolderPath, ConnectionPermissions);
+		}
+		else
+		{
+			EmbeddedElement = "<p style=\"color: red\">Editing of filetype not supported</p>";
+		}
+	}
+	else
+	{
+		EmbeddedElement = "<p style=\"color: red\">Require Permissions to edit and read</p>";
+	}
+	MapKeys["EditElement"] = std::move(EmbeddedElement);
+	ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(TemplateData, MapKeys);
 	return(ReturnValue);
 }
 MBSockets::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
@@ -599,8 +1007,10 @@ MBSockets::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const
 	}
 	if (!std::filesystem::is_directory(DBResourcesPath + DBResource) && DBResource != "")
 	{
+		DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
 		MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
-		EmbeddedElement = p_GetEmbeddedResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		//EmbeddedElement = p_GetEmbeddedResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		EmbeddedElement = p_ViewResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"),ConnectionPermissions);
 		std::unordered_map<std::string, std::string> MapData = {};
 		MapData["EmbeddedMedia"] = EmbeddedElement;
 		std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
@@ -640,15 +1050,15 @@ MBSockets::HTTPDocument MBDB_Website::DBViewEmbedd_ResponseGenerator(std::string
 	ReturnValue.Type = MBSockets::DocumentTypeFromFileExtension(ResourceExtension);
 	if (ResourceMedia == MBSockets::MediaType::Image)
 	{
-		ReturnValue.DocumentData = GetEmbeddedImage(DBResource);
+		ReturnValue.DocumentData = p_GetEmbeddedImage(DBResource);
 	}
 	else if (ResourceMedia == MBSockets::MediaType::Video)
 	{
-		ReturnValue.DocumentData = GetEmbeddedVideo(DBResource,AssociatedServer->GetResourcePath("mrboboget.se"));
+		ReturnValue.DocumentData = p_GetEmbeddedVideo(DBResource,AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
 	else if (ResourceMedia == MBSockets::MediaType::Audio)
 	{
-		ReturnValue.DocumentData = GetEmbeddedAudio(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
+		ReturnValue.DocumentData = p_GetEmbeddedAudio(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
 	return(ReturnValue);
 }

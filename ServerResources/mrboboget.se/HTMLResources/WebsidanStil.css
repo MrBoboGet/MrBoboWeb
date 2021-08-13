@@ -26,6 +26,7 @@ td {
 }
 .CenterChildren 
 {
+    text-align: center;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -58,4 +59,12 @@ form
     background: rgba(0, 0, 0, 1);
     border: 1px solid #00FF00;
     text-align: center;
+}
+.MBTextArea
+{
+    white-space: pre-wrap;
+    text-align: initial;
+    color: #00FF00;
+    background: rgba(0, 0, 0, 1);
+    border: 1px solid #00FF00;
 }

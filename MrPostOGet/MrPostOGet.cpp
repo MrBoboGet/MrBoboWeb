@@ -240,54 +240,61 @@ namespace MrPostOGet
 	}
 	void HTTPServer::m_HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient)
 	{
-		if (m_UseSecureConnection.load())
+		try
 		{
-			MBError ConnectError = ConnectedClient->EstablishTLSConnection();
-			if (!ConnectError)
+			if (m_UseSecureConnection.load())
 			{
-				std::cout << ConnectError.ErrorMessage << std::endl;
-			}
-		}
-		std::string RequestData;
-		HTTPClientConnectionState ConnectionState;
-		while ((RequestData = ConnectedClient->GetNextChunkData()) != "")
-		{
-			if (!ConnectedClient->IsConnected())
-			{
-				continue;
-			}
-			if (!ConnectedClient->IsValid())
-			{
-				break;
-			}
-			HTTPClientRequest CurrentRequest;
-			p_ParseHTTPClientRequest(CurrentRequest, RequestData);
-			//ANTAGANDE när man väl lyssnar läggs inga handlers till, vilket gör att nedstående trick fungerar
-			bool HandlerHasHandled = false;
-			size_t NumberOfHandlers = 0;
-			std::unique_ptr<HTTPRequestHandler>* RequestHandlers = nullptr;
-			{
-				std::lock_guard<std::mutex> Lock(m_InternalsMutex);
-				NumberOfHandlers = m_RequestHandlers.size();
-				RequestHandlers = m_RequestHandlers.data();
-			}
-			for (size_t i = 0; i < NumberOfHandlers; i++)
-			{
-				if (RequestHandlers[i]->HandlesRequest(CurrentRequest,ConnectionState,this))
+				MBError ConnectError = ConnectedClient->EstablishTLSConnection();
+				if (!ConnectError)
 				{
-					//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
-					MBSockets::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient,this);
-					ConnectedClient->SendHTTPDocument(RequestResponse);
-					HandlerHasHandled = true;
-					break;
+					std::cout << ConnectError.ErrorMessage << std::endl;
 				}
 			}
-			if (HandlerHasHandled)
+			std::string RequestData;
+			HTTPClientConnectionState ConnectionState;
+			while ((RequestData = ConnectedClient->GetNextChunkData()) != "")
 			{
-				continue;
+				if (!ConnectedClient->IsConnected())
+				{
+					continue;
+				}
+				if (!ConnectedClient->IsValid())
+				{
+					break;
+				}
+				HTTPClientRequest CurrentRequest;
+				p_ParseHTTPClientRequest(CurrentRequest, RequestData);
+				//ANTAGANDE när man väl lyssnar läggs inga handlers till, vilket gör att nedstående trick fungerar
+				bool HandlerHasHandled = false;
+				size_t NumberOfHandlers = 0;
+				std::unique_ptr<HTTPRequestHandler>* RequestHandlers = nullptr;
+				{
+					std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+					NumberOfHandlers = m_RequestHandlers.size();
+					RequestHandlers = m_RequestHandlers.data();
+				}
+				for (size_t i = 0; i < NumberOfHandlers; i++)
+				{
+					if (RequestHandlers[i]->HandlesRequest(CurrentRequest, ConnectionState, this))
+					{
+						//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
+						MBSockets::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient, this);
+						ConnectedClient->SendHTTPDocument(RequestResponse);
+						HandlerHasHandled = true;
+						break;
+					}
+				}
+				if (HandlerHasHandled)
+				{
+					continue;
+				}
+				MBSockets::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"), this);
+				ConnectedClient->SendHTTPDocument(DocumentToSend);
 			}
-			MBSockets::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"),this);
-			ConnectedClient->SendHTTPDocument(DocumentToSend);
+		}
+		catch (const std::exception& CaughtException)
+		{
+			std::cout << "Uncaught exception when handling connection: " << CaughtException.what() << std::endl;
 		}
 		//delete ConnectedClient;
 	}
@@ -649,12 +656,12 @@ namespace MrPostOGet
 	{
 		//lite parsing av den råa texten så vi tar borta massa newlines och gör den lite snyggare
 		std::string TextToStore = RawText;
-		TextToStore = MBUtility::ReplaceAll(TextToStore, "\r\n", " ");
-		TextToStore = MBUtility::ReplaceAll(TextToStore, "\n", " ");
-		TextToStore = MBUtility::ReplaceAll(TextToStore, "\r", " ");
-		TextToStore = MBUtility::RemoveDuplicates(TextToStore, " ");
-		TextToStore = MBUtility::RemoveLeadingString(TextToStore, " ");
-		m_RawText = TextToStore;
+		//TextToStore = MBUtility::ReplaceAll(TextToStore, "\r\n", " ");
+		//TextToStore = MBUtility::ReplaceAll(TextToStore, "\n", " ");
+		//TextToStore = MBUtility::ReplaceAll(TextToStore, "\r", " ");
+		//TextToStore = MBUtility::RemoveDuplicates(TextToStore, " ");
+		//TextToStore = MBUtility::RemoveLeadingString(TextToStore, " ");
+		m_RawText = std::move(TextToStore);
 		//assert(TextToStore != "");
 		m_IsRawtext = true;
 	}
@@ -712,7 +719,10 @@ namespace MrPostOGet
 			{
 				ReturnValue += Child.ToString();
 			}
-			ReturnValue += "\r\n</" + m_NodeTag + ">\r\n";
+			if (TagIsEmpty(m_NodeTag) == false)
+			{
+				ReturnValue += "\r\n</" + m_NodeTag + ">\r\n";
+			}
 		}
 		else
 		{
