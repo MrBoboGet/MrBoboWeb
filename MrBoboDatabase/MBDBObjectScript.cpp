@@ -1632,11 +1632,19 @@ namespace MBDB
 		MBDB_Object LeftOperand = EvaluateStatement(EvaluationInfo, Arguments[0], &EvaluationError);
 		if (!EvaluationError)
 		{
+			if (OutError != nullptr)
+			{
+				*OutError = std::move(EvaluationError);
+			}
 			return(ReturnValue);
 		}
 		MBDB_Object RightOperand = EvaluateStatement(EvaluationInfo, Arguments[1], &EvaluationError);
 		if (!EvaluationError)
 		{
+			if (OutError != nullptr)
+			{
+				*OutError = std::move(EvaluationError);
+			}
 			return(ReturnValue);
 		}
 		if (LeftOperand.GetType() != RightOperand.GetType())
@@ -1669,6 +1677,10 @@ namespace MBDB
 				NewArray.push_back(std::move(RightArray[i]));
 			}
 			ReturnValue = MBDB_Object(std::move(NewArray));
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = std::move(EvaluationError);
 		}
 		return(ReturnValue);
 	}
