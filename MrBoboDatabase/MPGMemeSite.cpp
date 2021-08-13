@@ -257,7 +257,7 @@ std::string MBDB_Website::p_GetTimestamp()
 	// for more information about date/time format
 	strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
 
-	ReturnValue = std::string(buf);
+	ReturnValue = MBUtility::ReplaceAll(std::string(buf),":","_");
 	
 	return(ReturnValue);
 }
@@ -1800,6 +1800,10 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 				//}
 				//ArchiveFilepath += std::to_string(NumberOfFilesSameDay);
 				std::ofstream ArchiveFile = std::ofstream(ArchiveFilepath, std::ios::out | std::ios::binary);
+				//if (!ArchiveFile.is_open() || !ArchiveFile.good())
+				//{
+				//	std::cout << "Why: " << std::endl;
+				//}
 				ArchiveFile << FileData;
 				ArchiveFile.flush();
 				ArchiveFile.close();
