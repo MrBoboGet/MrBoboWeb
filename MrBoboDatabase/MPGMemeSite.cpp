@@ -1737,14 +1737,27 @@ bool MBDB_Website::DBOperationBlipp_Predicate(std::string const& RequestData)
 MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
 {
 	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
 	std::string RequestType = MBSockets::GetRequestType(RequestData);
 	std::string MBDBResources = GetResourceFolderPath();
 	std::string HTMLFolder = AssociatedServer->GetResourcePath("mrboboget.se");
 	std::string DefaultPage = HTMLFolder + "/operationblipp.html";
 	std::vector<std::string> PathComponents = MBUtility::Split(MBSockets::GetReqestResource(RequestData),"/");
+	if (PathComponents.size() == 2)
+	{
+		if (PathComponents.back() == "")
+		{
+			PathComponents.resize(1);
+		}
+	}
 	DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
 	std::string LastTimestamp = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestDate");
+	if (ConnectionPermissions.AssociatedUser == "" || ConnectionPermissions.AssociatedUser == "guest")
+	{
+		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+		ReturnValue.DocumentData = "<h1>Not found 404</h1>";
+		return(ReturnValue);
+	}
 	if (RequestType == "GET")
 	{
 		if (PathComponents.size() == 1)
