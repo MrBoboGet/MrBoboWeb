@@ -6,6 +6,8 @@
 #include <MBSearchEngine/MBUnicode.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
 #include <MBMime/MBMime.h>
+#include <ctime>
+#include <chrono>
 //username cookie = 
 //password cookie = 
 enum class DBPermissions
@@ -241,6 +243,22 @@ std::string MBDB_Website::sp_GetPassword(std::string const& RequestData)
 			break;
 		}
 	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::p_GetTimestamp()
+{
+	std::string ReturnValue = "";
+	
+	time_t     now = time(0);
+	struct tm  tstruct;
+	char       buf[80];
+	tstruct = *localtime(&now);
+	// Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+	// for more information about date/time format
+	strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
+
+	ReturnValue = std::string(buf);
+	
 	return(ReturnValue);
 }
 bool MBDB_Website::p_StringIsPath(std::string const& StringToCheck)
@@ -1725,12 +1743,14 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 	std::string HTMLFolder = AssociatedServer->GetResourcePath("mrboboget.se");
 	std::string DefaultPage = HTMLFolder + "/operationblipp.html";
 	std::vector<std::string> PathComponents = MBUtility::Split(MBSockets::GetReqestResource(RequestData),"/");
+	DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
+	std::string LastTimestamp = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestDate");
 	if (RequestType == "GET")
 	{
 		if (PathComponents.size() == 1)
 		{
 			std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
-			std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage",""} };
+			std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage",""},{"LatestDate",LastTimestamp} };
 			ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 			ReturnValue.DocumentData = ResourceData;
 			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
@@ -1739,9 +1759,9 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 		{
 			if (PathComponents[1] == "archives")
 			{
-				std::string TableData = "";
-				std::unordered_map<std::string, std::string> VariableMap = {};
-				MrPostOGet::HTMLNode ArchiveTable = MrPostOGet::HTMLNode::CreateElement("table");
+				//std::string TableData = "";
+				//std::unordered_map<std::string, std::string> VariableMap = {};
+				//MrPostOGet::HTMLNode ArchiveTable = MrPostOGet::HTMLNode::CreateElement("table");
 				
 			}
 			else if (PathComponents[1] == "latest")
@@ -1761,27 +1781,30 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			//vi vill bara parsa ett visst antal stycken, om dem inte är rätt så bara avbryter vi
 			bool ErrorWithParsing = false;
 			std::string FileData = MimeExtractor.ExtractPartData();
-			MimeExtractor.ExtractHeaders();
-			std::string DateString = MimeExtractor.ExtractPartData();
+			std::string Timestamp = p_GetTimestamp();
 			if (!ErrorWithParsing)
 			{
 				std::ofstream LatestFile = std::ofstream(MBDBResources + "/operationblipp/archives/latest", std::ios::out | std::ios::binary);
+				std::ofstream LatestDateFile = std::ofstream(MBDBResources + "/operationblipp/archives/LatestDate", std::ios::out | std::ios::binary);
 				LatestFile << FileData;
 				LatestFile.flush();
 				LatestFile.close();
-				std::string ArchiveFilepath = MBDBResources + "/operationblipp/archives/"+DateString+"_";
-				size_t NumberOfFilesSameDay = 0;
-				while (std::filesystem::exists(ArchiveFilepath + std::to_string(NumberOfFilesSameDay)))
-				{
-					NumberOfFilesSameDay += 1;
-				}
-				ArchiveFilepath += std::to_string(NumberOfFilesSameDay);
+				LatestDateFile << Timestamp;
+				LatestDateFile.flush();
+				LatestDateFile.close();
+				std::string ArchiveFilepath = MBDBResources + "/operationblipp/archives/"+Timestamp+" ("+ConnectionPermissions.AssociatedUser+")";
+				//size_t NumberOfFilesSameDay = 0;
+				//while (std::filesystem::exists(ArchiveFilepath + std::to_string(NumberOfFilesSameDay)))
+				//{
+				//	NumberOfFilesSameDay += 1;
+				//}
+				//ArchiveFilepath += std::to_string(NumberOfFilesSameDay);
 				std::ofstream ArchiveFile = std::ofstream(ArchiveFilepath, std::ios::out | std::ios::binary);
 				ArchiveFile << FileData;
 				ArchiveFile.flush();
 				ArchiveFile.close();
 				std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
-				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Succesfully uploaded file"} };
+				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Succesfully uploaded file"},{"LatestDate",Timestamp}	 };
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 				ReturnValue.DocumentData = ResourceData;
 				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
@@ -1789,7 +1812,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			else
 			{
 				std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
-				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error uploading file"} };
+				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error uploading file"},{"LatestDate",LastTimestamp} };
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 				ReturnValue.DocumentData = ResourceData;
 				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;

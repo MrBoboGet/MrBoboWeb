@@ -40,6 +40,9 @@ private:
 	std::mutex __MBTopResourceFolderMutex;
 	std::string __MBTopResourceFolder = "./";
 	void m_InitDatabase();
+
+
+	std::string p_GetTimestamp();
 	bool p_StringIsPath(std::string const& StringToCheck);
 	std::vector<MBDB::MBDB_RowData> m_GetUser(std::string const& UserName, std::string const& PasswordHash);
 	DBPermissionsList m_GetConnectionPermissions(std::string const& RequestData);
