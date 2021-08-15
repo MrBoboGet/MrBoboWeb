@@ -1,27 +1,84 @@
 <HTML>
     <head>
+        <title>OperationBlipp</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width = device-width, initial-scale=1">
+
         #{include(GeneralMetaTags)}
-        <link rel="stylesheet" href="/WebsidanStil.css">
+
+        <link rel="stylesheet" href="/operationblipp.css">
+
     </head>
-    <BODY>
-        #{include(TopMenu.html)}
-        <h1>
-            ${UploadMessage}
-        </h1>
-        <h1>
-            OperationBlipp
-        </h1>
-        <form id="BlippUpdate" method="post" enctype ="multipart/form-data" class="center">
-            <input type="file" id="FileToUpload" name="filename">
-            <br>
-            <input type="date" id ="UploadedDate" name="Date">
-            <br>
-            <input type="submit">
-        </form>
-        <div class = "CenterChildren">
-            <a href="/operationblipp/latest" class="center">Latest version</a>
+
+    <body>
+
+        <p id="siteTopName"><strong>MrBoBoget.com</strong> <img src="/bobogeten.jpg" alt="/standingGoat.png" width="30" height="40" usemap="#memeMap"></p>
+
+        <map name="memeMap">
+            <area shape="default" href="https://www.youtube.com/watch?v=Ar-IEE_DIEo&ab_channel=SkylerMacKinnon">
+        </map>
+        
+
+        <header> 
+            <h2>Operation Blipp</h2>
+        </header>
+
+      
+        <nav id="TopNav">
+
+            <!--NOTERA ATT JAG KOMMENTERAR UT DEN HÄR DELEN -->
+           #{include(TopMenu.html)} 
+               
+        </nav>
+
+        <div class="guidingText center"  style ="border: 10px solid rgb(128, 0, 0);">
+            <h3>The latest update was: ${LatestDate}</h3>
         </div>
-        <script src=DBLibrary.js></script>
-        <script src=operationblipp.js></script>
-        </BODY>
+       
+        <div style="background-color: rgba(29, 28, 28, 0.836);padding: 35px;border: 10px solid green;" >
+        <form id="BlippUpdate" method="post" enctype ="multipart/form-data" class="center"  >
+         
+            <p class="guidingText">Choose File:</p></pr>
+            <input type="file" id="FileToUpload" name="filename">  
+            <br>
+            <br>
+
+            <p class="guidingText"> Send: </p>
+            <input type="submit">    
+            <br> 
+            <br>  
+
+        </form>
+
+        <h3 class="center"  style ="border: 10px solid rgb(19, 11, 11);">
+            <br>
+            ${UploadMessage}
+            <br>
+            <br>
+        </h3>
+
+        <br>
+
+        
+        <a class="button1 buttonH center"  style=position:relative; href="/operationblipp/latest">Latest version<a></a>
+        </div>
+
+        <div>
+            <a class="button2 buttonH"  style=position:relative; href="/DBView/operationblipp/archives/">Archives<a></a> 
+        </div>
+
+            
+
+        
+        <footer >
+            <button class="button" onclick="topFunction()" title="Go to top" id="topBtn">Top</button>
+        </footer>
+
+        
+
+        <script src=/DBLibrary.js></script>
+        <script src=/operationblipp.js></script>
+        <script src="/toTopOfsite.js"></script>
+
+    </body>
 </HTML>

@@ -1752,6 +1752,9 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 	}
 	DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
 	std::string LastTimestamp = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestDate");
+	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
+
+
 	if (ConnectionPermissions.AssociatedUser == "" || ConnectionPermissions.AssociatedUser == "guest")
 	{
 		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
@@ -1779,7 +1782,22 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			}
 			else if (PathComponents[1] == "latest")
 			{
-				ReturnValue = AssociatedServer->GetResource(MBDBResources + "/operationblipp/archives/latest");
+				if (LatestUserDownload == "")
+				{
+					std::ofstream LatestAccess = std::ofstream(MBDBResources + "/operationblipp/archives/LatestAccess", std::ios::out | std::ios::binary);
+					LatestAccess << ConnectionPermissions.AssociatedUser;
+					LatestAccess.flush();
+					LatestAccess.close();
+					ReturnValue = AssociatedServer->GetResource(MBDBResources + "/operationblipp/archives/latest");
+				}
+				else
+				{
+					std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
+					std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Can't acces latest file: User "+LatestUserDownload+" hasn't updated the file"},{"LatestDate",LastTimestamp} };
+					ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
+					ReturnValue.DocumentData = ResourceData;
+					ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+				}
 			}
 		}
 	}
@@ -1792,10 +1810,9 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			MimeExtractor.ExtractHeaders();
 			MimeExtractor.ExtractHeaders();
 			//vi vill bara parsa ett visst antal stycken, om dem inte är rätt så bara avbryter vi
-			bool ErrorWithParsing = false;
 			std::string FileData = MimeExtractor.ExtractPartData();
 			std::string Timestamp = p_GetTimestamp();
-			if (!ErrorWithParsing)
+			if (LatestUserDownload == ConnectionPermissions.AssociatedUser)
 			{
 				std::ofstream LatestFile = std::ofstream(MBDBResources + "/operationblipp/archives/latest", std::ios::out | std::ios::binary);
 				std::ofstream LatestDateFile = std::ofstream(MBDBResources + "/operationblipp/archives/LatestDate", std::ios::out | std::ios::binary);
@@ -1806,20 +1823,17 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 				LatestDateFile.flush();
 				LatestDateFile.close();
 				std::string ArchiveFilepath = MBDBResources + "/operationblipp/archives/"+Timestamp+" ("+ConnectionPermissions.AssociatedUser+")";
-				//size_t NumberOfFilesSameDay = 0;
-				//while (std::filesystem::exists(ArchiveFilepath + std::to_string(NumberOfFilesSameDay)))
-				//{
-				//	NumberOfFilesSameDay += 1;
-				//}
-				//ArchiveFilepath += std::to_string(NumberOfFilesSameDay);
 				std::ofstream ArchiveFile = std::ofstream(ArchiveFilepath, std::ios::out | std::ios::binary);
-				//if (!ArchiveFile.is_open() || !ArchiveFile.good())
-				//{
-				//	std::cout << "Why: " << std::endl;
-				//}
 				ArchiveFile << FileData;
 				ArchiveFile.flush();
 				ArchiveFile.close();
+
+				std::ofstream LatestAccess = std::ofstream(MBDBResources + "/operationblipp/archives/LatestAccess",std::ios::out|std::ios::binary);
+				//ANTAGANDE här har personen som acessar redan verifierats vara korrekt
+				LatestAccess << "";
+				LatestAccess.flush();
+				LatestAccess.close();
+
 				std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
 				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Succesfully uploaded file"},{"LatestDate",Timestamp}	 };
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
@@ -1829,7 +1843,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			else
 			{
 				std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
-				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error uploading file"},{"LatestDate",LastTimestamp} };
+				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error updating latest: Need to download the latest before updating"},{"LatestDate",LastTimestamp} };
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 				ReturnValue.DocumentData = ResourceData;
 				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
@@ -1837,7 +1851,11 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 		}
 		catch (const std::exception&)
 		{
-			ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::Conflict;
+			std::string ResourceData = MrPostOGet::LoadFileWithPreprocessing(DefaultPage, AssociatedServer->GetResourcePath("mrboboget.se"));
+			std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error uploading file"},{"LatestDate",LastTimestamp} };
+			ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
+			ReturnValue.DocumentData = ResourceData;
+			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
 		}
 	}
 	return(ReturnValue);
