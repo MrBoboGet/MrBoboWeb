@@ -22,7 +22,7 @@ typedef uintmax_t MB_OS_Socket;
 typedef int MB_OS_Socket;
 #endif
 
-size_t MBGetFileSize(std::string const& PathToCheck);
+uint64_t MBGetFileSize(std::string const& PathToCheck);
 
 class sockaddr;
 

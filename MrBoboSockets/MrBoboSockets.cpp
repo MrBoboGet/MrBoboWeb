@@ -22,7 +22,7 @@
 #define _FILE_OFFSET_BITS = 64
 #include <sys/stat.h>
 #endif
-inline uint64_t MBGetFileSize(std::string const& PathToCheck)
+uint64_t MBGetFileSize(std::string const& PathToCheck)
 {
 #ifdef __linux__
 	struct stat64 FileStats;
