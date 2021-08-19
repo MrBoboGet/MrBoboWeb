@@ -22,7 +22,7 @@
 #define _FILE_OFFSET_BITS = 64
 #include <sys/stat.h>
 #endif
-inline size_t MBGetFileSize(std::string const& PathToCheck)
+inline uint64_t MBGetFileSize(std::string const& PathToCheck)
 {
 #ifdef __linux__
 	struct stat64 FileStats;
@@ -401,11 +401,11 @@ namespace MBSockets
 	}
 	std::string ConnectSocket::RecieveRawData(size_t MaxNumberOfBytes)
 	{
-		int InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
+		size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
 		char* Buffer = (char*)malloc(InitialBufferSize);
-		int MaxRecieveSize = InitialBufferSize;
-		int LengthOfDataRecieved = 0;
-		int TotalLengthOfData = 0;
+		size_t MaxRecieveSize = InitialBufferSize;
+		size_t LengthOfDataRecieved = 0;
+		size_t TotalLengthOfData = 0;
 		while ((LengthOfDataRecieved = recv(m_UnderlyingHandle, &Buffer[TotalLengthOfData], MaxRecieveSize, 0)) > 0)
 		{
 			TotalLengthOfData += LengthOfDataRecieved;
@@ -1024,8 +1024,8 @@ namespace MBSockets
 			else
 			{
 				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
-				size_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
-				size_t TotalIntervallSize = 0;
+				uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
+				uint64_t TotalIntervallSize = 0;
 				for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
 				{
 					if (DocumentToSend.IntervallsToRead[i].FirstByte == -1)
@@ -1112,7 +1112,7 @@ namespace MBSockets
 		return(ReturnValue);
 	}
 	//BEGIN FileIntervallExtracter
-	FileIntervallExtracter::FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, int MaxDataInMemory)
+	FileIntervallExtracter::FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory)
 		: FileToRead(FilePath, std::ifstream::in | std::ifstream::binary)
 	{
 		IntervallsToRead = Intervalls;
@@ -1126,12 +1126,12 @@ namespace MBSockets
 		{
 			return("");
 		}
-		size_t NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte + 1;
+		uint64_t NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte + 1;
 		if (IntervallsToRead[IntervallIndex].LastByte == -1)
 		{
 			NumberOfBytesToRead = FileSize - IntervallsToRead[IntervallIndex].FirstByte;
 		}
-		size_t FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
+		uint64_t FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
 		if (FirstByteToReadPosition < 0)
 		{
 			NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
@@ -1140,7 +1140,7 @@ namespace MBSockets
 
 		if (NumberOfBytesToRead >= MaxDataInMemory)
 		{
-			size_t BytesWantedToRead = NumberOfBytesToRead;
+			uint64_t BytesWantedToRead = NumberOfBytesToRead;
 			NumberOfBytesToRead = MaxDataInMemory;
 			IntervallsToRead[IntervallIndex].LastByte = FirstByteToReadPosition + BytesWantedToRead - 1;
 			IntervallsToRead[IntervallIndex].FirstByte = FirstByteToReadPosition + NumberOfBytesToRead;
@@ -1366,10 +1366,10 @@ namespace MBSockets
 		{
 			//enkel range request med specifikt intervall
 			HTTPDocument NewDocument = DocumentToSend;
-			size_t StartByte = NewDocument.IntervallsToRead[0].FirstByte;
-			size_t LastByte = NewDocument.IntervallsToRead[0].LastByte;
+			uint64_t StartByte = NewDocument.IntervallsToRead[0].FirstByte;
+			uint64_t LastByte = NewDocument.IntervallsToRead[0].LastByte;
 			//size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
-			size_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
+			uint64_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
 			if (StartByte == -1)
 			{
 				StartByte = FileSize - LastByte;
@@ -1394,13 +1394,13 @@ namespace MBSockets
 			//vi ska skicka fildatan somn är där, och läser in den gradvis
 			//std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
 			std::vector<FiledataIntervall> DocumentInterValls = DocumentToSend.IntervallsToRead;
-			int MaxChunkSize = 16384;
+			uint64_t MaxChunkSize = 16384;
 			if (DocumentInterValls.size() == 0)
 			{
 				//vi skapar intervall
 				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
-				size_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
-				size_t CurrentOffset = 0;
+				uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
+				uint64_t CurrentOffset = 0;
 				while (true)
 				{
 					FiledataIntervall NewIntervall = { CurrentOffset,CurrentOffset + MaxChunkSize - 1 };

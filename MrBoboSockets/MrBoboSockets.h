@@ -28,8 +28,8 @@ class sockaddr;
 
 struct FiledataIntervall
 {
-	size_t FirstByte = 0;
-	size_t LastByte = 0;
+	uint64_t FirstByte = 0;
+	uint64_t LastByte = 0;
 };
 
 namespace MBSockets
@@ -300,12 +300,12 @@ namespace MBSockets
 	private:
 		std::ifstream FileToRead;
 		std::vector<FiledataIntervall> IntervallsToRead = {};
-		size_t FileSize = 0;
-		int IntervallIndex = 0;
-		int MaxDataInMemory = 10000000;
-		int TotalDataRead = 0;
+		uint64_t FileSize = 0;
+		uint64_t IntervallIndex = 0;
+		uint64_t MaxDataInMemory = 10000000;
+		uint64_t TotalDataRead = 0;
 	public:
-		FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, int MaxDataInMemory);
+		FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory);
 		std::string GetNextIntervall();
 		bool IsDone();
 	};

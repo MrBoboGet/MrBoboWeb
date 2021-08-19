@@ -432,9 +432,9 @@ MBSockets::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string c
 	{
 		assert(false);
 	}
-	int FirstBoundaryLocation = RequestData.find(Boundary);
-	int FirstFormParameterLocation = RequestData.find(Boundary, FirstBoundaryLocation + Boundary.size())+Boundary.size()+2;
-	int EndOfFirstParameters = RequestData.find("\r\n",FirstFormParameterLocation);
+	size_t FirstBoundaryLocation = RequestData.find(Boundary);
+	size_t FirstFormParameterLocation = RequestData.find(Boundary, FirstBoundaryLocation + Boundary.size())+Boundary.size()+2;
+	size_t EndOfFirstParameters = RequestData.find("\r\n",FirstFormParameterLocation);
 	std::string FieldParameters = RequestData.substr(FirstFormParameterLocation, EndOfFirstParameters - FirstFormParameterLocation);
 	//hardcodat eftersom vi vet formtatet av formuläret
 	std::vector<std::string> FirstFieldValues = Split(FieldParameters, "; ");
@@ -511,7 +511,7 @@ MBSockets::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const&
 		std::vector<std::string> Intervalls = Split(ReplaceAll(IntervallsData," ",""), ",");
 		for (int i = 0; i < Intervalls.size(); i++)
 		{
-			FiledataIntervall NewIntervall = { size_t(-1),size_t(-1) };
+			FiledataIntervall NewIntervall = { uint64_t(-1),uint64_t(-1) };
 			std::vector<std::string> IntervallNumbers = Split(Intervalls[i], "-");
 			if (IntervallNumbers[0] != "")
 			{
@@ -1245,9 +1245,9 @@ std::string MBDB_Website::DBAPI_AddEntryToTable(std::vector<std::string> const& 
 
 	for (size_t i = 1; i < Arguments.size(); i++)
 	{
-		int FirstColon = Arguments[i].find_first_of(":");
-		int SecondColon = Arguments[i].find(":", FirstColon + 1);
-		int NewColumnIndex = -1;
+		size_t FirstColon = Arguments[i].find_first_of(":");
+		size_t SecondColon = Arguments[i].find(":", FirstColon + 1);
+		size_t NewColumnIndex = -1;
 		NewColumnIndex = StringToInt(Arguments[i].substr(FirstColon + 1, SecondColon - FirstColon),&DataBaseError);
 		if (!DataBaseError)
 		{
@@ -1847,7 +1847,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 				ReturnValue.DocumentData = ResourceData;
 				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
-			}
+			}	
 		}
 		catch (const std::exception&)
 		{

@@ -64,10 +64,10 @@ namespace MrPostOGet
 	{
 		std::ifstream t(FilePath, std::ifstream::in | std::ifstream::binary);
 		//size_t size = std::filesystem::file_size(FilePath);
-		size_t size = MBGetFileSize(FilePath);
+		uint64_t size = MBGetFileSize(FilePath);
 		std::string FileDataBuffer(size, ' ');
 		t.read(&FileDataBuffer[0], size);
-		size_t ReadCharacters = t.gcount();
+		uint64_t ReadCharacters = t.gcount();
 		std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
 		return(FileData);
 	}
@@ -404,10 +404,10 @@ namespace MrPostOGet
 	{
 		std::ifstream t(FilePath, std::ifstream::in | std::ifstream::binary);
 		//size_t size = std::filesystem::file_size(FilePath);
-		size_t size = MBGetFileSize(FilePath);
+		uint64_t size = MBGetFileSize(FilePath);
 		std::string FileDataBuffer(size, ' ');
 		t.read(&FileDataBuffer[0], size);
-		size_t ReadCharacters = t.gcount();
+		uint64_t ReadCharacters = t.gcount();
 		std::string FileData(FileDataBuffer.c_str(), ReadCharacters);
 		return(FileData);
 	}
@@ -526,112 +526,6 @@ namespace MrPostOGet
 		MBParsing::UpdateParseState(ParseOffset, ParseError, OutOffset, OutError);
 		return(ReturnValue);
 	}
-	//std::pair<std::string,std::string> HTMLNode::p_ExtractTag(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
-	//{
-	//	std::pair<std::string, std::string> ReturnValue = {"",""};
-	//	size_t ParseOffset = InOffset;
-	//	MBError EvaluationError(true);
-	//	const char* HTMLData = (char*)Data;
-	//
-	//	//size_t NextAttribute = HTMLData.find_first_not_of(' ', Offset);
-	//	MBParsing::SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
-	//	size_t NextAttribute = ParseOffset;
-	//	if (NextAttribute == -1)
-	//	{
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	if (HTMLData[NextAttribute] == '>')
-	//	{
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	//vi har faktiskt en tag
-	//	//size_t NextAttributeNameEnd = std::min(HTMLData.find(' ', NextAttribute), HTMLData.find('=', NextAttribute));
-	//	//NextAttributeNameEnd = std::min(HTMLData.find('>', NextAttribute), NextAttributeNameEnd);
-	//	size_t NextAttributeNameEnd = std::min(std::find(HTMLData+NextAttribute,HTMLData+DataSize,' ')-HTMLData, 
-	//		std::find(HTMLData + NextAttribute, HTMLData + DataSize, '=') - HTMLData);
-	//	NextAttributeNameEnd = std::min((size_t)(std::find(HTMLData + NextAttribute, HTMLData + DataSize, '>') - HTMLData),(size_t) NextAttributeNameEnd);
-	//	
-	//	if (NextAttributeNameEnd == -1)
-	//	{
-	//		EvaluationError = false;
-	//		EvaluationError.ErrorMessage = "No end in tag detected";
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	
-	//	//std::string NextAttributeName = HTMLData.substr(NextAttribute, NextAttributeNameEnd - NextAttribute);
-	//	std::string NextAttributeName = std::string(HTMLData+NextAttribute, NextAttributeNameEnd - NextAttribute);
-	//	//size_t NextAttributeValueBegin = HTMLData.find_first_not_of(' ', NextAttributeNameEnd);
-	//	MBParsing::SkipWhitespace(HTMLData, DataSize, NextAttributeNameEnd, &ParseOffset);
-	//	size_t NextAttributeValueBegin = ParseOffset;
-	//
-	//	if (NextAttributeValueBegin == -1)
-	//	{
-	//		EvaluationError = false;
-	//		EvaluationError.ErrorMessage = "No end in tag detected";
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	if (HTMLData[NextAttributeValueBegin] == '>')
-	//	{
-	//		//den var tom
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	if (HTMLData[NextAttributeValueBegin] != '=')
-	//	{
-	//		EvaluationError = false;
-	//		EvaluationError.ErrorMessage = "Invalid attribute syntax";
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	//size_t NextAttributeValueDataBegin = HTMLData.find_first_not_of(' ', NextAttributeValueBegin + 1);
-	//	MBParsing::SkipWhitespace(HTMLData, DataSize, NextAttributeValueBegin, &ParseOffset);
-	//	size_t NextAttributeValueDataBegin = ParseOffset;
-	//	
-	//	char AttributeEndDelimiter = ' ';
-	//	if (HTMLData[NextAttributeValueDataBegin] == '\'')
-	//	{
-	//		AttributeEndDelimiter = '\'';
-	//	}
-	//	if (HTMLData[NextAttributeValueDataBegin] == '\"')
-	//	{
-	//		AttributeEndDelimiter = '\"';
-	//	}
-	//	//size_t NextAttributeValueEnd = std::min(HTMLData.find(AttributeEndDelimiter, NextAttributeValueDataBegin+1), HTMLData.find('>', NextAttributeValueDataBegin+1));
-	//	size_t NextAttributeValueEnd = 0;
-	//	if (AttributeEndDelimiter == ' ')
-	//	{
-	//		//NextAttributeValueEnd = std::min(HTMLData.find(AttributeEndDelimiter, NextAttributeValueDataBegin + 1), HTMLData.find('>', NextAttributeValueDataBegin + 1));
-	//		NextAttributeValueEnd = std::find(HTMLData+ NextAttributeValueDataBegin + 1,HTMLData+DataSize,AttributeEndDelimiter)-HTMLData;
-	//		NextAttributeValueEnd = std::min(NextAttributeValueEnd, (size_t)(std::find(HTMLData+ NextAttributeValueDataBegin + 1,HTMLData+DataSize, '>') -HTMLData));
-	//	}
-	//	else
-	//	{
-	//		//NextAttributeValueEnd = HTMLData.find(AttributeEndDelimiter, NextAttributeValueDataBegin + 1);
-	//		NextAttributeValueEnd = std::find(HTMLData+NextAttributeValueBegin+1,HTMLData+DataSize,AttributeEndDelimiter)-HTMLData;
-	//	}
-	//	if (NextAttributeValueEnd == -1)
-	//	{
-	//		EvaluationError = false;
-	//		EvaluationError.ErrorMessage = "Invalid attribute syntax";
-	//		MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//		return(ReturnValue);
-	//	}
-	//	std::string NextAttributeValue = std::string(HTMLData+(NextAttributeValueDataBegin + 1), NextAttributeValueEnd - NextAttributeValueDataBegin - 1);
-	//	//m_Attributes[NextAttributeName] = NextAttributeValue;
-	//	ReturnValue = { NextAttributeName,NextAttributeValue };
-	//	size_t NewParseOffset = NextAttributeValueEnd;
-	//	if (AttributeEndDelimiter != ' ')
-	//	{
-	//		NewParseOffset += 1;
-	//	}
-	//	ParseOffset = NewParseOffset;
-	//	MBParsing::UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
-	//	return(ReturnValue);
-	//}
 
 	std::pair<std::string, std::string> HTMLNode::p_ExtractTag(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
