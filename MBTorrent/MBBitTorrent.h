@@ -106,6 +106,12 @@ namespace MBTorrent
 		std::vector<BitTorrent_PieceDownloadState> DownloadState = {};
 		std::vector<std::string> PieceData = {};
 	};
+	struct MBBitTorrent_PeerMessageParseState
+	{
+		size_t CurrentMessageSize = -1;
+		std::string CurrentMessage = "";
+		std::string NewMessageData = "";
+	};
 	class MBBitTorrentPeerConnection
 	{
 	private:
@@ -124,6 +130,8 @@ namespace MBTorrent
 
 		BitTorrentConnectionState m_ClientState;
 		BitTorrentConnectionState m_PeerState;
+
+		MBBitTorrent_PeerMessageParseState _m_PeerDataParseState;
 		std::deque<std::string> m_RecievedPeerServiceMessages = {};
 		MBBitTorrent_PeerConnectionRetrievalState m_RetrievalState;
 
@@ -134,6 +142,7 @@ namespace MBTorrent
 		void p_RecievePeerMessagesHandler();
 		void p_RetrievePiecesHandler();
 		void p_SendClientUninterestedMessage();
+		void p_SendClientInterestedMessage();
 		static std::string sp_GeneratePieceRequestMessage(size_t PieceIndex, size_t PieceBegin, size_t Length);
 		static void sp_UpdatePieceDownloadState(MBBitTorrent_PeerConnectionRetrievalState& StateToUpdate, std::string const& PieceDataMessage);
 		void p_SendPieceDataRequests();

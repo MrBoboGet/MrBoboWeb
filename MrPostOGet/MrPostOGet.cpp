@@ -179,6 +179,28 @@ namespace MrPostOGet
 		}
 		return(ReturnValue);
 	}
+	std::string HTTPRequestTypeToString(HTTPRequestType RequestToTranslate)
+	{
+		std::string ReturnValue = "";
+		if (RequestToTranslate == HTTPRequestType::GET)
+		{
+			ReturnValue = "GET";
+		}
+		else if(RequestToTranslate == HTTPRequestType::POST)
+		{
+			ReturnValue = "POST";
+		}
+		else if (RequestToTranslate == HTTPRequestType::PUT)
+		{
+			ReturnValue = "PUT";
+		}
+		else
+		{
+			assert(false);
+		}
+		return(ReturnValue);
+	}
+
 	std::unordered_map<std::string, std::string> HTTPServer::p_ParseSearchParameters(std::string const& URL)
 	{
 		std::unordered_map<std::string, std::string> ReturnValue = {};
@@ -226,6 +248,10 @@ namespace MrPostOGet
 		else if (RequestType == "PUT")
 		{
 			ClientRequest.Type = HTTPRequestType::PUT;
+		}
+		else if (RequestType == "HEAD")
+		{
+			ClientRequest.Type = HTTPRequestType::HEAD;
 		}
 		else
 		{

@@ -172,6 +172,7 @@ set(Header_Files
     "MBCrypto/MBCrypto.h"
     "MBParsing/MBParsing.h"
     "MrBoboDatabase/MBDBObjectScript.h"
+     "MBSystem/MBSystem.h"
 )
 source_group("Header Files" FILES ${Header_Files})
 
@@ -194,6 +195,7 @@ set(Source_Files
     "MBParsing/MBParsing.cpp"
     "MrBoboDatabase/MBDBObjectScript.cpp"
     "MrPostOGet/MrPostOGet.cpp"
+    "MBSystem/MBSystem.cpp"
     ${EXTLIBS_SOURCE_FILES}
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )

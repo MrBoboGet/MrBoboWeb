@@ -21,6 +21,7 @@
 #include <MBCrypto/MBCrypto.h>
 #include <MBTorrent/MBBitTorrent.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
+#include <MBSystem/MBSystem.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -30,7 +31,27 @@
 int main()
 {
 	MBSockets::Init();
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
-	return(MBGWebsiteMain());
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
+	//MBSystem::SubProcess TestProcess("dir");
+	//while (!TestProcess.Finished())
+	//{
+	//	std::cout << TestProcess.RecieveData();
+	//}
+	//std::cout << std::endl;
+	//exit(0);
+	//return(MBGWebsiteMain());
+	//MrPostOGet::HTTPServer TestServer("./ServerResources/mrboboget.se/HTMLResources/", 443);
+	//TestServer.LoadDomainResourcePaths("MPGDomainResourcePaths.txt");
+	//TestServer.UseTLS(false);
+	//MBDB_Website_GitHandler* HandlerToAdd = new MBDB_Website_GitHandler("C:/Users/emanu/Desktop/Program/",nullptr);
+	//HandlerToAdd->SetURLPrefix("/");
+	//TestServer.AddRequestHandler(HandlerToAdd);
+	//TestServer.StartListening();
+	MBGWebsiteMain();
+	exit(0);
+	MBTorrent::MBBitTorrentHandler TestTorrent;
+	TestTorrent.LoadTorrentInfo("Serial Experiments Lain Storyboard.torrent");
+	TestTorrent.StartDownload();
+	return(0);
 }

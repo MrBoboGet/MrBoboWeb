@@ -51,6 +51,7 @@ namespace MBMIME
 			}
 			std::string NewHeaderName = MBUnicode::UnicodeStringToLower(std::string(DataToParse + ParseOffset, NextColon - ParseOffset));
 			ParseOffset = NextColon + 1;
+			MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
 			size_t BodyEnd = std::find(DataToParse + ParseOffset, DataToParse + DataSize, '\r')-DataToParse;
 			ReturnValue[NewHeaderName] = std::string(DataToParse + ParseOffset, BodyEnd - ParseOffset);
 			ParseOffset = BodyEnd + 2;

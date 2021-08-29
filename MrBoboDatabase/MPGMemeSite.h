@@ -25,9 +25,49 @@ struct LegacyRequestHandler
 	bool (MBDB_Website::* Predicate)(std::string const&);
 	MBSockets::HTTPDocument(MBDB_Website::* Generator)(std::string const&, MrPostOGet::HTTPServer*, MBSockets::HTTPServerSocket*);
 };
+
+class MBDB_BasicPasswordAuthenticator
+{
+private:
+public:
+	virtual bool AuthenticateRawPassword(std::string const& Username, std::string const& Password) = 0;
+	//virtual bool AuthenticatePasswordHash(std::string const& Username, std::string const& PasswordHash) = 0;
+};
+
+class MBDB_Website_BaiscPasswordAuthenticator : public MBDB_BasicPasswordAuthenticator
+{
+private:
+	MBDB_Website* m_AssociatedServer = nullptr;
+public:
+	MBDB_Website_BaiscPasswordAuthenticator(MBDB_Website* AssociatedServer);
+	virtual bool AuthenticateRawPassword(std::string const& Username, std::string const& Password) override;
+};
+
+class MBDB_Website_GitHandler : public MrPostOGet::HTTPRequestHandler
+{
+private:
+	std::mutex m_InternalsMutex;
+	std::string m_TopLevelDirectory = "";
+	std::string m_URLPrefix = "";
+
+	MBDB_BasicPasswordAuthenticator* m_UserAuthenticator = nullptr;
+
+	void p_SetGCIVariables(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
+	MBSockets::HTTPDocument p_GetAuthenticationPrompt(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
+	bool p_VerifyAuthentication(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
+public:
+	MBDB_Website_GitHandler(std::string const& TopResourceDirectory, MBDB_BasicPasswordAuthenticator* Authenticator);
+	void SetURLPrefix(std::string const& PathPrefix);
+	void SetTopDirectory(std::string const& DirectoryToSet);
+
+	bool HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer) override;
+	MBSockets::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, MrPostOGet::HTTPServer*) override;
+};
+
 class MBDB_Website : public MrPostOGet::HTTPRequestHandler
 {
 private:
+	friend class MBDB_Website_BaiscPasswordAuthenticator;
 
 	std::mutex m_ReadonlyMutex;
 	MBDB::MrBoboDatabase* m_ReadonlyDatabase = nullptr;
@@ -41,12 +81,15 @@ private:
 	std::string __MBTopResourceFolder = "./";
 	void m_InitDatabase();
 
+	std::unique_ptr<MBDB_BasicPasswordAuthenticator> m_BasicPasswordAuthenticator = nullptr;
 
 	std::string p_GetTimestamp();
 	bool p_StringIsPath(std::string const& StringToCheck);
 	std::vector<MBDB::MBDB_RowData> m_GetUser(std::string const& UserName, std::string const& PasswordHash);
 	DBPermissionsList m_GetConnectionPermissions(std::string const& RequestData);
-	std::string m_GetUsername(std::string const& RequestData);
+	
+	
+	static std::string m_GetUsername(std::string const& RequestData);
 	static std::string sp_GetPassword(std::string const& RequestData);
 
 
@@ -99,6 +142,12 @@ private:
 	std::vector<ModernRequestHandler> __ModernRequestHandlers = {};
 	std::atomic<size_t> __ModernHandlersCount{ 0 };
 	std::atomic<ModernRequestHandler*> __ModernHandlersData{ nullptr };
+
+	//InternalHandlers Handlers
+	//std::vector<std::unique_ptr<MrPostOGet::HTTPRequestHandler>> __InternalHandlers = {};
+	//std::atomic<size_t> __InternalHandlersCount{ 0 };
+	//std::atomic<std::unique_ptr<MrPostOGet::HTTPRequestHandler>*> __InternalHandlersData{ nullptr };
+	std::unique_ptr<MBDB_Website_GitHandler> m_GitHandler = nullptr;
 
 	bool p_Edit_Predicate(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer);
 	MBSockets::HTTPDocument p_Edit_ResponseGenerator(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, MrPostOGet::HTTPServer*);

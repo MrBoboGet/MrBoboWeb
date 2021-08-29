@@ -21,13 +21,16 @@ namespace MrPostOGet
 	std::string LoadFileWithPreprocessing(std::string const& Filepath, std::string const& ResourcesPath);
 	std::string GetFileExtension(std::string const& StringData);
 	
+
 	enum class HTTPRequestType
 	{
 		POST,
 		GET,
 		PUT,
+		HEAD,
 		Null
 	};
+	std::string HTTPRequestTypeToString(HTTPRequestType RequestToTranslate);
 	struct HTTPClientRequest
 	{
 		HTTPRequestType Type = HTTPRequestType::Null;

@@ -1,8 +1,151 @@
 #include "MBParsing.h"
 #include <cstring>
 #include <algorithm>
+#include <assert.h>
 namespace MBParsing
 {
+	unsigned char Base64CharToBinary(unsigned char CharToDecode)
+	{
+		if (CharToDecode >= 65 && CharToDecode <= 90)
+		{
+			return(CharToDecode - 65);
+		}
+		if (CharToDecode >= 97 && CharToDecode <= 122)
+		{
+			return(CharToDecode - 71);
+		}
+		if (CharToDecode >= 48 && CharToDecode <= 57)
+		{
+			return(CharToDecode + 4);
+		}
+		if (CharToDecode == '+')
+		{
+			return(62);
+		}
+		if (CharToDecode == '/')
+		{
+			return(63);
+		}
+		assert(false);
+	}
+	std::string Base64ToBinary(std::string const& Base64Data)
+	{
+		std::string ReturnValue = "";
+		unsigned int Base64DataSize = Base64Data.size();
+		unsigned int Offset = 0;
+		while (Offset < Base64DataSize)
+		{
+			unsigned int NewBytes = 0;
+			char CharactersProcessed = 0;
+			for (size_t i = 0; i < 4; i++)
+			{
+				NewBytes += Base64CharToBinary(Base64Data[Offset]) << (18 - 6 * i);
+				Offset += 1;
+				CharactersProcessed += 1;
+				if (Offset == Base64DataSize)
+				{
+					break;
+				}
+				if (Base64Data[Offset] == '=')
+				{
+					break;
+				}
+			}
+			for (size_t i = 0; i < CharactersProcessed - 1; i++)
+			{
+				ReturnValue += char(NewBytes >> (16 - (i * 8)));
+			}
+			if (CharactersProcessed < 4)
+			{
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+	char ByteToBASE64(uint8_t ByteToEncode)
+	{
+		if (ByteToEncode >= 0 && ByteToEncode <= 25)
+		{
+			return(ByteToEncode + 65);
+		}
+		else if (ByteToEncode >= 26 && ByteToEncode <= 51)
+		{
+			return(ByteToEncode + 71);
+		}
+		else if (ByteToEncode >= 52 && ByteToEncode <= 61)
+		{
+			return(ByteToEncode - 4);
+		}
+		else if (ByteToEncode == 62)
+		{
+			return('+');
+		}
+		else if (ByteToEncode == 63)
+		{
+			return('/');
+		}
+		assert(false);
+	}
+	std::string BASE64Decode(const void* CharactersToRead, size_t NumberOfCharacters)
+	{
+		return(Base64ToBinary(std::string((char*)CharactersToRead, NumberOfCharacters)));
+	}
+	std::string BASE64Encode(const void* DataToEncode, size_t DataLength)
+	{
+		std::string ReturnValue = "";
+		uint32_t DataBuffer = 0;
+		size_t BitsInBuffer = 0;
+		size_t CurrentByteOffset = 0;
+		uint8_t* DataPointer = (uint8_t*)DataToEncode;
+		while (CurrentByteOffset < DataLength)
+		{
+			DataBuffer <<= 8;
+			DataBuffer += DataPointer[CurrentByteOffset];
+			BitsInBuffer += 8;
+			while (BitsInBuffer >= 6)
+			{
+				uint8_t BitsBeforeData = (BitsInBuffer - 6);
+				ReturnValue += ByteToBASE64((DataBuffer) >> BitsBeforeData);
+				BitsInBuffer -= 6;
+				DataBuffer = DataBuffer & (~(63 << BitsBeforeData));
+			}
+			CurrentByteOffset += 1;
+		}
+		while (BitsInBuffer != 0)
+		{
+			int8_t BitsBeforeData = (BitsInBuffer - 6);
+			if (BitsBeforeData >= 0)
+			{
+				BitsInBuffer -= 6;
+			}
+			else
+			{
+				DataBuffer = DataBuffer << (-BitsBeforeData);
+				BitsInBuffer = 0;
+			}
+			if (BitsBeforeData < 0)
+			{
+				BitsBeforeData = 0;
+			}
+			ReturnValue += ByteToBASE64((DataBuffer) >> BitsBeforeData);
+			DataBuffer = DataBuffer & (~(63 << BitsBeforeData));
+		}
+		while (ReturnValue.size() % 4 != 0)
+		{
+			ReturnValue += "=";
+		}
+		return(ReturnValue);
+	}
+	std::string BASE64Decode(std::string const& DataToDecode)
+	{
+		return(BASE64Decode(DataToDecode.data(), DataToDecode.size()));
+	}
+	std::string BASE64Encode(std::string const& DataToEncode)
+	{
+		return(BASE64Encode(DataToEncode.data(), DataToEncode.size()));
+	}
+
+
 	void UpdateParseState(size_t CurrentOffset, MBError& ErrorToMove, size_t* OutOffset, MBError* OutError)
 	{
 		if (OutOffset != nullptr)

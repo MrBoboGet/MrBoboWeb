@@ -21,10 +21,26 @@ namespace MBTorrent
 			DataToSend += TorrentHash;
 			DataToSend += m_AssociatedDownloadHandler->p_GetClientID();
 		}
+		//total size for handshake = 20+8+20+20
 		p_SendDataToPeer(DataToSend);
 		//p_SendDataToPeer(sp_GeneratePieceRequestMessage(0, 0, 5000));
 		std::string PeerHandshake = p_RecieveNextPeerData();
-		if (PeerHandshake.substr(20 + 8, 20) != TorrentHash)
+		while (PeerHandshake.size() < 68)
+		{
+			PeerHandshake += p_RecieveNextPeerData();
+		}
+		if (PeerHandshake.size() > 68)
+		{
+			_m_PeerDataParseState.NewMessageData += PeerHandshake.substr(68);
+		}
+		if (PeerHandshake.size() > 0)
+		{
+			if (PeerHandshake.substr(20 + 8, 20) != TorrentHash)
+			{
+				m_AssociatedSocket.load()->Close();
+			}
+		}
+		else
 		{
 			m_AssociatedSocket.load()->Close();
 		}
@@ -100,7 +116,7 @@ namespace MBTorrent
 	}
 	void MBBitTorrentPeerConnection::p_HandleMessage(std::string& MessageToHandle)
 	{
-		BitTorrent_MessageType MessageType = (BitTorrent_MessageType)MessageToHandle[5];
+		BitTorrent_MessageType MessageType = (BitTorrent_MessageType)MessageToHandle[4];
 		if (MessageType == BitTorrent_MessageType::interested)
 		{
 			m_PeerState.Interested = true;
@@ -119,8 +135,11 @@ namespace MBTorrent
 		}
 		else if (MessageType == BitTorrent_MessageType::piece)
 		{
-			std::lock_guard<std::mutex> Lock(m_InternalsMutex);
-			m_RetrievalState.RecievedPieceMessages.push_back(std::move(MessageToHandle));
+			{
+				std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+				m_RetrievalState.RecievedPieceMessages.push_back(std::move(MessageToHandle));
+			}
+			m_RecieveConditional.notify_one();
 		}
 		else if (MessageType == BitTorrent_MessageType::request)
 		{
@@ -194,37 +213,47 @@ namespace MBTorrent
 	}
 	void MBBitTorrentPeerConnection::p_RecievePeerMessagesHandler()
 	{
-		//MBSockets::ConnectSocket* SocketToUse = p_GetAssociatedSocket();
-		size_t CurrentMessageSize = -1;
-		std::string CurrentMessage = "";
-		std::string NewMessageData = "";
-		while (IsConnected())
+		try
 		{
-			NewMessageData += p_RecieveNextPeerData();
-			if (CurrentMessageSize == -1)
+			size_t& CurrentMessageSize = _m_PeerDataParseState.CurrentMessageSize;
+			std::string& CurrentMessage = _m_PeerDataParseState.CurrentMessage;
+			std::string& NewMessageData = _m_PeerDataParseState.NewMessageData;
+			while (IsConnected())
 			{
-				while(NewMessageData.size() < 4)
+				NewMessageData += p_RecieveNextPeerData();
+				if (CurrentMessageSize == -1)
 				{
-					NewMessageData += p_RecieveNextPeerData();
+					while (NewMessageData.size() < 4)
+					{
+						NewMessageData += p_RecieveNextPeerData();
+					}
+					CurrentMessageSize = ParseBigEndianInteger(NewMessageData.data(), 4, 0, nullptr);
+					CurrentMessage = NewMessageData.substr(0, CurrentMessageSize + 4);
+					NewMessageData = NewMessageData.substr(std::min(NewMessageData.size(), CurrentMessageSize + 4));
 				}
-				CurrentMessageSize = ParseBigEndianInteger(NewMessageData.data(), 4, 0, nullptr);
-				CurrentMessage = NewMessageData.substr(0, CurrentMessageSize+4);
-				NewMessageData = NewMessageData.substr(std::min(NewMessageData.size(), CurrentMessageSize + 4));
+				else
+				{
+					size_t BytesForCurrentMessage = std::min(NewMessageData.size(), CurrentMessageSize + 4 - CurrentMessage.size());
+					CurrentMessage += NewMessageData.substr(0, BytesForCurrentMessage);
+					NewMessageData = NewMessageData.substr(BytesForCurrentMessage);
+				}
+				if (CurrentMessage.size() != CurrentMessageSize + 4)
+				{
+					continue;
+				}
+				CurrentMessageSize = -1;
+				p_HandleMessage(CurrentMessage);
+				CurrentMessage = "";
 			}
-			else
-			{
-				size_t BytesForCurrentMessage = std::min(NewMessageData.size(), CurrentMessageSize + 4 - CurrentMessage.size());
-				CurrentMessage += NewMessageData.substr(0, BytesForCurrentMessage);
-				NewMessageData = NewMessageData.substr(BytesForCurrentMessage);
-			}
-			if (CurrentMessage.size() != CurrentMessageSize + 4)
-			{
-				continue;
-			}
-			CurrentMessageSize = -1;
-			p_HandleMessage(CurrentMessage);
-			CurrentMessage = "";
 		}
+		catch (const std::exception& e)
+		{
+			std::cout << e.what();
+			std::cout << std::endl;
+		}
+		//MBSockets::ConnectSocket* SocketToUse = p_GetAssociatedSocket();
+		std::cout << "not connected" << std::endl;
+
 	}
 	void MBBitTorrentPeerConnection::sp_UpdatePieceDownloadState(MBBitTorrent_PeerConnectionRetrievalState& StateToUpdate, std::string const& PieceDataMessage)
 	{
@@ -288,7 +317,7 @@ namespace MBTorrent
 		size_t CurrentPieceRequestedData = 0;
 		while (NumberOfRequests < MaxSimultaneousRequests && m_RetrievalState.CurrentPiece < m_RetrievalState.DownloadState.size())
 		{
-			std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+			//std::lock_guard<std::mutex> Lock(m_InternalsMutex);
 			BitTorrent_PieceDownloadState& CurrentDownloadState = m_RetrievalState.DownloadState[m_RetrievalState.CurrentPiece];
 			size_t PieceIndex = CurrentDownloadState.PieceIndex;
 			size_t PieceOffset = CurrentDownloadState.CurrentOffset+CurrentPieceRequestedData;
@@ -305,6 +334,12 @@ namespace MBTorrent
 	void MBBitTorrentPeerConnection::p_SendClientUninterestedMessage()
 	{
 		MBSockets::ConnectSocket* SocketToUse = p_GetAssociatedSocket();
+		std::string DataToSend = { 0,0,0,1,char(BitTorrent_MessageType::not_interested) };
+		SocketToUse->SendData(DataToSend);
+	}
+	void MBBitTorrentPeerConnection::p_SendClientInterestedMessage()
+	{
+		MBSockets::ConnectSocket* SocketToUse = p_GetAssociatedSocket();
 		std::string DataToSend = { 0,0,0,1,char(BitTorrent_MessageType::interested) };
 		SocketToUse->SendData(DataToSend);
 	}
@@ -313,7 +348,7 @@ namespace MBTorrent
 		while (IsConnected() && !p_IsStopping())
 		{
 			std::unique_lock<std::mutex> Lock(m_InternalsMutex);
-			while (m_ClientState.Interested == false)
+			while (m_ClientState.Interested.load() == false)
 			{
 				m_RecieveConditional.wait(Lock);
 			}
@@ -349,9 +384,15 @@ namespace MBTorrent
 	void MBBitTorrentPeerConnection::AssignPieces(std::vector<BitTorrent_PieceDownloadState> const& DownloadState)
 	{
 		ResetDownloadState();
-		std::lock_guard<std::mutex> Lock(m_InternalsMutex);
-		m_RetrievalState.DownloadState = DownloadState;
-		m_RetrievalState.AssignedPieces = DownloadState;
+		{
+			std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+			m_RetrievalState.DownloadState = DownloadState;
+			m_RetrievalState.AssignedPieces = DownloadState;
+			m_RetrievalState.PieceData.push_back("");
+		}
+		m_ClientState.Interested.store(true);
+		p_SendClientInterestedMessage();
+		m_RecieveConditional.notify_one();
 	}
 	void MBBitTorrentPeerConnection::TransferAssignedPieces(std::vector<BitTorrent_PieceDownloadState>& TargetDestination)
 	{
@@ -580,6 +621,7 @@ namespace MBTorrent
 				FileListParseOffset += 1;
 				ReturnValue.Files.push_back(NewFileInfo);
 				FileListParseOffset += 1;//slutar på ett e
+				ReturnValue.FileLength += NewFileInfo.FileSize;
 			}
 		}
 		return(ReturnValue);
@@ -746,6 +788,9 @@ namespace MBTorrent
 		for (size_t i = 0; i < m_AssociatedTorrent.PieceHashes.size(); i++)
 		{
 			m_DownloadState.SavedPieceData.push_back(BitTorrent_PieceDownloadState());
+			m_DownloadState.SavedPieceData.back().PieceIndex = i;
+			m_DownloadState.SavedPieceData.back().PieceSize = std::min(m_AssociatedTorrent.PieceLength,m_AssociatedTorrent.FileLength-(i*m_AssociatedTorrent.PieceLength));
+			m_PieceAssigned.push_back(false);
 		}
 	}
 	void MBBitTorrentHandler::p_NotifyAssignmentFinished()
@@ -770,11 +815,11 @@ namespace MBTorrent
 		BitTorrent_PieceDownloadState const& AssignedPiece, std::string const& PieceData)
 	{
 		std::vector<SavePieceDataInfo> ReturnValue = {};
-		size_t PieceDataOffset = 0;
+		uint64_t PieceDataOffset = 0;
 		while (PieceDataOffset < PieceData.size())
 		{
-			size_t FileIndex = 0;
-			size_t TotalCurrentOffset = AssignedPiece.PieceIndex * AssociatedTorrent.PieceLength;
+			uint64_t FileIndex = 0;
+			uint64_t TotalCurrentOffset = AssignedPiece.PieceIndex * AssociatedTorrent.PieceLength;
 			TotalCurrentOffset += PieceDataOffset;
 			//O(n) men palla optimera
 			for (size_t i = 0; i < AssociatedTorrent.Files.size(); i++)
@@ -801,7 +846,7 @@ namespace MBTorrent
 				}
 			}
 			InfoToAdd.SaveOffset = TotalCurrentOffset;
-			size_t NumberOfBytesToWrite = std::min((size_t)PieceData.size() - PieceDataOffset,(size_t) CurrentFile.FileSize - TotalCurrentOffset);
+			uint64_t NumberOfBytesToWrite = std::min((size_t)PieceData.size() - PieceDataOffset,(size_t) CurrentFile.FileSize - TotalCurrentOffset);
 			InfoToAdd.NumberOfBytesToSave = NumberOfBytesToWrite;
 			PieceDataOffset += NumberOfBytesToWrite;
 		}
@@ -843,12 +888,20 @@ namespace MBTorrent
 	{
 		std::lock_guard<std::mutex> Lock(m_InternalsMutex);
 		std::vector<BitTorrent_PieceDownloadState> ReturnValue = {};
+		//max pieces to assign
+		size_t MaxPiecesToAssign = 10;
+		size_t AssignedPieces = 0;
 		for (size_t i = 0; i < m_DownloadState.SavedPieceData.size(); i++)
 		{
 			if (m_DownloadState.SavedPieceData[i].Completed == false && m_PieceAssigned[i] == false)
 			{
 				ReturnValue.push_back(m_DownloadState.SavedPieceData[i]);
 				m_PieceAssigned[i] = true;
+				AssignedPieces += 1;
+				if (MaxPiecesToAssign <= AssignedPieces)
+				{
+					break;
+				}
 			}
 		}
 		return(ReturnValue);
@@ -887,9 +940,9 @@ namespace MBTorrent
 		//m_PeerConnections.push_back(std::unique_ptr<MBBitTorrentPeerConnection>(new MBBitTorrentPeerConnection(this)));
 		//m_PeerConnections.back()->InitiateConnection("158.140.162.224","59520");
 		m_PeerConnections.push_back(std::unique_ptr<MBBitTorrentPeerConnection>(new MBBitTorrentPeerConnection(this)));
-		for (size_t i = 5; i < m_CurrentTrackerResponse.Peers.size(); i++)
+		for (size_t i = 2; i < m_CurrentTrackerResponse.Peers.size(); i++)
 		{
-			if (m_CurrentTrackerResponse.Peers[i].Adress != "188.151.142.88")
+			if (m_CurrentTrackerResponse.Peers[i].Adress != "188.151.159.56")
 			{
 				m_PeerConnections.back()->InitiateConnection(m_CurrentTrackerResponse.Peers[i].Adress,std::to_string(m_CurrentTrackerResponse.Peers[i].Port));
 				if (m_PeerConnections.back()->IsConnected())

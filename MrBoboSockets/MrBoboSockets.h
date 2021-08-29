@@ -83,6 +83,7 @@ namespace MBSockets
 	{
 		OK = 200,
 		PartialContent = 206,
+		Authenticate = 401,
 		NotFound = 404,
 		Conflict = 409,
 	};
@@ -99,7 +100,7 @@ namespace MBSockets
 	{
 		HTTPDocumentType Type = HTTPDocumentType::Null;
 		HTTPRequestStatus RequestStatus = HTTPRequestStatus::OK;
-		std::vector<std::string> ExtraHeaders = {};
+		std::map<std::string,std::string> ExtraHeaders = {};
 		std::vector<FiledataIntervall> IntervallsToRead = {};
 		std::string DocumentData;
 		std::string DocumentDataFileReference = "";

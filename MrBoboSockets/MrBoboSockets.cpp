@@ -355,7 +355,7 @@ namespace MBSockets
 	}
 	bool ConnectSocket::IsConnected()
 	{
-		return(m_IsConnected);
+		return(m_IsConnected && !m_Invalid);
 	}
 	std::string ConnectSocket::GetIpOfConnectedSocket()
 	{
@@ -404,7 +404,7 @@ namespace MBSockets
 		size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
 		char* Buffer = (char*)malloc(InitialBufferSize);
 		size_t MaxRecieveSize = InitialBufferSize;
-		size_t LengthOfDataRecieved = 0;
+		int LengthOfDataRecieved = 0;
 		size_t TotalLengthOfData = 0;
 		while ((LengthOfDataRecieved = recv(m_UnderlyingHandle, &Buffer[TotalLengthOfData], MaxRecieveSize, 0)) > 0)
 		{
@@ -1004,12 +1004,25 @@ namespace MBSockets
 		{
 			return("409 Conflict");
 		}
+		else if (StatusToConvert == HTTPRequestStatus::Authenticate)
+		{
+			return("401 Authenticate");
+		}
+		assert(false);
+		return("");
 	}
 	std::string GenerateRequest(HTTPDocument const& DocumentToSend)
 	{
 		std::string Request = "";
 		Request += "HTTP/1.1 " + HTTPRequestStatusToString(DocumentToSend.RequestStatus) + "\r\n";
-		Request += "Content-Type: " + GetMIMEFromDocumentType(DocumentToSend.Type) + "\r\n";
+		if (DocumentToSend.ExtraHeaders.find("Content-Type") != DocumentToSend.ExtraHeaders.end())
+		{
+			Request += "Content-Type: "+ DocumentToSend.ExtraHeaders.at("Content-Type");
+		}
+		else
+		{
+			Request += "Content-Type: " + GetMIMEFromDocumentType(DocumentToSend.Type) + "\r\n";
+		}
 		Request += "Accept-Ranges: bytes\r\n";
 		Request += "Content-Length: ";
 		if (DocumentToSend.DocumentDataFileReference != "")
@@ -1050,9 +1063,9 @@ namespace MBSockets
 			Request += std::to_string(DocumentToSend.DocumentData.size());
 		}
 		Request += "\r\n";
-		for (size_t i = 0; i < DocumentToSend.ExtraHeaders.size(); i++)
+		for (auto const& Header : DocumentToSend.ExtraHeaders)
 		{
-			Request += DocumentToSend.ExtraHeaders[i] + "\r\n";
+			Request += Header.first+": "+ Header.second + "\r\n";
 		}
 		Request += "\r\n";
 		if (DocumentToSend.DocumentDataFileReference == "")
@@ -1379,8 +1392,8 @@ namespace MBSockets
 			{
 				LastByte = FileSize - 1;
 			}
-			std::string ContentRangeHeader = "Content-Range: bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
-			NewDocument.ExtraHeaders.push_back(ContentRangeHeader);
+			std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
+			NewDocument.ExtraHeaders["Content-Range"] = ContentRangeHeader;
 			std::string DataToSend = GenerateRequest(NewDocument);
 			SendData(DataToSend);
 		}

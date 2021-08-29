@@ -8,6 +8,7 @@
 #include <MBMime/MBMime.h>
 #include <ctime>
 #include <chrono>
+#include <MBSystem/MBSystem.h>
 //username cookie = 
 //password cookie = 
 enum class DBPermissions
@@ -22,6 +23,212 @@ enum class DBPermissions
 //MBDBO_Type m_Type = MBDBO_Type::Null;
 //bool m_IsAtomic = false;
 //std::string m_AtomicValue = "";
+
+//BEGIN MBDB_Website_BaiscPasswordAuthenticator
+MBDB_Website_BaiscPasswordAuthenticator::MBDB_Website_BaiscPasswordAuthenticator(MBDB_Website* AssociatedServer)
+{
+	m_AssociatedServer = AssociatedServer;
+}
+bool MBDB_Website_BaiscPasswordAuthenticator::AuthenticateRawPassword(std::string const& Username, std::string const& Password)
+{
+	std::string HashedPassword = MBCrypto::HashData(Password, MBCrypto::HashFunction::SHA256);
+	std::vector<MBDB::MBDB_RowData> UserResult = m_AssociatedServer->m_GetUser(Username,MBUtility::ReplaceAll(MBUtility::HexEncodeString(HashedPassword)," ",""));
+	if (UserResult.size() == 0)
+	{
+		return(false);
+	}
+	else
+	{
+		return(true);
+	}
+}
+//END MBDB_Website_BaiscPasswordAuthenticator
+
+//BEGIN MBDB_Website_GitHandler
+bool  MBDB_Website_GitHandler::p_VerifyAuthentication(MrPostOGet::HTTPClientRequest const& AssociatedRequest)
+{
+	if (m_UserAuthenticator == nullptr)
+	{
+		return(false);
+	}
+	else
+	{
+		if (AssociatedRequest.Headers.find("authorization") == AssociatedRequest.Headers.end())
+		{
+			return(false);
+		}
+		std::string AuthenticationHeader = AssociatedRequest.Headers.at("authorization");
+		size_t AuthenticationDataBegin = AuthenticationHeader.find(' ');
+		if (AuthenticationDataBegin == AuthenticationHeader.npos)
+		{
+			return(false);
+		}
+		std::string AuthenticationData = MBParsing::BASE64Decode(AuthenticationHeader.substr(AuthenticationDataBegin + 1));
+		size_t ColonPosition = AuthenticationData.find(':');
+		if (ColonPosition == AuthenticationData.npos)
+		{
+			return(false);
+		}
+		std::string Username = AuthenticationData.substr(0, ColonPosition);
+		std::string Password = AuthenticationData.substr(ColonPosition+1);
+		return(m_UserAuthenticator->AuthenticateRawPassword(Username, Password));
+	}
+	return(false);
+}
+MBSockets::HTTPDocument MBDB_Website_GitHandler::p_GetAuthenticationPrompt(MrPostOGet::HTTPClientRequest const& AssociatedRequest)
+{
+	MBSockets::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	//vi måste kolla vilken användare det är
+	std::string RepoUser = "";
+	std::string TopLevelDirectoryPath = AssociatedRequest.RequestResource.substr(m_URLPrefix.size());
+	size_t UserEnd = TopLevelDirectoryPath.find('/');
+	if (UserEnd == TopLevelDirectoryPath.npos)
+	{
+		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+	}
+	else
+	{
+		std::string User = TopLevelDirectoryPath.substr(0, UserEnd);
+		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::Authenticate;
+		ReturnValue.ExtraHeaders["WWW-Authenticate"] = "Basic realm=\"/"+User+"/\"";
+	}
+	ReturnValue.DocumentData = "<html><body></body></html>";
+	return(ReturnValue);
+}
+void MBDB_Website_GitHandler::p_SetGCIVariables(MrPostOGet::HTTPClientRequest const& RequestToParse)
+{
+	//ANTAGANDE fungerar bara givet att vi faktiskt servar den här requesten
+	std::string REQUEST_METHOD = MrPostOGet::HTTPRequestTypeToString(RequestToParse.Type);
+	std::string QUERY_STRING = "";
+	std::string PATH_TRANSLATED = m_TopLevelDirectory + RequestToParse.RequestResource.substr(m_URLPrefix.size()); //
+	size_t QueryBegin = PATH_TRANSLATED.find('?');
+	if (QueryBegin != PATH_TRANSLATED.npos)
+	{
+		QUERY_STRING = PATH_TRANSLATED.substr(QueryBegin + 1);
+		PATH_TRANSLATED = PATH_TRANSLATED.substr(0, QueryBegin);
+	}
+
+	std::string CONTENT_TYPE = "";
+	if (RequestToParse.Headers.find("content-type") != RequestToParse.Headers.end())
+	{
+		CONTENT_TYPE = RequestToParse.Headers.at("content-type");
+	}
+	MBSystem::SetEnvironmentVariable("PATH_TRANSLATED", PATH_TRANSLATED);
+	MBSystem::SetEnvironmentVariable("REQUEST_METHOD", REQUEST_METHOD);
+	MBSystem::SetEnvironmentVariable("QUERY_STRING", QUERY_STRING);
+	if (CONTENT_TYPE != "")
+	{
+		MBSystem::SetEnvironmentVariable("CONTENT_TYPE", CONTENT_TYPE);
+	}
+	//borde egentligen bar agöras en gång
+	MBSystem::SetEnvironmentVariable("GIT_HTTP_EXPORT_ALL", "true");
+
+	//DEBUG
+	if (RequestToParse.Headers.find("authorization") != RequestToParse.Headers.end())
+	{
+		MBSystem::SetEnvironmentVariable("REMOTE_USER", "Test");
+	}
+
+	//DEBUG
+	std::cout << "PATH_TRANSLATED=" << PATH_TRANSLATED << std::endl;
+	std::cout << "QUERY_STRING=" << QUERY_STRING << std::endl;
+	std::cout << "REQUEST_METHOD=" << REQUEST_METHOD << std::endl;
+	std::cout << "CONTENT_TYPE=" << CONTENT_TYPE << std::endl;
+}
+MBDB_Website_GitHandler::MBDB_Website_GitHandler(std::string const& TopResourceDirectory,MBDB_BasicPasswordAuthenticator* Authenticator)
+{
+	m_UserAuthenticator = Authenticator;
+	m_TopLevelDirectory = TopResourceDirectory;
+}
+void MBDB_Website_GitHandler::SetURLPrefix(std::string const& PathPrefix)
+{
+	std::lock_guard<std::mutex> LockGuard(m_InternalsMutex);
+	m_URLPrefix = PathPrefix;
+}
+void MBDB_Website_GitHandler::SetTopDirectory(std::string const& DirectoryToSet)
+{
+	std::lock_guard<std::mutex> LockGuard(m_InternalsMutex);
+	m_TopLevelDirectory = DirectoryToSet;
+}
+
+bool MBDB_Website_GitHandler::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
+{
+	return(RequestToHandle.RequestResource.substr(0, m_URLPrefix.size()) == m_URLPrefix);
+}
+MBSockets::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*)
+{
+	MBSockets::HTTPDocument ReturnValue;
+	if (true)
+	{
+		bool CommandNeedsAuthentication = false;
+		bool RequestHasAuthentication = false;
+		//TODO kolla faktiskt igenom protokollet för att se vilka URL:er som kräver authentication
+		if (Request.SearchParameters.find("service") != Request.SearchParameters.end())
+		{
+			if (Request.SearchParameters.at("service") == "git-receive-pack" && Request.Headers.find("authorization") == Request.Headers.end())
+			{
+				//ReturnValue = p_GetAuthenticationPrompt(Request);
+				CommandNeedsAuthentication = true;
+			}
+		}
+		if (Request.RequestResource.find("git-receive-pack") != Request.RequestResource.npos)
+		{
+			CommandNeedsAuthentication = true;
+		}
+		if (Request.Headers.find("authorization") != Request.Headers.end())
+		{
+			RequestHasAuthentication = true;
+		}
+		if (CommandNeedsAuthentication && !RequestHasAuthentication)
+		{
+			ReturnValue = p_GetAuthenticationPrompt(Request);
+		}
+		else
+		{
+			bool AuthenticationResult = true;
+			if (CommandNeedsAuthentication)
+			{
+				AuthenticationResult = p_VerifyAuthentication(Request);
+			}
+			if(AuthenticationResult)
+			{
+				//nu vet vi att det vi får är authenticated
+				p_SetGCIVariables(Request);
+				std::string HTTPResponse = "";
+
+				//ANTAGANDE hela bodyn som behövs får plats
+				assert(Socket->DataIsAvailable() == false);
+				if (Request.Type == MrPostOGet::HTTPRequestType::POST)
+				{
+					MBSystem::UniDirectionalSubProcess GCIProcess("git http-backend > __GIT_HTTP_BACKEND.temp", false);
+					GCIProcess.SendData(Request.BodyData);
+					GCIProcess.close();
+					HTTPResponse = MrPostOGet::LoadWholeFile("__GIT_HTTP_BACKEND.temp");
+				}
+				else
+				{
+					MBSystem::UniDirectionalSubProcess GCIProcess("git http-backend", true);
+					while (!GCIProcess.Finished())
+					{
+						HTTPResponse += GCIProcess.RecieveData();
+					}
+				}
+				std::unordered_map<std::string, std::string> ResponseHeaders = MBMIME::ExtractMIMEHeaders(HTTPResponse, 0, 0);
+				size_t BodyBegin = HTTPResponse.find("\r\n\r\n") + 4;
+				ReturnValue.ExtraHeaders["Content-Type"] = ResponseHeaders["content-type"];
+				ReturnValue.DocumentData = HTTPResponse.substr(BodyBegin);
+			}
+			else
+			{
+				ReturnValue = p_GetAuthenticationPrompt(Request);
+			}
+		}
+	}
+
+
+	return(ReturnValue);
+}
 
 //BEGIN MBDB_Website
 void MBDB_Website::m_InitDatabase()
@@ -88,9 +295,19 @@ MBDB_Website::MBDB_Website()
 		{ &MBDB_Website::DBOperationBlipp_Predicate,	&MBDB_Website::DBOperatinBlipp_ResponseGenerator } };
 	__NumberOfHandlers.store(__LegacyRequestHandlers.size());
 	__HandlersData.store(__LegacyRequestHandlers.data());
+
 	__ModernRequestHandlers = { {&MBDB_Website::p_Edit_Predicate,&MBDB_Website::p_Edit_ResponseGenerator} };
 	__ModernHandlersCount.store(__ModernRequestHandlers.size());
 	__ModernHandlersData.store(__ModernRequestHandlers.data());
+
+	m_BasicPasswordAuthenticator = std::unique_ptr<MBDB_Website_BaiscPasswordAuthenticator>(new MBDB_Website_BaiscPasswordAuthenticator(this));
+	m_GitHandler = std::unique_ptr<MBDB_Website_GitHandler>(new MBDB_Website_GitHandler("/git/",m_BasicPasswordAuthenticator.get()));
+	m_GitHandler->SetURLPrefix("/git/");
+	//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());
+	//__InternalHandlers = { std::unique_ptr< MBDB_Website_GitHandler>(InternalGitHandler)};
+	//__InternalHandlersCount.store(__InternalHandlers.size());
+	//__InternalHandlersData.store(__InternalHandlers.data());
+
 }
 bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
 {
@@ -109,6 +326,10 @@ bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestTo
 		{
 			return(true);
 		}
+	}
+	if (m_GitHandler->HandlesRequest(RequestToHandle, ConnectionState, AssociatedServer))
+	{
+		return(true);
 	}
 	return(false);
 }
@@ -130,6 +351,12 @@ MBSockets::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientReq
 		{
 			return((this->*(ModernData[i].Generator))(Request, ConnectionState, Connection, Server));
 		}
+	}
+	if (m_GitHandler->HandlesRequest(Request, ConnectionState, Server))
+	{
+		m_GitHandler->SetTopDirectory(this->GetResourceFolderPath()+"/Users/");
+		//m_GitHandler->ur(this->GetResourceFolderPath()+"/Users/");
+		return(m_GitHandler->GenerateResponse(Request, ConnectionState, Connection, Server));
 	}
 	assert(false);
 }
@@ -1642,8 +1869,8 @@ MBSockets::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string
 			std::string StringToCompare = "{\"MBDBAPI_Status\":\"ok\"}";
 			if (ReturnValue.DocumentData.substr(0,StringToCompare.size()) == StringToCompare)
 			{
-				ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBUsername=" + APIDirectiveArguments[0] + "; Secure; " + "Max-Age=604800; Path=/");
-				ReturnValue.ExtraHeaders.push_back("Set-Cookie: DBPassword=" + APIDirectiveArguments[1] + "; Secure; " + "Max-Age=604800; Path=/");
+				ReturnValue.ExtraHeaders["Set-Cookie"] = "DBUsername=" + APIDirectiveArguments[0] + "; Secure; Max-Age=604800; Path=/";
+				ReturnValue.ExtraHeaders["Set-Cookie"] = "DBPassword=" + APIDirectiveArguments[1] + "; Secure; Max-Age=604800; Path=/";
 			}
 		}
 		else if (APIDirective == "FileExists")

@@ -9,6 +9,16 @@ namespace MBParsing
 		MBError ParseError = MBError(true);
 	};
 
+	//BASE64 grejer
+	unsigned char Base64CharToBinary(unsigned char CharToDecode);
+	char ByteToBASE64(uint8_t ByteToEncode);
+	std::string Base64ToBinary(std::string const& Base64Data);
+	std::string BASE64Decode(const void* CharactersToRead, size_t NumberOfCharacters);
+	std::string BASE64Encode(const void* DataToEncode, size_t DataLength);
+	std::string BASE64Decode(std::string const& DataToDecode);
+	std::string BASE64Encode(std::string const& DataToEncode);
+	//
+
 	void UpdateParseState(size_t CurrentOffset, MBError& ErrorToMove, size_t* OutOffset, MBError* OutError);
 
 	size_t FindSubstring(const void* Data, size_t DataSize, const void* Data2, size_t Data2Size,size_t ParseOffset);
