@@ -789,7 +789,7 @@ namespace MBTorrent
 		{
 			m_DownloadState.SavedPieceData.push_back(BitTorrent_PieceDownloadState());
 			m_DownloadState.SavedPieceData.back().PieceIndex = i;
-			m_DownloadState.SavedPieceData.back().PieceSize = std::min(m_AssociatedTorrent.PieceLength,m_AssociatedTorrent.FileLength-(i*m_AssociatedTorrent.PieceLength));
+			m_DownloadState.SavedPieceData.back().PieceSize = std::min((uintmax_t)m_AssociatedTorrent.PieceLength,(uintmax_t)m_AssociatedTorrent.FileLength-(i*(uintmax_t)m_AssociatedTorrent.PieceLength));
 			m_PieceAssigned.push_back(false);
 		}
 	}

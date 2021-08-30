@@ -16,11 +16,12 @@ namespace MBSystem
 	std::string GetEnvironmentVariable(std::string const& VariableName, SystemErrorCode* OutError = nullptr);
 
 	struct MBProcessHandle;
+	void MBProcessHandleDeleter(MBProcessHandle* HandleToDelete);
 	class UniDirectionalSubProcess
 	{
 	private:
 		SystemErrorCode m_LastError = SystemErrorCode::Null;
-		std::unique_ptr<MBProcessHandle> m_AssociatedHandler = nullptr;
+		std::unique_ptr<MBProcessHandle> m_AssociatedHandler;
 		bool m_IsValid = true;
 	public:
 		UniDirectionalSubProcess();
