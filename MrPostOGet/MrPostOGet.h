@@ -36,7 +36,7 @@ namespace MrPostOGet
 		HTTPRequestType Type = HTTPRequestType::Null;
 		std::string RequestResource = "";
 		std::unordered_map<std::string, std::string> SearchParameters = {};
-		std::unordered_map<std::string, std::string> Headers = {};
+		std::unordered_map<std::string, std::vector<std::string>> Headers = {};
 		std::string BodyData = "";
 
 		std::string RawRequestData = "";

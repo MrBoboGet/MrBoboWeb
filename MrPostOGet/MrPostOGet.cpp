@@ -8,7 +8,7 @@ namespace MrPostOGet
 	std::vector<Cookie> GetCookiesFromRequest(HTTPClientRequest const& RequestData)
 	{
 		std::vector<Cookie> ReturnValue = {};
-		std::vector<std::string> Cookies = MBUtility::Split(RequestData.Headers.at("cookie"),"; ");
+		std::vector<std::string> Cookies = MBUtility::Split(RequestData.Headers.at("cookie").front(),"; ");
 		for (size_t i = 0; i < Cookies.size(); i++)
 		{
 			size_t FirstEqualSignPos = Cookies[i].find_first_of("=");

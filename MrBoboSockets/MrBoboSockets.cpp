@@ -1017,7 +1017,7 @@ namespace MBSockets
 		Request += "HTTP/1.1 " + HTTPRequestStatusToString(DocumentToSend.RequestStatus) + "\r\n";
 		if (DocumentToSend.ExtraHeaders.find("Content-Type") != DocumentToSend.ExtraHeaders.end())
 		{
-			Request += "Content-Type: "+ DocumentToSend.ExtraHeaders.at("Content-Type");
+			Request += "Content-Type: "+ DocumentToSend.ExtraHeaders.at("Content-Type").front();
 		}
 		else
 		{
@@ -1065,7 +1065,10 @@ namespace MBSockets
 		Request += "\r\n";
 		for (auto const& Header : DocumentToSend.ExtraHeaders)
 		{
-			Request += Header.first+": "+ Header.second + "\r\n";
+			for (auto const& HeaderValue : Header.second)
+			{
+				Request += Header.first + ": " + HeaderValue + "\r\n";
+			}
 		}
 		Request += "\r\n";
 		if (DocumentToSend.DocumentDataFileReference == "")
@@ -1393,7 +1396,7 @@ namespace MBSockets
 				LastByte = FileSize - 1;
 			}
 			std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
-			NewDocument.ExtraHeaders["Content-Range"] = ContentRangeHeader;
+			NewDocument.ExtraHeaders["Content-Range"].push_back(ContentRangeHeader);
 			std::string DataToSend = GenerateRequest(NewDocument);
 			SendData(DataToSend);
 		}

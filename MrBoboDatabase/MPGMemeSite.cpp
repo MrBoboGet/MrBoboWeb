@@ -57,7 +57,7 @@ bool  MBDB_Website_GitHandler::p_VerifyAuthentication(MrPostOGet::HTTPClientRequ
 		{
 			return(false);
 		}
-		std::string AuthenticationHeader = AssociatedRequest.Headers.at("authorization");
+		std::string AuthenticationHeader = AssociatedRequest.Headers.at("authorization").front();
 		size_t AuthenticationDataBegin = AuthenticationHeader.find(' ');
 		if (AuthenticationDataBegin == AuthenticationHeader.npos)
 		{
@@ -91,7 +91,7 @@ MBSockets::HTTPDocument MBDB_Website_GitHandler::p_GetAuthenticationPrompt(MrPos
 	{
 		std::string User = TopLevelDirectoryPath.substr(0, UserEnd);
 		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::Authenticate;
-		ReturnValue.ExtraHeaders["WWW-Authenticate"] = "Basic realm=\"/"+User+"/\"";
+		ReturnValue.ExtraHeaders["WWW-Authenticate"].push_back("Basic realm=\"/"+User+"/\"");
 	}
 	ReturnValue.DocumentData = "<html><body></body></html>";
 	return(ReturnValue);
@@ -112,7 +112,7 @@ void MBDB_Website_GitHandler::p_SetGCIVariables(MrPostOGet::HTTPClientRequest co
 	std::string CONTENT_TYPE = "";
 	if (RequestToParse.Headers.find("content-type") != RequestToParse.Headers.end())
 	{
-		CONTENT_TYPE = RequestToParse.Headers.at("content-type");
+		CONTENT_TYPE = RequestToParse.Headers.at("content-type").front();
 	}
 	MBSystem::SetEnvironmentVariable("PATH_TRANSLATED", PATH_TRANSLATED);
 	MBSystem::SetEnvironmentVariable("REQUEST_METHOD", REQUEST_METHOD);
@@ -214,9 +214,9 @@ MBSockets::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::HT
 						HTTPResponse += GCIProcess.RecieveData();
 					}
 				}
-				std::unordered_map<std::string, std::string> ResponseHeaders = MBMIME::ExtractMIMEHeaders(HTTPResponse, 0, 0);
+				std::unordered_map<std::string, std::vector<std::string>> ResponseHeaders = MBMIME::ExtractMIMEHeaders(HTTPResponse, 0, 0);
 				size_t BodyBegin = HTTPResponse.find("\r\n\r\n") + 4;
-				ReturnValue.ExtraHeaders["Content-Type"] = ResponseHeaders["content-type"];
+				ReturnValue.ExtraHeaders["Content-Type"].push_back(ResponseHeaders["content-type"].front());
 				ReturnValue.DocumentData = HTTPResponse.substr(BodyBegin);
 			}
 			else
@@ -1869,8 +1869,8 @@ MBSockets::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string
 			std::string StringToCompare = "{\"MBDBAPI_Status\":\"ok\"}";
 			if (ReturnValue.DocumentData.substr(0,StringToCompare.size()) == StringToCompare)
 			{
-				ReturnValue.ExtraHeaders["Set-Cookie"] = "DBUsername=" + APIDirectiveArguments[0] + "; Secure; Max-Age=604800; Path=/";
-				ReturnValue.ExtraHeaders["Set-Cookie"] = "DBPassword=" + APIDirectiveArguments[1] + "; Secure; Max-Age=604800; Path=/";
+				ReturnValue.ExtraHeaders["Set-Cookie"].push_back("DBUsername=" + APIDirectiveArguments[0] + "; Secure; Max-Age=604800; Path=/");
+				ReturnValue.ExtraHeaders["Set-Cookie"].push_back("DBPassword=" + APIDirectiveArguments[1] + "; Secure; Max-Age=604800; Path=/");
 			}
 		}
 		else if (APIDirective == "FileExists")

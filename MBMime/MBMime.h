@@ -75,8 +75,8 @@ namespace MBMIME
 		MIMETypeTuple GetTupleFromExtension(std::string const& Extension);
 		MIMETypeTuple GetTupleFromDocumentType(MIMEType DocumentType);
 	};
-	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(const void* Data,size_t DataSize, size_t ParseOffset,size_t* OutOffset = nullptr);
-	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(std::string const& DataToParse,size_t InOffset, size_t* ParseOffset);
+	std::unordered_map<std::string, std::vector<std::string>> ExtractMIMEHeaders(const void* Data,size_t DataSize, size_t ParseOffset,size_t* OutOffset = nullptr);
+	std::unordered_map<std::string, std::vector<std::string>> ExtractMIMEHeaders(std::string const& DataToParse,size_t InOffset, size_t* ParseOffset);
 
 	class MIMEMultipartDocumentExtractor
 	{
@@ -91,7 +91,7 @@ namespace MBMIME
 		bool m_PartDataIsAvailable = false;
 	public:
 		MIMEMultipartDocumentExtractor(const void* Data,size_t DataSize, size_t ParseOffset);
-		std::unordered_map<std::string,std::string> ExtractHeaders();
+		std::unordered_map<std::string, std::vector<std::string>> ExtractHeaders();
 		std::string ExtractPartData(size_t MaxNumberOfBytes = -1);
 		bool PartDataIsAvailable();
 		bool Finished();

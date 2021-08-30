@@ -30,9 +30,9 @@ namespace MBMIME
 		return(NullTupple);
 	}
 
-	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(const void* Data, size_t DataSize, size_t InOffset,size_t* OutOffset)
+	std::unordered_map<std::string, std::vector<std::string>> ExtractMIMEHeaders(const void* Data, size_t DataSize, size_t InOffset,size_t* OutOffset)
 	{
-		std::unordered_map<std::string, std::string> ReturnValue = {};
+		std::unordered_map<std::string, std::vector<std::string>> ReturnValue = {};
 		const char* DataToParse = (const char*)Data;
 		size_t ParseOffset = InOffset;
 		while(ParseOffset < DataSize)
@@ -53,7 +53,7 @@ namespace MBMIME
 			ParseOffset = NextColon + 1;
 			MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
 			size_t BodyEnd = std::find(DataToParse + ParseOffset, DataToParse + DataSize, '\r')-DataToParse;
-			ReturnValue[NewHeaderName] = std::string(DataToParse + ParseOffset, BodyEnd - ParseOffset);
+			ReturnValue[NewHeaderName].push_back(std::string(DataToParse + ParseOffset, BodyEnd - ParseOffset));
 			ParseOffset = BodyEnd + 2;
 		}
 		if (OutOffset != nullptr)
@@ -62,7 +62,7 @@ namespace MBMIME
 		}
 		return(ReturnValue);
 	}
-	std::unordered_map<std::string, std::string> ExtractMIMEHeaders(std::string const& DataToParse, size_t InOffset,size_t* OutOffset)
+	std::unordered_map<std::string, std::vector<std::string>> ExtractMIMEHeaders(std::string const& DataToParse, size_t InOffset,size_t* OutOffset)
 	{
 		return(ExtractMIMEHeaders(DataToParse.data(), DataToParse.size(), InOffset, OutOffset));
 	}
@@ -74,12 +74,12 @@ namespace MBMIME
 		m_DocumentData = Data;
 		m_ParseOffset = ParseOffset;
 	}
-	std::unordered_map<std::string,std::string> MIMEMultipartDocumentExtractor::ExtractHeaders()
+	std::unordered_map<std::string, std::vector<std::string>> MIMEMultipartDocumentExtractor::ExtractHeaders()
 	{
-		std::unordered_map<std::string, std::string> ReturnValue = ExtractMIMEHeaders(m_DocumentData,m_DataSize,m_ParseOffset,&m_ParseOffset);
+		std::unordered_map<std::string, std::vector<std::string>> ReturnValue = ExtractMIMEHeaders(m_DocumentData,m_DataSize,m_ParseOffset,&m_ParseOffset);
 		if (m_ContentBoundary == "")
 		{
-			std::string ContentType = ReturnValue["content-type"];
+			std::string ContentType = ReturnValue["content-type"].front();
 			size_t BoundaryBegin = ContentType.find("boundary=") + 9;
 			m_ContentBoundary = ContentType.substr(BoundaryBegin);
 			m_PartDataIsAvailable = true;

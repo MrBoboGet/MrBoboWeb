@@ -100,7 +100,7 @@ namespace MBSockets
 	{
 		HTTPDocumentType Type = HTTPDocumentType::Null;
 		HTTPRequestStatus RequestStatus = HTTPRequestStatus::OK;
-		std::map<std::string,std::string> ExtraHeaders = {};
+		std::unordered_map<std::string, std::vector<std::string>> ExtraHeaders = {};
 		std::vector<FiledataIntervall> IntervallsToRead = {};
 		std::string DocumentData;
 		std::string DocumentDataFileReference = "";
