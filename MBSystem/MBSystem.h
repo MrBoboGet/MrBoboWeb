@@ -23,6 +23,7 @@ namespace MBSystem
 		SystemErrorCode m_LastError = SystemErrorCode::Null;
 		std::unique_ptr<MBProcessHandle> m_AssociatedHandler;
 		bool m_IsValid = true;
+		bool m_Closed = false;
 	public:
 		UniDirectionalSubProcess();
 

@@ -166,6 +166,10 @@ namespace MBSystem
 	}
 	void UniDirectionalSubProcess::close()
 	{
+		if (m_Closed)
+		{
+			return;
+		}
 #ifdef _WIN32
 		int ErrorCode = _pclose(m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
@@ -173,6 +177,7 @@ namespace MBSystem
 		int ErrorCode = pclose(m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
 #endif
+		m_Closed = true;
 	}
 	bool UniDirectionalSubProcess::good()
 	{
