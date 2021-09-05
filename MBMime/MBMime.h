@@ -96,4 +96,8 @@ namespace MBMIME
 		bool PartDataIsAvailable();
 		bool Finished();
 	};
+
+	std::string GetMIMEStringFromType(MIMEType TypeToConvert);
+	MBMIME::MIMEType DocumentTypeFromFileExtension(std::string const& FileExtension);
+	MBMIME::MediaType GetMediaTypeFromExtension(std::string const& FileExtension);
 };

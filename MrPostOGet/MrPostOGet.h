@@ -1,26 +1,111 @@
 #pragma once
 #include <MrBoboSockets/MrBoboSockets.h>
+#include <MBMime/MBMime.h>
 #include <TextReader.h>
 #include <cstring>
 
 namespace MrPostOGet 
 {
 	class HTTPServer;
+
+	class FileIntervallExtracter
+	{
+	private:
+		std::ifstream FileToRead;
+		std::vector<FiledataIntervall> IntervallsToRead = {};
+		uint64_t FileSize = 0;
+		uint64_t IntervallIndex = 0;
+		uint64_t MaxDataInMemory = 10000000;
+		uint64_t TotalDataRead = 0;
+	public:
+		FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory);
+		std::string GetNextIntervall();
+		bool IsDone();
+	};
+
+	enum class HTTPRequestStatus
+	{
+		OK = 200,
+		PartialContent = 206,
+		Authenticate = 401,
+		NotFound = 404,
+		Conflict = 409,
+	};
+	struct HTTPDocument
+	{
+		MBMIME::MIMEType Type = MBMIME::MIMEType::Null;
+		HTTPRequestStatus RequestStatus = HTTPRequestStatus::OK;
+		std::unordered_map<std::string, std::vector<std::string>> ExtraHeaders = {};
+		std::vector<FiledataIntervall> IntervallsToRead = {};
+		std::string DocumentData;
+		std::string DocumentDataFileReference = "";
+	};
+
+
+	std::string GetHeaderValue(std::string Header, const std::string& HeaderContent);
+	std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent);
+	std::string GetRequestType(const std::string& RequestData);
+	std::string GetRequestResource(const std::string& RequestData);
+
+
+	//MBMIME::MIMEType DocumentTypeFromFileExtension(std::string const& FileExtension);
+	//MBMIME::MediaType GetMediaTypeFromExtension(std::string const& FileExtension);
+	
+	///std::string GetMIMEFromDocumentType(MBMIME::MIMEType TypeToConvert);
+
+	//std::string GenerateRequest(HTTPDocument const& DocumentToSend);
+	//std::string GenerateRequest(const std::string& HTMLBody);
+
+	class HTTPServerSocket : public MBSockets::ServerSocket
+	{
+	private:
+		bool ChunksRemaining = false;
+		bool RequestIsChunked = false;
+		int CurrentChunkSize = 0;
+		int CurrentChunkParsed = 0;
+		int CurrentContentLength = 0;
+		int ParsedContentData = 0;
+		int p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
+		std::string p_UpdateAndDeChunkData(std::string const& ChunkedData);
+
+		std::string p_GenerateRequest(HTTPDocument const& DocumentToSend);
+		std::string p_GenerateRequest(const std::string& HTMLBody);
+		std::string p_HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert);
+	public:
+		bool DataIsAvailable();
+		HTTPServerSocket(std::string const& Port);
+		std::string GetHTTPRequest();
+		void SendDataAsHTTPBody(const std::string& Data);
+		void SendHTTPBody(const std::string& Data);
+		void SendHTTPDocument(HTTPDocument const& DocumentToSend);
+		std::string GetNextChunkData();
+	};
+
+
 	struct RequestHandler
 	{
 		bool (*RequestPredicate)(const std::string& RequestData);
-		MBSockets::HTTPDocument(*RequestResponse)(const std::string& ResoureData, HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedSocket);
+		HTTPDocument(*RequestResponse)(const std::string& ResoureData, HTTPServer* AssociatedServer,HTTPServerSocket* AssociatedSocket);
 	};	
 	
-	MBSockets::HTTPDocumentType MimeSniffDocument(std::string const& FilePath);
+	MBMIME::MIMEType MimeSniffDocument(std::string const& FilePath);
 	//convinience funktioner
+	std::string GetFileExtension(std::string const& StringData);
 	std::string GetRequestContent(std::string const& RequestData);
 	std::string LoadWholeFile(std::string const& FilePath);
+
+
+	struct Cookie
+	{
+		std::string Name = "";
+		std::string Value = "";
+	};
 	std::string ReplaceMPGVariables(std::string const& FileData, std::unordered_map<std::string, std::string> const& VariablesMap);
 	std::string LoadFileWithVariables(std::string const& Filepath, std::unordered_map<std::string, std::string> const& VariablesMap);
 	std::string LoadFileWithPreprocessing(std::string const& Filepath, std::string const& ResourcesPath);
-	std::string GetFileExtension(std::string const& StringData);
-	
+
+
+	std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData);
 
 	enum class HTTPRequestType
 	{
@@ -41,6 +126,7 @@ namespace MrPostOGet
 
 		std::string RawRequestData = "";
 	};
+
 	struct HTTPClientConnectionState
 	{
 	private:
@@ -48,15 +134,16 @@ namespace MrPostOGet
 		//void* UnspecifiedData = nullptr;
 		//void (*UnspecifiedDataDeallocator)(void* DataToDeallocate);
 	};
+
 	class HTTPRequestHandler
 	{
 	private:
 
 	public:
 		virtual bool HandlesRequest(HTTPClientRequest const& RequestToHandle, HTTPClientConnectionState const& ConnectionState, HTTPServer* AssociatedServer) { return false; };
-		virtual MBSockets::HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, HTTPServer*) 
+		virtual HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, HTTPServerSocket*, HTTPServer*) 
 		{
-			return(MBSockets::HTTPDocument()); 
+			return(HTTPDocument()); 
 		};
 	};
 	class StaticRequestHandler : public HTTPRequestHandler
@@ -66,21 +153,15 @@ namespace MrPostOGet
 	public:
 		StaticRequestHandler(RequestHandler HandlerToConvert);
 		bool HandlesRequest(HTTPClientRequest const& RequestToHandle, HTTPClientConnectionState const& ConnectionState, HTTPServer* AssociatedServer) override;
-		MBSockets::HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, HTTPServer*) override;
+		HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, HTTPServerSocket*, HTTPServer*) override;
 	};
-	struct Cookie
-	{
-		std::string Name = "";
-		std::string Value = "";
-	};
-	std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData);
-	//std::vector<Cookie> GetCookiesFromRequest(HTTPClientRequest const& RequestData);
+
 	class HTTPServer
 	{
 	private:
 		uint16_t Port = -1;
 		size_t MaxDocumentInMemorySize = 100000;
-		MBSockets::HTTPServerSocket* ServerSocketen;
+		HTTPServerSocket* ServerSocketen;
 		
 		std::string m_DefaultResourcePath = "";
 		std::unordered_map<std::string, std::string> m_DomainResourcePaths = {};
@@ -90,20 +171,20 @@ namespace MrPostOGet
 		std::mutex m_InternalsMutex;
 		std::vector<std::unique_ptr<HTTPRequestHandler>> m_RequestHandlers = std::vector<std::unique_ptr<HTTPRequestHandler>>(0);
 
-		void m_HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient);
-		static MBSockets::HTTPDocument m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath,HTTPServer* AssociatedServer);
+		void m_HandleConnectedSocket(HTTPServerSocket* ConnectedClient);
+		static HTTPDocument m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath,HTTPServer* AssociatedServer);
 		static void p_ParseHTTPClientRequest(HTTPClientRequest& ClientRequest, std::string& RawData);
 		static std::unordered_map<std::string, std::string> p_ParseSearchParameters(std::string const& URL);
 		//std::mutex HTTPServerResourcesMutex;
 	public:
 		HTTPServer(std::string PathToResources, int PortToListenTo);
-		std::string GenerateResponse(MBSockets::HTTPDocument const& Document);
+		//std::string GenerateResponse(HTTPDocument const& Document);
 		void LoadDomainResourcePaths(std::string const& ConfigFile);
 		std::string GetResourcePath(std::string const& DomainName);
 		std::string LoadWholeFile(std::string const& FilePath);
 		void UseTLS(bool ShouldUse);
 		//std::string LoadFileWithIntervalls(std::string const& FilePath, std::vector<FiledataIntervall> const& ByteRanges);
-		MBSockets::HTTPDocument GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges = {});
+		HTTPDocument GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges = {});
 		void AddRequestHandler(RequestHandler HandlerToAdd);
 		void AddRequestHandler(HTTPRequestHandler* HandlerToAdd);
 		void StartListening();
@@ -151,4 +232,3 @@ namespace MrPostOGet
 		std::string ToString() const;
 	};
 }
-//std::string ToString();

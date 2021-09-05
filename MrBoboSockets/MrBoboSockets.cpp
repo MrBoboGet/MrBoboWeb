@@ -727,6 +727,20 @@ namespace MBSockets
 	{
 		return(!RequestFinished);
 	}
+	std::string  HTTPConnectSocket::p_GetHeaderValue(std::string const& Header, const std::string& HeaderContent)
+	{
+		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
+		int HeaderPosition = HeaderData.find(Header + ": ");
+		int FirstEndlineAfterContentPos = HeaderData.find("\r\n", HeaderPosition);
+		if (HeaderPosition == HeaderContent.npos)
+		{
+			return("");
+		}
+		else
+		{
+			return(HeaderData.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
+		}
+	}
 	void HTTPConnectSocket::ResetRequestRecieveState()
 	{
 		CurrentContentLength = -1;
@@ -815,9 +829,9 @@ namespace MBSockets
 				}
 				HeadRecieved = true;
 				RequestFinished = false;
-				std::string ContentLength = GetHeaderValue("Content-Length", ReturnValue);
+				std::string ContentLength = p_GetHeaderValue("Content-Length", ReturnValue);
 				//TODO Antar att varje gång vi inte har contentlength så är det chunked, kanske inte alltid stämmer men får fixa det sen
-				if (ContentLength == "" && GetHeaderValue("Transfer-Encoding", ReturnValue) != "")
+				if (ContentLength == "" && p_GetHeaderValue("Transfer-Encoding", ReturnValue) != "")
 				{
 					size_t BodyBegin = HeaderEnd + 4;
 					//size_t ChunkSizeHeaderEnd = ReturnValue.find("\r\n", BodyBegin);
@@ -841,7 +855,7 @@ namespace MBSockets
 						assert(false);
 					}
 				}
-				if (ContentLength == "" && GetHeaderValue("Transfer-Encoding", ReturnValue) == "")
+				if (ContentLength == "" && p_GetHeaderValue("Transfer-Encoding", ReturnValue) == "")
 				{
 					//vi har fått all data typ
 					ResetRequestRecieveState();
@@ -927,258 +941,249 @@ namespace MBSockets
 
 	}
 	//END HTTPConnectSocket
-	std::string GetRequestType(const std::string& RequestData)
-	{
-		int FirstSpace = RequestData.find(" ");
-		return(RequestData.substr(0, FirstSpace));
-	}
-	std::string GetReqestResource(const std::string& RequestData)
-	{
-		int FirstSlashPos = RequestData.find("/");
-		int FirstSpaceAfterSlash = RequestData.find(" ", FirstSlashPos);
-		std::string ReturnValue = RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1);
-		bool Error = true; // borde göra något med denna med aja
-		ReturnValue = MBUtility::URLDecodeData(ReturnValue, &Error);
-		return(ReturnValue);
-	}
-	//BEGIN HTTPTypeTuple
-	HTTPTypeTuple HTTPTypesConnector::GetTupleFromExtension(std::string const& Extension)
-	{
-		for (size_t i = 0; i < SuppportedTupples.size(); i++)
-		{
-			for (size_t j = 0; j < SuppportedTupples[i].FileExtensions.size(); j++)
-			{
-				if (SuppportedTupples[i].FileExtensions[j] == Extension)
-				{
-					return(SuppportedTupples[i]);
-				}
-			}
-		}
-		return(NullTupple);
-	}
-	HTTPTypeTuple HTTPTypesConnector::GetTupleFromDocumentType(HTTPDocumentType DocumentType)
-	{
-		for (size_t i = 0; i < SuppportedTupples.size(); i++)
-		{
-			if (SuppportedTupples[i].FileHTTPDocumentType == DocumentType)
-			{
-				return(SuppportedTupples[i]);
-			}
-		}
-		return(NullTupple);
-	}
-	//END HTTPTypeTuple
-	HTTPDocumentType DocumentTypeFromFileExtension(std::string const& FileExtension)
-	{
-		HTTPTypesConnector TypeConnector;
-		HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
-		return(DocumentTuple.FileHTTPDocumentType);
-	}
-	MediaType GetMediaTypeFromExtension(std::string const& FileExtension)
-	{
-		HTTPTypesConnector TypeConnector;
-		HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
-		return(DocumentTuple.FileMediaType);
-	}
-	std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert)
-	{
-		HTTPTypesConnector TypeConnector;
-		HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromDocumentType(TypeToConvert);
-		return(DocumentTuple.MIMEMediaString);
-	}
-	std::string HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert)
-	{
-		if (StatusToConvert == HTTPRequestStatus::OK)
-		{
-			return("200 OK");
-		}
-		else if (StatusToConvert == HTTPRequestStatus::PartialContent)
-		{
-			return("206 Partial Content");
-		}
-		else if (StatusToConvert == HTTPRequestStatus::NotFound)
-		{
-			return("404 Not Found");
-		}
-		else if (StatusToConvert == HTTPRequestStatus::Conflict)
-		{
-			return("409 Conflict");
-		}
-		else if (StatusToConvert == HTTPRequestStatus::Authenticate)
-		{
-			return("401 Authenticate");
-		}
-		assert(false);
-		return("");
-	}
-	std::string GenerateRequest(HTTPDocument const& DocumentToSend)
-	{
-		std::string Request = "";
-		Request += "HTTP/1.1 " + HTTPRequestStatusToString(DocumentToSend.RequestStatus) + "\r\n";
-		if (DocumentToSend.ExtraHeaders.find("Content-Type") != DocumentToSend.ExtraHeaders.end())
-		{
-			Request += "Content-Type: "+ DocumentToSend.ExtraHeaders.at("Content-Type").front();
-		}
-		else
-		{
-			Request += "Content-Type: " + GetMIMEFromDocumentType(DocumentToSend.Type) + "\r\n";
-		}
-		Request += "Accept-Ranges: bytes\r\n";
-		Request += "Content-Length: ";
-		if (DocumentToSend.DocumentDataFileReference != "")
-		{
-			//datan är sparad som en referns istället
-			//Request += "Transfer-Encoding: chunked";
-			if (DocumentToSend.IntervallsToRead.size() == 0)
-			{
-				//Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
-				Request += std::to_string(MBGetFileSize(DocumentToSend.DocumentDataFileReference));
-			}
-			else
-			{
-				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
-				uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
-				uint64_t TotalIntervallSize = 0;
-				for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
-				{
-					if (DocumentToSend.IntervallsToRead[i].FirstByte == -1)
-					{
-						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte;
-					}
-					else if (DocumentToSend.IntervallsToRead[i].LastByte == -1)
-					{
-						TotalIntervallSize += FileSize - DocumentToSend.IntervallsToRead[i].FirstByte;
-					}
-					else
-					{
-						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte - DocumentToSend.IntervallsToRead[i].FirstByte + 1;
-					}
-				}
-				Request += std::to_string(TotalIntervallSize);
-			}
-		}
-		else
-		{
-			//Request += "Content-Length: ";
-			Request += std::to_string(DocumentToSend.DocumentData.size());
-		}
-		Request += "\r\n";
-		for (auto const& Header : DocumentToSend.ExtraHeaders)
-		{
-			for (auto const& HeaderValue : Header.second)
-			{
-				Request += Header.first + ": " + HeaderValue + "\r\n";
-			}
-		}
-		Request += "\r\n";
-		if (DocumentToSend.DocumentDataFileReference == "")
-		{
-			Request += DocumentToSend.DocumentData;
-		}
-		return(Request);
-	}
-	std::string GenerateRequest(const std::string& HTMLBody)
-	{
-		/*
-		HTTP/1.1 200 OK
-		Content-Type: text/html
-		Accept-Ranges: bytes
-		//Vary: Accept-Encoding
-		Content-Length: 390
-		*/
-		std::string Request = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: " + std::to_string(HTMLBody.size()) + "\r\n\r\n" + HTMLBody;
-		return(Request);
-	}
-	std::string GetHeaderValue(std::string Header, const std::string& HeaderContent)
-	{
-		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
-		int HeaderPosition = HeaderData.find(Header + ": ");
-		int FirstEndlineAfterContentPos = HeaderData.find("\r\n", HeaderPosition);
-		if (HeaderPosition == HeaderContent.npos)
-		{
-			return("");
-		}
-		else
-		{
-			return(HeaderData.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
-		}
-	}
-	std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent)
-	{
-		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
-		std::vector<std::string> ReturnValue = {};
-		std::string StringToSearchFor = HeaderTag + ": ";
-		size_t StringPosition = HeaderData.find(StringToSearchFor);
-		int FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
-		while (StringPosition != HeaderData.npos)
-		{
-			ReturnValue.push_back(HeaderData.substr(StringPosition + StringToSearchFor.size(), FirstEndlineAfterContentPos - (StringPosition + StringToSearchFor.size())));
-			StringPosition = HeaderData.find(StringToSearchFor, StringPosition + StringToSearchFor.size());
-			FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
-		}
-		return(ReturnValue);
-	}
-	int HexToDec(std::string NumberToConvert)
-	{
-		int ReturnValue = 0;
-		for (size_t i = 0; i < NumberToConvert.size(); i++)
-		{
-			ReturnValue += std::stoi(NumberToConvert.substr(NumberToConvert.size() - 1 - i, 1)) * pow(16, i);
-		}
-		return(ReturnValue);
-	}
-	//BEGIN FileIntervallExtracter
-	FileIntervallExtracter::FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory)
-		: FileToRead(FilePath, std::ifstream::in | std::ifstream::binary)
-	{
-		IntervallsToRead = Intervalls;
-		//FileSize = std::filesystem::file_size(FilePath);
-		FileSize = MBGetFileSize(FilePath);
-		this->MaxDataInMemory = MaxDataInMemory;
-	}
-	std::string FileIntervallExtracter::GetNextIntervall()
-	{
-		if (IntervallIndex >= IntervallsToRead.size())
-		{
-			return("");
-		}
-		uint64_t NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte + 1;
-		if (IntervallsToRead[IntervallIndex].LastByte == -1)
-		{
-			NumberOfBytesToRead = FileSize - IntervallsToRead[IntervallIndex].FirstByte;
-		}
-		uint64_t FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
-		if (FirstByteToReadPosition < 0)
-		{
-			NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
-			FirstByteToReadPosition = FileSize - NumberOfBytesToRead;
-		}
 
-		if (NumberOfBytesToRead >= MaxDataInMemory)
-		{
-			uint64_t BytesWantedToRead = NumberOfBytesToRead;
-			NumberOfBytesToRead = MaxDataInMemory;
-			IntervallsToRead[IntervallIndex].LastByte = FirstByteToReadPosition + BytesWantedToRead - 1;
-			IntervallsToRead[IntervallIndex].FirstByte = FirstByteToReadPosition + NumberOfBytesToRead;
-		}
-		else
-		{
-			IntervallIndex += 1;
-		}
-		std::string ReturnValue = std::string(NumberOfBytesToRead, 0);
-		FileToRead.seekg(FirstByteToReadPosition);
-		FileToRead.read(&ReturnValue[0], NumberOfBytesToRead);
-		TotalDataRead += NumberOfBytesToRead;
-		return(ReturnValue);
-	}
-	bool FileIntervallExtracter::IsDone()
-	{
-		if (IntervallIndex >= IntervallsToRead.size())
-		{
-			return(true);
-		}
-		return(false);
-	}
+	//std::string GetRequestType(const std::string& RequestData)
+	//{
+	//	int FirstSpace = RequestData.find(" ");
+	//	return(RequestData.substr(0, FirstSpace));
+	//}
+	//std::string GetRequestResource(const std::string& RequestData)
+	//{
+	//	size_t FirstSlashPos = RequestData.find("/");
+	//	size_t FirstSpaceAfterSlash = RequestData.find(" ", FirstSlashPos);
+	//	std::string ReturnValue = RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1);
+	//	bool Error = true; // borde göra något med denna med aja
+	//	ReturnValue = MBUtility::URLDecodeData(ReturnValue, &Error);
+	//	return(ReturnValue);
+	//}
+
+
+	//BEGIN HTTPTypeTuple
+	//HTTPTypeTuple HTTPTypesConnector::GetTupleFromExtension(std::string const& Extension)
+	//{
+	//	for (size_t i = 0; i < SuppportedTupples.size(); i++)
+	//	{
+	//		for (size_t j = 0; j < SuppportedTupples[i].FileExtensions.size(); j++)
+	//		{
+	//			if (SuppportedTupples[i].FileExtensions[j] == Extension)
+	//			{
+	//				return(SuppportedTupples[i]);
+	//			}
+	//		}
+	//	}
+	//	return(NullTupple);
+	//}
+	//HTTPTypeTuple HTTPTypesConnector::GetTupleFromDocumentType(HTTPDocumentType DocumentType)
+	//{
+	//	for (size_t i = 0; i < SuppportedTupples.size(); i++)
+	//	{
+	//		if (SuppportedTupples[i].FileHTTPDocumentType == DocumentType)
+	//		{
+	//			return(SuppportedTupples[i]);
+	//		}
+	//	}
+	//	return(NullTupple);
+	//}
+	////END HTTPTypeTuple
+	//HTTPDocumentType DocumentTypeFromFileExtension(std::string const& FileExtension)
+	//{
+	//	HTTPTypesConnector TypeConnector;
+	//	HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
+	//	return(DocumentTuple.FileHTTPDocumentType);
+	//}
+	//MediaType GetMediaTypeFromExtension(std::string const& FileExtension)
+	//{
+	//	HTTPTypesConnector TypeConnector;
+	//	HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
+	//	return(DocumentTuple.FileMediaType);
+	//}
+	//std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert)
+	//{
+	//	HTTPTypesConnector TypeConnector;
+	//	HTTPTypeTuple DocumentTuple = TypeConnector.GetTupleFromDocumentType(TypeToConvert);
+	//	return(DocumentTuple.MIMEMediaString);
+	//}
+	//std::string HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert)
+	//{
+	//	if (StatusToConvert == HTTPRequestStatus::OK)
+	//	{
+	//		return("200 OK");
+	//	}
+	//	else if (StatusToConvert == HTTPRequestStatus::PartialContent)
+	//	{
+	//		return("206 Partial Content");
+	//	}
+	//	else if (StatusToConvert == HTTPRequestStatus::NotFound)
+	//	{
+	//		return("404 Not Found");
+	//	}
+	//	else if (StatusToConvert == HTTPRequestStatus::Conflict)
+	//	{
+	//		return("409 Conflict");
+	//	}
+	//	else if (StatusToConvert == HTTPRequestStatus::Authenticate)
+	//	{
+	//		return("401 Authenticate");
+	//	}
+	//	assert(false);
+	//	return("");
+	//}
+	//std::string GenerateRequest(HTTPDocument const& DocumentToSend)
+	//{
+	//	std::string Request = "";
+	//	Request += "HTTP/1.1 " + HTTPRequestStatusToString(DocumentToSend.RequestStatus) + "\r\n";
+	//	if (DocumentToSend.ExtraHeaders.find("Content-Type") != DocumentToSend.ExtraHeaders.end())
+	//	{
+	//		Request += "Content-Type: "+ DocumentToSend.ExtraHeaders.at("Content-Type").front();
+	//	}
+	//	else
+	//	{
+	//		Request += "Content-Type: " + GetMIMEFromDocumentType(DocumentToSend.Type) + "\r\n";
+	//	}
+	//	Request += "Accept-Ranges: bytes\r\n";
+	//	Request += "Content-Length: ";
+	//	if (DocumentToSend.DocumentDataFileReference != "")
+	//	{
+	//		//datan är sparad som en referns istället
+	//		//Request += "Transfer-Encoding: chunked";
+	//		if (DocumentToSend.IntervallsToRead.size() == 0)
+	//		{
+	//			//Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+	//			Request += std::to_string(MBGetFileSize(DocumentToSend.DocumentDataFileReference));
+	//		}
+	//		else
+	//		{
+	//			//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+	//			uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
+	//			uint64_t TotalIntervallSize = 0;
+	//			for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
+	//			{
+	//				if (DocumentToSend.IntervallsToRead[i].FirstByte == -1)
+	//				{
+	//					TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte;
+	//				}
+	//				else if (DocumentToSend.IntervallsToRead[i].LastByte == -1)
+	//				{
+	//					TotalIntervallSize += FileSize - DocumentToSend.IntervallsToRead[i].FirstByte;
+	//				}
+	//				else
+	//				{
+	//					TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte - DocumentToSend.IntervallsToRead[i].FirstByte + 1;
+	//				}
+	//			}
+	//			Request += std::to_string(TotalIntervallSize);
+	//		}
+	//	}
+	//	else
+	//	{
+	//		//Request += "Content-Length: ";
+	//		Request += std::to_string(DocumentToSend.DocumentData.size());
+	//	}
+	//	Request += "\r\n";
+	//	for (auto const& Header : DocumentToSend.ExtraHeaders)
+	//	{
+	//		for (auto const& HeaderValue : Header.second)
+	//		{
+	//			Request += Header.first + ": " + HeaderValue + "\r\n";
+	//		}
+	//	}
+	//	Request += "\r\n";
+	//	if (DocumentToSend.DocumentDataFileReference == "")
+	//	{
+	//		Request += DocumentToSend.DocumentData;
+	//	}
+	//	return(Request);
+	//}
+
+	//std::string GenerateRequest(const std::string& HTMLBody)
+	//{
+	//	/*
+	//	HTTP/1.1 200 OK
+	//	Content-Type: text/html
+	//	Accept-Ranges: bytes
+	//	//Vary: Accept-Encoding
+	//	Content-Length: 390
+	//	*/
+	//	std::string Request = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: " + std::to_string(HTMLBody.size()) + "\r\n\r\n" + HTMLBody;
+	//	return(Request);
+	//}
+	//std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent)
+	//{
+	//	std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
+	//	std::vector<std::string> ReturnValue = {};
+	//	std::string StringToSearchFor = HeaderTag + ": ";
+	//	size_t StringPosition = HeaderData.find(StringToSearchFor);
+	//	int FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
+	//	while (StringPosition != HeaderData.npos)
+	//	{
+	//		ReturnValue.push_back(HeaderData.substr(StringPosition + StringToSearchFor.size(), FirstEndlineAfterContentPos - (StringPosition + StringToSearchFor.size())));
+	//		StringPosition = HeaderData.find(StringToSearchFor, StringPosition + StringToSearchFor.size());
+	//		FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
+	//	}
+	//	return(ReturnValue);
+	//}
+
+	//int HexToDec(std::string NumberToConvert)
+	//{
+	//	int ReturnValue = 0;
+	//	for (size_t i = 0; i < NumberToConvert.size(); i++)
+	//	{
+	//		ReturnValue += std::stoi(NumberToConvert.substr(NumberToConvert.size() - 1 - i, 1)) * pow(16, i);
+	//	}
+	//	return(ReturnValue);
+	//}
+	//BEGIN FileIntervallExtracter
+	//FileIntervallExtracter::FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory)
+	//	: FileToRead(FilePath, std::ifstream::in | std::ifstream::binary)
+	//{
+	//	IntervallsToRead = Intervalls;
+	//	//FileSize = std::filesystem::file_size(FilePath);
+	//	FileSize = MBGetFileSize(FilePath);
+	//	this->MaxDataInMemory = MaxDataInMemory;
+	//}
+	//std::string FileIntervallExtracter::GetNextIntervall()
+	//{
+	//	if (IntervallIndex >= IntervallsToRead.size())
+	//	{
+	//		return("");
+	//	}
+	//	uint64_t NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte + 1;
+	//	if (IntervallsToRead[IntervallIndex].LastByte == -1)
+	//	{
+	//		NumberOfBytesToRead = FileSize - IntervallsToRead[IntervallIndex].FirstByte;
+	//	}
+	//	uint64_t FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
+	//	if (FirstByteToReadPosition < 0)
+	//	{
+	//		NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
+	//		FirstByteToReadPosition = FileSize - NumberOfBytesToRead;
+	//	}
+	//
+	//	if (NumberOfBytesToRead >= MaxDataInMemory)
+	//	{
+	//		uint64_t BytesWantedToRead = NumberOfBytesToRead;
+	//		NumberOfBytesToRead = MaxDataInMemory;
+	//		IntervallsToRead[IntervallIndex].LastByte = FirstByteToReadPosition + BytesWantedToRead - 1;
+	//		IntervallsToRead[IntervallIndex].FirstByte = FirstByteToReadPosition + NumberOfBytesToRead;
+	//	}
+	//	else
+	//	{
+	//		IntervallIndex += 1;
+	//	}
+	//	std::string ReturnValue = std::string(NumberOfBytesToRead, 0);
+	//	FileToRead.seekg(FirstByteToReadPosition);
+	//	FileToRead.read(&ReturnValue[0], NumberOfBytesToRead);
+	//	TotalDataRead += NumberOfBytesToRead;
+	//	return(ReturnValue);
+	//}
+	//bool FileIntervallExtracter::IsDone()
+	//{
+	//	if (IntervallIndex >= IntervallsToRead.size())
+	//	{
+	//		return(true);
+	//	}
+	//	return(false);
+	//}
 	//END FileIntervallExtracter
 
 	//BEGIN HTTPServerSocket
@@ -1204,254 +1209,254 @@ namespace MBSockets
 	//		}
 	//	}
 	//}
-	bool HTTPServerSocket::DataIsAvailable()
-	{
-		if (ChunksRemaining || (ParsedContentData != CurrentContentLength))
-		{
-			return(true);
-		}
-		else
-		{
-			std::cout << "Data is not available " << std::endl;
-			return(false);
-		}
-	}
-	HTTPServerSocket::HTTPServerSocket(std::string const& Port) : ServerSocket(Port)
-	{
-
-	}
-	int HTTPServerSocket::p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
-	{
-		int ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
-		std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
-		OutChunkDataBeginning = ChunkHeaderEnd + 2;
-		return(std::stoi(NumberOfChunkBytes));
-	}
-	std::string HTTPServerSocket::p_UpdateAndDeChunkData(std::string const& ChunkedData)
-	{
-		std::string ReturnValue = "";
-		int ChunkDataToReadPosition = 0;
-		if (CurrentChunkSize == 0)
-		{
-			//detta innebär att vi är i den första chunken som innehåller headern
-			int NextChunkHeaderPosition = ChunkedData.find("\n\r\n") + 3;
-			ReturnValue += ChunkedData.substr(0, NextChunkHeaderPosition);
-			int ChunkHeaderEnd = ChunkedData.find("\r\n", NextChunkHeaderPosition);
-			std::string NumberOfChunkBytes = ChunkedData.substr(NextChunkHeaderPosition, ChunkHeaderEnd - NextChunkHeaderPosition);
-			CurrentChunkSize = std::stoi(NumberOfChunkBytes);
-			CurrentChunkParsed = 0;
-
-			int ChunkDataToReadPosition = ChunkHeaderEnd + 2;
-		}
-		else
-		{
-			int ChunkDataToReadPosition = CurrentChunkParsed;
-
-		}
-		while (ChunkDataToReadPosition != ChunkedData.size() && CurrentChunkSize != 0)
-		{
-			int MaxByteToParse = CurrentChunkSize - CurrentChunkParsed;
-			int AvailableBytes = ChunkedData.size() - ChunkDataToReadPosition;
-			int BytesToRead = std::min(MaxByteToParse, AvailableBytes);
-			//vi antar alltid att chunked headers skickas i helhet
-			ReturnValue += ChunkedData.substr(ChunkDataToReadPosition, BytesToRead);
-			//nu header
-			CurrentChunkParsed += BytesToRead;
-			if (CurrentChunkParsed == CurrentChunkSize)
-			{
-				CurrentChunkSize = p_GetNextChunkSize(ChunkDataToReadPosition + BytesToRead, ChunkedData, ChunkDataToReadPosition);
-			}
-			if (CurrentChunkSize == 0)
-			{
-				ChunksRemaining = false;
-				RequestIsChunked = false;
-				CurrentChunkSize = 0;
-				CurrentChunkParsed = 0;
-			}
-		}
-		if (CurrentChunkSize != 0)
-		{
-			ChunksRemaining = true;
-			RequestIsChunked = true;
-		}
-		return(ReturnValue);
-	}
-	std::string HTTPServerSocket::GetHTTPRequest()
-	{
-		std::string ReturnValue = "";
-		std::string ContentLengthString = "NULL";
-		int ContentLength = 0;
-		int HeaderLength = 0;
-		int MaxDataInMemory = 1650000 * 2;
-		int TotalRecievedData = 0;
-		while (true)
-		{
-			if (!SocketTlsHandler.EstablishedSecureConnection())
-			{
-				ReturnValue += RecieveData(MaxDataInMemory - TotalRecievedData);
-			}
-			else
-			{
-				ReturnValue += SocketTlsHandler.GetApplicationData(this, MaxDataInMemory - TotalRecievedData);
-				//Kollar lite att det stämmer osv
-			}
-			if (!this->IsValid())
-			{
-				//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
-				CurrentContentLength = 0;
-				ParsedContentData = 0;
-				return(ReturnValue);
-			}
-			TotalRecievedData = ReturnValue.size();
-			if (CurrentContentLength == 0)
-			{
-				if (ContentLengthString == "NULL")
-				{
-					HeaderLength = ReturnValue.find("\r\n\r\n") + 4;
-					ContentLengthString = GetHeaderValue("Content-Length", ReturnValue);
-					if (ContentLengthString != "")
-					{
-						ContentLength = std::stoi(ContentLengthString);
-					}
-				}
-				if (ContentLengthString == "" || ReturnValue.size() - HeaderLength >= ContentLength)
-				{
-					break;
-				}
-				if (ReturnValue.size() > MaxDataInMemory)
-				{
-					if (ContentLength != 0)
-					{
-						CurrentContentLength = ContentLength;
-						ParsedContentData = ReturnValue.size() - HeaderLength;
-					}
-					break;
-				}
-			}
-			else
-			{
-				//ParsedContentData += ReturnValue.size();
-				if (ParsedContentData + ReturnValue.size() >= CurrentContentLength)
-				{
-					CurrentContentLength = 0;
-					ParsedContentData = 0;
-					break;
-				}
-				if (ReturnValue.size() > MaxDataInMemory)
-				{
-					ParsedContentData += ReturnValue.size();
-					break;
-				}
-			}
-		}
-		//kollar huruvida vi har en content-length tag, har vi det så appendearr vi den till det blir rätt
-		if (RequestIsChunked == false)
-		{
-			//innebär att detta är den första requesten, vilket innebär att vi vill se om den är hel eller chunked
-			std::vector<std::string> TransferEncodings = GetHeaderValues("Transfer-Encoding", ReturnValue);
-			for (size_t i = 0; i < TransferEncodings.size(); i++)
-			{
-				if (TransferEncodings[i] == "chunked")
-				{
-					RequestIsChunked = true;
-					break;
-				}
-			}
-		}
-		return(ReturnValue);
-	}
-	void HTTPServerSocket::SendDataAsHTTPBody(const std::string& Data)
-	{
-		std::string Body = "<html>\n<body>\n" + Data + "</body>\n</html>";
-		std::string Request = GenerateRequest(Body);
-		SendData(Request);
-	}
-	void HTTPServerSocket::SendHTTPBody(const std::string& Data)
-	{
-		std::string Request = GenerateRequest(Data);
-		SendData(Request);
-	}
-	//void HTTPServerSocket::SendFullResponse(std::string const& DataToSend)
+	//bool HTTPServerSocket::DataIsAvailable()
 	//{
-	//	ConnectSocket::SendData(DataToSend);
+	//	if (ChunksRemaining || (ParsedContentData != CurrentContentLength))
+	//	{
+	//		return(true);
+	//	}
+	//	else
+	//	{
+	//		std::cout << "Data is not available " << std::endl;
+	//		return(false);
+	//	}
 	//}
-	void HTTPServerSocket::SendHTTPDocument(HTTPDocument const& DocumentToSend)
-	{
-		//TODO egentligen vill vi väll ha support för flera byta ranges (?) men det innebär att man kommer skicka dem som en multipart form, vilket inte är det vi vill
-		if (DocumentToSend.RequestStatus == HTTPRequestStatus::PartialContent)
-		{
-			//enkel range request med specifikt intervall
-			HTTPDocument NewDocument = DocumentToSend;
-			uint64_t StartByte = NewDocument.IntervallsToRead[0].FirstByte;
-			uint64_t LastByte = NewDocument.IntervallsToRead[0].LastByte;
-			//size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
-			uint64_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
-			if (StartByte == -1)
-			{
-				StartByte = FileSize - LastByte;
-				LastByte = FileSize - 1;
-			}
-			if (LastByte == -1)
-			{
-				LastByte = FileSize - 1;
-			}
-			std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
-			NewDocument.ExtraHeaders["Content-Range"].push_back(ContentRangeHeader);
-			std::string DataToSend = GenerateRequest(NewDocument);
-			SendData(DataToSend);
-		}
-		else
-		{
-			std::string DataToSend = GenerateRequest(DocumentToSend);
-			SendData(DataToSend);
-		}
-		if (DocumentToSend.DocumentDataFileReference != "")
-		{
-			//vi ska skicka fildatan somn är där, och läser in den gradvis
-			//std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
-			std::vector<FiledataIntervall> DocumentInterValls = DocumentToSend.IntervallsToRead;
-			uint64_t MaxChunkSize = 16384;
-			if (DocumentInterValls.size() == 0)
-			{
-				//vi skapar intervall
-				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
-				uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
-				uint64_t CurrentOffset = 0;
-				while (true)
-				{
-					FiledataIntervall NewIntervall = { CurrentOffset,CurrentOffset + MaxChunkSize - 1 };
-					CurrentOffset += MaxChunkSize;
-					if (NewIntervall.LastByte >= FileSize)
-					{
-						NewIntervall.LastByte = FileSize - 1;
-					}
-					DocumentInterValls.push_back(NewIntervall);
-					if (NewIntervall.LastByte == FileSize - 1)
-					{
-						break;
-					}
-				}
-			}
-			FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
-			while (!DataExtracter.IsDone())
-			{
-				SendData(DataExtracter.GetNextIntervall());
-			}
-			int hej = 2;
-		}
-	}
-	std::string HTTPServerSocket::GetNextChunkData()
-	{
-		std::string NewData = GetHTTPRequest();
-		if (RequestIsChunked)
-		{
-			std::string ReturnValue = p_UpdateAndDeChunkData(NewData);
-			return(ReturnValue);
-		}
-		else
-		{
-			return(NewData);
-		}
-	}
+	//HTTPServerSocket::HTTPServerSocket(std::string const& Port) : ServerSocket(Port)
+	//{
+	//
+	//}
+	//int HTTPServerSocket::p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
+	//{
+	//	int ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
+	//	std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
+	//	OutChunkDataBeginning = ChunkHeaderEnd + 2;
+	//	return(std::stoi(NumberOfChunkBytes));
+	//}
+	//std::string HTTPServerSocket::p_UpdateAndDeChunkData(std::string const& ChunkedData)
+	//{
+	//	std::string ReturnValue = "";
+	//	int ChunkDataToReadPosition = 0;
+	//	if (CurrentChunkSize == 0)
+	//	{
+	//		//detta innebär att vi är i den första chunken som innehåller headern
+	//		int NextChunkHeaderPosition = ChunkedData.find("\n\r\n") + 3;
+	//		ReturnValue += ChunkedData.substr(0, NextChunkHeaderPosition);
+	//		int ChunkHeaderEnd = ChunkedData.find("\r\n", NextChunkHeaderPosition);
+	//		std::string NumberOfChunkBytes = ChunkedData.substr(NextChunkHeaderPosition, ChunkHeaderEnd - NextChunkHeaderPosition);
+	//		CurrentChunkSize = std::stoi(NumberOfChunkBytes);
+	//		CurrentChunkParsed = 0;
+	//
+	//		int ChunkDataToReadPosition = ChunkHeaderEnd + 2;
+	//	}
+	//	else
+	//	{
+	//		int ChunkDataToReadPosition = CurrentChunkParsed;
+	//
+	//	}
+	//	while (ChunkDataToReadPosition != ChunkedData.size() && CurrentChunkSize != 0)
+	//	{
+	//		int MaxByteToParse = CurrentChunkSize - CurrentChunkParsed;
+	//		int AvailableBytes = ChunkedData.size() - ChunkDataToReadPosition;
+	//		int BytesToRead = std::min(MaxByteToParse, AvailableBytes);
+	//		//vi antar alltid att chunked headers skickas i helhet
+	//		ReturnValue += ChunkedData.substr(ChunkDataToReadPosition, BytesToRead);
+	//		//nu header
+	//		CurrentChunkParsed += BytesToRead;
+	//		if (CurrentChunkParsed == CurrentChunkSize)
+	//		{
+	//			CurrentChunkSize = p_GetNextChunkSize(ChunkDataToReadPosition + BytesToRead, ChunkedData, ChunkDataToReadPosition);
+	//		}
+	//		if (CurrentChunkSize == 0)
+	//		{
+	//			ChunksRemaining = false;
+	//			RequestIsChunked = false;
+	//			CurrentChunkSize = 0;
+	//			CurrentChunkParsed = 0;
+	//		}
+	//	}
+	//	if (CurrentChunkSize != 0)
+	//	{
+	//		ChunksRemaining = true;
+	//		RequestIsChunked = true;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//std::string HTTPServerSocket::GetHTTPRequest()
+	//{
+	//	std::string ReturnValue = "";
+	//	std::string ContentLengthString = "NULL";
+	//	int ContentLength = 0;
+	//	int HeaderLength = 0;
+	//	int MaxDataInMemory = 1650000 * 2;
+	//	int TotalRecievedData = 0;
+	//	while (true)
+	//	{
+	//		if (!SocketTlsHandler.EstablishedSecureConnection())
+	//		{
+	//			ReturnValue += RecieveData(MaxDataInMemory - TotalRecievedData);
+	//		}
+	//		else
+	//		{
+	//			ReturnValue += SocketTlsHandler.GetApplicationData(this, MaxDataInMemory - TotalRecievedData);
+	//			//Kollar lite att det stämmer osv
+	//		}
+	//		if (!this->IsValid())
+	//		{
+	//			//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
+	//			CurrentContentLength = 0;
+	//			ParsedContentData = 0;
+	//			return(ReturnValue);
+	//		}
+	//		TotalRecievedData = ReturnValue.size();
+	//		if (CurrentContentLength == 0)
+	//		{
+	//			if (ContentLengthString == "NULL")
+	//			{
+	//				HeaderLength = ReturnValue.find("\r\n\r\n") + 4;
+	//				ContentLengthString = GetHeaderValue("Content-Length", ReturnValue);
+	//				if (ContentLengthString != "")
+	//				{
+	//					ContentLength = std::stoi(ContentLengthString);
+	//				}
+	//			}
+	//			if (ContentLengthString == "" || ReturnValue.size() - HeaderLength >= ContentLength)
+	//			{
+	//				break;
+	//			}
+	//			if (ReturnValue.size() > MaxDataInMemory)
+	//			{
+	//				if (ContentLength != 0)
+	//				{
+	//					CurrentContentLength = ContentLength;
+	//					ParsedContentData = ReturnValue.size() - HeaderLength;
+	//				}
+	//				break;
+	//			}
+	//		}
+	//		else
+	//		{
+	//			//ParsedContentData += ReturnValue.size();
+	//			if (ParsedContentData + ReturnValue.size() >= CurrentContentLength)
+	//			{
+	//				CurrentContentLength = 0;
+	//				ParsedContentData = 0;
+	//				break;
+	//			}
+	//			if (ReturnValue.size() > MaxDataInMemory)
+	//			{
+	//				ParsedContentData += ReturnValue.size();
+	//				break;
+	//			}
+	//		}
+	//	}
+	//	//kollar huruvida vi har en content-length tag, har vi det så appendearr vi den till det blir rätt
+	//	if (RequestIsChunked == false)
+	//	{
+	//		//innebär att detta är den första requesten, vilket innebär att vi vill se om den är hel eller chunked
+	//		std::vector<std::string> TransferEncodings = GetHeaderValues("Transfer-Encoding", ReturnValue);
+	//		for (size_t i = 0; i < TransferEncodings.size(); i++)
+	//		{
+	//			if (TransferEncodings[i] == "chunked")
+	//			{
+	//				RequestIsChunked = true;
+	//				break;
+	//			}
+	//		}
+	//	}
+	//	return(ReturnValue);
+	//}
+	//void HTTPServerSocket::SendDataAsHTTPBody(const std::string& Data)
+	//{
+	//	std::string Body = "<html>\n<body>\n" + Data + "</body>\n</html>";
+	//	std::string Request = GenerateRequest(Body);
+	//	SendData(Request);
+	//}
+	//void HTTPServerSocket::SendHTTPBody(const std::string& Data)
+	//{
+	//	std::string Request = GenerateRequest(Data);
+	//	SendData(Request);
+	//}
+	////void HTTPServerSocket::SendFullResponse(std::string const& DataToSend)
+	////{
+	////	ConnectSocket::SendData(DataToSend);
+	////}
+	//void HTTPServerSocket::SendHTTPDocument(HTTPDocument const& DocumentToSend)
+	//{
+	//	//TODO egentligen vill vi väll ha support för flera byta ranges (?) men det innebär att man kommer skicka dem som en multipart form, vilket inte är det vi vill
+	//	if (DocumentToSend.RequestStatus == HTTPRequestStatus::PartialContent)
+	//	{
+	//		//enkel range request med specifikt intervall
+	//		HTTPDocument NewDocument = DocumentToSend;
+	//		uint64_t StartByte = NewDocument.IntervallsToRead[0].FirstByte;
+	//		uint64_t LastByte = NewDocument.IntervallsToRead[0].LastByte;
+	//		//size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
+	//		uint64_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
+	//		if (StartByte == -1)
+	//		{
+	//			StartByte = FileSize - LastByte;
+	//			LastByte = FileSize - 1;
+	//		}
+	//		if (LastByte == -1)
+	//		{
+	//			LastByte = FileSize - 1;
+	//		}
+	//		std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
+	//		NewDocument.ExtraHeaders["Content-Range"].push_back(ContentRangeHeader);
+	//		std::string DataToSend = GenerateRequest(NewDocument);
+	//		SendData(DataToSend);
+	//	}
+	//	else
+	//	{
+	//		std::string DataToSend = GenerateRequest(DocumentToSend);
+	//		SendData(DataToSend);
+	//	}
+	//	if (DocumentToSend.DocumentDataFileReference != "")
+	//	{
+	//		//vi ska skicka fildatan somn är där, och läser in den gradvis
+	//		//std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
+	//		std::vector<FiledataIntervall> DocumentInterValls = DocumentToSend.IntervallsToRead;
+	//		uint64_t MaxChunkSize = 16384;
+	//		if (DocumentInterValls.size() == 0)
+	//		{
+	//			//vi skapar intervall
+	//			//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+	//			uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
+	//			uint64_t CurrentOffset = 0;
+	//			while (true)
+	//			{
+	//				FiledataIntervall NewIntervall = { CurrentOffset,CurrentOffset + MaxChunkSize - 1 };
+	//				CurrentOffset += MaxChunkSize;
+	//				if (NewIntervall.LastByte >= FileSize)
+	//				{
+	//					NewIntervall.LastByte = FileSize - 1;
+	//				}
+	//				DocumentInterValls.push_back(NewIntervall);
+	//				if (NewIntervall.LastByte == FileSize - 1)
+	//				{
+	//					break;
+	//				}
+	//			}
+	//		}
+	//		FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
+	//		while (!DataExtracter.IsDone())
+	//		{
+	//			SendData(DataExtracter.GetNextIntervall());
+	//		}
+	//		int hej = 2;
+	//	}
+	//}
+	//std::string HTTPServerSocket::GetNextChunkData()
+	//{
+	//	std::string NewData = GetHTTPRequest();
+	//	if (RequestIsChunked)
+	//	{
+	//		std::string ReturnValue = p_UpdateAndDeChunkData(NewData);
+	//		return(ReturnValue);
+	//	}
+	//	else
+	//	{
+	//		return(NewData);
+	//	}
+	//}
 	//END HTTPServerSocket
 };

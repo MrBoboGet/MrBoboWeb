@@ -37,80 +37,10 @@ namespace MBSockets
 	void Init();
 	int MBCloseSocket(int SocketToClose);
 	int MBSocketError();
-	enum class TraversalProtocol
-	{
-		TCP
-	};
-	enum class SocketType
-	{
-		Server,
-		Client
-	};
 	enum class MBSocketErrors :uint8_t
 	{
 		fatal,
 		nonfatal
-	};
-	enum class ApplicationProtocols
-	{
-		HTTP,
-		HTTPS
-	};
-	enum class HTTPDocumentType
-	{
-		OctetString,
-		HTML,
-		png,
-		jpg,
-		json,
-		ts,
-		m3u8,
-		mkv,
-		javascript,
-		css,
-		mp4,
-		PDF,
-		GIF,
-		mp3,
-		Text,
-		Wav,
-		WebP,
-		WebM,
-		Opus,
-		Null
-	};
-	enum class HTTPRequestStatus
-	{
-		OK = 200,
-		PartialContent = 206,
-		Authenticate = 401,
-		NotFound = 404,
-		Conflict = 409,
-	};
-	enum class MediaType
-	{
-		Video,
-		Audio,
-		Image,
-		Text,
-		PDF,
-		Null
-	};
-	struct HTTPDocument
-	{
-		HTTPDocumentType Type = HTTPDocumentType::Null;
-		HTTPRequestStatus RequestStatus = HTTPRequestStatus::OK;
-		std::unordered_map<std::string, std::vector<std::string>> ExtraHeaders = {};
-		std::vector<FiledataIntervall> IntervallsToRead = {};
-		std::string DocumentData;
-		std::string DocumentDataFileReference = "";
-	};
-	struct HTTPTypeTuple
-	{
-		HTTPDocumentType FileHTTPDocumentType = HTTPDocumentType::Null;
-		MediaType FileMediaType = MediaType::Null;
-		std::vector<std::string> FileExtensions = {};
-		std::string MIMEMediaString = "";
 	};
 	class Socket
 	{
@@ -156,13 +86,12 @@ namespace MBSockets
 		TLSHandler m_TLSHandler = TLSHandler();
 	public:
 		std::string HostName;
-		int Connect();
 		bool IsConnected();
 		std::string GetIpOfConnectedSocket();
-		int SendRawData(const void* DataPointer, size_t DataLength);
+		virtual int SendRawData(const void* DataPointer, size_t DataLength);
 		virtual int SendData(const void* DataPointer, size_t DataLength);
 		virtual int SendData(std::string const& DataToSend);
-		std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
+		virtual std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
 		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1);
 		virtual ConnectSocket& operator<<(std::string const& DataToSend);
 		virtual ConnectSocket& operator>>(std::string& DataBuffer);
@@ -204,9 +133,6 @@ namespace MBSockets
 		ServerSocket(std::string const& Port);
 		~ServerSocket();
 	};
-	std::string GetHeaderValue(std::string Header, const std::string& HeaderContent);
-	std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent);
-	int HexToDec(std::string NumberToConvert);
 	class HTTPConnectSocket : public ClientSocket
 	{
 	private:
@@ -225,6 +151,8 @@ namespace MBSockets
 		int CurrentChunkLength = -1;
 		int CurrentRecievedChunkData = 0;
 		size_t ChunkParseOffset = 0;
+
+		std::string p_GetHeaderValue(std::string const& Header,std::string const& HeaderContent);
 	public:
 		//int HTTPSendData(std::string const& DataToSend);
 		bool DataIsAvailable();
@@ -237,79 +165,158 @@ namespace MBSockets
 		HTTPConnectSocket(std::string const& URL, std::string const& Port);
 		~HTTPConnectSocket();
 	};
-	class HTTPServerSocket : public ServerSocket
-	{
-	private:
-		bool ChunksRemaining = false;
-		bool RequestIsChunked = false;
-		int CurrentChunkSize = 0;
-		int CurrentChunkParsed = 0;
-		int CurrentContentLength = 0;
-		int ParsedContentData = 0;
-		int p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
-		std::string p_UpdateAndDeChunkData(std::string const& ChunkedData);
-	public:
-		bool DataIsAvailable();
-		HTTPServerSocket(std::string const& Port);
-		std::string GetHTTPRequest();
-		void SendDataAsHTTPBody(const std::string& Data);
-		void SendHTTPBody(const std::string& Data);
-		void SendHTTPDocument(HTTPDocument const& DocumentToSend);
-		std::string GetNextChunkData();
-	};
-	std::string GetRequestType(const std::string& RequestData);
-	std::string GetReqestResource(const std::string& RequestData);
-	class HTTPTypesConnector
-	{
-	private:
-		std::vector<HTTPTypeTuple> SuppportedTupples =
-		{
-			{HTTPDocumentType::OctetString,MediaType::Null,{},"application/octet-stream"},
-			{HTTPDocumentType::png,	MediaType::Image,{"png"},"image/png"},
-			{HTTPDocumentType::jpg,MediaType::Image,{"jpg","jpeg"},"image/jpeg"},
-			{HTTPDocumentType::json,MediaType::Text,{"json"},"application/json"},
-			{HTTPDocumentType::ts,MediaType::Video,{"ts"},"video/MP2T"},
-			{HTTPDocumentType::m3u8,MediaType::Text,{"m3u8"},"application/x-mpegURL"},
-			{HTTPDocumentType::mkv,MediaType::Video,{"mkv"},"video/x-matroska"},
-			{HTTPDocumentType::javascript,MediaType::Text,{"js"},"text/javascript"},
-			{HTTPDocumentType::css,MediaType::Text,{"css"},"text/css"},
-			{HTTPDocumentType::mp4,MediaType::Video,{"mp4"},"video/mp4"},
-			{HTTPDocumentType::HTML,MediaType::Text,{"html","htm"},"text/html"},
-			{HTTPDocumentType::PDF,MediaType::PDF,{"pdf"},"application/pdf"},
-			{HTTPDocumentType::GIF,MediaType::Image,{"gif"},"image/gif"},
-			{HTTPDocumentType::mp3,MediaType::Audio,{"mp3"},"audio/mpeg"},
-			{HTTPDocumentType::Text,MediaType::Text,{"txt"},"text/plain"},
-			{HTTPDocumentType::Wav,MediaType::Audio,{"wav"},"audio/wav"},
-			{HTTPDocumentType::WebP,MediaType::Image,{"webp"},"image/webp"},
-			{HTTPDocumentType::WebM,MediaType::Video,{"webm"},"video/webm"},
-			{HTTPDocumentType::Opus,MediaType::Audio,{"opus"},"audio/opus"},
-		};
-		HTTPTypeTuple NullTupple = { HTTPDocumentType::Null,MediaType::Null,{},"" };
-	public:
-		HTTPTypeTuple GetTupleFromExtension(std::string const& Extension);
-		HTTPTypeTuple GetTupleFromDocumentType(HTTPDocumentType DocumentType);
-	};
-	HTTPDocumentType DocumentTypeFromFileExtension(std::string const& FileExtension);
-	MediaType GetMediaTypeFromExtension(std::string const& FileExtension);
-	std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert);
-	std::string HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert);
-	std::string GenerateRequest(HTTPDocument const& DocumentToSend);
-	std::string GenerateRequest(const std::string& HTMLBody);
 
-	class FileIntervallExtracter
-	{
-	private:
-		std::ifstream FileToRead;
-		std::vector<FiledataIntervall> IntervallsToRead = {};
-		uint64_t FileSize = 0;
-		uint64_t IntervallIndex = 0;
-		uint64_t MaxDataInMemory = 10000000;
-		uint64_t TotalDataRead = 0;
-	public:
-		FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory);
-		std::string GetNextIntervall();
-		bool IsDone();
-	};
+
+
+
+	//enum class HTTPDocumentType
+	//{
+	//	OctetString,
+	//	HTML,
+	//	png,
+	//	jpg,
+	//	json,
+	//	ts,
+	//	m3u8,
+	//	mkv,
+	//	javascript,
+	//	css,
+	//	mp4,
+	//	PDF,
+	//	GIF,
+	//	mp3,
+	//	Text,
+	//	Wav,
+	//	WebP,
+	//	WebM,
+	//	Opus,
+	//	Null
+	//};
+	//enum class MediaType
+	//{
+	//	Video,
+	//	Audio,
+	//	Image,
+	//	Text,
+	//	PDF,
+	//	Null
+	//};
+	//enum class HTTPRequestStatus
+	//{
+	//	OK = 200,
+	//	PartialContent = 206,
+	//	Authenticate = 401,
+	//	NotFound = 404,
+	//	Conflict = 409,
+	//};
+	//struct HTTPDocument
+	//{
+	//	HTTPDocumentType Type = HTTPDocumentType::Null;
+	//	HTTPRequestStatus RequestStatus = HTTPRequestStatus::OK;
+	//	std::unordered_map<std::string, std::vector<std::string>> ExtraHeaders = {};
+	//	std::vector<FiledataIntervall> IntervallsToRead = {};
+	//	std::string DocumentData;
+	//	std::string DocumentDataFileReference = "";
+	//};
+	//struct HTTPTypeTuple
+	//{
+	//	HTTPDocumentType FileHTTPDocumentType = HTTPDocumentType::Null;
+	//	MediaType FileMediaType = MediaType::Null;
+	//	std::vector<std::string> FileExtensions = {};
+	//	std::string MIMEMediaString = "";
+	//};
+	//class HTTPServerSocket : public ServerSocket
+	//{
+	//private:
+	//	bool ChunksRemaining = false;
+	//	bool RequestIsChunked = false;
+	//	int CurrentChunkSize = 0;
+	//	int CurrentChunkParsed = 0;
+	//	int CurrentContentLength = 0;
+	//	int ParsedContentData = 0;
+	//	int p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
+	//	std::string p_UpdateAndDeChunkData(std::string const& ChunkedData);
+	//public:
+	//	bool DataIsAvailable();
+	//	HTTPServerSocket(std::string const& Port);
+	//	std::string GetHTTPRequest();
+	//	void SendDataAsHTTPBody(const std::string& Data);
+	//	void SendHTTPBody(const std::string& Data);
+	//	void SendHTTPDocument(HTTPDocument const& DocumentToSend);
+	//	std::string GetNextChunkData();
+	//};
+
+	//std::string GetHeaderValue(std::string Header, const std::string& HeaderContent);
+	//std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent);
+	//std::string GetRequestType(const std::string& RequestData);
+	//std::string GetRequestResource(const std::string& RequestData);
+	//HTTPDocumentType DocumentTypeFromFileExtension(std::string const& FileExtension);
+	//MediaType GetMediaTypeFromExtension(std::string const& FileExtension);
+	//std::string GetMIMEFromDocumentType(HTTPDocumentType TypeToConvert);
+	//std::string HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert);
+	//std::string GenerateRequest(HTTPDocument const& DocumentToSend);
+	//std::string GenerateRequest(const std::string& HTMLBody);
+	
+	//class HTTPTypesConnector
+	//{
+	//private:
+	//	std::vector<HTTPTypeTuple> SuppportedTupples =
+	//	{
+	//		{HTTPDocumentType::OctetString,MediaType::Null,{},"application/octet-stream"},
+	//		{HTTPDocumentType::png,	MediaType::Image,{"png"},"image/png"},
+	//		{HTTPDocumentType::jpg,MediaType::Image,{"jpg","jpeg"},"image/jpeg"},
+	//		{HTTPDocumentType::json,MediaType::Text,{"json"},"application/json"},
+	//		{HTTPDocumentType::ts,MediaType::Video,{"ts"},"video/MP2T"},
+	//		{HTTPDocumentType::m3u8,MediaType::Text,{"m3u8"},"application/x-mpegURL"},
+	//		{HTTPDocumentType::mkv,MediaType::Video,{"mkv"},"video/x-matroska"},
+	//		{HTTPDocumentType::javascript,MediaType::Text,{"js"},"text/javascript"},
+	//		{HTTPDocumentType::css,MediaType::Text,{"css"},"text/css"},
+	//		{HTTPDocumentType::mp4,MediaType::Video,{"mp4"},"video/mp4"},
+	//		{HTTPDocumentType::HTML,MediaType::Text,{"html","htm"},"text/html"},
+	//		{HTTPDocumentType::PDF,MediaType::PDF,{"pdf"},"application/pdf"},
+	//		{HTTPDocumentType::GIF,MediaType::Image,{"gif"},"image/gif"},
+	//		{HTTPDocumentType::mp3,MediaType::Audio,{"mp3"},"audio/mpeg"},
+	//		{HTTPDocumentType::Text,MediaType::Text,{"txt"},"text/plain"},
+	//		{HTTPDocumentType::Wav,MediaType::Audio,{"wav"},"audio/wav"},
+	//		{HTTPDocumentType::WebP,MediaType::Image,{"webp"},"image/webp"},
+	//		{HTTPDocumentType::WebM,MediaType::Video,{"webm"},"video/webm"},
+	//		{HTTPDocumentType::Opus,MediaType::Audio,{"opus"},"audio/opus"},
+	//	};
+	//	HTTPTypeTuple NullTupple = { HTTPDocumentType::Null,MediaType::Null,{},"" };
+	//public:
+	//	HTTPTypeTuple GetTupleFromExtension(std::string const& Extension);
+	//	HTTPTypeTuple GetTupleFromDocumentType(HTTPDocumentType DocumentType);
+	//};
+
+	//class FileIntervallExtracter
+	//{
+	//private:
+	//	std::ifstream FileToRead;
+	//	std::vector<FiledataIntervall> IntervallsToRead = {};
+	//	uint64_t FileSize = 0;
+	//	uint64_t IntervallIndex = 0;
+	//	uint64_t MaxDataInMemory = 10000000;
+	//	uint64_t TotalDataRead = 0;
+	//public:
+	//	FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory);
+	//	std::string GetNextIntervall();
+	//	bool IsDone();
+	//};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

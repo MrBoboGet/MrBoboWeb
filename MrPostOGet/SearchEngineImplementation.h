@@ -4,9 +4,9 @@
 bool DefaultSearchPredicate(const std::string& RequestData)
 {
 	//resourcen ska vara search=
-	return(MBSockets::GetRequestType(RequestData) == "GET" && MBSockets::GetReqestResource(RequestData).substr(0, 7) == "search=");
+	return(MrPostOGet::GetRequestType(RequestData) == "GET" && MrPostOGet::GetRequestResource(RequestData).substr(0, 7) == "search=");
 }
-MBSockets::HTTPDocument DefaultSearchRespone(const std::string& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument DefaultSearchRespone(const std::string& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
 	//std::string Response = "<HTML><head><link rel=\"stylesheet\"href=\"/WebsidanStil.css\"></head>\n<BODY>\n<h1 align=\"left\" style=\"text-align:left\">Enter the web</h1><div style=\"text-align:left;\"><input type=\"text\" id=\"SearchBox\" name=\"fname\"></div>";
 	//Response += "<script src=\"RedirectToSearch.js\"></script>";
@@ -18,6 +18,6 @@ MBSockets::HTTPDocument DefaultSearchRespone(const std::string& RequestData, MrP
 	//	Response += Linktext;
 	//}
 	//Response += "</BODY>\n</HTML>";
-	return(MBSockets::HTTPDocument());
+	return(MrPostOGet::HTTPDocument());
 }
 MrPostOGet::RequestHandler DefaultSearch = { &DefaultSearchPredicate,&DefaultSearchRespone };

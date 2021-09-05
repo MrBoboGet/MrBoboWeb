@@ -75,22 +75,22 @@ bool  MBDB_Website_GitHandler::p_VerifyAuthentication(MrPostOGet::HTTPClientRequ
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website_GitHandler::p_GetAuthenticationPrompt(MrPostOGet::HTTPClientRequest const& AssociatedRequest)
+MrPostOGet::HTTPDocument MBDB_Website_GitHandler::p_GetAuthenticationPrompt(MrPostOGet::HTTPClientRequest const& AssociatedRequest)
 {
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
 	//vi måste kolla vilken användare det är
 	std::string RepoUser = "";
 	std::string TopLevelDirectoryPath = AssociatedRequest.RequestResource.substr(m_URLPrefix.size());
 	size_t UserEnd = TopLevelDirectoryPath.find('/');
 	if (UserEnd == TopLevelDirectoryPath.npos)
 	{
-		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+		ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
 	}
 	else
 	{
 		std::string User = TopLevelDirectoryPath.substr(0, UserEnd);
-		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::Authenticate;
+		ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::Authenticate;
 		ReturnValue.ExtraHeaders["WWW-Authenticate"].push_back("Basic realm=\"/"+User+"/\"");
 	}
 	ReturnValue.DocumentData = "<html><body></body></html>";
@@ -156,9 +156,9 @@ bool MBDB_Website_GitHandler::HandlesRequest(MrPostOGet::HTTPClientRequest const
 {
 	return(RequestToHandle.RequestResource.substr(0, m_URLPrefix.size()) == m_URLPrefix);
 }
-MBSockets::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*)
+MrPostOGet::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*)
 {
-	MBSockets::HTTPDocument ReturnValue;
+	MrPostOGet::HTTPDocument ReturnValue;
 	if (true)
 	{
 		bool CommandNeedsAuthentication = false;
@@ -333,8 +333,8 @@ bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestTo
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const& ConnectionState
-	, MBSockets::HTTPServerSocket* Connection, MrPostOGet::HTTPServer* Server)
+MrPostOGet::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const& ConnectionState
+	, MrPostOGet::HTTPServerSocket* Connection, MrPostOGet::HTTPServer* Server)
 {
 	LegacyRequestHandler* HandlersData = __HandlersData.load();
 	for (size_t i = 0; i < __NumberOfHandlers.load(); i++)
@@ -502,7 +502,7 @@ bool MBDB_Website::p_StringIsPath(std::string const& StringToCheck)
 }
 bool MBDB_Website::DBLogin_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -513,11 +513,11 @@ bool MBDB_Website::DBLogin_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
 	std::string ServerResources = AssociatedServer->GetResourcePath("mrboboget.se");
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
 	std::unordered_map<std::string, std::string> FileVariables = {};
 	
 	std::string RequestUsername = m_GetUsername(RequestData);
@@ -533,7 +533,7 @@ MBSockets::HTTPDocument MBDB_Website::DBLogin_ResponseGenerator(std::string cons
 
 bool MBDB_Website::DBSite_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >=1)
 	{
@@ -545,16 +545,16 @@ bool MBDB_Website::DBSite_Predicate(std::string const& RequestData)
 	return(false);
 }
 
-MBSockets::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	std::string RequestType = MBSockets::GetRequestType(RequestData);
-	MBSockets::HTTPDocument NewDocument;
-	NewDocument.Type = MBSockets::HTTPDocumentType::HTML;
+	std::string RequestType = MrPostOGet::GetRequestType(RequestData);
+	MrPostOGet::HTTPDocument NewDocument;
+	NewDocument.Type = MBMIME::MIMEType::HTML;
 	NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBSite.html", AssociatedServer->GetResourcePath("mrboboget.se"));
 	std::unordered_map<std::string, std::string> MapKeys = {};
 	
 	std::string QuerryString = "";
-	std::string RequestURL = MBSockets::GetReqestResource(RequestData);
+	std::string RequestURL = MrPostOGet::GetRequestResource(RequestData);
 	size_t QuerryStringPosition = RequestURL.find("?SQLQuerry=");
 	if (QuerryStringPosition != RequestURL.npos)
 	{
@@ -619,31 +619,31 @@ MBSockets::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const
 
 bool MBDB_Website::UploadFile_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
-		if (Directorys[0] == "UploadFile" && MBSockets::GetRequestType(RequestData) == "POST") 
+		if (Directorys[0] == "UploadFile" && MrPostOGet::GetRequestType(RequestData) == "POST") 
 		{
 			return(true);
 		}
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer,MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
 	//Content-Type: multipart/form-data; boundary=---------------------------226143532618736951363968904467
 	DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
-	MBSockets::HTTPDocument NewDocument;
-	NewDocument.Type = MBSockets::HTTPDocumentType::json;
+	MrPostOGet::HTTPDocument NewDocument;
+	NewDocument.Type = MBMIME::MIMEType::json;
 	std::string Boundary = "";
-	std::vector<std::string> ContentTypes = MBSockets::GetHeaderValues("Content-Type", RequestData);
+	std::vector<std::string> ContentTypes = MrPostOGet::GetHeaderValues("Content-Type", RequestData);
 	std::string FormType = "multipart/form-data";
 	std::string BoundaryHeader = "; boundary=";
 	if (!ConnectionPermissions.Upload)
 	{
 		NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permission to upload\"}";
-		NewDocument.RequestStatus = MBSockets::HTTPRequestStatus::Conflict;
+		NewDocument.RequestStatus = MrPostOGet::HTTPRequestStatus::Conflict;
 		AssociatedConnection->Close();
 		return(NewDocument);
 	}
@@ -671,7 +671,7 @@ MBSockets::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string c
 	while(std::filesystem::exists(FileName))
 	{
 		NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"FileAlreadyExists\"}";
-		NewDocument.RequestStatus = MBSockets::HTTPRequestStatus::Conflict;
+		NewDocument.RequestStatus = MrPostOGet::HTTPRequestStatus::Conflict;
 		//TODO close makar inte mycket sense för svaret kommer inte skickas, borde istället finnas sett extra options som är "close after send"
 		AssociatedConnection->Close();
 		return(NewDocument);
@@ -704,7 +704,7 @@ MBSockets::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string c
 
 bool MBDB_Website::DBGet_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -715,20 +715,20 @@ bool MBDB_Website::DBGet_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
 	std::string DatabaseResourcePath = GetResourceFolderPath();
-	std::string URLResource = MBSockets::GetReqestResource(RequestData);
+	std::string URLResource = MrPostOGet::GetRequestResource(RequestData);
 	std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
 	if (!std::filesystem::exists(DatabaseResourcePath+DatabaseResourceToGet))
 	{
-		MBSockets::HTTPDocument Invalid;
-		Invalid.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
-		Invalid.Type = MBSockets::HTTPDocumentType::HTML;
+		MrPostOGet::HTTPDocument Invalid;
+		Invalid.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
+		Invalid.Type = MBMIME::MIMEType::HTML;
 		Invalid.DocumentData = "File not found";
 		return(Invalid);
 	}
-	std::string RangeData = MBSockets::GetHeaderValue("Range", RequestData);
+	std::string RangeData = MrPostOGet::GetHeaderValue("Range", RequestData);
 	std::string IntervallsData = RangeData.substr(RangeData.find_first_of("=") + 1);
 	ReplaceAll(&IntervallsData, "\r", "");
 	ReplaceAll(&IntervallsData, "\n", "");
@@ -753,7 +753,7 @@ MBSockets::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const&
 	}
 
 
-	MBSockets::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath+DatabaseResourceToGet,ByteIntervalls);
+	MrPostOGet::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath+DatabaseResourceToGet,ByteIntervalls);
 	return(ReturnValue);
 }
 std::string MBDB_Website::p_GetEmbeddedVideo(std::string const& VideoPath, std::string const& WebsiteResourcePath)
@@ -798,7 +798,7 @@ std::string MBDB_Website::p_GetEmbeddedPDF(std::string const& ImagePath)
 }
 bool MBDB_Website::DBView_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -1105,7 +1105,7 @@ std::string MBDB_Website::p_ViewResource(std::string const& MBDBResource, std::s
 {
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
-	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	MBMIME::MediaType ResourceMedia = MBMIME::GetMediaTypeFromExtension(ResourceExtension);
 	if (ResourceExtension != "mbdbo")
 	{
 		ReturnValue = p_GetEmbeddedResource(MBDBResource, ResourceFolder, Permissions);
@@ -1120,7 +1120,7 @@ std::string MBDB_Website::p_EditResource(std::string const& MBDBResource, std::s
 {
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
-	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	MBMIME::MediaType ResourceMedia = MBMIME::GetMediaTypeFromExtension(ResourceExtension);
 	if (ResourceExtension == "mbdb")
 	{
 		ReturnValue = p_DBEdit_GetTextfileEditor(MBDBResource, ResourceFolder, Permissions);
@@ -1135,7 +1135,7 @@ std::string MBDB_Website::p_GetEmbeddedResource(std::string const& MBDBResource,
 {
 	std::string ReturnValue = "";
 	std::string ResourceExtension = MBDBResource.substr(MBDBResource.find_last_of(".") + 1);
-	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+	MBMIME::MediaType ResourceMedia = MBMIME::GetMediaTypeFromExtension(ResourceExtension);
 	bool IsMBDBResource = true;
 	if (IsMBDBResource)
 	{
@@ -1144,19 +1144,19 @@ std::string MBDB_Website::p_GetEmbeddedResource(std::string const& MBDBResource,
 			return("<p>File does not exist<p>");
 		}
 	}
-	if (ResourceMedia == MBSockets::MediaType::Image)
+	if (ResourceMedia == MBMIME::MediaType::Image)
 	{
 		ReturnValue = p_GetEmbeddedImage(MBDBResource);
 	}
-	else if (ResourceMedia == MBSockets::MediaType::Video)
+	else if (ResourceMedia == MBMIME::MediaType::Video)
 	{
 		ReturnValue = p_GetEmbeddedVideo(MBDBResource, ResourceFolder);
 	}
-	else if (ResourceMedia == MBSockets::MediaType::Audio)
+	else if (ResourceMedia == MBMIME::MediaType::Audio)
 	{
 		ReturnValue = p_GetEmbeddedAudio(MBDBResource, ResourceFolder);
 	}
-	else if (ResourceMedia == MBSockets::MediaType::PDF)
+	else if (ResourceMedia == MBMIME::MediaType::PDF)
 	{
 		ReturnValue = p_GetEmbeddedPDF(MBDBResource);
 	}
@@ -1180,10 +1180,10 @@ bool MBDB_Website::p_Edit_Predicate(MrPostOGet::HTTPClientRequest const& Request
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::p_Edit_ResponseGenerator(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MBSockets::HTTPServerSocket*, MrPostOGet::HTTPServer* Server)
+MrPostOGet::HTTPDocument MBDB_Website::p_Edit_ResponseGenerator(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer* Server)
 {
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
 	std::string FileExtension = "";
 	size_t LastDot = Request.RequestResource.find_last_of('.');
 	
@@ -1231,29 +1231,29 @@ MBSockets::HTTPDocument MBDB_Website::p_Edit_ResponseGenerator(MrPostOGet::HTTPC
 	ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(TemplateData, MapKeys);
 	return(ReturnValue);
 }
-MBSockets::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
 	std::string EmbeddedElement = "";
 
 	std::string HandlerName = "DBView";
-	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
+	std::string ResourcePath = MrPostOGet::GetRequestResource(RequestData);
 	std::string DBResourcesPath = GetResourceFolderPath();
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
 	if (!std::filesystem::exists(DBResourcesPath+DBResource))
 	{
-		MBSockets::HTTPDocument Invalid;
-		Invalid.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
-		Invalid.Type = MBSockets::HTTPDocumentType::HTML;
+		MrPostOGet::HTTPDocument Invalid;
+		Invalid.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
+		Invalid.Type = MBMIME::MIMEType::HTML;
 		Invalid.DocumentData = "File not found";
 		return(Invalid);
 	}
 	if (!std::filesystem::is_directory(DBResourcesPath + DBResource) && DBResource != "")
 	{
 		DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
-		MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
+		MBMIME::MediaType ResourceMedia = MBMIME::GetMediaTypeFromExtension(ResourceExtension);
 		//EmbeddedElement = p_GetEmbeddedResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 		EmbeddedElement = p_ViewResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"),ConnectionPermissions);
 		std::unordered_map<std::string, std::string> MapData = {};
@@ -1263,7 +1263,7 @@ MBSockets::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const
 	}
 	else
 	{
-		ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+		ReturnValue.Type = MBMIME::MIMEType::HTML;
 		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se")+"DBViewFolder.html", AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
 	//= AssociatedServer->GetResource(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBViewTemplate.html");
@@ -1272,7 +1272,7 @@ MBSockets::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string const
 
 bool MBDB_Website::DBViewEmbedd_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -1283,25 +1283,25 @@ bool MBDB_Website::DBViewEmbedd_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::DBViewEmbedd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBViewEmbedd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	MBSockets::HTTPDocument ReturnValue = MBSockets::HTTPDocument();
+	MrPostOGet::HTTPDocument ReturnValue = MrPostOGet::HTTPDocument();
 	std::string HandlerName = "DBViewEmbedd/";
-	std::string ResourcePath = MBSockets::GetReqestResource(RequestData);
+	std::string ResourcePath = MrPostOGet::GetRequestResource(RequestData);
 	std::string DBResourcesPath = GetResourceFolderPath();
 	std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 	std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
-	MBSockets::MediaType ResourceMedia = MBSockets::GetMediaTypeFromExtension(ResourceExtension);
-	ReturnValue.Type = MBSockets::DocumentTypeFromFileExtension(ResourceExtension);
-	if (ResourceMedia == MBSockets::MediaType::Image)
+	MBMIME::MediaType ResourceMedia = MBMIME::GetMediaTypeFromExtension(ResourceExtension);
+	ReturnValue.Type = MBMIME::DocumentTypeFromFileExtension(ResourceExtension);
+	if (ResourceMedia == MBMIME::MediaType::Image)
 	{
 		ReturnValue.DocumentData = p_GetEmbeddedImage(DBResource);
 	}
-	else if (ResourceMedia == MBSockets::MediaType::Video)
+	else if (ResourceMedia == MBMIME::MediaType::Video)
 	{
 		ReturnValue.DocumentData = p_GetEmbeddedVideo(DBResource,AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
-	else if (ResourceMedia == MBSockets::MediaType::Audio)
+	else if (ResourceMedia == MBMIME::MediaType::Audio)
 	{
 		ReturnValue.DocumentData = p_GetEmbeddedAudio(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"));
 	}
@@ -1310,7 +1310,7 @@ MBSockets::HTTPDocument MBDB_Website::DBViewEmbedd_ResponseGenerator(std::string
 
 bool MBDB_Website::DBAdd_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -1321,14 +1321,14 @@ bool MBDB_Website::DBAdd_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::DBAdd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBAdd_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
 	//std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 	//std::string TableName = RequestData.substr(RequestResource.find("DBAdd/") + 6);
 	//std::vector < std::string> ExistingTableNames = {};
 	//låter all denna kod köras i javascript, blir det enklaste
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
 	std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
 	ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath+"DBAdd.html", ResourcePath);
 	return(ReturnValue);
@@ -1336,7 +1336,7 @@ MBSockets::HTTPDocument MBDB_Website::DBAdd_ResponseGenerator(std::string const&
 
 bool MBDB_Website::DBGeneralAPI_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -1780,13 +1780,13 @@ std::string MBDB_Website::DBAPI_GetIndexSearchResult(std::vector<std::string> co
 	return(ReturnValue);
 }
 //
-MBSockets::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	std::string RequestType = MBSockets::GetRequestType(RequestData);
+	std::string RequestType = MrPostOGet::GetRequestType(RequestData);
 	std::string RequestBody = MrPostOGet::GetRequestContent(RequestData);
-	MBSockets::HTTPDocument ReturnValue;
+	MrPostOGet::HTTPDocument ReturnValue;
 	std::string Resourcepath = AssociatedServer->GetResourcePath("mrboboget.se");
-	ReturnValue.Type = MBSockets::HTTPDocumentType::json;
+	ReturnValue.Type = MBMIME::MIMEType::json;
 	if (RequestType == "POST")
 	{
 		//tar fram api funktionen
@@ -1921,7 +1921,7 @@ MBSockets::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string
 	}
 	else
 	{
-		ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+		ReturnValue.Type = MBMIME::MIMEType::HTML;
 		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath+"404.html", Resourcepath);
 	}
 	std::cout << ReturnValue.DocumentData << std::endl;
@@ -1929,7 +1929,7 @@ MBSockets::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string
 }
 bool MBDB_Website::DBUpdate_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -1940,17 +1940,17 @@ bool MBDB_Website::DBUpdate_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
 	std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
 	ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBUpdate.html", ResourcePath);
 	return(ReturnValue);
 }
 bool MBDB_Website::DBOperationBlipp_Predicate(std::string const& RequestData)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::vector<std::string> Directorys = Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
@@ -1961,15 +1961,15 @@ bool MBDB_Website::DBOperationBlipp_Predicate(std::string const& RequestData)
 	}
 	return(false);
 }
-MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+MrPostOGet::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	MBSockets::HTTPDocument ReturnValue;
-	ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
-	std::string RequestType = MBSockets::GetRequestType(RequestData);
+	MrPostOGet::HTTPDocument ReturnValue;
+	ReturnValue.Type = MBMIME::MIMEType::HTML;
+	std::string RequestType = MrPostOGet::GetRequestType(RequestData);
 	std::string MBDBResources = GetResourceFolderPath();
 	std::string HTMLFolder = AssociatedServer->GetResourcePath("mrboboget.se");
 	std::string DefaultPage = HTMLFolder + "/operationblipp.html";
-	std::vector<std::string> PathComponents = MBUtility::Split(MBSockets::GetReqestResource(RequestData),"/");
+	std::vector<std::string> PathComponents = MBUtility::Split(MrPostOGet::GetRequestResource(RequestData),"/");
 	if (PathComponents.size() == 2)
 	{
 		if (PathComponents.back() == "")
@@ -1984,7 +1984,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 
 	if (ConnectionPermissions.AssociatedUser == "" || ConnectionPermissions.AssociatedUser == "guest")
 	{
-		ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+		ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
 		ReturnValue.DocumentData = "<h1>Not found 404</h1>";
 		return(ReturnValue);
 	}
@@ -1996,7 +1996,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage",""},{"LatestDate",LastTimestamp} };
 			ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 			ReturnValue.DocumentData = ResourceData;
-			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			ReturnValue.Type = MBMIME::MIMEType::HTML;
 		}
 		else
 		{
@@ -2023,7 +2023,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 					std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Can't acces latest file: User "+LatestUserDownload+" hasn't updated the file"},{"LatestDate",LastTimestamp} };
 					ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 					ReturnValue.DocumentData = ResourceData;
-					ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+					ReturnValue.Type = MBMIME::MIMEType::HTML;
 				}
 			}
 		}
@@ -2065,7 +2065,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Succesfully uploaded file"},{"LatestDate",Timestamp}	 };
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 				ReturnValue.DocumentData = ResourceData;
-				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+				ReturnValue.Type = MBMIME::MIMEType::HTML;
 			}
 			else
 			{
@@ -2073,7 +2073,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 				std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error updating latest: Need to download the latest before updating"},{"LatestDate",LastTimestamp} };
 				ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 				ReturnValue.DocumentData = ResourceData;
-				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+				ReturnValue.Type = MBMIME::MIMEType::HTML;
 			}	
 		}
 		catch (const std::exception&)
@@ -2082,7 +2082,7 @@ MBSockets::HTTPDocument MBDB_Website::DBOperatinBlipp_ResponseGenerator(std::str
 			std::unordered_map<std::string, std::string> VariableMap = { {"UploadMessage","Error uploading file"},{"LatestDate",LastTimestamp} };
 			ResourceData = MrPostOGet::ReplaceMPGVariables(ResourceData, VariableMap);
 			ReturnValue.DocumentData = ResourceData;
-			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+			ReturnValue.Type = MBMIME::MIMEType::HTML;
 		}
 	}
 	return(ReturnValue);

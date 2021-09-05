@@ -5,6 +5,52 @@
 #include <MBMime/MBMime.h>
 namespace MrPostOGet
 {
+
+	//BEGIN Utility Functions
+	std::string GetRequestType(const std::string& RequestData)
+	{
+		int FirstSpace = RequestData.find(" ");
+		return(RequestData.substr(0, FirstSpace));
+	}
+	std::string GetRequestResource(const std::string& RequestData)
+	{
+		size_t FirstSlashPos = RequestData.find("/");
+		size_t FirstSpaceAfterSlash = RequestData.find(" ", FirstSlashPos);
+		std::string ReturnValue = RequestData.substr(FirstSlashPos + 1, FirstSpaceAfterSlash - FirstSlashPos - 1);
+		bool Error = true; // borde göra något med denna med aja
+		ReturnValue = MBUtility::URLDecodeData(ReturnValue, &Error);
+		return(ReturnValue);
+	}
+	std::string GetHeaderValue(std::string Header, const std::string& HeaderContent)
+	{
+		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
+		int HeaderPosition = HeaderData.find(Header + ": ");
+		int FirstEndlineAfterContentPos = HeaderData.find("\r\n", HeaderPosition);
+		if (HeaderPosition == HeaderContent.npos)
+		{
+			return("");
+		}
+		else
+		{
+			return(HeaderData.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
+		}
+	}
+	std::vector<std::string> GetHeaderValues(std::string const& HeaderTag, std::string const& HeaderContent)
+	{
+		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
+		std::vector<std::string> ReturnValue = {};
+		std::string StringToSearchFor = HeaderTag + ": ";
+		size_t StringPosition = HeaderData.find(StringToSearchFor);
+		int FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
+		while (StringPosition != HeaderData.npos)
+		{
+			ReturnValue.push_back(HeaderData.substr(StringPosition + StringToSearchFor.size(), FirstEndlineAfterContentPos - (StringPosition + StringToSearchFor.size())));
+			StringPosition = HeaderData.find(StringToSearchFor, StringPosition + StringToSearchFor.size());
+			FirstEndlineAfterContentPos = HeaderData.find("\n", StringPosition);
+		}
+		return(ReturnValue);
+	}
+
 	std::vector<Cookie> GetCookiesFromRequest(HTTPClientRequest const& RequestData)
 	{
 		std::vector<Cookie> ReturnValue = {};
@@ -21,7 +67,7 @@ namespace MrPostOGet
 	std::vector<Cookie> GetCookiesFromRequest(std::string const& RequestData)
 	{
 		std::vector<Cookie> ReturnValue = {};
-		std::vector<std::string> Cookies = MBUtility::Split(MBSockets::GetHeaderValue("Cookie", RequestData), "; ");
+		std::vector<std::string> Cookies = MBUtility::Split(GetHeaderValue("Cookie", RequestData), "; ");
 		for (size_t i = 0; i < Cookies.size(); i++)
 		{
 			size_t FirstEqualSignPos = Cookies[i].find_first_of("=");
@@ -31,14 +77,14 @@ namespace MrPostOGet
 		}
 		return(ReturnValue);
 	}
-	MBSockets::HTTPDocumentType MimeSniffDocument(std::string const& FilePath)
+	MBMIME::MIMEType MimeSniffDocument(std::string const& FilePath)
 	{
 		std::fstream DocumentToSniff = std::fstream(FilePath);
 		std::string DocumentHeader(100, 0);
 		size_t BytesRead = DocumentToSniff.read(&DocumentHeader[0], 100).gcount();
 		if (DocumentHeader.substr(0, 6) == "<html>")
 		{
-			return(MBSockets::HTTPDocumentType::HTML);
+			return(MBMIME::MIMEType::HTML);
 		}
 		//15
 		if (BytesRead >= 14)
@@ -50,10 +96,10 @@ namespace MrPostOGet
 			}
 			if (LowerBeginning == "<!doctype html")
 			{
-				return(MBSockets::HTTPDocumentType::HTML);
+				return(MBMIME::MIMEType::HTML);
 			}
 		}
-		return(MBSockets::HTTPDocumentType::Null);
+		return(MBMIME::MIMEType::Null);
 	}
 	std::string GetRequestContent(std::string const& RequestData)
 	{
@@ -200,6 +246,8 @@ namespace MrPostOGet
 		}
 		return(ReturnValue);
 	}
+	//END Utility Functions
+
 
 	std::unordered_map<std::string, std::string> HTTPServer::p_ParseSearchParameters(std::string const& URL)
 	{
@@ -236,7 +284,7 @@ namespace MrPostOGet
 		size_t HeadersBegin = RawData.find("\r\n") + 2;
 		ClientRequest.Headers = MBMIME::ExtractMIMEHeaders(RawData.data(), HeadersBegin, nullptr);
 
-		std::string RequestType = MBSockets::GetRequestType(RawData);
+		std::string RequestType = GetRequestType(RawData);
 		if (RequestType == "GET")
 		{
 			ClientRequest.Type = HTTPRequestType::GET;
@@ -264,7 +312,7 @@ namespace MrPostOGet
 
 		ClientRequest.RawRequestData = std::move(RawData);
 	}
-	void HTTPServer::m_HandleConnectedSocket(MBSockets::HTTPServerSocket* ConnectedClient)
+	void HTTPServer::m_HandleConnectedSocket(MrPostOGet::HTTPServerSocket* ConnectedClient)
 	{
 		try
 		{
@@ -304,7 +352,7 @@ namespace MrPostOGet
 					if (RequestHandlers[i]->HandlesRequest(CurrentRequest, ConnectionState, this))
 					{
 						//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
-						MBSockets::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient, this);
+						MrPostOGet::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient, this);
 						ConnectedClient->SendHTTPDocument(RequestResponse);
 						HandlerHasHandled = true;
 						break;
@@ -314,7 +362,7 @@ namespace MrPostOGet
 				{
 					continue;
 				}
-				MBSockets::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"), this);
+				MrPostOGet::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"), this);
 				ConnectedClient->SendHTTPDocument(DocumentToSend);
 			}
 		}
@@ -324,13 +372,13 @@ namespace MrPostOGet
 		}
 		//delete ConnectedClient;
 	}
-	MBSockets::HTTPDocument HTTPServer::m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath, HTTPServer* AssociatedServer)
+	MrPostOGet::HTTPDocument HTTPServer::m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath, HTTPServer* AssociatedServer)
 	{
-		MBSockets::HTTPDocument ReturnValue;
+		MrPostOGet::HTTPDocument ReturnValue;
 		if (Request.Type != HTTPRequestType::GET)
 		{
-			ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
-			ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+			ReturnValue.Type = MBMIME::MIMEType::HTML;
+			ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
 			ReturnValue.DocumentData = "<html><body>Bad Request</body><html>";
 		}
 		else
@@ -344,7 +392,7 @@ namespace MrPostOGet
 			{
 				if (Request.RequestResource == "/")
 				{
-					ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+					ReturnValue.Type = MBMIME::MIMEType::HTML;
 					ReturnValue.DocumentData = LoadFileWithPreprocessing(ResourcePath + "index.htm", ResourcePath);
 				}
 				else
@@ -353,7 +401,7 @@ namespace MrPostOGet
 					std::string ChallengeFolder = "./ServerResources/mrboboget.se/HTMLResources/.well-known/acme-challenge/";
 					if (ResourceToGet.substr(0, ChallengeFolder.size()) == ChallengeFolder)
 					{
-						ReturnValue.Type = MBSockets::HTTPDocumentType::OctetString;
+						ReturnValue.Type = MBMIME::MIMEType::OctetString;
 						std::string DocumentData = "";
 						TextReader Data(ResourceToGet);
 						for (int i = 0; i < Data.Size(); i++)
@@ -367,7 +415,7 @@ namespace MrPostOGet
 						//undantagsfall utifall det är ett hmtl dokument, då vill vi ta och skicka den med includes
 						if (ResourceExtension == "html" || ResourceExtension == "htm")
 						{
-							ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
+							ReturnValue.Type = MBMIME::MIMEType::HTML;
 							//TODO fixa så att hosten faktiskt är en del av detta, nu hardcodas det
 							ReturnValue.DocumentData = LoadFileWithPreprocessing(ResourceToGet,ResourcePath);
 						}
@@ -380,8 +428,8 @@ namespace MrPostOGet
 			}
 			else
 			{
-				ReturnValue.Type = MBSockets::HTTPDocumentType::HTML;
-				ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+				ReturnValue.Type = MBMIME::MIMEType::HTML;
+				ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
 				ReturnValue.DocumentData = "<html><body>Bad Request</body><html>";
 			}
 		}
@@ -390,14 +438,14 @@ namespace MrPostOGet
 	//HTTPServer
 	HTTPServer::HTTPServer(std::string PathToResources, int PortToListenTo)
 	{
-		ServerSocketen = new MBSockets::HTTPServerSocket(std::to_string(PortToListenTo));
+		ServerSocketen = new MrPostOGet::HTTPServerSocket(std::to_string(PortToListenTo));
 		Port = PortToListenTo;
 		m_DefaultResourcePath = PathToResources;
 	}
-	std::string HTTPServer::GenerateResponse(MBSockets::HTTPDocument const& Document)
-	{
-		return(MBSockets::GenerateRequest(Document));
-	}
+	//std::string HTTPServer::GenerateResponse(MrPostOGet::HTTPDocument const& Document)
+	//{
+	//	return(MBSockets::GenerateRequest(Document));
+	//}
 	std::string HTTPServer::GetResourcePath(std::string const& DomainName)
 	{
 		std::lock_guard<std::mutex> Lock(m_InternalsMutex);
@@ -464,12 +512,12 @@ namespace MrPostOGet
 	//	}
 	//	return(ReturnValue);
 	//}
-	MBSockets::HTTPDocument HTTPServer::GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges)
+	MrPostOGet::HTTPDocument HTTPServer::GetResource(std::string const& ResourcePath, std::vector<FiledataIntervall> const& Byteranges)
 	{
-		MBSockets::HTTPDocument ReturnValue;
+		MrPostOGet::HTTPDocument ReturnValue;
 		if (!std::filesystem::exists(ResourcePath))
 		{
-			ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::NotFound;
+			ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
 			ReturnValue.DocumentData = "";
 			ReturnValue.DocumentDataFileReference = "";
 			std::cout << "get file doesnt exist " + ResourcePath << std::endl;
@@ -477,12 +525,12 @@ namespace MrPostOGet
 
 		if (Byteranges.size() != 0)
 		{
-			ReturnValue.RequestStatus = MBSockets::HTTPRequestStatus::PartialContent;
+			ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::PartialContent;
 		}
 
 		std::string ResourceExtension = ResourcePath.substr(ResourcePath.find_last_of(".") + 1);
-		ReturnValue.Type = MBSockets::DocumentTypeFromFileExtension(ResourceExtension);
-		if (ReturnValue.Type == MBSockets::HTTPDocumentType::Null)
+		ReturnValue.Type = MBMIME::DocumentTypeFromFileExtension(ResourceExtension);
+		if (ReturnValue.Type == MBMIME::MIMEType::Null)
 		{
 			std::cout << ResourceExtension << std::endl;
 		}
@@ -527,7 +575,7 @@ namespace MrPostOGet
 			if (ServerSocketen->IsValid())
 			{
 				NumberOfConnections += 1;
-				MBSockets::HTTPServerSocket* NewSocket = new MBSockets::HTTPServerSocket(std::to_string(Port));
+				MrPostOGet::HTTPServerSocket* NewSocket = new MrPostOGet::HTTPServerSocket(std::to_string(Port));
 				ServerSocketen->TransferConnectedSocket(*NewSocket);
 				std::thread* NewThread = new std::thread(&HTTPServer::m_HandleConnectedSocket,this, NewSocket);
 				CurrentActiveThreads.push_back(NewThread);
@@ -910,9 +958,419 @@ namespace MrPostOGet
 	{
 		return(m_InternalHandler.RequestPredicate(RequestToHandle.RawRequestData));
 	}
-	MBSockets::HTTPDocument StaticRequestHandler::GenerateResponse(HTTPClientRequest const& Request, HTTPClientConnectionState const&, MBSockets::HTTPServerSocket* Server, HTTPServer* Connection)
+	MrPostOGet::HTTPDocument StaticRequestHandler::GenerateResponse(HTTPClientRequest const& Request, HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket* Server, HTTPServer* Connection)
 	{
 		return(m_InternalHandler.RequestResponse(Request.RawRequestData, Connection, Server));
 	}
 	//END StaticRequestHandler
+
+	//BEGIN FileIntervallExtracter
+	FileIntervallExtracter::FileIntervallExtracter(std::string const& FilePath, std::vector<FiledataIntervall> const& Intervalls, size_t MaxDataInMemory)
+		: FileToRead(FilePath, std::ifstream::in | std::ifstream::binary)
+	{
+		IntervallsToRead = Intervalls;
+		//FileSize = std::filesystem::file_size(FilePath);
+		FileSize = MBGetFileSize(FilePath);
+		this->MaxDataInMemory = MaxDataInMemory;
+	}
+	std::string FileIntervallExtracter::GetNextIntervall()
+	{
+		if (IntervallIndex >= IntervallsToRead.size())
+		{
+			return("");
+		}
+		uint64_t NumberOfBytesToRead = IntervallsToRead[IntervallIndex].LastByte - IntervallsToRead[IntervallIndex].FirstByte + 1;
+		if (IntervallsToRead[IntervallIndex].LastByte == -1)
+		{
+			NumberOfBytesToRead = FileSize - IntervallsToRead[IntervallIndex].FirstByte;
+		}
+		uint64_t FirstByteToReadPosition = IntervallsToRead[IntervallIndex].FirstByte;
+		if (FirstByteToReadPosition < 0)
+		{
+			NumberOfBytesToRead -= 1; //vi subtraherade med -1 över
+			FirstByteToReadPosition = FileSize - NumberOfBytesToRead;
+		}
+
+		if (NumberOfBytesToRead >= MaxDataInMemory)
+		{
+			uint64_t BytesWantedToRead = NumberOfBytesToRead;
+			NumberOfBytesToRead = MaxDataInMemory;
+			IntervallsToRead[IntervallIndex].LastByte = FirstByteToReadPosition + BytesWantedToRead - 1;
+			IntervallsToRead[IntervallIndex].FirstByte = FirstByteToReadPosition + NumberOfBytesToRead;
+		}
+		else
+		{
+			IntervallIndex += 1;
+		}
+		std::string ReturnValue = std::string(NumberOfBytesToRead, 0);
+		FileToRead.seekg(FirstByteToReadPosition);
+		FileToRead.read(&ReturnValue[0], NumberOfBytesToRead);
+		TotalDataRead += NumberOfBytesToRead;
+		return(ReturnValue);
+	}
+	bool FileIntervallExtracter::IsDone()
+	{
+		if (IntervallIndex >= IntervallsToRead.size())
+		{
+			return(true);
+		}
+		return(false);
+	}
+	//END FileIntervallExtracter
+
+		//BEGIN HTTPServerSocket
+	//class HTTPServerSocket:: : public ServerSocket
+	bool HTTPServerSocket::DataIsAvailable()
+	{
+		if (ChunksRemaining || (ParsedContentData != CurrentContentLength))
+		{
+			return(true);
+		}
+		else
+		{
+			std::cout << "Data is not available " << std::endl;
+			return(false);
+		}
+	}
+	HTTPServerSocket::HTTPServerSocket(std::string const& Port) : ServerSocket(Port)
+	{
+
+	}
+	int HTTPServerSocket::p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
+	{
+		int ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
+		std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
+		OutChunkDataBeginning = ChunkHeaderEnd + 2;
+		return(std::stoi(NumberOfChunkBytes));
+	}
+	std::string HTTPServerSocket::p_UpdateAndDeChunkData(std::string const& ChunkedData)
+	{
+		std::string ReturnValue = "";
+		int ChunkDataToReadPosition = 0;
+		if (CurrentChunkSize == 0)
+		{
+			//detta innebär att vi är i den första chunken som innehåller headern
+			int NextChunkHeaderPosition = ChunkedData.find("\n\r\n") + 3;
+			ReturnValue += ChunkedData.substr(0, NextChunkHeaderPosition);
+			int ChunkHeaderEnd = ChunkedData.find("\r\n", NextChunkHeaderPosition);
+			std::string NumberOfChunkBytes = ChunkedData.substr(NextChunkHeaderPosition, ChunkHeaderEnd - NextChunkHeaderPosition);
+			CurrentChunkSize = std::stoi(NumberOfChunkBytes);
+			CurrentChunkParsed = 0;
+
+			int ChunkDataToReadPosition = ChunkHeaderEnd + 2;
+		}
+		else
+		{
+			int ChunkDataToReadPosition = CurrentChunkParsed;
+
+		}
+		while (ChunkDataToReadPosition != ChunkedData.size() && CurrentChunkSize != 0)
+		{
+			int MaxByteToParse = CurrentChunkSize - CurrentChunkParsed;
+			int AvailableBytes = ChunkedData.size() - ChunkDataToReadPosition;
+			int BytesToRead = std::min(MaxByteToParse, AvailableBytes);
+			//vi antar alltid att chunked headers skickas i helhet
+			ReturnValue += ChunkedData.substr(ChunkDataToReadPosition, BytesToRead);
+			//nu header
+			CurrentChunkParsed += BytesToRead;
+			if (CurrentChunkParsed == CurrentChunkSize)
+			{
+				CurrentChunkSize = p_GetNextChunkSize(ChunkDataToReadPosition + BytesToRead, ChunkedData, ChunkDataToReadPosition);
+			}
+			if (CurrentChunkSize == 0)
+			{
+				ChunksRemaining = false;
+				RequestIsChunked = false;
+				CurrentChunkSize = 0;
+				CurrentChunkParsed = 0;
+			}
+		}
+		if (CurrentChunkSize != 0)
+		{
+			ChunksRemaining = true;
+			RequestIsChunked = true;
+		}
+		return(ReturnValue);
+	}
+	std::string HTTPServerSocket::GetHTTPRequest()
+	{
+		std::string ReturnValue = "";
+		std::string ContentLengthString = "NULL";
+		int ContentLength = 0;
+		int HeaderLength = 0;
+		int MaxDataInMemory = 1650000 * 2;
+		int TotalRecievedData = 0;
+		while (true)
+		{
+			if (!SocketTlsHandler.EstablishedSecureConnection())
+			{
+				ReturnValue += RecieveData(MaxDataInMemory - TotalRecievedData);
+			}
+			else
+			{
+				ReturnValue += SocketTlsHandler.GetApplicationData(this, MaxDataInMemory - TotalRecievedData);
+				//Kollar lite att det stämmer osv
+			}
+			if (!this->IsValid())
+			{
+				//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
+				CurrentContentLength = 0;
+				ParsedContentData = 0;
+				return(ReturnValue);
+			}
+			TotalRecievedData = ReturnValue.size();
+			if (CurrentContentLength == 0)
+			{
+				if (ContentLengthString == "NULL")
+				{
+					HeaderLength = ReturnValue.find("\r\n\r\n") + 4;
+					ContentLengthString = GetHeaderValue("Content-Length", ReturnValue);
+					if (ContentLengthString != "")
+					{
+						ContentLength = std::stoi(ContentLengthString);
+					}
+				}
+				if (ContentLengthString == "" || ReturnValue.size() - HeaderLength >= ContentLength)
+				{
+					break;
+				}
+				if (ReturnValue.size() > MaxDataInMemory)
+				{
+					if (ContentLength != 0)
+					{
+						CurrentContentLength = ContentLength;
+						ParsedContentData = ReturnValue.size() - HeaderLength;
+					}
+					break;
+				}
+			}
+			else
+			{
+				//ParsedContentData += ReturnValue.size();
+				if (ParsedContentData + ReturnValue.size() >= CurrentContentLength)
+				{
+					CurrentContentLength = 0;
+					ParsedContentData = 0;
+					break;
+				}
+				if (ReturnValue.size() > MaxDataInMemory)
+				{
+					ParsedContentData += ReturnValue.size();
+					break;
+				}
+			}
+		}
+		//kollar huruvida vi har en content-length tag, har vi det så appendearr vi den till det blir rätt
+		if (RequestIsChunked == false)
+		{
+			//innebär att detta är den första requesten, vilket innebär att vi vill se om den är hel eller chunked
+			std::vector<std::string> TransferEncodings = GetHeaderValues("Transfer-Encoding", ReturnValue);
+			for (size_t i = 0; i < TransferEncodings.size(); i++)
+			{
+				if (TransferEncodings[i] == "chunked")
+				{
+					RequestIsChunked = true;
+					break;
+				}
+			}
+		}
+		return(ReturnValue);
+	}
+	void HTTPServerSocket::SendDataAsHTTPBody(const std::string& Data)
+	{
+		std::string Body = "<html>\n<body>\n" + Data + "</body>\n</html>";
+		std::string Request = p_GenerateRequest(Body);
+		SendData(Request);
+	}
+	void HTTPServerSocket::SendHTTPBody(const std::string& Data)
+	{
+		std::string Request = p_GenerateRequest(Data);
+		SendData(Request);
+	}
+	//void HTTPServerSocket::SendFullResponse(std::string const& DataToSend)
+	//{
+	//	ConnectSocket::SendData(DataToSend);
+	//}
+	std::string HTTPServerSocket::p_HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert)
+	{
+		if (StatusToConvert == HTTPRequestStatus::OK)
+		{
+			return("200 OK");
+		}
+		else if (StatusToConvert == HTTPRequestStatus::PartialContent)
+		{
+			return("206 Partial Content");
+		}
+		else if (StatusToConvert == HTTPRequestStatus::NotFound)
+		{
+			return("404 Not Found");
+		}
+		else if (StatusToConvert == HTTPRequestStatus::Conflict)
+		{
+			return("409 Conflict");
+		}
+		else if (StatusToConvert == HTTPRequestStatus::Authenticate)
+		{
+			return("401 Authenticate");
+		}
+		assert(false);
+		return("");
+	}
+	std::string HTTPServerSocket::p_GenerateRequest(HTTPDocument const& DocumentToSend)
+	{
+		std::string Request = "";
+		Request += "HTTP/1.1 " + p_HTTPRequestStatusToString(DocumentToSend.RequestStatus) + "\r\n";
+		if (DocumentToSend.ExtraHeaders.find("Content-Type") != DocumentToSend.ExtraHeaders.end())
+		{
+			Request += "Content-Type: " + DocumentToSend.ExtraHeaders.at("Content-Type").front();
+		}
+		else
+		{
+			Request += "Content-Type: " + MBMIME::GetMIMEStringFromType(DocumentToSend.Type) + "\r\n";
+		}
+		Request += "Accept-Ranges: bytes\r\n";
+		Request += "Content-Length: ";
+		if (DocumentToSend.DocumentDataFileReference != "")
+		{
+			//datan är sparad som en referns istället
+			//Request += "Transfer-Encoding: chunked";
+			if (DocumentToSend.IntervallsToRead.size() == 0)
+			{
+				//Request += std::to_string(std::filesystem::file_size(DocumentToSend.DocumentDataFileReference));
+				Request += std::to_string(MBGetFileSize(DocumentToSend.DocumentDataFileReference));
+			}
+			else
+			{
+				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+				uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
+				uint64_t TotalIntervallSize = 0;
+				for (size_t i = 0; i < DocumentToSend.IntervallsToRead.size(); i++)
+				{
+					if (DocumentToSend.IntervallsToRead[i].FirstByte == -1)
+					{
+						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte;
+					}
+					else if (DocumentToSend.IntervallsToRead[i].LastByte == -1)
+					{
+						TotalIntervallSize += FileSize - DocumentToSend.IntervallsToRead[i].FirstByte;
+					}
+					else
+					{
+						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte - DocumentToSend.IntervallsToRead[i].FirstByte + 1;
+					}
+				}
+				Request += std::to_string(TotalIntervallSize);
+			}
+		}
+		else
+		{
+			//Request += "Content-Length: ";
+			Request += std::to_string(DocumentToSend.DocumentData.size());
+		}
+		Request += "\r\n";
+		for (auto const& Header : DocumentToSend.ExtraHeaders)
+		{
+			for (auto const& HeaderValue : Header.second)
+			{
+				Request += Header.first + ": " + HeaderValue + "\r\n";
+			}
+		}
+		Request += "\r\n";
+		if (DocumentToSend.DocumentDataFileReference == "")
+		{
+			Request += DocumentToSend.DocumentData;
+		}
+		return(Request);
+	}
+	std::string HTTPServerSocket::p_GenerateRequest(const std::string& HTMLBody)
+	{
+		/*
+		HTTP/1.1 200 OK
+		Content-Type: text/html
+		Accept-Ranges: bytes
+		//Vary: Accept-Encoding
+		Content-Length: 390
+		*/
+		std::string Request = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: " + std::to_string(HTMLBody.size()) + "\r\n\r\n" + HTMLBody;
+		return(Request);
+	}
+	void HTTPServerSocket::SendHTTPDocument(HTTPDocument const& DocumentToSend)
+	{
+		//TODO egentligen vill vi väll ha support för flera byta ranges (?) men det innebär att man kommer skicka dem som en multipart form, vilket inte är det vi vill
+		if (DocumentToSend.RequestStatus == HTTPRequestStatus::PartialContent)
+		{
+			//enkel range request med specifikt intervall
+			HTTPDocument NewDocument = DocumentToSend;
+			uint64_t StartByte = NewDocument.IntervallsToRead[0].FirstByte;
+			uint64_t LastByte = NewDocument.IntervallsToRead[0].LastByte;
+			//size_t FileSize = std::filesystem::file_size(NewDocument.DocumentDataFileReference);
+			uint64_t FileSize = MBGetFileSize(NewDocument.DocumentDataFileReference);
+			if (StartByte == -1)
+			{
+				StartByte = FileSize - LastByte;
+				LastByte = FileSize - 1;
+			}
+			if (LastByte == -1)
+			{
+				LastByte = FileSize - 1;
+			}
+			std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
+			NewDocument.ExtraHeaders["Content-Range"].push_back(ContentRangeHeader);
+			std::string DataToSend = p_GenerateRequest(NewDocument);
+			SendData(DataToSend);
+		}
+		else
+		{
+			std::string DataToSend = p_GenerateRequest(DocumentToSend);
+			SendData(DataToSend);
+		}
+		if (DocumentToSend.DocumentDataFileReference != "")
+		{
+			//vi ska skicka fildatan somn är där, och läser in den gradvis
+			//std::ifstream DocumentFile(DocumentToSend.DocumentDataFileReference, std::ios::in | std::ios::binary);
+			std::vector<FiledataIntervall> DocumentInterValls = DocumentToSend.IntervallsToRead;
+			uint64_t MaxChunkSize = 16384;
+			if (DocumentInterValls.size() == 0)
+			{
+				//vi skapar intervall
+				//size_t FileSize = std::filesystem::file_size(DocumentToSend.DocumentDataFileReference);
+				uint64_t FileSize = MBGetFileSize(DocumentToSend.DocumentDataFileReference);
+				uint64_t CurrentOffset = 0;
+				while (true)
+				{
+					FiledataIntervall NewIntervall = { CurrentOffset,CurrentOffset + MaxChunkSize - 1 };
+					CurrentOffset += MaxChunkSize;
+					if (NewIntervall.LastByte >= FileSize)
+					{
+						NewIntervall.LastByte = FileSize - 1;
+					}
+					DocumentInterValls.push_back(NewIntervall);
+					if (NewIntervall.LastByte == FileSize - 1)
+					{
+						break;
+					}
+				}
+			}
+			FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
+			while (!DataExtracter.IsDone())
+			{
+				SendData(DataExtracter.GetNextIntervall());
+			}
+			int hej = 2;
+		}
+	}
+	std::string HTTPServerSocket::GetNextChunkData()
+	{
+		std::string NewData = GetHTTPRequest();
+		if (RequestIsChunked)
+		{
+			std::string ReturnValue = p_UpdateAndDeChunkData(NewData);
+			return(ReturnValue);
+		}
+		else
+		{
+			return(NewData);
+		}
+	}
+	//END HTTPServerSocket
 };

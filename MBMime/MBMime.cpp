@@ -4,6 +4,32 @@
 
 namespace MBMIME
 {
+	//BEGIN PUBLIC Functions
+	MIMEType DocumentTypeFromFileExtension(std::string const& FileExtension)
+	{
+		MIMETypeConnector TypeConnector;
+		MIMETypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
+		return(DocumentTuple.FileMIMEType);
+	}
+	MediaType GetMediaTypeFromExtension(std::string const& FileExtension)
+	{
+		MIMETypeConnector TypeConnector;
+		MIMETypeTuple DocumentTuple = TypeConnector.GetTupleFromExtension(FileExtension);
+		return(DocumentTuple.FileMediaType);
+	}
+	std::string GetMIMEStringFromType(MIMEType TypeToConvert)
+	{
+		MIMETypeConnector TypeConnector;
+		MIMETypeTuple DocumentTuple = TypeConnector.GetTupleFromDocumentType(TypeToConvert);
+		return(DocumentTuple.MIMEMediaString);
+	}
+
+
+	//END PUBLIC Functions
+
+
+
+
 	MIMETypeTuple MIMETypeConnector::GetTupleFromExtension(std::string const& Extension)
 	{
 		for (size_t i = 0; i < SuppportedTupples.size(); i++)

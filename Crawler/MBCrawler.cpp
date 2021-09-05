@@ -183,10 +183,10 @@ std::vector<std::string> GetHTTPHyperlinks(const std::string& HTMLString)
 	}
 	return(ReturnValue);
 }
-MBSockets::HTTPDocumentType GetResponseDocumentType(std::string const& DocumentToCheck)
+MBMIME::MIMEType GetResponseDocumentType(std::string const& DocumentToCheck)
 {
-	MBSockets::HTTPDocumentType ReturnValue = MBSockets::HTTPDocumentType::Null;
-	std::string TypeString = MBSockets::GetHeaderValue("Content-Type", DocumentToCheck);
+	MBMIME::MIMEType ReturnValue = MBMIME::MIMEType::Null;
+	std::string TypeString = MrPostOGet::GetHeaderValue("Content-Type", DocumentToCheck);
 	//vill bara ha delen som visar typen
 	size_t SemicolonLocation = TypeString.find(';');
 	if (SemicolonLocation != TypeString.npos)
@@ -195,7 +195,7 @@ MBSockets::HTTPDocumentType GetResponseDocumentType(std::string const& DocumentT
 	}
 	if (TypeString == "text/html")
 	{
-		ReturnValue = MBSockets::HTTPDocumentType::HTML;
+		ReturnValue = MBMIME::MIMEType::HTML;
 	}
 	return(ReturnValue);
 }
@@ -231,7 +231,7 @@ void IndexWebsiteResource(std::string WebsiteURL,std::string ResourceToIndex,Web
 		//std::cout << "Get Data From " << ResourceToIndex << std::endl;
 		std::string ResourceData = HTTPSocket.GetDataFromRequest("GET", ResourceToIndex);
 		//std::cout << "Data From " << ResourceToIndex << " Recieved"<<std::endl;
-		if (MBSockets::GetHeaderValue("Content-Length", ResourceData) == "")
+		if (MrPostOGet::GetHeaderValue("Content-Length", ResourceData) == "")
 		{
 			std::cout << "Is Chunked" << std::endl;
 		}
@@ -247,7 +247,7 @@ void IndexWebsiteResource(std::string WebsiteURL,std::string ResourceToIndex,Web
 
 		Crawler->AddIndexedResource(ResourceToIndex);
 		std::vector<std::string> NewResourcesToIndex = {};
-		if (GetResponseDocumentType(ResourceData) == MBSockets::HTTPDocumentType::HTML)
+		if (GetResponseDocumentType(ResourceData) == MBMIME::MIMEType::HTML)
 		{
 			NewResourcesToIndex = GetHTTPHyperlinks(ResourceData);
 		}
@@ -382,7 +382,7 @@ void CopyHTMLResourceRelatively(std::string InputFilepath, std::string OutputFil
 	{
 		std::filesystem::create_directories(OutputFilepathPath.parent_path());
 	}
-	if (MrPostOGet::MimeSniffDocument(InputFilepath) != MBSockets::HTTPDocumentType::HTML)
+	if (MrPostOGet::MimeSniffDocument(InputFilepath) != MBMIME::MIMEType::HTML)
 	{
 		std::filesystem::copy(InputFilepath, OutputFilepath);
 	}
@@ -430,7 +430,7 @@ MBError CreateWebsiteIndex(std::string const& WebsiteFolder, std::string const& 
 		//{
 		//	std::cout << "Innehåller iji" << std::endl;
 		//}
-		if (MrPostOGet::MimeSniffDocument(DirectoryEntry.path().generic_string()) == MBSockets::HTTPDocumentType::HTML)
+		if (MrPostOGet::MimeSniffDocument(DirectoryEntry.path().generic_string()) == MBMIME::MIMEType::HTML)
 		{
 			std::string FileData = MrPostOGet::LoadWholeFile(DirectoryEntry.path().generic_string());
 			MBError IndexResult = NewIndex.IndexHTMLData(FileData, DirectoryEntry.path().generic_string());
@@ -465,7 +465,7 @@ MBError CreateWebsiteIndex(std::string const& WebsiteURLHeader, std::string cons
 		//{
 		//	std::cout << "Innehåller iji" << std::endl;
 		//}
-		if (MrPostOGet::MimeSniffDocument(DirectoryEntry.path().generic_string()) == MBSockets::HTTPDocumentType::HTML)
+		if (MrPostOGet::MimeSniffDocument(DirectoryEntry.path().generic_string()) == MBMIME::MIMEType::HTML)
 		{
 			std::string FileData = MrPostOGet::LoadWholeFile(DirectoryEntry.path().generic_string());
 			std::string RelativePath = std::filesystem::relative(DirectoryEntry.path().parent_path(), WebsiteFolder).generic_string();

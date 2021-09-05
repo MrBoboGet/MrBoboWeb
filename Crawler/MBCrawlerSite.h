@@ -6,9 +6,9 @@ inline bool MBCrawlerSite_Predicate(std::string const& RequestData)
 	//bara för att testa
 	return(true);
 }
-inline MBSockets::HTTPDocument MBCrawlerSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MBSockets::HTTPServerSocket* AssociatedConnection)
+inline MrPostOGet::HTTPDocument MBCrawlerSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
-	std::string RequestResource = MBSockets::GetReqestResource(RequestData);
+	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
 	std::filesystem::path ResourcePath = RequestResource;
 	std::string ResourceToGet = "";
 	if (ResourcePath.has_stem())
@@ -20,6 +20,6 @@ inline MBSockets::HTTPDocument MBCrawlerSite_ResponseGenerator(std::string const
 		//är en directory, då tar vi fram directory entrien
 		ResourceToGet = "RelativeRemar.se/" + ResourcePath.generic_string() + "/__DirectoryResource";
 	}
-	MBSockets::HTTPDocument ReturnValue = AssociatedServer->GetResource(ResourceToGet);
+	MrPostOGet::HTTPDocument ReturnValue = AssociatedServer->GetResource(ResourceToGet);
 	return(ReturnValue);
 }
