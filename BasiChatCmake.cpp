@@ -47,7 +47,13 @@ int main()
 	//HandlerToAdd->SetURLPrefix("/");
 	//TestServer.AddRequestHandler(HandlerToAdd);
 	//TestServer.StartListening();
-	MBGWebsiteMain();
+	MBSockets::HTTPConnectSocket TestSocket("www.google.com", "443");
+	TestSocket.Connect();
+	MBError TLSResult = TestSocket.EstablishTLSConnection();
+	std::cout << TLSResult.ErrorMessage << std::endl;
+	std::cout << TestSocket.GetDataFromRequest("GET","/") << std::endl;
+	
+	//MBGWebsiteMain();
 	exit(0);
 	MBTorrent::MBBitTorrentHandler TestTorrent;
 	TestTorrent.LoadTorrentInfo("Serial Experiments Lain Storyboard.torrent");

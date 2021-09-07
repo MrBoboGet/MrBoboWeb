@@ -27,7 +27,7 @@ namespace MBCrypto
 	}
 	std::string h_CryptoPPToString(CryptoPP::Integer const& IntegerToConvert)
 	{
-		std::cout << IntegerToConvert.ByteCount() << std::endl;
+		//std::cout << IntegerToConvert.ByteCount() << std::endl;
 		std::string ReturnValue = std::string(IntegerToConvert.MinEncodedSize(),0);
 		IntegerToConvert.Encode((CryptoPP::byte*)ReturnValue.c_str(), IntegerToConvert.MinEncodedSize());
 		//assert(IntegerToConvert == h_CryptoPPFromBigEndianArray(ReturnValue));
@@ -69,11 +69,11 @@ namespace MBCrypto
 			{
 				typename CryptoPP::GCM<T>::Decryption Decryptor;
 				size_t TagSize = Decryptor.DigestSize();
+				std::string Mac = std::string(((const char*)DataToDecrypt) + (DataSize - TagSize),TagSize);
 				Decryptor.SetKeyWithIV((CryptoPP::byte*)WriteKey, WriteKeySize, (CryptoPP::byte*) Nonce, NonceSize);
 				try
 				{
 					//std::string Mac = Data.substr(Data.size() - TagSize);
-					std::string Mac = std::string(((const char*)DataToDecrypt)+(DataSize-TagSize));
 					CryptoPP::AuthenticatedDecryptionFilter df(Decryptor, nullptr, CryptoPP::AuthenticatedDecryptionFilter::MAC_AT_BEGIN | CryptoPP::AuthenticatedDecryptionFilter::THROW_EXCEPTION, TagSize);
 
 					// The order of the following calls are important
@@ -81,7 +81,7 @@ namespace MBCrypto
 					df.ChannelPut(CryptoPP::AAD_CHANNEL, (CryptoPP::byte*) AdditonalData, AdditionalDataSize);
 					//size_t EncryptedDataSize = Data.size() - (5 + ExplicitNonce.size()) - TagSize;
 					//std::string DEBUG_ENCData = std::string(&Data.data()[CipherOffset], EncryptedDataSize);
-					df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) DataToDecrypt, DataSize);
+					df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) DataToDecrypt, DataSize-TagSize);
 
 					// If the object throws, it will most likely occur
 					//   during ChannelMessageEnd()

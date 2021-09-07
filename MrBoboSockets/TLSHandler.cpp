@@ -1092,20 +1092,30 @@ std::string TLSHandler::p_Get_AES_GCM_EncryptedRecord(TLS1_2::SecurityParameters
 	std::string AuthenticatedData = p_GetAEADAdditionalData(SecurityParams,RecordToEncrypt,true);
 	size_t TagSize = 16;
 
-	CryptoPP::GCM<CryptoPP::AES>::Encryption Encryptor;
+	std::string WriteKey = "";
 	if (ConnectionParameters.IsHost)
 	{
-		Encryptor.SetKeyWithIV((CryptoPP::byte*)ConnectionParameters.server_write_Key.data(), ConnectionParameters.server_write_Key.size(), (CryptoPP::byte*)NonceToUse.data(), NonceToUse.size());
+		WriteKey = ConnectionParameters.server_write_Key;
 	}
 	else
 	{
-		Encryptor.SetKeyWithIV((CryptoPP::byte*)ConnectionParameters.client_write_Key.data(), ConnectionParameters.client_write_Key.size(), (CryptoPP::byte*)NonceToUse.data(), NonceToUse.size());
+		WriteKey = ConnectionParameters.client_write_Key;
 	}
-	CryptoPP::AuthenticatedEncryptionFilter AEADFilter(Encryptor, new CryptoPP::StringSink(EncryptedData), false, TagSize);
-	AEADFilter.ChannelPut(CryptoPP::AAD_CHANNEL,(CryptoPP::byte*) AuthenticatedData.data(), AuthenticatedData.size());
-	AEADFilter.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
-	AEADFilter.ChannelPut(CryptoPP::DEFAULT_CHANNEL,(CryptoPP::byte*) RecordToEncrypt.Data.data(), RecordToEncrypt.Data.size());
-	AEADFilter.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+
+	//CryptoPP::GCM<CryptoPP::AES>::Encryption Encryptor;
+	//Encryptor.SetKeyWithIV((CryptoPP::byte*)WriteKey.data(), WriteKey.size(), (CryptoPP::byte*)NonceToUse.data(), NonceToUse.size());
+	//CryptoPP::AuthenticatedEncryptionFilter AEADFilter(Encryptor, new CryptoPP::StringSink(EncryptedData), false, TagSize);
+	//AEADFilter.ChannelPut(CryptoPP::AAD_CHANNEL,(CryptoPP::byte*) AuthenticatedData.data(), AuthenticatedData.size());
+	//AEADFilter.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
+	//AEADFilter.ChannelPut(CryptoPP::DEFAULT_CHANNEL,(CryptoPP::byte*) RecordToEncrypt.Data.data(), RecordToEncrypt.Data.size());
+	//AEADFilter.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+
+	MBError EncryptionError = true;
+	MBCrypto::BlockCipher_GCM_Handler Encryptor(MBCrypto::BlockCipher::AES);
+	EncryptedData = Encryptor.EncryptData(RecordToEncrypt.Data.data(), RecordToEncrypt.Data.size(), WriteKey.data(), WriteKey.size(), NonceToUse.data(), NonceToUse.size(),
+		AuthenticatedData.data(), AuthenticatedData.size(), &EncryptionError);
+	assert(EncryptionError);
+
 
 	size_t TotalMessageSize = ExplicitNonce.size() + EncryptedData.size();
 	ReturnValue += char(TotalMessageSize >> 8);
@@ -1978,58 +1988,33 @@ std::string TLSHandler::p_Decrypt_AES_GCM_Record(std::string const& Data,bool* O
 	size_t CipherOffset = 5 + ExplicitNonce.size();
 	size_t TagSize = 16;
 	bool VerificationResult = false;
-	CryptoPP::GCM<CryptoPP::AES>::Decryption Decryptor;
+
+	std::string WriteKey = "";
+
 	if (!ConnectionParameters.IsHost)
 	{
-		Decryptor.SetKeyWithIV((CryptoPP::byte*) ConnectionParameters.server_write_Key.data(), ConnectionParameters.server_write_Key.size(), (CryptoPP::byte*) Nonce.data(), Nonce.size());
+		WriteKey = ConnectionParameters.server_write_Key;
 	}
 	else
 	{
-		Decryptor.SetKeyWithIV((CryptoPP::byte*) ConnectionParameters.client_write_Key.data(), ConnectionParameters.client_write_Key.size(), (CryptoPP::byte*) Nonce.data(), Nonce.size());
+		WriteKey = ConnectionParameters.client_write_Key;
 	}
-	try
+	std::string Mac = Data.substr(Data.size() - TagSize);
+	//size_t EncryptedDataSize = Data.size() - (5 + ExplicitNonce.size()) - TagSize;
+	size_t EncryptedDataSize = Data.size() - (5 + ExplicitNonce.size());
+	const void* DataToDecrypt = Data.data() + CipherOffset;
+
+	MBError EvaluationErrror = true;
+	MBCrypto::BlockCipher_GCM_Handler Decryptor(MBCrypto::BlockCipher::AES);
+	DecryptedData = Decryptor.DecryptData(DataToDecrypt, EncryptedDataSize, WriteKey.data(), WriteKey.size(), Nonce.data(), Nonce.size(), AdditionalData.data(), AdditionalData.size(), &EvaluationErrror);
+	VerificationResult = EvaluationErrror;
+	assert(VerificationResult);
+	if (VerificationResult)
 	{
-		std::string Mac = Data.substr(Data.size() - TagSize);
-		CryptoPP::AuthenticatedDecryptionFilter df(Decryptor, nullptr, CryptoPP::AuthenticatedDecryptionFilter::MAC_AT_BEGIN | CryptoPP::AuthenticatedDecryptionFilter::THROW_EXCEPTION, TagSize);
-		
-		// The order of the following calls are important
-		df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) Mac.data(), Mac.size());
-		df.ChannelPut(CryptoPP::AAD_CHANNEL, (CryptoPP::byte*) AdditionalData.data(), AdditionalData.size());
-		size_t EncryptedDataSize = Data.size() - (5 + ExplicitNonce.size()) - TagSize;
-		//std::string DEBUG_ENCData = std::string(&Data.data()[CipherOffset], EncryptedDataSize);
-		df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) &Data[CipherOffset], EncryptedDataSize);
-
-		// If the object throws, it will most likely occur
-		//   during ChannelMessageEnd()
-		df.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
-		df.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
-
-		// If the object does not throw, here's the only
-		//  opportunity to check the data's integrity
-		bool b = false;
-		b = df.GetLastResult();
-		assert(true == b);
-		VerificationResult = b;
-
-		df.SetRetrievalChannel(CryptoPP::DEFAULT_CHANNEL);
-		size_t NumberOfCharacters = (size_t)df.MaxRetrievable();
-		DecryptedData.resize(NumberOfCharacters);
-		if (NumberOfCharacters > 0)
-		{
-			df.Get((CryptoPP::byte*)DecryptedData.data(), DecryptedData.size());
-		}
 		ReturnValue = Data.substr(0, 3);
 		ReturnValue += char(DecryptedData.size() >> 8);
-		ReturnValue += char(DecryptedData.size()%256);
+		ReturnValue += char(DecryptedData.size() % 256);
 		ReturnValue += DecryptedData;
-	}
-	catch (const CryptoPP::Exception& e)
-	{
-		ReturnValue = "";
-		VerificationResult = false;
-		std::cout << "CrypotoPP exception in decrypting AES_GCM record" << std::endl;
-		std::cout << e.what() << std::endl;
-		std::cout << std::endl;
 	}
 	*OutVerification = VerificationResult;
 	return(ReturnValue);
