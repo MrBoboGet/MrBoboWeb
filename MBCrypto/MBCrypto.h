@@ -126,15 +126,22 @@ namespace MBCrypto
 
 		}
 	};
-
+	enum class CBC_PaddingScheme
+	{
+		TLS1_2,
+		PKCS_7,
+		Null
+	};
 	class BlockCipher_CBC_Handler
 	{
 	private:
 		friend void swap(BlockCipher_CBC_Handler& Left, BlockCipher_CBC_Handler& Right) noexcept;
 		std::unique_ptr<Generic_BlockCipher_CBC> m_InternalImplementation;
 		MBError m_LastError = true;
+		CBC_PaddingScheme m_PaddingScheme = CBC_PaddingScheme::TLS1_2;
+		size_t m_BlockSize = 0;
 	public:
-		BlockCipher_CBC_Handler(BlockCipher BlockCipherToUse);
+		BlockCipher_CBC_Handler(BlockCipher BlockCipherToUse,CBC_PaddingScheme = CBC_PaddingScheme::TLS1_2);
 		BlockCipher_CBC_Handler(BlockCipher_CBC_Handler&& HandlerToSteal) noexcept;
 		BlockCipher_CBC_Handler(BlockCipher_CBC_Handler const& HandlerToCopy);
 		BlockCipher_CBC_Handler& operator=(BlockCipher_CBC_Handler HandlerToSteal);

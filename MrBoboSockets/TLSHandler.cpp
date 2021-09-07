@@ -6,9 +6,7 @@
 #include <MBRandom.h>
 #include <MinaStringOperations.h>
 #include <filesystem>
-#include <Hash/src/sha1.h>
 #include <mutex>
-#include <MrPostOGet/TinySha1.h>
 #include <MBStrings.h>
 #include <ostream>
 #include <iostream>
@@ -930,8 +928,16 @@ std::string TLSHandler::p_GetCBCEncryptedRecord(TLS1_2::TLS1_2GenericRecord cons
 	}
 	DataToEncrypt += Padding;
 	DataToEncrypt += char(PaddingLength);
-	std::string EncryptedData(DataToEncrypt.size(), 0);
-	plusaes::encrypt_cbc((unsigned char*)DataToEncrypt.data(), DataToEncrypt.size(), (unsigned char*)WriteKey.data(), WriteKey.size(), &IV, (unsigned char*)EncryptedData.data(), EncryptedData.size(), false);
+	
+	//std::string EncryptedData(DataToEncrypt.size(), 0);
+	//plusaes::encrypt_cbc((unsigned char*)DataToEncrypt.data(), DataToEncrypt.size(), (unsigned char*)WriteKey.data(), WriteKey.size(), &IV, (unsigned char*)EncryptedData.data(), EncryptedData.size(), false);
+	
+	std::string EncryptedData = "";
+	MBCrypto::BlockCipher_CBC_Handler Encrypter(MBCrypto::BlockCipher::AES, MBCrypto::CBC_PaddingScheme::Null);
+	MBError EncryptionError = true;
+	EncryptedData = Encrypter.EncryptData(DataToEncrypt.data(), DataToEncrypt.size(), WriteKey.data(), WriteKey.size(), IV, 16, &EncryptionError);
+	assert(EncryptionError);
+	
 	TotalRecordData += char(RecordToEncrypt.Type);
 	TotalRecordData += char(RecordToEncrypt.Protocol.Major);
 	TotalRecordData += char(RecordToEncrypt.Protocol.Minor);
@@ -940,7 +946,7 @@ std::string TLSHandler::p_GetCBCEncryptedRecord(TLS1_2::TLS1_2GenericRecord cons
 	TotalRecordData += char(LengthOfCipherBlock >> 8);
 	TotalRecordData += char(LengthOfCipherBlock % 256);
 	TotalRecordData += IVString;
-	TotalRecordData += EncryptedData;
+	TotalRecordData += std::move(EncryptedData);
 	return(TotalRecordData);
 } 
 std::string TLSHandler::p_GetExplicitNonce()
@@ -1906,6 +1912,7 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* OutVerification)
 {
 	//beror egentligen på om vi är en server eller client men vi förutsätter att vi är en client
+	std::string ReturnValue = "";
 	std::string RecordHeader = Data.substr(0, 5);
 	unsigned int HashOutputSize = ConnectionParameters.HashAlgorithm.GetDigestSize();
 	unsigned char IV[16];
@@ -1917,13 +1924,8 @@ std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* O
 	{
 		IV[i - 5] = Data[i];
 	}
-	//vi kollar hur många bytes padding det är
-	//vi kan då få content octetsen genom att skippa paddingen + 1 +32 
-	std::string DataToDecrypt = Data.substr(5 + 16);
-	uint64_t DataToDecryptSize = DataToDecrypt.size();
-	std::string DecryptedData = std::string(DataToDecryptSize, 0);
-	unsigned long PaddedSize = 0;
-	//checkar att vår decrypt inte är fel
+	
+	uint64_t DataToDecryptSize = Data.size()-21;
 	std::string WriteKey;
 	if (!ConnectionParameters.IsHost)
 	{
@@ -1933,29 +1935,14 @@ std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* O
 	{
 		WriteKey = ConnectionParameters.client_write_Key;
 	}
-	plusaes::Error AESError = plusaes::decrypt_cbc((const unsigned char*)DataToDecrypt.c_str(), DataToDecryptSize, (unsigned char*)WriteKey.c_str(), WriteKey.size(), &IV,
-		(unsigned char*)DecryptedData.data(), DecryptedData.size(), &PaddedSize);
-	if (AESError != plusaes::Error::kErrorOk)
-	{
-		std::cout << "Error with decryption" << std::endl;
-		assert(false);
-	}
-	std::string ContentOctets = "";
-	std::string MACOctets = "";
-	//egentligen ska vi ta häsnyn till vilken cipher suite vi använder, men walla
-	//TODO Fixa så det är cipher suite independant koden under
-	//uint64_t Padding = DecryptedData[DecryptedData.size() - 1];
-	//assert(PaddedSize == Padding);
-	for (int i = 0; i < DecryptedData.size() - (HashOutputSize + PaddedSize + 1); i++)
-	{
-		ContentOctets += DecryptedData[i];
-	}
-	for (size_t i = 0; i < HashOutputSize; i++)
-	{
-		MACOctets += DecryptedData[ContentOctets.size() + i];
-	}
-	//nu ska vi egentligen ta och verifiera datan vi fått  och se att den stämmer, men fuck dat än så länge
-	//vi ändrar längden på vår record så den faktiskt matchar datan som vi får tillbaka
+
+	MBError DecryptionError = true;
+	MBCrypto::BlockCipher_CBC_Handler Decryptor(MBCrypto::BlockCipher::AES);
+	std::string ContentOctets = Decryptor.DecryptData(Data.c_str()+21, DataToDecryptSize, WriteKey.c_str(), WriteKey.size(), IV, 16, &DecryptionError);
+	
+	std::string MACOctets = ContentOctets.substr(ContentOctets.size()- HashOutputSize);
+	ContentOctets.resize(ContentOctets.size() - HashOutputSize);
+
 	RecordHeader[3] = ContentOctets.size() >> 8;
 	RecordHeader[4] = ContentOctets.size() % 256;
 
@@ -1964,12 +1951,13 @@ std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* O
 	RecordToEncrypt.Type = TLS1_2::ContentType(RecordHeader[0]);
 	RecordToEncrypt.Protocol = { uint8_t(RecordHeader[1]),uint8_t(RecordHeader[2]) };
 	RecordToEncrypt.Length = ContentOctets.size();
-	RecordToEncrypt.Data = ContentOctets;
+	RecordToEncrypt.Data = std::move(ContentOctets);
 	bool VerificationResult = VerifyMac(MACOctets, RecordToEncrypt);
 	assert(VerificationResult);
 	*OutVerification = VerificationResult;
 	//nu vet vi även att vi kan ta och öka record´sen vi fått
-	return(RecordHeader + ContentOctets);
+	ReturnValue = RecordHeader + std::move(RecordToEncrypt.Data);
+	return(ReturnValue);
 }
 std::string TLSHandler::p_Decrypt_AES_GCM_Record(std::string const& Data,bool* OutVerification)
 {

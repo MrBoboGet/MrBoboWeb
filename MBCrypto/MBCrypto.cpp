@@ -178,8 +178,9 @@ namespace MBCrypto
 				try
 				{
 					typename CryptoPP::CBC_Mode<T>::Decryption CryptoPPDecryptor;
-					CryptoPPDecryptor.SetKeyWithIV((const CryptoPP::byte*)WriteKey, WriteKeySize, (const CryptoPP::byte*)IV);
-					CryptoPP::StringSource ss((const CryptoPP::byte*)DataToDecrypt, DataSize, true, new CryptoPP::StreamTransformationFilter(CryptoPPDecryptor, new CryptoPP::StringSink(ReturnValue)));
+					CryptoPPDecryptor.SetKeyWithIV((const CryptoPP::byte*)WriteKey, WriteKeySize, (const CryptoPP::byte*)IV,IVSize);
+					CryptoPP::StringSource ss((const CryptoPP::byte*)DataToDecrypt, DataSize, true, new CryptoPP::StreamTransformationFilter(CryptoPPDecryptor, new CryptoPP::StringSink(ReturnValue),
+						CryptoPP::StreamTransformationFilter::NO_PADDING));
 				}
 				catch (const CryptoPP::Exception& e)
 				{
@@ -205,7 +206,8 @@ namespace MBCrypto
 				{
 					typename CryptoPP::CBC_Mode<T>::Encryption CryptoPPEncryptor;
 					CryptoPPEncryptor.SetKeyWithIV((const CryptoPP::byte*)WriteKey, WriteKeySize, (const CryptoPP::byte*)IV);
-					CryptoPP::StringSource ss((const CryptoPP::byte*)DataToEncrypt, DataSize, true, new CryptoPP::StreamTransformationFilter(CryptoPPEncryptor, new CryptoPP::StringSink(ReturnValue)));
+					CryptoPP::StringSource ss((const CryptoPP::byte*)DataToEncrypt, DataSize, true, new CryptoPP::StreamTransformationFilter(CryptoPPEncryptor, new CryptoPP::StringSink(ReturnValue),
+						CryptoPP::StreamTransformationFilter::NO_PADDING));
 				}
 				catch (const CryptoPP::Exception& e)
 				{
@@ -392,10 +394,12 @@ namespace MBCrypto
 		Right.m_LastError = Left.m_LastError;
 		Left.m_LastError = TempError;
 	}
-	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher BlockCipherToUse)
+	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher BlockCipherToUse,CBC_PaddingScheme SchemeToUse)
 	{
+		m_PaddingScheme = SchemeToUse;
 		if (BlockCipherToUse == BlockCipher::AES)
 		{
+			m_BlockSize = 16;
 			m_InternalImplementation = std::unique_ptr<Generic_BlockCipher_CBC>(new i_CryptoPP_BlockCipher_CBC<CryptoPP::AES>());
 		}
 		else
@@ -431,11 +435,48 @@ namespace MBCrypto
 
 	std::string BlockCipher_CBC_Handler::DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError)
 	{
-		return(m_InternalImplementation->DecryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError));
+		std::string ReturnValue = m_InternalImplementation->DecryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError);
+		if (m_PaddingScheme == CBC_PaddingScheme::TLS1_2)
+		{
+			ReturnValue.resize(ReturnValue.size() - (ReturnValue.back() + 1));
+		}
+		else if(m_PaddingScheme  == CBC_PaddingScheme::Null)
+		{
+			
+		}
+		else
+		{
+			assert(false);
+		}
+		return(ReturnValue);
 	}
 	std::string BlockCipher_CBC_Handler::EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError)
 	{
-		return(m_InternalImplementation->EncryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError));
+		//TODO optimisera så att inte all data kopieras varje gång...
+		if (m_PaddingScheme == CBC_PaddingScheme::TLS1_2)
+		{
+			assert(false);
+			//ANTAGANDE för att inte behöva kopiera all data så utnyttjar vi att MBcrypto gör det ändå, och helt enkelt modifierar den så den blir rätt
+			//size_t PaddingNeeded = (m_BlockSize - (DataSize % m_BlockSize))%m_BlockSize;
+			//if (PaddingNeeded == 0)
+			//{
+			//	ReturnValue += std::string(m_BlockSize, m_BlockSize - 1);
+			//}
+			//else
+			//{
+			//	ReturnValue += std::string(PaddingNeeded, PaddingNeeded - 1);
+			//}
+		}
+		else if (m_PaddingScheme == CBC_PaddingScheme::Null)
+		{
+
+		}
+		else
+		{
+			assert(false);
+		}
+		std::string ReturnValue = m_InternalImplementation->EncryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError);
+		return(ReturnValue);
 	}
 	//END BlockCipher_CBC_Handler
 
