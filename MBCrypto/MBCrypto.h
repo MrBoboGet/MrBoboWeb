@@ -5,6 +5,7 @@
 #include <cryptopp/integer.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
+#include <MBErrorHandling.h>
 namespace MBCrypto
 {
 	enum class HashFunction
@@ -47,6 +48,125 @@ namespace MBCrypto
 		void AddData(const void* Data, size_t LengthOfData);
 		std::string Finalize();
 	};
+	enum class BlockCipher
+	{
+		AES,
+		Null
+	};
+
+	class Generic_BlockCipher_CBC
+	{
+
+	private:
+
+	protected:
+		Generic_BlockCipher_CBC() {};
+		MBError m_LastError = true;
+
+	public:
+		//Generic_BlockCipher_CBC() = delete;
+		
+		Generic_BlockCipher_CBC(Generic_BlockCipher_CBC const&) = delete;
+		Generic_BlockCipher_CBC& operator=(Generic_BlockCipher_CBC const&) = delete;
+
+		virtual bool IsValid() { return(m_LastError); };
+		virtual MBError GetLastError() { return(m_LastError); };
+		virtual std::unique_ptr<Generic_BlockCipher_CBC> Clone() const
+		{
+			assert(false);
+			return(std::unique_ptr<Generic_BlockCipher_CBC>(new Generic_BlockCipher_CBC()));
+		};
+		virtual std::string DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError = nullptr)
+		{
+			assert(false);
+			return("");
+		}
+		virtual std::string EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError = nullptr)
+		{
+			assert(false);
+			return("");
+		}
+		virtual ~Generic_BlockCipher_CBC()
+		{
+
+		}
+	};
+
+	class Generic_BlockCipher_GCM
+	{
+
+	private:
+
+	protected:
+		Generic_BlockCipher_GCM() {};
+	public:
+		//Generic_BlockCipher_GCM() = delete;
+		Generic_BlockCipher_GCM(Generic_BlockCipher_CBC const&) = delete;
+		Generic_BlockCipher_GCM& operator=(Generic_BlockCipher_GCM const&) = delete;
+
+		virtual std::unique_ptr<Generic_BlockCipher_GCM> Clone() const
+		{
+			assert(false);
+			return(std::unique_ptr<Generic_BlockCipher_GCM>(new Generic_BlockCipher_GCM()));
+		}
+		virtual std::string DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+			const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError = nullptr)
+		{
+			assert(false);
+			return("");
+		}
+		virtual std::string EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+			const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError = nullptr)
+		{
+			assert(false);
+			return("");
+		}
+		virtual ~Generic_BlockCipher_GCM()
+		{
+
+		}
+	};
+
+	class BlockCipher_CBC_Handler
+	{
+	private:
+		friend void swap(BlockCipher_CBC_Handler& Left, BlockCipher_CBC_Handler& Right) noexcept;
+		std::unique_ptr<Generic_BlockCipher_CBC> m_InternalImplementation;
+		MBError m_LastError = true;
+	public:
+		BlockCipher_CBC_Handler(BlockCipher BlockCipherToUse);
+		BlockCipher_CBC_Handler(BlockCipher_CBC_Handler&& HandlerToSteal) noexcept;
+		BlockCipher_CBC_Handler(BlockCipher_CBC_Handler const& HandlerToCopy);
+		BlockCipher_CBC_Handler& operator=(BlockCipher_CBC_Handler HandlerToSteal);
+
+		bool IsValid();
+		MBError GetLastError();
+
+		std::string DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError = nullptr);
+		std::string EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError = nullptr);
+	};
+	class BlockCipher_GCM_Handler
+	{
+	private:
+		friend void swap(BlockCipher_GCM_Handler& Left, BlockCipher_GCM_Handler& Right) noexcept;
+		std::unique_ptr<Generic_BlockCipher_GCM> m_InternalImplementation;
+		MBError m_LastError = true;
+	public:
+		BlockCipher_GCM_Handler(BlockCipher BlockCipherToUse);
+		BlockCipher_GCM_Handler(BlockCipher_GCM_Handler&& HandlerToSteal) noexcept;
+		BlockCipher_GCM_Handler(BlockCipher_GCM_Handler const& HandlerToCopy);
+		BlockCipher_GCM_Handler& operator=(BlockCipher_GCM_Handler HandlerToSteal);
+
+		bool IsValid();
+		MBError GetLastError();
+
+		std::string DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+			const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError = nullptr);
+		std::string EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+			const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError = nullptr);
+
+	};
+
 	enum class NamedElipticCurve : uint16_t
 	{
 		sect163k1 = 1,

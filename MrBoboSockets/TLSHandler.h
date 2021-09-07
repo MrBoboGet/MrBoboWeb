@@ -1,16 +1,16 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <MrPostOGet/Asn1Handlers.h>
 #include <iostream>
 #include <time.h>
-#include <picosha2.h>
 #include <plusaes.hpp>
 #include <MBErrorHandling.h>
 #include <filesystem>
 #include <deque>
 
 #include <MBCrypto/MBCrypto.h>
+#include <MBCrypto/Asn1Handlers.h>
+#include <fstream>
 enum class TLSVersions
 {
 	TLS1_2,
@@ -631,13 +631,8 @@ namespace TLS1_2
 	std::string GetRecordString(TLS1_2HanshakeMessage const& MessageToEncode);
 }
 //Hashalgoritmer vi behöver
-inline std::string MBSha256(std::string const& StringToHash)
-{
-	std::string ReturnValue = std::string(picosha2::k_digest_size, 0);
-	picosha2::hash256(StringToHash, ReturnValue);
-	return(ReturnValue);
-}
-std::string MBSha1(std::string const& StringToHash);
+std::string MBSha256(std::string const& StringToHash);
+//std::string MBSha1(std::string const& StringToHash);
 class TLS_RecordGenerator
 {
 private:

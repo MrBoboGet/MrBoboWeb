@@ -9,13 +9,15 @@
 #include <cryptopp/hashfwd.h>
 #include <cryptopp/xed25519.h>
 #include <cryptopp/eccrypto.h>
-#include <cryptopp/eccrypto.h>
-
+#include <cryptopp/rijndael.h>
+#include <cryptopp/modes.h>
+#include <cryptopp/gcm.h>
+#include <cryptopp/cbcmac.h>
 
 //DEBUG GREJER
 #include <MBStrings.h>
 //
-#include <MrPostOGet/Asn1Handlers.h>
+#include "Asn1Handlers.h"
 namespace MBCrypto
 {
 	//crypto pp grejer
@@ -32,6 +34,203 @@ namespace MBCrypto
 		return(ReturnValue);
 	}
 	
+	//END Cryptopp grejer
+
+
+
+	//BEGIN InternalClasses
+	template<typename T> 
+	class i_CryptoPP_BlockCipher_GCM : public Generic_BlockCipher_GCM
+	{
+	private:
+		//TODO bruh bruh bruh har ingen aning om varför det här behövs eller hur det fungerar
+		//typename CryptoPP::GCM<T>::Encryption m_CryptoPPEncryptor;
+		//typename CryptoPP::GCM<T>::Decryption m_CryptoPPDecryptor;
+		MBError m_LastError = true;
+	public:
+		i_CryptoPP_BlockCipher_GCM()
+		{
+
+		}
+		std::unique_ptr<Generic_BlockCipher_GCM> Clone() const override
+		{
+			i_CryptoPP_BlockCipher_GCM<T>* NewObject = new i_CryptoPP_BlockCipher_GCM<T>();
+			std::unique_ptr<Generic_BlockCipher_GCM> ReturnValue = std::unique_ptr<Generic_BlockCipher_GCM>(NewObject);
+			//NewObject->m_CryptoPPEncryptor = this->m_CryptoPPEncryptor;
+			//NewObject->m_CryptoPPDecryptor = this->m_CryptoPPDecryptor;
+			return(ReturnValue);
+		}
+		std::string DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+			const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError = nullptr) override
+		{
+			std::string ReturnValue = "";
+			bool VerificationResult = true;
+			if (m_LastError)
+			{
+				typename CryptoPP::GCM<T>::Decryption Decryptor;
+				size_t TagSize = Decryptor.DigestSize();
+				Decryptor.SetKeyWithIV((CryptoPP::byte*)WriteKey, WriteKeySize, (CryptoPP::byte*) Nonce, NonceSize);
+				try
+				{
+					//std::string Mac = Data.substr(Data.size() - TagSize);
+					std::string Mac = std::string(((const char*)DataToDecrypt)+(DataSize-TagSize));
+					CryptoPP::AuthenticatedDecryptionFilter df(Decryptor, nullptr, CryptoPP::AuthenticatedDecryptionFilter::MAC_AT_BEGIN | CryptoPP::AuthenticatedDecryptionFilter::THROW_EXCEPTION, TagSize);
+
+					// The order of the following calls are important
+					df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) Mac.data(), Mac.size());
+					df.ChannelPut(CryptoPP::AAD_CHANNEL, (CryptoPP::byte*) AdditonalData, AdditionalDataSize);
+					//size_t EncryptedDataSize = Data.size() - (5 + ExplicitNonce.size()) - TagSize;
+					//std::string DEBUG_ENCData = std::string(&Data.data()[CipherOffset], EncryptedDataSize);
+					df.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (CryptoPP::byte*) DataToDecrypt, DataSize);
+
+					// If the object throws, it will most likely occur
+					//   during ChannelMessageEnd()
+					df.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
+					df.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+
+					// If the object does not throw, here's the only
+					//  opportunity to check the data's integrity
+					bool b = false;
+					b = df.GetLastResult();
+					assert(true == b);
+					VerificationResult = b;
+
+					df.SetRetrievalChannel(CryptoPP::DEFAULT_CHANNEL);
+					size_t NumberOfCharacters = (size_t)df.MaxRetrievable();
+					ReturnValue.resize(NumberOfCharacters);
+					if (NumberOfCharacters > 0)
+					{
+						df.Get((CryptoPP::byte*)ReturnValue.data(), ReturnValue.size());
+					}
+				}
+				catch (const CryptoPP::Exception& e)
+				{
+					ReturnValue = "";
+					VerificationResult = false;
+					m_LastError = false;
+					m_LastError.ErrorMessage = "Error in decrypting GCM data: " +e.GetWhat();
+				}
+			}
+			if (!VerificationResult)
+			{
+				if (OutError != nullptr)
+				{
+					*OutError = false;
+					OutError->ErrorMessage = "Verification failed";
+				}
+			}
+			if (!m_LastError)
+			{
+				if (OutError != nullptr)
+				{
+					*OutError = m_LastError;
+				}
+			}
+			return(ReturnValue);
+		}
+		std::string EncryptData(const void* DataToEncrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+			const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError = nullptr) override
+		{
+			std::string ReturnValue = "";
+			typename CryptoPP::GCM<T>::Encryption CryptoPPEncryptor;
+
+			CryptoPPEncryptor.SetKeyWithIV((const CryptoPP::byte*)WriteKey, WriteKeySize, (const CryptoPP::byte*)Nonce, NonceSize);
+			
+			CryptoPP::AuthenticatedEncryptionFilter AEADFilter(CryptoPPEncryptor, new CryptoPP::StringSink(ReturnValue), false,CryptoPPEncryptor.DigestSize());
+			AEADFilter.ChannelPut(CryptoPP::AAD_CHANNEL, (const CryptoPP::byte*) AdditonalData, AdditionalDataSize);
+			AEADFilter.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
+			AEADFilter.ChannelPut(CryptoPP::DEFAULT_CHANNEL, (const CryptoPP::byte*) DataToEncrypt, DataSize);
+			AEADFilter.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+
+			return(ReturnValue);
+		}
+		~i_CryptoPP_BlockCipher_GCM() override
+		{
+
+		}
+	};
+
+	template<typename T>
+	class i_CryptoPP_BlockCipher_CBC : public Generic_BlockCipher_CBC
+	{
+	private:
+		//typename CryptoPP::CBC_Mode<T>::Encryption m_CryptoPPEncryptor;
+		//typename CryptoPP::CBC_Mode<T>::Decryption m_CryptoPPDecryptor;
+	public:
+		i_CryptoPP_BlockCipher_CBC()
+		{
+
+		}
+		std::unique_ptr<Generic_BlockCipher_CBC> Clone() const override
+		{
+			i_CryptoPP_BlockCipher_CBC<T>* NewObject = new i_CryptoPP_BlockCipher_CBC<T>();
+			std::unique_ptr<i_CryptoPP_BlockCipher_CBC> ReturnValue = std::unique_ptr<i_CryptoPP_BlockCipher_CBC>(NewObject);
+			//NewObject->m_CryptoPPEncryptor = this->m_CryptoPPEncryptor;
+			//NewObject->m_CryptoPPDecryptor = this->m_CryptoPPDecryptor;
+			return(ReturnValue);
+		}
+		std::string DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError) override
+		{
+			//m_CryptoPPDecryptor.setKeyWithIv();
+			std::string ReturnValue = "";
+			if (m_LastError)
+			{
+				try
+				{
+					typename CryptoPP::CBC_Mode<T>::Decryption CryptoPPDecryptor;
+					CryptoPPDecryptor.SetKeyWithIV((const CryptoPP::byte*)WriteKey, WriteKeySize, (const CryptoPP::byte*)IV);
+					CryptoPP::StringSource ss((const CryptoPP::byte*)DataToDecrypt, DataSize, true, new CryptoPP::StreamTransformationFilter(CryptoPPDecryptor, new CryptoPP::StringSink(ReturnValue)));
+				}
+				catch (const CryptoPP::Exception& e)
+				{
+					m_LastError = false;
+					m_LastError.ErrorMessage = e.what();
+				}
+			}
+			if (!m_LastError)
+			{
+				if (OutError != nullptr)
+				{
+					*OutError = m_LastError;
+				}
+			}
+			return(ReturnValue);
+		}
+		std::string EncryptData(const void* DataToEncrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError) override
+		{
+			std::string ReturnValue = "";
+			if (m_LastError)
+			{
+				try
+				{
+					typename CryptoPP::CBC_Mode<T>::Encryption CryptoPPEncryptor;
+					CryptoPPEncryptor.SetKeyWithIV((const CryptoPP::byte*)WriteKey, WriteKeySize, (const CryptoPP::byte*)IV);
+					CryptoPP::StringSource ss((const CryptoPP::byte*)DataToEncrypt, DataSize, true, new CryptoPP::StreamTransformationFilter(CryptoPPEncryptor, new CryptoPP::StringSink(ReturnValue)));
+				}
+				catch (const CryptoPP::Exception& e)
+				{
+					m_LastError = false;
+					m_LastError.ErrorMessage = e.what();
+				}
+			}
+			if (!m_LastError)
+			{
+				if (OutError != nullptr)
+				{
+					*OutError = m_LastError;
+				}
+			}
+			return(ReturnValue);
+		}
+		~i_CryptoPP_BlockCipher_CBC() override
+		{
+
+		}
+	};
+	//END InternalClasses
+
+
+
 
 	//BEGIN HashObject
 	void swap(HashObject& LeftObject, HashObject& RightObject)
@@ -184,6 +383,119 @@ namespace MBCrypto
 	}
 
 	//END HashObject
+
+	//BEGIN BlockCipher_CBC_Handler
+	void swap(BlockCipher_CBC_Handler& Left, BlockCipher_CBC_Handler& Right) noexcept
+	{
+		std::swap(Left.m_InternalImplementation, Right.m_InternalImplementation);
+		MBError TempError = Right.m_LastError;
+		Right.m_LastError = Left.m_LastError;
+		Left.m_LastError = TempError;
+	}
+	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher BlockCipherToUse)
+	{
+		if (BlockCipherToUse == BlockCipher::AES)
+		{
+			m_InternalImplementation = std::unique_ptr<Generic_BlockCipher_CBC>(new i_CryptoPP_BlockCipher_CBC<CryptoPP::AES>());
+		}
+		else
+		{
+			m_LastError = false;
+			m_LastError.ErrorMessage = "Invalid block cipher";
+			assert(false);
+		}
+	}
+	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher_CBC_Handler&& HandlerToSteal) noexcept
+	{
+		std::swap(*this, HandlerToSteal);
+	}
+	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher_CBC_Handler const& HandlerToCopy)
+	{
+		m_InternalImplementation = HandlerToCopy.m_InternalImplementation->Clone();
+		m_LastError = HandlerToCopy.m_LastError;
+	}
+	BlockCipher_CBC_Handler& BlockCipher_CBC_Handler::operator=(BlockCipher_CBC_Handler HandlerToSteal)
+	{
+		std::swap(*this,HandlerToSteal);
+		return(*this);
+	}
+
+	bool BlockCipher_CBC_Handler::IsValid()
+	{
+		return(m_LastError);
+	}
+	MBError BlockCipher_CBC_Handler::GetLastError()
+	{
+		return(m_LastError);
+	}
+
+	std::string BlockCipher_CBC_Handler::DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError)
+	{
+		return(m_InternalImplementation->DecryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError));
+	}
+	std::string BlockCipher_CBC_Handler::EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError)
+	{
+		return(m_InternalImplementation->EncryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError));
+	}
+	//END BlockCipher_CBC_Handler
+
+	//BEGIN BlockCipher_GCM_Handler
+	void swap(BlockCipher_GCM_Handler& Left, BlockCipher_GCM_Handler& Right) noexcept
+	{
+		std::swap(Left.m_InternalImplementation, Right.m_InternalImplementation);
+		MBError TempError = Right.m_LastError;
+		Right.m_LastError = Left.m_LastError;
+		Left.m_LastError = TempError;
+	}
+	BlockCipher_GCM_Handler::BlockCipher_GCM_Handler(BlockCipher BlockCipherToUse)
+	{
+		if (BlockCipherToUse == BlockCipher::AES)
+		{
+			m_InternalImplementation = std::unique_ptr<Generic_BlockCipher_GCM>(new i_CryptoPP_BlockCipher_GCM<CryptoPP::AES>());
+		}
+		else
+		{
+			m_LastError = false;
+			m_LastError.ErrorMessage = "Invalid block cipher";
+			assert(false);
+		}
+	}
+	BlockCipher_GCM_Handler::BlockCipher_GCM_Handler(BlockCipher_GCM_Handler&& HandlerToSteal) noexcept
+	{
+		swap(*this, HandlerToSteal);
+	}
+	BlockCipher_GCM_Handler::BlockCipher_GCM_Handler(BlockCipher_GCM_Handler const& HandlerToCopy)
+	{
+		m_InternalImplementation = HandlerToCopy.m_InternalImplementation->Clone();
+		m_LastError = HandlerToCopy.m_LastError;
+	}
+	BlockCipher_GCM_Handler& BlockCipher_GCM_Handler::operator=(BlockCipher_GCM_Handler HandlerToSteal)
+	{
+		swap(*this, HandlerToSteal);
+		return(*this);
+	}
+
+	bool BlockCipher_GCM_Handler::IsValid()
+	{
+		return(m_LastError);
+	}
+	MBError BlockCipher_GCM_Handler::GetLastError()
+	{
+		return(m_LastError);
+	}
+
+	std::string BlockCipher_GCM_Handler::DecryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+		const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError)
+	{
+		return(m_InternalImplementation->DecryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, Nonce, NonceSize, AdditonalData, AdditionalDataSize, OutError));
+	}
+	std::string BlockCipher_GCM_Handler::EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* Nonce, size_t NonceSize,
+		const void* AdditonalData, size_t AdditionalDataSize, MBError* OutError)
+	{
+		return(m_InternalImplementation->EncryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, Nonce, NonceSize, AdditonalData, AdditionalDataSize, OutError));
+	}
+	//END BlockCipher_GCM_Handler
+
 
 	//BEGIN ElipticCurve
 	ElipticCurvePoint DecodeECP_ANS1x92Encoding(std::string const& ANS1x92EncodedPoint)

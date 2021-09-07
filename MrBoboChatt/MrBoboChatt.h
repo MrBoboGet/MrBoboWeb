@@ -3,7 +3,6 @@
 #pragma once
 #include <MrBoboSockets/MrBoboSockets.h>
 #include <MinaStringOperations.h>
-#include <MrPostOGet/TLSHandler.h>
 #include <MBRandom.h>
 #include <MrBoboChatt/MBCProtocols.h>
 #include <MBErrorHandling.h>

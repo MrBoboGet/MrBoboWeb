@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <vector>
-#include <MrBigInt/MrBigInt.h>
 #include <math.h>
+#include <assert.h>
 #pragma once
 /*
    Certificate  ::=  SEQUENCE  {

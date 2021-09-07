@@ -1,7 +1,7 @@
 #define NOMINMAX
 #define _CRT_RAND_S
 #include <MrBoboSockets/MrBoboSockets.h>
-#include <MrPostOGet/TLSHandler.h>
+#include "TLSHandler.h"
 #include <math.h>
 #include <MBRandom.h>
 #include <MinaStringOperations.h>
@@ -23,18 +23,24 @@
 #include <cryptopp/modes.h>
 #include <cryptopp/gcm.h>
 
-std::string MBSha1(std::string const& StringToHash)
+
+std::string MBSha256(std::string const& StringToHash)
 {
-	Chocobo1::SHA1 Hasher;
-	Hasher.addData(StringToHash.c_str(), StringToHash.size());
-	Hasher.finalize();
-	return(std::string((char*)&Hasher.toArray()[0],20));
-	//sha1::SHA1 Sha1;
-	//Sha1.processBytes(StringToHash.data(), StringToHash.size());
-	//std::string ReturnValue(20, 0);
-	//Sha1.getDigestBytes((uint8_t*)ReturnValue.data());
-	//return(ReturnValue);
+	return(MBCrypto::HashData(StringToHash, MBCrypto::HashFunction::SHA256));
 }
+
+//std::string MBSha1(std::string const& StringToHash)
+//{
+//	Chocobo1::SHA1 Hasher;
+//	Hasher.addData(StringToHash.c_str(), StringToHash.size());
+//	Hasher.finalize();
+//	return(std::string((char*)&Hasher.toArray()[0],20));
+//	//sha1::SHA1 Sha1;
+//	//Sha1.processBytes(StringToHash.data(), StringToHash.size());
+//	//std::string ReturnValue(20, 0);
+//	//Sha1.getDigestBytes((uint8_t*)ReturnValue.data());
+//	//return(ReturnValue);
+//}
 namespace TLS1_2
 {
 	ECDHEServerKeyExchange GetServerECDHEKey(SecurityParameters& ConnectionParams,std::string const& CompleteRecordData)
@@ -848,13 +854,13 @@ void TLSHandler::GenerateKeys()
 	std::string ServerRandom = std::string(reinterpret_cast<char*>(ConnectionParameters.server_random), 32);
 	std::string ClientRandom = std::string(reinterpret_cast<char*>(ConnectionParameters.client_random), 32);
 	
-	std::cout << "Client radnom used: " << HexEncodeString(ClientRandom) << std::endl;
-	std::cout << "Server random used: " << HexEncodeString(ServerRandom) << std::endl;
-	std::cout << "Master secret used: " << HexEncodeString(MasterSecret) << std::endl;
+	//std::cout << "Client radnom used: " << HexEncodeString(ClientRandom) << std::endl;
+	//std::cout << "Server random used: " << HexEncodeString(ServerRandom) << std::endl;
+	//std::cout << "Master secret used: " << HexEncodeString(MasterSecret) << std::endl;
 	
 	std::string GeneratedKeyData = PRF(MasterSecret, "key expansion", ServerRandom + ClientRandom, DataNeeded);
 	
-	std::cout << "Generated PRF: " << HexEncodeString(GeneratedKeyData) << std::endl;
+	//std::cout << "Generated PRF: " << HexEncodeString(GeneratedKeyData) << std::endl;
 	
 	ConnectionParameters.client_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *0, MacKeyLength);
 	ConnectionParameters.server_write_MAC_Key = GeneratedKeyData.substr(MacKeyLength *1, MacKeyLength);
@@ -863,12 +869,12 @@ void TLSHandler::GenerateKeys()
 	ConnectionParameters.client_write_IV = GeneratedKeyData.substr((EncryptKeySize *2)+(MacKeyLength*2), WriteIVLength);
 	ConnectionParameters.server_write_IV = GeneratedKeyData.substr((EncryptKeySize *2)+(MacKeyLength*2)+WriteIVLength, WriteIVLength);
 
-	std::cout << "Client_write_MAC_Key: " << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
-	std::cout << "Server_write_MAC_Key: " << HexEncodeString(ConnectionParameters.server_write_MAC_Key) << std::endl;
-	std::cout << "Client_write_Key: " << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
-	std::cout << "Server_write_Key: " << HexEncodeString(ConnectionParameters.server_write_Key) << std::endl;
-	std::cout << "Client Write IV: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.client_write_IV), " ", "") << std::endl;
-	std::cout << "Server Write IV: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.server_write_IV), " ", "") << std::endl;
+	//std::cout << "Client_write_MAC_Key: " << HexEncodeString(ConnectionParameters.client_write_MAC_Key) << std::endl;
+	//std::cout << "Server_write_MAC_Key: " << HexEncodeString(ConnectionParameters.server_write_MAC_Key) << std::endl;
+	//std::cout << "Client_write_Key: " << HexEncodeString(ConnectionParameters.client_write_Key) << std::endl;
+	//std::cout << "Server_write_Key: " << HexEncodeString(ConnectionParameters.server_write_Key) << std::endl;
+	//std::cout << "Client Write IV: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.client_write_IV), " ", "") << std::endl;
+	//std::cout << "Server Write IV: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.server_write_IV), " ", "") << std::endl;
 }
 std::string TLSHandler::p_GetCBCEncryptedRecord(TLS1_2::TLS1_2GenericRecord const& RecordToEncrypt)
 {
@@ -1079,11 +1085,6 @@ std::string TLSHandler::p_Get_AES_GCM_EncryptedRecord(TLS1_2::SecurityParameters
 	std::string NonceToUse = ImplicitNonce+ ExplicitNonce;
 	std::string AuthenticatedData = p_GetAEADAdditionalData(SecurityParams,RecordToEncrypt,true);
 	size_t TagSize = 16;
-	
-	//DEBUG
-	std::cout << "Used Nonce: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(NonceToUse), " ", "") << std::endl;
-	std::cout << "Additional Data: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(AuthenticatedData), " ", "") << std::endl;
-
 
 	CryptoPP::GCM<CryptoPP::AES>::Encryption Encryptor;
 	if (ConnectionParameters.IsHost)
@@ -1099,6 +1100,7 @@ std::string TLSHandler::p_Get_AES_GCM_EncryptedRecord(TLS1_2::SecurityParameters
 	AEADFilter.ChannelMessageEnd(CryptoPP::AAD_CHANNEL);
 	AEADFilter.ChannelPut(CryptoPP::DEFAULT_CHANNEL,(CryptoPP::byte*) RecordToEncrypt.Data.data(), RecordToEncrypt.Data.size());
 	AEADFilter.ChannelMessageEnd(CryptoPP::DEFAULT_CHANNEL);
+
 	size_t TotalMessageSize = ExplicitNonce.size() + EncryptedData.size();
 	ReturnValue += char(TotalMessageSize >> 8);
 	ReturnValue += char(TotalMessageSize %256);
@@ -1464,17 +1466,6 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketT
 	//std::cout << HexEncodeString(HMAC("123123", "123123")) << std::endl;
 	ServerHandleKeyExchange(ClientResponse[0]);
 
-	std::ofstream DEBUG_Keyfile = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWireshark.txt");
-	DEBUG_Keyfile << "CLIENT_RANDOM " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret, 48)), " ", "");
-	DEBUG_Keyfile.flush();
-	DEBUG_Keyfile.close();
-	
-	
-	std::ofstream DEBUG_Keyfile2 = std::ofstream("C:/Users/emanu/Desktop/Wireshark/LogFileFolder/KeyLogFileWiresharkPremaster.txt");
-	DEBUG_Keyfile2 << "CLIENT_RANDOM " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.client_random, 32)), " ", "") << " " <<MBUtility::ReplaceAll(MBUtility::HexEncodeString(MBCrypto::I2OSP(ConnectionParameters.PreMasterSecret,48)), " ", "");
-	DEBUG_Keyfile2.flush();
-	DEBUG_Keyfile2.close();
-
 
 	ConnectionParameters.AllHandshakeMessages.push_back(ClientResponse[0]);
 	std::string ServerFinishedMessagePlaintext = p_DecryptRecord(ClientResponse[2]);
@@ -1506,10 +1497,6 @@ void TLSHandler::GenerateMasterSecret(std::string const& PremasterSecret)
 	{
 		ConnectionParameters.master_secret[i] = MasterSecretString[i];
 	}
-	//std::cout << "PremasterSecret used: " << HexEncodeString(PremasterSecret) << std::endl;
-	//std::cout << "Client random used: " << HexEncodeString(ClientRandom) << std::endl;
-	//std::cout << "Server random used: " << HexEncodeString(ServerRandom) << std::endl;
-	//std::cout << "Generated Master Secret: " << HexEncodeString(MasterSecretString) << std::endl;
 }
 void TLSHandler::ServerHandleKeyExchange(std::string const& ClientKeyExchangeRecord)
 {
@@ -1567,15 +1554,12 @@ std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& Decry
 
 	std::string PaddedPlainTextMessage = I2OSP(PaddedPlaintextMessageRepresentative, 256);
 	std::string PlaintextMessage = TLS1_2::Remove_PKCS1_v1_5_Padding(PaddedPlainTextMessage);
-	//std::cout << HexEncodeString(PlaintextMessage) << std::endl;
-	//std::cout << PlaintextMessage.size() << std::endl;
+
 	assert(PlaintextMessage.size() == 48);
 	if (PlaintextMessage.size() != 48)
 	{
 		std::cout << "error decrypting key exchange" << std::endl;
 	}
-	//std::cout << DecryptInfo.PublicModulu.GetHexEncodedString() << std::endl;
-	//std::cout << DecryptInfo.PrivateExponent.GetHexEncodedString() << std::endl;
 
 	std::cout << "RSA Decryption Time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << "s";
 	return(PlaintextMessage);
@@ -1687,13 +1671,7 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 	CurrentHandshakeRecords.push_back(ServerHelloMessage);
 	std::string NewClientRandom = std::string((char*)ConnectionParameters.client_random,32);
 	std::string NewServerRandom = std::string((char*)ConnectionParameters.server_random, 32);
-	//TLS_RecordGenerator ServerHelloDoneRecord;
-	//ServerHelloDoneRecord.SetContentType(TLS1_2::ContentType::handshake);
-	//ServerHelloDoneRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello_done);
-	//std::string ServerHelloDoneMessage = ServerHelloDoneRecord.GetHandShakeRecord();
-	//SocketToConnect->SendData(ServerHelloDoneMessage.c_str(), ServerHelloDoneMessage.size());
-	//intressant att se vilken typ av data clientenskickar
-	//std::vector<std::string> ClientRespone = GetNextPlaintextRecords(SocketToConnect);
+
 	this->ConnectionParameters = TLSHandler::GetCachedSession(SessionID);
 	ConnectionParameters.AllHandshakeMessages = CurrentHandshakeRecords;
 	for (size_t i = 0; i < 32; i++)
@@ -1759,16 +1737,7 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 	ConnectionParameters.SessionId = SessionId;
 	NewRecord.AddOpaqueArray(SessionId,1);
 	//0,0x3c enda cihpersuiten vi stödjer, egentligen ska vi ju ta och välja ut en beroende på etc
-	for (size_t i = 0; i < ClientHello.CipherSuites.size(); i++)
-	{
-		//std::cout << HexEncodeByte(ClientHello.CipherSuites[i].Del1) << " " << HexEncodeByte(ClientHello.CipherSuites[i].Del2) << std::endl;
-	}
 	std::vector<TLS1_2::SignatureAndHashAlgoritm> SupportedAlgorithms = GetSupportedSignatureAlgorithms(ClientHello.OptionalExtensions);
-	//std::cout << "Supported Algorithms: " << std::endl;
-	for (size_t i = 0; i < SupportedAlgorithms.size(); i++)
-	{
-		//std::cout << HexEncodeByte(SupportedAlgorithms[i].Hash) << " " << HexEncodeByte(SupportedAlgorithms[i].Signature) << std::endl;
-	}
 	//hardcodad af
 	NewRecord.AddUINT8(0);
 	NewRecord.AddUINT8(0x2f);

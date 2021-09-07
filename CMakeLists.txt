@@ -149,11 +149,11 @@ set(Header_Files
     "MrBigInt/MrBigInt.h"
     "MrBoboChatt/MrBoboChatt.h"
     "MrBoboSockets/MrBoboSockets.h"
-    "MrPostOGet/Asn1Handlers.h"
+    "MBCrypto/Asn1Handlers.h"
     "MrPostOGet/MBHTMLParser.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/MrPostOGet.h"
     "MrPostOGet/SearchEngineImplementation.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/TLSHandler.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/MrBoboSockets/TLSHandler.h"
     "SearchEngine/MBSearchEngine.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
     "MrBoboDatabase/MPGMemeSite.h"
@@ -180,7 +180,7 @@ set(Source_Files
     "MrBoboSockets/MrBoboSockets.cpp"
     "BasicChat/BasicChatMain.cpp"
     "BasiChatCmake.cpp"
-    "MrPostOGet/TLSHandler.cpp"
+    "MrBoboSockets/TLSHandler.cpp"
     "MrBoboDatabase/MrBoboDatabase.cpp"
     "MrBoboDatabase/MPGMemeSite.cpp"
     "MrBoboMedia/MBMedia.cpp"
@@ -197,6 +197,7 @@ set(Source_Files
     "MrPostOGet/MrPostOGet.cpp"
     "MBSystem/MBSystem.cpp"
     ${EXTLIBS_SOURCE_FILES}
+    "MBErrorHandling.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
 )
 message(${Source_Files})
@@ -331,7 +332,7 @@ endif()
 ################################################################################
 # Target
 ################################################################################
-add_executable(${PROJECT_NAME} ${ALL_FILES} "MrBoboChatt/MBChatConnection.h" "MrBoboChatt/MBCProtocols.h" "MrBoboChatt/MBCProtocols.cpp" "MrBoboChatt/MBChatConnection.cpp" "MBErrorHandling.h" "MBErrorHandling.cpp"  "MrBoboChatt/MrBoboChatt.cpp" "MBCertificateHandler/MBCertificateHandler.h")
+add_executable(${PROJECT_NAME} ${ALL_FILES})
 
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
