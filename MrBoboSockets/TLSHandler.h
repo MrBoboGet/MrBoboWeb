@@ -11,6 +11,7 @@
 #include <MBCrypto/MBCrypto.h>
 #include <MBCrypto/Asn1Handlers.h>
 #include <fstream>
+#include <MBStrings.h>
 enum class TLSVersions
 {
 	TLS1_2,
@@ -592,8 +593,8 @@ namespace TLS1_2
 		t.read(&PemFileBuffer[0], size);
 		size_t ReadCharacters = t.gcount();
 		std::string PemFile(PemFileBuffer.c_str(), ReadCharacters);
-		PemFile = ReplaceAll(PemFile, "\n", "");
-		PemFile = ReplaceAll(PemFile, "\r", "");
+		PemFile = MBUtility::ReplaceAll(PemFile, "\n", "");
+		PemFile = MBUtility::ReplaceAll(PemFile, "\r", "");
 		//nu måste vi konvertera från detta till binär data
 		std::string BeginTag = "-----BEGIN RSA PRIVATE KEY-----";
 		std::string EndTag = "-----END RSA PRIVATE KEY-----";

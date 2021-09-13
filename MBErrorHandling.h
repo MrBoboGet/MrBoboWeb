@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
-enum class MBErrorType : uint64_t
+enum class MBErrorType
 {
 	OK, Error, Null
 };

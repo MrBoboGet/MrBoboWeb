@@ -664,8 +664,8 @@ namespace MBCrypto
 		t.read(&PemFileBuffer[0], size);
 		size_t ReadCharacters = t.gcount();
 		std::string PemFile(PemFileBuffer.c_str(), ReadCharacters);
-		PemFile = ReplaceAll(PemFile, "\n", "");
-		PemFile = ReplaceAll(PemFile, "\r", "");
+		PemFile = MBUtility::ReplaceAll(PemFile, "\n", "");
+		PemFile = MBUtility::ReplaceAll(PemFile, "\r", "");
 		//nu måste vi konvertera från detta till binär data
 		size_t DataBegin = PemFile.find("-----", 6) + 5;
 		size_t DataEnd = PemFile.find("-----", DataBegin);

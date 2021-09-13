@@ -10,7 +10,9 @@
 #include <time.h>
 #include <chrono>
 #include <cmath>
-#include <MinaStringOperations.h>
+
+#include <assert.h>
+#include <MBStrings.h>
 //#define __arm__
 //#ifdef __arm__
 //#include<arm_neon.h>
@@ -1989,7 +1991,7 @@ public:
 			std::string HexEncodedUnit = "";
 			for (size_t j = 0; j < UNIT_BITS/8; j++)
 			{
-				HexEncodedUnit += HexEncodeByte(InternalUnits[i] >> (UNIT_BITS - ((j + 1)*8)));
+				HexEncodedUnit += MBUtility::HexEncodeByte(InternalUnits[i] >> (UNIT_BITS - ((j + 1)*8)));
 			}
 			ReturnValue += HexEncodedUnit;
 			ReturnValue += " ";
