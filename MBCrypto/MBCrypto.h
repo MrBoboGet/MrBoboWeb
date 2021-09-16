@@ -267,6 +267,7 @@ namespace MBCrypto
 		}
 		return(ReturnValue);
 	}
+	std::string GetFileHash(std::string const& FileToHashPath,HashFunction HashFunctionToUse);
 	std::string LoadPEMBinaryData(std::string const& KeyPath);
 	RSAPrivateKey RSALoadPEMPrivateKey(std::string const& KeyPath);
 	//HashObject GetHashObject(HashFunction AssociatedFunction);

@@ -655,6 +655,25 @@ namespace MBCrypto
 		//ReturnValue += DerEncodedObject;
 		return(ReturnValue);
 	}
+	std::string GetFileHash(std::string const& FileToHashPath,HashFunction HashFunctionToUse)
+	{
+		HashObject HashObjectToUse = HashObject(HashFunctionToUse);
+		std::ifstream FileToRead = std::ifstream(FileToHashPath, std::ios::in | std::ios::binary);
+		const size_t ChunkSize = 4096;
+		char Buffer[4096];
+		while (true)
+		{
+			FileToRead.read(Buffer, ChunkSize);
+			size_t ReadBytes = FileToRead.gcount();
+			HashObjectToUse.AddData(Buffer, ReadBytes);
+			if (ReadBytes < ChunkSize)
+			{
+				break;
+			}
+		}
+		std::string ReturnValue = HashObjectToUse.Finalize();
+		return(ReturnValue);
+	}
 	std::string LoadPEMBinaryData(std::string const& KeyPath)
 	{
 		std::string PemFilePath = KeyPath;

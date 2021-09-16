@@ -131,7 +131,11 @@ private:
 	std::string DBAPI_Login(std::vector<std::string> const& Arguments);
 	std::string DBAPI_GetAvailableIndexes(std::vector<std::string> const& Arguments);
 	std::string DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments);
-	
+
+	std::mutex m_BlippFileMutex;
+	std::string DBAPI_GetBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions);
+	std::string DBAPI_UploadBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions);
+
 	std::vector<LegacyRequestHandler> __LegacyRequestHandlers = {};
 	std::atomic<size_t> __NumberOfHandlers{ 0 };
 	std::atomic<LegacyRequestHandler*> __HandlersData{ nullptr };

@@ -4,6 +4,38 @@
 #include <assert.h>
 namespace MBParsing
 {
+	void WriteBigEndianInteger(void* Buffer, uintmax_t IntegerToWrite, char IntegerSize)
+	{
+		std::string ReturnValue = "";
+		uint8_t* ByteBuffer = (uint8_t*)Buffer;
+		size_t BufferOffset = 0;
+		for (int i = IntegerSize - 1; i >= 0; i--)
+		{
+			ByteBuffer[BufferOffset] = (unsigned char)((IntegerToWrite >> (i * 8)) % 256);
+			BufferOffset += 1;
+		}
+	}
+
+	uintmax_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
+	{
+		return(ParseBigEndianInteger(DataToParse.data(), IntegerSize, ParseOffset, OutParseOffset));
+	}
+	uintmax_t ParseBigEndianInteger(const void* Data, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
+	{
+		uintmax_t ReturnValue = 0;
+		const char* DataToParse = (const char*)Data;
+		for (size_t i = 0; i < IntegerSize; i++)
+		{
+			ReturnValue <<= 8;
+			ReturnValue += (unsigned char)DataToParse[ParseOffset + i];
+		}
+		if (OutParseOffset != nullptr)
+		{
+			*OutParseOffset = ParseOffset + IntegerSize;
+		}
+		return(ReturnValue);
+	}
+
 	unsigned char Base64CharToBinary(unsigned char CharToDecode)
 	{
 		if (CharToDecode >= 65 && CharToDecode <= 90)
@@ -256,6 +288,43 @@ namespace MBParsing
 	{
 		return(ParseQuotedString(ObjectData.data(), ObjectData.size(), InOffset, OutOffset, OutError));
 	}
+	intmax_t ParseJSONInteger(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		intmax_t ReturnValue = -1;
+		size_t ParseOffset = InOffset;
+		MBError ParseError(true);
+		const char* ObjectData = (const char*)DataToParse;
+		size_t IntBegin = ParseOffset;
+		size_t IntEnd = ParseOffset;
+		while (IntEnd < DataSize)
+		{
+			if (!('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9'))
+			{
+				break;
+			}
+			IntEnd += 1;
+		}
+		try
+		{
+			ReturnValue = std::stoi(std::string(ObjectData +IntBegin, ObjectData+ IntEnd - IntBegin));
+			ParseOffset = IntEnd;
+		}
+		catch (const std::exception&)
+		{
+			ParseError = false;
+			ParseError.ErrorMessage = "Error parsing JSON integer";
+		}
+
+		if (OutError != nullptr)
+		{
+			*OutError = ParseError;
+		}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = ParseOffset;
+		}
+		return(ReturnValue);
+	}
 	intmax_t ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset , MBError* OutError)
 	{
 		intmax_t ReturnValue = -1;
@@ -291,6 +360,54 @@ namespace MBParsing
 		{
 			*OutOffset = ParseOffset;
 		}
+		return(ReturnValue);
+	}
+	bool ParseJSONBoolean(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		const char* Data = (const char*)DataToParse;
+		MBError ParseError = true;
+		size_t ParseOffset = InOffset;
+		bool ReturnValue = false;
+		SkipWhitespace(DataToParse, DataSize, ParseOffset, &ParseOffset);
+		if (ParseOffset >= DataSize)
+		{
+			ParseError = false;
+			ParseError.ErrorMessage = "Error parsing JSON boolean: no boolean data";
+		}
+		else
+		{
+			char FirstCharacter = Data[ParseOffset];
+			if (FirstCharacter == 't')
+			{
+				if (ParseOffset + 3 < DataSize && std::memcmp(Data+ParseOffset,"true",4))
+				{
+					ReturnValue = true;
+				}
+				else
+				{
+					ParseError = false;
+					ParseError.ErrorMessage = "Error parsing JSON boolean: invalid boolean data";
+				}
+			}
+			else if (FirstCharacter == 'f')
+			{
+				if (ParseOffset + 4 < DataSize && std::memcmp(Data + ParseOffset, "false", 5))
+				{
+					ReturnValue = false;
+				}
+				else
+				{
+					ParseError = false;
+					ParseError.ErrorMessage = "Error parsing JSON boolean: invalid boolean data";
+				}
+			}
+			else
+			{
+				ParseError = false;
+				ParseError.ErrorMessage = "Error parsing JSON boolean: invalid first character";
+			}
+		}
+		UpdateParseState(ParseOffset, ParseError, OutOffset, OutError);
 		return(ReturnValue);
 	}
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse, size_t DataSize, size_t InOffset, MBError* OutError)
@@ -356,5 +473,178 @@ namespace MBParsing
 	size_t FindSubstring(std::string const& StringToSearch, std::string const& Substring, size_t ParseOffset)
 	{
 		return(FindSubstring(StringToSearch.data(), StringToSearch.size(), Substring.data(), Substring.size(), ParseOffset));
+	}
+
+	//BEGIN JSONObject
+	void swap(JSONObject& LeftObject, JSONObject& RightObject)
+	{
+		std::swap(LeftObject.m_Type, RightObject.m_Type);
+		std::swap(LeftObject.m_ObjectData, RightObject.m_ObjectData);
+	}
+
+	void* JSONObject::p_CloneData() const
+	{
+		void* ReturnValue = nullptr;
+		if (m_Type == JSONObjectType::Aggregate)
+		{
+			ReturnValue = new std::map<std::string, JSONObject>(*(std::map<std::string, JSONObject> const*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Array)
+		{
+			ReturnValue = new std::vector<JSONObject>(*(std::vector<JSONObject> const*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Integer)
+		{
+			ReturnValue = new intmax_t(*(intmax_t const*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Bool)
+		{
+			ReturnValue = new bool(*(bool const*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::String)
+		{
+			ReturnValue = new std::string(*(const std::string*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Null)
+		{
+
+		}
+		else
+		{
+			assert(false);
+		}
+		return(ReturnValue);
+	}
+	JSONObject& JSONObject::operator=(JSONObject ObjectToCopy)
+	{
+		swap(*this, ObjectToCopy);
+		return(*this);
+	}
+	void JSONObject::p_FreeData()
+	{
+		if (m_Type == JSONObjectType::Aggregate)
+		{
+			delete ((std::map<std::string,JSONObjectType>*) m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Array)
+		{
+			delete ((std::vector<JSONObjectType>*) m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Integer)
+		{
+			delete ((intmax_t*) m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Bool)
+		{
+			delete ((bool*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::String)
+		{
+			delete ((std::string*)m_ObjectData);
+		}
+		else if (m_Type == JSONObjectType::Null)
+		{
+		
+		}
+		else
+		{
+			assert(false);
+		}
+	}
+	JSONObject::JSONObject(JSONObject const& ObjectToCopy)
+	{
+		m_Type = ObjectToCopy.m_Type;
+		m_ObjectData = ObjectToCopy.p_CloneData();
+	}
+	JSONObject::JSONObject(JSONObject&& ObjectToSteal)
+	{
+		swap(*this, ObjectToSteal);
+	}
+	JSONObject::JSONObject(std::string&& StringInitializer)
+	{
+		m_Type = JSONObjectType::String;
+		m_ObjectData = new std::string(StringInitializer);
+	}
+	JSONObject::JSONObject(intmax_t IntegerInitializer)
+	{
+		m_Type = JSONObjectType::Integer;
+		m_ObjectData = new intmax_t(IntegerInitializer);
+	}
+	JSONObject::JSONObject(bool BoolInitializer)
+	{
+		m_Type = JSONObjectType::Bool;
+		m_ObjectData = new bool(BoolInitializer);
+	}
+	JSONObject::JSONObject(std::vector<JSONObject>&& VectorInitializer)
+	{
+		m_Type = JSONObjectType::Array;
+		m_ObjectData = new std::vector<JSONObject>(VectorInitializer);
+	}
+	JSONObject::JSONObject(std::map<std::string, JSONObject>&& VectorInitializer)
+	{
+		m_Type = JSONObjectType::Aggregate;
+		m_ObjectData = new std::map<std::string,JSONObject>(VectorInitializer);
+	}
+
+	JSONObject::~JSONObject()
+	{
+		p_FreeData();
+	}
+
+	intmax_t JSONObject::GetIntegerData() const
+	{
+		return(*(const intmax_t*)m_ObjectData);
+	}
+	std::string const& JSONObject::GetStringData() const
+	{
+		std::string const& ReturnValue = *(const std::string*)m_ObjectData;
+		return(ReturnValue);
+	}
+	bool JSONObject::GetBooleanData() const
+	{
+		return(*(const bool*)m_ObjectData);
+	}
+
+	std::vector<JSONObject>& JSONObject::GetArrayData()
+	{
+		return(*(std::vector<JSONObject>*)m_ObjectData);
+	}
+	std::vector<JSONObject>const& JSONObject::GetArrayData() const
+	{
+		return(*(const std::vector<JSONObject>*)m_ObjectData);
+	}
+
+	bool JSONObject::HasAttribute(std::string const& AttributeName)
+	{
+		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
+		return(ObjectMap.find(AttributeName) != ObjectMap.end());
+	}
+	JSONObject& JSONObject::GetAttribute(std::string const& AttributeName)
+	{
+		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
+		return(ObjectMap[AttributeName]);
+	}
+	JSONObject const& JSONObject::GetAttribute(std::string const& AttributeName) const
+	{
+		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
+		return(ObjectMap.at(AttributeName));
+	}
+	//END JSONObject
+
+
+	JSONObject ParseJSONObject(const void* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
+	{
+		JSONLikeParser<JSONObject> JsonParser;
+		MBError ParseError = true;
+		size_t ParseOffset = InOffset;
+		JSONObject ReturnValue = JsonParser.ParseObject(DataToParse, DataSize, ParseOffset, &ParseOffset, &ParseError);
+
+		UpdateParseState(ParseOffset, ParseError, OutOffset, OutError);
+		return(ReturnValue);
+
+	}
+	JSONObject ParseJSONObject(std::string const& Data, size_t ParseOffset, size_t* OutOffset, MBError* OutError)
+	{
+		return(ParseJSONObject(Data.data(), Data.size(), ParseOffset, OutOffset, OutError));
 	}
 };

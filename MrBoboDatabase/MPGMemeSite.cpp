@@ -291,8 +291,7 @@ MBDB_Website::MBDB_Website()
 		{ &MBDB_Website::DBViewEmbedd_Predicate,		&MBDB_Website::DBViewEmbedd_ResponseGenerator },
 		{ &MBDB_Website::DBAdd_Predicate,				&MBDB_Website::DBAdd_ResponseGenerator },
 		{ &MBDB_Website::DBGeneralAPI_Predicate,		&MBDB_Website::DBGeneralAPI_ResponseGenerator },
-		{ &MBDB_Website::DBUpdate_Predicate,			&MBDB_Website::DBUpdate_ResponseGenerator },
-		{ &MBDB_Website::DBOperationBlipp_Predicate,	&MBDB_Website::DBOperatinBlipp_ResponseGenerator } };
+		{ &MBDB_Website::DBUpdate_Predicate,			&MBDB_Website::DBUpdate_ResponseGenerator } };
 	__NumberOfHandlers.store(__LegacyRequestHandlers.size());
 	__HandlersData.store(__LegacyRequestHandlers.data());
 
@@ -1351,6 +1350,10 @@ bool MBDB_Website::DBGeneralAPI_Predicate(std::string const& RequestData)
 std::string MBDB_Website::DBGeneralAPIGetDirective(std::string const& RequestBody)
 {
 	size_t FirstSpace = RequestBody.find(" ");
+	if (FirstSpace == RequestBody.npos)
+	{
+		FirstSpace = RequestBody.size();
+	}
 	std::string APIDirective = RequestBody.substr(0, FirstSpace);
 	return(APIDirective);
 }
@@ -1779,6 +1782,75 @@ std::string MBDB_Website::DBAPI_GetIndexSearchResult(std::vector<std::string> co
 	}
 	return(ReturnValue);
 }
+std::string MBDB_Website::DBAPI_GetBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions)
+{
+	std::string ReturnValue = "";
+	std::string MBDBResources = GetResourceFolderPath();
+	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
+	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
+	if (UserPermissions.AssociatedUser != "")
+	{
+		if (LatestUserDownload == "")
+		{
+			std::ofstream LatestAccess = std::ofstream(MBDBResources + "/operationblipp/archives/LatestAccess", std::ios::out | std::ios::binary);
+			LatestAccess << UserPermissions.AssociatedUser;
+			LatestAccess.flush();
+			LatestAccess.close();
+		}
+		else
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":\"CardLocked\"}";
+		}
+	}
+	else
+	{
+		ReturnValue = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+	}
+	return(ReturnValue);
+}
+std::string MBDB_Website::DBAPI_UploadBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions)
+{
+	std::string ReturnValue = "";
+	std::string MBDBResources = GetResourceFolderPath();
+	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
+	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
+	if (UserPermissions.AssociatedUser != "")
+	{
+		std::string const& FileData = Arguments[0];
+		std::string Timestamp = p_GetTimestamp();
+		if (LatestUserDownload == UserPermissions.AssociatedUser)
+		{
+			std::ofstream LatestFile = std::ofstream(MBDBResources + "/operationblipp/archives/latest", std::ios::out | std::ios::binary);
+			std::ofstream LatestDateFile = std::ofstream(MBDBResources + "/operationblipp/archives/LatestDate", std::ios::out | std::ios::binary);
+			LatestFile << FileData;
+			LatestFile.flush();
+			LatestFile.close();
+			LatestDateFile << Timestamp;
+			LatestDateFile.flush();
+			LatestDateFile.close();
+			std::string ArchiveFilepath = MBDBResources + "/operationblipp/archives/" + Timestamp + " (" + UserPermissions.AssociatedUser + ")";
+			std::ofstream ArchiveFile = std::ofstream(ArchiveFilepath, std::ios::out | std::ios::binary);
+			ArchiveFile << FileData;
+			ArchiveFile.flush();
+			ArchiveFile.close();
+
+			std::ofstream LatestAccess = std::ofstream(MBDBResources + "/operationblipp/archives/LatestAccess", std::ios::out | std::ios::binary);
+			//ANTAGANDE här har personen som acessar redan verifierats vara korrekt
+			LatestAccess << "";
+			LatestAccess.flush();
+			LatestAccess.close();
+		}
+		else
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":\"CardLocked\"}";
+		}
+	}
+	else
+	{
+		ReturnValue = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+	}
+	return(ReturnValue);
+}
 //
 MrPostOGet::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
 {
@@ -1912,6 +1984,29 @@ MrPostOGet::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::strin
 		else if (APIDirective == "GetIndexSearchResult")
 		{
 			ReturnValue.DocumentData = DBAPI_GetIndexSearchResult(APIDirectiveArguments);
+		}
+		else if (APIDirective == "GetBlippFile")
+		{
+			//TODO vi borde ha blipp permissions, men just nu antas users vara blippare
+			if (ConnectionPermissions.AssociatedUser == "guest")
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+			}
+			else
+			{
+				ReturnValue.DocumentData = DBAPI_GetBlippFile(APIDirectiveArguments,ConnectionPermissions);
+			}
+		}
+		else if (APIDirective == "UploadBlippFile")
+		{
+			if (ConnectionPermissions.AssociatedUser == "guest")
+			{
+				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+			}
+			else
+			{
+				ReturnValue.DocumentData = DBAPI_UploadBlippFile(APIDirectiveArguments, ConnectionPermissions);
+			}
 		}
 		else
 		{

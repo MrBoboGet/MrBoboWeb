@@ -30,7 +30,7 @@
 int main()
 {
 	MBSockets::Init();
-	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
 	//MBSystem::SubProcess TestProcess("dir");
 	//while (!TestProcess.Finished())
@@ -47,13 +47,13 @@ int main()
 	//HandlerToAdd->SetURLPrefix("/");
 	//TestServer.AddRequestHandler(HandlerToAdd);
 	//TestServer.StartListening();
-	MBSockets::HTTPConnectSocket TestSocket("www.google.com", "443");
-	TestSocket.Connect();
-	MBError TLSResult = TestSocket.EstablishTLSConnection();
-	std::cout << TLSResult.ErrorMessage << std::endl;
-	std::cout << TestSocket.GetDataFromRequest("GET","/") << std::endl;
+	//MBSockets::HTTPConnectSocket TestSocket("www.google.com", "443");
+	//TestSocket.Connect();
+	//MBError TLSResult = TestSocket.EstablishTLSConnection();
+	//std::cout << TLSResult.ErrorMessage << std::endl;
+	//std::cout << TestSocket.GetDataFromRequest("GET","/") << std::endl;
 	
-	//MBGWebsiteMain();
+	MBGWebsiteMain();
 	exit(0);
 	MBTorrent::MBBitTorrentHandler TestTorrent;
 	TestTorrent.LoadTorrentInfo("Serial Experiments Lain Storyboard.torrent");
