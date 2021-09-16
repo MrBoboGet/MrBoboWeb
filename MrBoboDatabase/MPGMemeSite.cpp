@@ -1841,6 +1841,8 @@ std::string MBDB_Website::DBAPI_UploadBlippFile(std::vector<std::string> const& 
 			LatestAccess << "";
 			LatestAccess.flush();
 			LatestAccess.close();
+
+			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 		}
 		else
 		{
