@@ -1378,6 +1378,7 @@ std::vector<std::string> MBDB_Website::DBGeneralAPIGetArguments(std::string cons
 		{
 			*OutError = MBError(false);
 			OutError->ErrorMessage = "Failed to parse argument size";
+			break;
 		}
 		ReturnValue.push_back(RequestBody.substr(SizeEnd + 1, ArgumentSize));
 		ParsePosition = SizeEnd + 1 + ArgumentSize + 1;
@@ -1786,8 +1787,8 @@ std::string MBDB_Website::DBAPI_GetBlippFile(std::vector<std::string> const& Arg
 {
 	std::string ReturnValue = "";
 	std::string MBDBResources = GetResourceFolderPath();
-	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
 	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
+	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
 	if (UserPermissions.AssociatedUser != "")
 	{
 		if (LatestUserDownload == "")
@@ -1796,6 +1797,7 @@ std::string MBDB_Website::DBAPI_GetBlippFile(std::vector<std::string> const& Arg
 			LatestAccess << UserPermissions.AssociatedUser;
 			LatestAccess.flush();
 			LatestAccess.close();
+			ReturnValue = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/latest");
 		}
 		else
 		{
@@ -1812,8 +1814,8 @@ std::string MBDB_Website::DBAPI_UploadBlippFile(std::vector<std::string> const& 
 {
 	std::string ReturnValue = "";
 	std::string MBDBResources = GetResourceFolderPath();
-	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
 	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
+	std::string LatestUserDownload = MrPostOGet::LoadWholeFile(MBDBResources + "/operationblipp/archives/LatestAccess");
 	if (UserPermissions.AssociatedUser != "")
 	{
 		std::string const& FileData = Arguments[0];
