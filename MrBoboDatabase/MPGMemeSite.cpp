@@ -1789,7 +1789,7 @@ std::string MBDB_Website::DBAPI_GetBlippFile(std::vector<std::string> const& Arg
 	std::string MBDBResources = GetResourceFolderPath();
 	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
 	std::string BlippArchives = "/operationblipp/archives/";
-	if (Arguments.size() != 1 && Arguments[0] == "Dev")
+	if (Arguments.size() == 1 && Arguments[0] == "Dev")
 	{
 		BlippArchives = "/operationblipp/Dev/archives/";
 	}
@@ -1821,7 +1821,7 @@ std::string MBDB_Website::DBAPI_UploadBlippFile(std::vector<std::string> const& 
 	std::string MBDBResources = GetResourceFolderPath();
 	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
 	std::string BlippArchives = "/operationblipp/archives/";
-	if (Arguments.size() != 1 && Arguments[0] == "Dev")
+	if (Arguments.size() > 1 && Arguments[1] == "Dev")
 	{
 		BlippArchives = "/operationblipp/Dev/archives/";
 	}
@@ -1871,7 +1871,7 @@ std::string MBDB_Website::DBAPI_UnlockBlippFile(std::vector<std::string> const& 
 	std::string MBDBResources = GetResourceFolderPath();
 	std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
 	std::string BlippArchives = "/operationblipp/archives/";
-	if (Arguments.size() != 1 && Arguments[0] == "Dev")
+	if (Arguments.size() == 1 && Arguments[0] == "Dev")
 	{
 		BlippArchives = "/operationblipp/Dev/archives/";
 	}
