@@ -135,6 +135,7 @@ private:
 	std::mutex m_BlippFileMutex;
 	std::string DBAPI_GetBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions);
 	std::string DBAPI_UploadBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions);
+	std::string DBAPI_UnlockBlippFile(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions);
 
 	std::vector<LegacyRequestHandler> __LegacyRequestHandlers = {};
 	std::atomic<size_t> __NumberOfHandlers{ 0 };
