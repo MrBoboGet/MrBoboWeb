@@ -173,6 +173,10 @@ set(Header_Files
     "MBParsing/MBParsing.h"
     "MrBoboDatabase/MBDBObjectScript.h"
      "MBSystem/MBSystem.h"
+     #TODO ta bort MBPM direct dependancien
+     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.h"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MB_PacketProtocol.h"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBCLI/MBCLI.h"
 )
 source_group("Header Files" FILES ${Header_Files})
 
@@ -199,6 +203,10 @@ set(Source_Files
     ${EXTLIBS_SOURCE_FILES}
     "MBErrorHandling.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
+     #TODO ta bort MBPM direct dependancien
+     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.cpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MB_PacketProtocol.cpp"
+     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBCLI/MBCLI.cpp"
 )
 message(${Source_Files})
 source_group("Source Files" FILES ${Source_Files})
@@ -370,6 +378,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     #"${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
     "${EXTLIBS_DIR}/ffmpeg/"
     "${CMAKE_CURRENT_SOURCE_DIR}/.;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../;"
     "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
     "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"

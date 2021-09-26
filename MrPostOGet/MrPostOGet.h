@@ -39,6 +39,8 @@ namespace MrPostOGet
 		std::vector<FiledataIntervall> IntervallsToRead = {};
 		std::string DocumentData;
 		std::string DocumentDataFileReference = "";
+		//TODO är det så här vi vill handla det?
+		bool DataSent = false;
 	};
 
 

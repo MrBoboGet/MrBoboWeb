@@ -353,7 +353,10 @@ namespace MrPostOGet
 					{
 						//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
 						MrPostOGet::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient, this);
-						ConnectedClient->SendHTTPDocument(RequestResponse);
+						if (RequestResponse.DataSent == false)
+						{
+							ConnectedClient->SendHTTPDocument(RequestResponse);
+						}
 						HandlerHasHandled = true;
 						break;
 					}
@@ -363,7 +366,10 @@ namespace MrPostOGet
 					continue;
 				}
 				MrPostOGet::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"), this);
-				ConnectedClient->SendHTTPDocument(DocumentToSend);
+				if (DocumentToSend.DataSent == false)
+				{
+					ConnectedClient->SendHTTPDocument(DocumentToSend);
+				}
 			}
 		}
 		catch (const std::exception& CaughtException)

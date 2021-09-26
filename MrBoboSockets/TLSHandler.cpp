@@ -1281,7 +1281,7 @@ void TLSHandler::p_UpdateConnectionParametersAfterServerHello(TLS1_2::SecurityPa
 }
 std::vector<std::string> TLSHandler::p_GetServerHelloResponseRecords(MBSockets::ConnectSocket* SocketToUse)
 {
-	std::vector<std::string> ReturnValue = GetNextPlaintextRecords(SocketToUse);
+	std::vector<std::string> ReturnValue = GetNextPlaintextRecords(SocketToUse,3,m_MaxBytesInMemory);
 	if (ReturnValue[ReturnValue.size() - 1].size() != (5 + 4))
 	{
 		std::vector<std::string> Hellostruct = GetNextPlaintextRecords(SocketToUse);
@@ -1420,7 +1420,7 @@ MBError TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect)
 	ConnectionParameters.ServerSequenceNumber = 0;
 
 	//std::cout << "Premaster secret: " << MBUtility::ReplaceAll(MBUtility::HexEncodeString(ConnectionParameters.PreMasterSecret), " ", "") << std::endl;
-	std::vector<std::string> ServerVerifyDataResponse = GetNextPlaintextRecords(SocketToConnect);
+	std::vector<std::string> ServerVerifyDataResponse = GetNextPlaintextRecords(SocketToConnect,2,1000000);
 	ConnectionParameters.ServerSequenceNumber = 0;
 	assert(ServerVerifyDataResponse.size() > 1);
 	assert(ServerVerifyDataResponse[1].size() >= 9);

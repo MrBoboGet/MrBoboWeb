@@ -9,6 +9,9 @@
 #include <ctime>
 #include <chrono>
 #include <MBSystem/MBSystem.h>
+
+#include <MBPacketManager/MBPacketManager.h>
+
 //username cookie = 
 //password cookie = 
 enum class DBPermissions
@@ -158,6 +161,8 @@ bool MBDB_Website_GitHandler::HandlesRequest(MrPostOGet::HTTPClientRequest const
 }
 MrPostOGet::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*)
 {
+	//TODO fixa så att man inte kan skriva och laddad ner samtidigt
+	std::lock_guard<std::mutex> Lock(m_UploadMutex);
 	MrPostOGet::HTTPDocument ReturnValue;
 	if (true)
 	{
@@ -229,6 +234,63 @@ MrPostOGet::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::H
 
 	return(ReturnValue);
 }
+//END MBDB_Website_GitHandler
+
+//BEGIN MBDB_Website_MBPP_Handler
+MBDB_Website_MBPP_Handler::MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBDB_BasicPasswordAuthenticator* Authenticator)
+{
+	m_PacketsDirectory = PacketDirectory;
+	m_UserAuthenticator = Authenticator;
+}
+//void MBDB_Website_MBPP_Handler::AddPacketDirectory(std::string const& NewDirectory)
+//{
+//	m_PacketsDirectory = NewDirectory;
+//}
+bool MBDB_Website_MBPP_Handler::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
+{
+	return(RequestToHandle.RequestResource == "/MBPM" || RequestToHandle.RequestResource == "/MBPM/");
+}
+MrPostOGet::HTTPDocument MBDB_Website_MBPP_Handler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*) 
+{
+	MrPostOGet::HTTPDocument ReturnValue;
+	std::lock_guard<std::mutex> Lock(m_WriteMutex);
+	MBError GenerationError = true;
+	ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::Conflict;
+	try
+	{
+		MBPM::MBPP_Server ResponseGenerator(m_PacketsDirectory);
+		GenerationError = ResponseGenerator.InsertClientData(Request.BodyData);
+		//här ska också några checks göras för att se huruvida datan är av typen upload, och därmed kräver verifiering
+		//alternativt så ger vi den en Password verifierare
+		while (!ResponseGenerator.ClientRequestFinished() && Socket->DataIsAvailable() && GenerationError)
+		{
+			ResponseGenerator.InsertClientData(Socket->GetNextChunkData());
+		}
+		if (ResponseGenerator.ClientRequestFinished())
+		{
+			MBPM::MBPP_ServerResponseIterator* ResponseIterator = ResponseGenerator.GetResponseIterator();
+			std::string HTTPHeader = "HTTP/1.1 200 OK\r\n";
+			HTTPHeader += "Content-Type: application/x-MBPP-record\r\n";
+			HTTPHeader += "Content-Length: " + std::to_string(ResponseIterator->GetResponseSize()) + "\r\n\r\n";
+			Socket->SendData(HTTPHeader);
+			while (!ResponseIterator->IsFinished())
+			{
+				Socket->SendData(**ResponseIterator);
+				ResponseIterator->Increment();
+			}
+			ResponseGenerator.FreeResponseIterator(ResponseIterator);
+			ReturnValue.DataSent = true;
+		}
+	}
+	catch (const std::exception& e)
+	{
+		std::cout << "Error in MBPP handling: " <<e.what() << std::endl;
+	}
+	
+	return(ReturnValue);
+}
+//END MBDB_Website_MBPP_Handler
+
 
 //BEGIN MBDB_Website
 void MBDB_Website::m_InitDatabase()
@@ -302,6 +364,7 @@ MBDB_Website::MBDB_Website()
 	m_BasicPasswordAuthenticator = std::unique_ptr<MBDB_Website_BaiscPasswordAuthenticator>(new MBDB_Website_BaiscPasswordAuthenticator(this));
 	m_GitHandler = std::unique_ptr<MBDB_Website_GitHandler>(new MBDB_Website_GitHandler("/git/",m_BasicPasswordAuthenticator.get()));
 	m_GitHandler->SetURLPrefix("/git/");
+	m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler("../MBPacketManager/", m_BasicPasswordAuthenticator.get())); // ta och ändra
 	//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());
 	//__InternalHandlers = { std::unique_ptr< MBDB_Website_GitHandler>(InternalGitHandler)};
 	//__InternalHandlersCount.store(__InternalHandlers.size());
@@ -327,6 +390,10 @@ bool MBDB_Website::HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestTo
 		}
 	}
 	if (m_GitHandler->HandlesRequest(RequestToHandle, ConnectionState, AssociatedServer))
+	{
+		return(true);
+	}
+	if (m_MPPHandler->HandlesRequest(RequestToHandle, ConnectionState, AssociatedServer))
 	{
 		return(true);
 	}
@@ -356,6 +423,10 @@ MrPostOGet::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRe
 		m_GitHandler->SetTopDirectory(this->GetResourceFolderPath()+"/Users/");
 		//m_GitHandler->ur(this->GetResourceFolderPath()+"/Users/");
 		return(m_GitHandler->GenerateResponse(Request, ConnectionState, Connection, Server));
+	}
+	if (m_MPPHandler->HandlesRequest(Request, ConnectionState, Server))
+	{
+		return(m_MPPHandler->GenerateResponse(Request, ConnectionState, Connection, Server));
 	}
 	assert(false);
 }

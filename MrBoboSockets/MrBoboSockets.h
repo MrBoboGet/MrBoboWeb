@@ -57,7 +57,7 @@ namespace MBSockets
 		Socket& operator=(Socket&&);
 		Socket(Socket const&) = delete;
 		Socket(Socket&&);
-		bool IsValid();
+		virtual bool IsValid();
 		virtual void Close();
 		//int SendData(const char* DataPointer, int DataLength);
 		//int RecieveData(char* Buffer, int BufferSize);
@@ -86,15 +86,31 @@ namespace MBSockets
 		TLSHandler m_TLSHandler = TLSHandler();
 	public:
 		std::string HostName;
-		bool IsConnected();
+		virtual bool IsConnected();
 		std::string GetIpOfConnectedSocket();
 		virtual int SendRawData(const void* DataPointer, size_t DataLength);
-		virtual int SendData(const void* DataPointer, size_t DataLength);
-		virtual int SendData(std::string const& DataToSend);
 		virtual std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
+		
 		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1);
-		virtual ConnectSocket& operator<<(std::string const& DataToSend);
-		virtual ConnectSocket& operator>>(std::string& DataBuffer);
+		virtual int SendData(const void* DataPointer, size_t DataLength);
+		
+		//TODO blev en oändlig loop där MBPP_HTTPConverter kallade på koden under, som i sin tur kalla dess overriade med data och length...
+		//måste nog egentligen ta och tänka om hur den här inheritance ska funka, eventuellt en medelstor rewrite, för som det ser ut nu kommer man behöva 
+		//overloada massa funktioner för att saker inte ska kajka
+		virtual int SendData(std::string const& DataToSend) 
+		{
+			return(ConnectSocket::SendData(DataToSend.data(), DataToSend.size()));
+		};
+		virtual ConnectSocket& operator<<(std::string const& DataToSend)
+		{
+			ConnectSocket::SendData(DataToSend);
+			return(*this);
+		}
+		virtual ConnectSocket& operator>>(std::string& DataBuffer)
+		{
+			DataBuffer = ConnectSocket::RecieveData(-1);
+			return(*this);
+		}
 		virtual MBError EstablishTLSConnection();
 		ConnectSocket() {};
 		ConnectSocket(ConnectSocket&&)
@@ -107,7 +123,7 @@ namespace MBSockets
 	{
 	private:
 	public:
-		int Connect();
+		virtual int Connect();
 		MBError EstablishTLSConnection() override;
 		ClientSocket(std::string const& Adress, std::string const& Port);
 		ClientSocket(ClientSocket&&)

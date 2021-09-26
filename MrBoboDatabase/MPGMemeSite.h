@@ -5,6 +5,7 @@
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <MBErrorHandling.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
+#include <atomic>
 
 struct DBPermissionsList
 {
@@ -50,6 +51,8 @@ private:
 	std::string m_TopLevelDirectory = "";
 	std::string m_URLPrefix = "";
 
+	std::mutex m_UploadMutex;
+
 	MBDB_BasicPasswordAuthenticator* m_UserAuthenticator = nullptr;
 
 	void p_SetGCIVariables(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
@@ -60,6 +63,21 @@ public:
 	void SetURLPrefix(std::string const& PathPrefix);
 	void SetTopDirectory(std::string const& DirectoryToSet);
 
+	bool HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer) override;
+	MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*) override;
+};
+
+class MBDB_Website_MBPP_Handler : public MrPostOGet::HTTPRequestHandler
+{
+private:
+	std::string m_PacketsDirectory = "";
+	MBDB_BasicPasswordAuthenticator* m_UserAuthenticator = nullptr;
+	
+	//TODO fixa separat upload/write mutex så man läsa samtidigt så länge ingen annan försöker ladda upp
+	std::mutex m_WriteMutex;
+public:
+	//void AddPacketDirectory(std::string const& NewDirectory);
+	MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBDB_BasicPasswordAuthenticator* Authenticator);
 	bool HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer) override;
 	MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*) override;
 };
@@ -153,6 +171,7 @@ private:
 	//std::atomic<size_t> __InternalHandlersCount{ 0 };
 	//std::atomic<std::unique_ptr<MrPostOGet::HTTPRequestHandler>*> __InternalHandlersData{ nullptr };
 	std::unique_ptr<MBDB_Website_GitHandler> m_GitHandler = nullptr;
+	std::unique_ptr<MBDB_Website_MBPP_Handler> m_MPPHandler = nullptr;
 
 	bool p_Edit_Predicate(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer);
 	MrPostOGet::HTTPDocument p_Edit_ResponseGenerator(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*);

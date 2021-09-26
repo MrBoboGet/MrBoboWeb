@@ -277,10 +277,10 @@ namespace MBSockets
 		}
 		return(0);
 	}
-	int ConnectSocket::SendData(std::string const& DataToSend)
-	{
-		return(SendData(DataToSend.c_str(), DataToSend.size()));
-	}
+	//int ConnectSocket::SendData(std::string const& DataToSend)
+	//{
+	//	return(SendData(DataToSend.c_str(), DataToSend.size()));
+	//}
 	std::string ConnectSocket::RecieveRawData(size_t MaxNumberOfBytes)
 	{
 		size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
@@ -325,16 +325,16 @@ namespace MBSockets
 			return(m_TLSHandler.GetApplicationData(this, MaxNumberOfBytes));
 		}
 	}
-	ConnectSocket& ConnectSocket::operator<<(std::string const& DataToSend)
-	{
-		SendData(DataToSend);
-		return(*this);
-	}
-	ConnectSocket& ConnectSocket::operator>>(std::string& DataBuffer)
-	{
-		DataBuffer = RecieveData(-1);
-		return(*this);
-	}
+	//ConnectSocket& ConnectSocket::operator<<(std::string const& DataToSend)
+	//{
+	//	SendData(DataToSend);
+	//	return(*this);
+	//}
+	//ConnectSocket& ConnectSocket::operator>>(std::string& DataBuffer)
+	//{
+	//	DataBuffer = RecieveData(-1);
+	//	return(*this);
+	//}
 	MBError ConnectSocket::EstablishTLSConnection()
 	{
 		return(MBError(false));
