@@ -32,7 +32,7 @@ MBDB_Website_BaiscPasswordAuthenticator::MBDB_Website_BaiscPasswordAuthenticator
 {
 	m_AssociatedServer = AssociatedServer;
 }
-bool MBDB_Website_BaiscPasswordAuthenticator::AuthenticateRawPassword(std::string const& Username, std::string const& Password)
+bool MBDB_Website_BaiscPasswordAuthenticator::VerifyUser(std::string const& Username, std::string const& Password)
 {
 	std::string HashedPassword = MBCrypto::HashData(Password, MBCrypto::HashFunction::SHA256);
 	std::vector<MBDB::MBDB_RowData> UserResult = m_AssociatedServer->m_GetUser(Username,MBUtility::ReplaceAll(MBUtility::HexEncodeString(HashedPassword)," ",""));
@@ -74,7 +74,7 @@ bool  MBDB_Website_GitHandler::p_VerifyAuthentication(MrPostOGet::HTTPClientRequ
 		}
 		std::string Username = AuthenticationData.substr(0, ColonPosition);
 		std::string Password = AuthenticationData.substr(ColonPosition+1);
-		return(m_UserAuthenticator->AuthenticateRawPassword(Username, Password));
+		return(m_UserAuthenticator->VerifyUser(Username, Password));
 	}
 	return(false);
 }
@@ -139,7 +139,7 @@ void MBDB_Website_GitHandler::p_SetGCIVariables(MrPostOGet::HTTPClientRequest co
 	std::cout << "REQUEST_METHOD=" << REQUEST_METHOD << std::endl;
 	std::cout << "CONTENT_TYPE=" << CONTENT_TYPE << std::endl;
 }
-MBDB_Website_GitHandler::MBDB_Website_GitHandler(std::string const& TopResourceDirectory,MBDB_BasicPasswordAuthenticator* Authenticator)
+MBDB_Website_GitHandler::MBDB_Website_GitHandler(std::string const& TopResourceDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator)
 {
 	m_UserAuthenticator = Authenticator;
 	m_TopLevelDirectory = TopResourceDirectory;
@@ -237,7 +237,7 @@ MrPostOGet::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::H
 //END MBDB_Website_GitHandler
 
 //BEGIN MBDB_Website_MBPP_Handler
-MBDB_Website_MBPP_Handler::MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBDB_BasicPasswordAuthenticator* Authenticator)
+MBDB_Website_MBPP_Handler::MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator)
 {
 	m_PacketsDirectory = PacketDirectory;
 	m_UserAuthenticator = Authenticator;
@@ -259,6 +259,7 @@ MrPostOGet::HTTPDocument MBDB_Website_MBPP_Handler::GenerateResponse(MrPostOGet:
 	try
 	{
 		MBPM::MBPP_Server ResponseGenerator(m_PacketsDirectory);
+		ResponseGenerator.SetUserAuthenticator(m_UserAuthenticator);
 		GenerationError = ResponseGenerator.InsertClientData(Request.BodyData);
 		//här ska också några checks göras för att se huruvida datan är av typen upload, och därmed kräver verifiering
 		//alternativt så ger vi den en Password verifierare
@@ -365,6 +366,7 @@ MBDB_Website::MBDB_Website()
 	m_GitHandler = std::unique_ptr<MBDB_Website_GitHandler>(new MBDB_Website_GitHandler("/git/",m_BasicPasswordAuthenticator.get()));
 	m_GitHandler->SetURLPrefix("/git/");
 	m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler("../MBPacketManager/", m_BasicPasswordAuthenticator.get())); // ta och ändra
+	
 	//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());
 	//__InternalHandlers = { std::unique_ptr< MBDB_Website_GitHandler>(InternalGitHandler)};
 	//__InternalHandlersCount.store(__InternalHandlers.size());

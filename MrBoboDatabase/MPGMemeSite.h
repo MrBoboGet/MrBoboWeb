@@ -6,6 +6,7 @@
 #include <MBErrorHandling.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
 #include <atomic>
+#include <MBInterfaces.h>
 
 struct DBPermissionsList
 {
@@ -27,21 +28,14 @@ struct LegacyRequestHandler
 	MrPostOGet::HTTPDocument(MBDB_Website::* Generator)(std::string const&, MrPostOGet::HTTPServer*, MrPostOGet::HTTPServerSocket*);
 };
 
-class MBDB_BasicPasswordAuthenticator
-{
-private:
-public:
-	virtual bool AuthenticateRawPassword(std::string const& Username, std::string const& Password) = 0;
-	//virtual bool AuthenticatePasswordHash(std::string const& Username, std::string const& PasswordHash) = 0;
-};
 
-class MBDB_Website_BaiscPasswordAuthenticator : public MBDB_BasicPasswordAuthenticator
+class MBDB_Website_BaiscPasswordAuthenticator : public MBUtility::MBBasicUserAuthenticator
 {
 private:
 	MBDB_Website* m_AssociatedServer = nullptr;
 public:
 	MBDB_Website_BaiscPasswordAuthenticator(MBDB_Website* AssociatedServer);
-	virtual bool AuthenticateRawPassword(std::string const& Username, std::string const& Password) override;
+	virtual bool VerifyUser(std::string const& Username, std::string const& Password) override;
 };
 
 class MBDB_Website_GitHandler : public MrPostOGet::HTTPRequestHandler
@@ -53,13 +47,13 @@ private:
 
 	std::mutex m_UploadMutex;
 
-	MBDB_BasicPasswordAuthenticator* m_UserAuthenticator = nullptr;
+	MBUtility::MBBasicUserAuthenticator* m_UserAuthenticator = nullptr;
 
 	void p_SetGCIVariables(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
 	MrPostOGet::HTTPDocument p_GetAuthenticationPrompt(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
 	bool p_VerifyAuthentication(MrPostOGet::HTTPClientRequest const& AssociatedRequest);
 public:
-	MBDB_Website_GitHandler(std::string const& TopResourceDirectory, MBDB_BasicPasswordAuthenticator* Authenticator);
+	MBDB_Website_GitHandler(std::string const& TopResourceDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator);
 	void SetURLPrefix(std::string const& PathPrefix);
 	void SetTopDirectory(std::string const& DirectoryToSet);
 
@@ -71,13 +65,13 @@ class MBDB_Website_MBPP_Handler : public MrPostOGet::HTTPRequestHandler
 {
 private:
 	std::string m_PacketsDirectory = "";
-	MBDB_BasicPasswordAuthenticator* m_UserAuthenticator = nullptr;
+	MBUtility::MBBasicUserAuthenticator* m_UserAuthenticator = nullptr;
 	
 	//TODO fixa separat upload/write mutex så man läsa samtidigt så länge ingen annan försöker ladda upp
 	std::mutex m_WriteMutex;
 public:
 	//void AddPacketDirectory(std::string const& NewDirectory);
-	MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBDB_BasicPasswordAuthenticator* Authenticator);
+	MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator);
 	bool HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer) override;
 	MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*) override;
 };
@@ -99,7 +93,7 @@ private:
 	std::string __MBTopResourceFolder = "./";
 	void m_InitDatabase();
 
-	std::unique_ptr<MBDB_BasicPasswordAuthenticator> m_BasicPasswordAuthenticator = nullptr;
+	std::unique_ptr<MBUtility::MBBasicUserAuthenticator> m_BasicPasswordAuthenticator = nullptr;
 
 	std::string p_GetTimestamp();
 	bool p_StringIsPath(std::string const& StringToCheck);
