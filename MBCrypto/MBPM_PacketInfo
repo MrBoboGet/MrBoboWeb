@@ -1,0 +1,10 @@
+{
+	"PacketName":"MBCrypto",
+	"Attributes":["Embeddable"],
+	"OutputConfigurations":["StaticDebug","StaticRelease"],
+	"OutputTargetNames": {
+		"StaticRelease": "MBCrypto_SR",
+		"StaticDebug": "MBCrypto_SD"
+	},
+	"Dependancies":["MrBigInt","cryptopp","MBUtility"],
+}

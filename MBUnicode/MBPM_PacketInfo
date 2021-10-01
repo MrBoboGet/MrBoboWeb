@@ -1,0 +1,10 @@
+{
+	"PacketName":"MBUnicode",
+	"Attributes":["Embeddable"],
+	"OutputConfigurations":["StaticDebug","StaticRelease"],
+	"OutputTargetNames": {
+		"StaticRelease": "MBUnicode_SR",
+		"StaticDebug": "MBUnicode_SD"
+	},
+	"Dependancies":["MBUtility"],
+}

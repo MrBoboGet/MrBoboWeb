@@ -1,7 +1,7 @@
 #include "MBDBObjectScript.h"
 #include <filesystem>
 #include <fstream>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <MBParsing/MBParsing.h>
 #include <deque>
 #include <algorithm>

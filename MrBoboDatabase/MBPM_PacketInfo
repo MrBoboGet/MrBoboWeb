@@ -1,0 +1,10 @@
+{
+	"PacketName":"MrBoboDatabase",
+	"Attributes":["Embeddable"],
+	"OutputConfigurations":["StaticDebug","StaticRelease"],
+	"OutputTargetNames": {
+		"StaticRelease": "MrBoboDatabase_SR",
+		"StaticDebug": "MrBoboDatabase_SD"
+	},
+	"Dependancies":["MBUtility","sqlite3"],
+}

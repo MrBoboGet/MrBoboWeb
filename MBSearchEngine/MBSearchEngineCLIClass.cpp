@@ -1,6 +1,6 @@
 #include <MBSearchEngine/MBSearchEngineCLIClass.h>
 #include <MBSearchEngine/MBSearchEngine.h>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <MBStrings.h>
 #include <filesystem>
 #include <codecvt>

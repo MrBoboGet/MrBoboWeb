@@ -3,7 +3,7 @@
 #include <MinaStringOperations.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <filesystem>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
 #include <MBMime/MBMime.h>
 #include <ctime>

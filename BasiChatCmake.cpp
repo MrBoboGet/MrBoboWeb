@@ -4,12 +4,11 @@
 #include <Crawler.h>
 #include <SearchEngine/MBSearchEngine.h>
 #include <MrPostOGet/MrPostOGet.h>
-#include <MrPostOGet/SearchEngineImplementation.h>
 #include <MrBoboChatt/MrBoboChatt.h>
 #include <MrBoboDatabase/MrBoboDatabase.h>
 #include <MrBoboDatabase/MPGMemeSite.h>
 #include <MrBoboMedia/MBMedia.h>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <time.h>
 #include <Crawler/MBCrawler.h>

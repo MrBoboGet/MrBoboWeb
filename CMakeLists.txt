@@ -152,7 +152,6 @@ set(Header_Files
     "MBCrypto/Asn1Handlers.h"
     "MrPostOGet/MBHTMLParser.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/MrPostOGet.h"
-    "MrPostOGet/SearchEngineImplementation.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrBoboSockets/TLSHandler.h"
     "SearchEngine/MBSearchEngine.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
@@ -161,8 +160,8 @@ set(Header_Files
     ${EXTLIBS_HEADER_FILES}
     #search engine
     "MBSearchEngine/MBSearchEngine.h"
-    "MBSearchEngine/MBUnicode.h"
-    "MBSearchEngine/MBUnicodeMacros.h"
+    "MBUnicode/MBUnicode.h"
+    "MBUnicode/MBUnicodeMacros.h"
     "Crawler/MBCrawler.h"
     "MBDNSHandler/MBDNSHandler.h"
     "MBTorrent/MBBitTorrent.h"
@@ -189,7 +188,7 @@ set(Source_Files
     "MrBoboDatabase/MPGMemeSite.cpp"
     "MrBoboMedia/MBMedia.cpp"
     "MBSearchEngine/MBSearchEngine.cpp"
-    "MBSearchEngine/MBUnicode.cpp"
+    "MBUnicode/MBUnicode.cpp"
     "Crawler/MBCrawler.cpp"
     "MBDNSHandler/MBDNSHandler.cpp"
     "MBMime/MBMime.cpp"
@@ -224,11 +223,10 @@ set (MB_STANDARD_LIBRARY_DIR
 
 set (MBSE_HEADERS
     "MBSearchEngine/MBSearchEngine.h"
-    "MBSearchEngine/MBUnicode.h"
-    "MBSearchEngine/MBUnicodeMacros.h"
-    "MBSearchEngine/MBUnicode.h"
+    "MBUnicode/MBUnicode.h"
+    "MBUnicode/MBUnicodeMacros.h"
+    "MBUnicode/MBUnicode.h"
     "MBSearchEngine/MBISaveIndexSpec.h"
-    "MBSearchEngine/MBUnicodeMacros.h"
     "MBSearchEngine/MBSearchEngineCLIClass.h"
     "MBSearchEngine/MBRecursiveDirectoryIterator.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
@@ -238,7 +236,7 @@ set (MBSE_SOURCES
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBSearchEngine/MBSearchEngineCLIMain.cpp"
     "MBSearchEngine/MBSearchEngineCLIClass.cpp"
-    "MBSearchEngine/MBUnicode.cpp"
+    "MBUnicode/MBUnicode.cpp"
     "MBParsing/MBParsing.cpp"
     #TODO flytta error handlingen till MB_STANDARD_LIBRARY
     "MBErrorHandling.cpp"

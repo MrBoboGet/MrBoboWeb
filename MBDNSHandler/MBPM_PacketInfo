@@ -1,0 +1,10 @@
+{
+	"PacketName":"MBDNSHandler",
+	"Attributes":["Embeddable"],
+	"OutputConfigurations":["StaticDebug","StaticRelease"],
+	"OutputTargetNames": {
+		"StaticRelease": "MBDNSHandler_SR",
+		"StaticDebug": "MBDNSHandler_SD"
+	},
+	"Dependancies":["MBSockets","MBUtility"],
+}

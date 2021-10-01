@@ -1,6 +1,6 @@
 ﻿#include "MrPostOGet.h"
 #include <MBStrings.h>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <MBParsing/MBParsing.h>
 #include <MBMime/MBMime.h>
 namespace MrPostOGet

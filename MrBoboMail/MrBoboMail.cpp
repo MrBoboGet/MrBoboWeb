@@ -1,7 +1,7 @@
 #include "MrBoboMail.h"
 #include <chrono>
 #include <MBCrypto/MBCrypto.h>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <iostream>
 #include <fstream>
 namespace MBMail

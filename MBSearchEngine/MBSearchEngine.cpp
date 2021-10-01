@@ -6,7 +6,7 @@
 #include <iostream>
 #include <filesystem>
 #include <array>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <map>
 #include <cmath>
 #include <MBSearchEngine/MBISaveIndexSpec.h>

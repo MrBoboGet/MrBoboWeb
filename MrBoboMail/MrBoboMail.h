@@ -4,7 +4,7 @@
 #include <string>
 #include <MrBoboSockets/MrBoboSockets.h>
 #include <MBMime/MBMime.h>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 #include <MBStrings.h>
 namespace MBMail
 {

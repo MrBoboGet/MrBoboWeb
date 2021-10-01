@@ -1,5 +1,5 @@
-#include <MBSearchEngine/MBUnicode.h>
-#include <MBSearchEngine/MBUnicodeMacros.h>
+#include "MBUnicode.h"
+#include "MBUnicodeMacros.h"
 #include <string>
 #include <MinaStringOperations.h>
 #include <fstream>

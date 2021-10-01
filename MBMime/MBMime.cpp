@@ -1,7 +1,7 @@
 #include "MBMime.h"
 #include <cstring>
 #include <algorithm>
-
+#include <MBParsing/MBParsing.h>
 namespace MBMIME
 {
 	//BEGIN PUBLIC Functions

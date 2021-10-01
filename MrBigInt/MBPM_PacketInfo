@@ -1,0 +1,10 @@
+{
+	"PacketName":"MrBigInt",
+	"Attributes":["Embeddable"],
+	"OutputConfigurations":["StaticDebug","StaticRelease"],
+	"OutputTargetNames": {
+		"StaticRelease": "MrBigInt_SR",
+		"StaticDebug": "MrBigInt_SD"
+	},
+	"Dependancies":["MBUtility"],
+}

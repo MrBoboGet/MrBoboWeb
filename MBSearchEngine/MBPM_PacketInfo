@@ -1,0 +1,10 @@
+{
+	"PacketName":"MBSearchEngine",
+	"Attributes":["Embeddable"],
+	"OutputConfigurations":["StaticDebug","StaticRelease"],
+	"OutputTargetNames": {
+		"StaticRelease": "MBSearchEngine_SR",
+		"StaticDebug": "MBSearchEngine_SD"
+	},
+	"Dependancies":["MBUtility","MrPostOGet"],
+}

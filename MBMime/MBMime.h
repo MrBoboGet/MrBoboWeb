@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <MBParsing/MBParsing.h>
-#include <MBSearchEngine/MBUnicode.h>
+#include <MBUnicode/MBUnicode.h>
 namespace MBMIME
 {
 	enum class MIMEType

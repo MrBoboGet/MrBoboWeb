@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <MBSearchEngine/MBUnicodeMacros.h>
+#include "MBUnicodeMacros.h"
 #include <filesystem>
 namespace MBUnicode
 {
