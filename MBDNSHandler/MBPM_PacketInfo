@@ -6,5 +6,5 @@
 		"StaticRelease": "MBDNSHandler_SR",
 		"StaticDebug": "MBDNSHandler_SD"
 	},
-	"Dependancies":["MBSockets","MBUtility"],
+	"Dependancies":["MrBoboSockets","MBUtility"],
 }

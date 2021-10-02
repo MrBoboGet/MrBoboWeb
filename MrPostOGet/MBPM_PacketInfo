@@ -6,5 +6,5 @@
 		"StaticRelease": "MrPostOGet_SR",
 		"StaticDebug": "MrPostOGet_SD"
 	},
-	"Dependancies":["MBUtility","MBSockets","MBMime","MBParsing","MBSystem"],
+	"Dependancies":["MBUtility","MrBoboSockets","MBMime","MBParsing","MBSystem"],
 }
