@@ -2012,7 +2012,19 @@ std::string MBDB_Website::DBAPI_UnlockBlippFile(std::vector<std::string> const& 
 		}
 		else
 		{
-			ReturnValue = "{\"MBDBAPI_Status\":\"CardLocked\"}";
+			if (LatestUserDownload == "" && (Arguments.size() > 0 && Arguments[0] == "Dev"))
+			{
+				std::ofstream LatestAccess = std::ofstream(MBDBResources + BlippArchives + "LatestAccess", std::ios::out | std::ios::binary);
+				LatestAccess << UserPermissions.AssociatedUser;
+				LatestAccess.flush();
+				LatestAccess.close();
+
+				ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+			}
+			else
+			{
+				ReturnValue = "{\"MBDBAPI_Status\":\"CardLocked\"}";
+			}
 		}
 	}
 	else
