@@ -250,6 +250,38 @@ bool MBDB_Website_MBPP_Handler::HandlesRequest(MrPostOGet::HTTPClientRequest con
 {
 	return(RequestToHandle.RequestResource == "/MBPM" || RequestToHandle.RequestResource == "/MBPM/");
 }
+void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(std::string const& PacketToUpdate)
+{
+	if (std::filesystem::exists(m_PacketsDirectory + PacketToUpdate))
+	{
+		if (std::filesystem::exists(m_PacketsDirectory + PacketToUpdate + "/MBPM_UploadedChanges"))
+		{
+			std::string PacketTopDirectory = m_PacketsDirectory + PacketToUpdate + "/";
+			std::string UploadedChangesDirectory = m_PacketsDirectory + PacketToUpdate + "/MBPM_UploadedChanges/";
+			std::filesystem::recursive_directory_iterator UploadedChangesIterator = std::filesystem::recursive_directory_iterator(UploadedChangesDirectory);
+			for(auto const& Entry : UploadedChangesIterator)
+			{
+				if (Entry.is_regular_file())
+				{
+					std::string FilePath = MBUnicode::PathToUTF8(std::filesystem::relative(UploadedChangesDirectory, Entry.path()));
+					std::filesystem::rename(UploadedChangesDirectory + FilePath, PacketTopDirectory + FilePath);
+				}
+			}
+			//resettar directoryn
+			std::filesystem::remove_all(UploadedChangesDirectory);
+			//skapar nytt index
+			MBPM::CreatePacketFilesData(PacketTopDirectory);
+		}
+		else
+		{
+			//inga chagnges tillagda...
+		}
+	}
+	else
+	{
+		//dafuq?
+	}
+}
 MrPostOGet::HTTPDocument MBDB_Website_MBPP_Handler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*) 
 {
 	MrPostOGet::HTTPDocument ReturnValue;
@@ -281,6 +313,11 @@ MrPostOGet::HTTPDocument MBDB_Website_MBPP_Handler::GenerateResponse(MrPostOGet:
 			}
 			ResponseGenerator.FreeResponseIterator(ResponseIterator);
 			ReturnValue.DataSent = true;
+			//det är nu vi collar huruvida ett packet uppdaterats
+			if (ResponseGenerator.PacketUpdated())
+			{
+				p_IncorporatePacketChanges(ResponseGenerator.GetUpdatedPacket());
+			}
 		}
 	}
 	catch (const std::exception& e)
@@ -365,7 +402,13 @@ MBDB_Website::MBDB_Website()
 	m_BasicPasswordAuthenticator = std::unique_ptr<MBDB_Website_BaiscPasswordAuthenticator>(new MBDB_Website_BaiscPasswordAuthenticator(this));
 	m_GitHandler = std::unique_ptr<MBDB_Website_GitHandler>(new MBDB_Website_GitHandler("/git/",m_BasicPasswordAuthenticator.get()));
 	m_GitHandler->SetURLPrefix("/git/");
-	m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler("../MBPacketManager/", m_BasicPasswordAuthenticator.get())); // ta och ändra
+	char* ServerPacketPathData = std::getenv("MBPM_SERVER_PACKETS_DIRECTORY");
+	std::string ServerPacketPath = "./";
+	if (ServerPacketPathData != nullptr)
+	{
+		ServerPacketPath = ServerPacketPathData;
+	}
+	m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler(ServerPacketPath, m_BasicPasswordAuthenticator.get())); // ta och ändra
 	
 	//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());
 	//__InternalHandlers = { std::unique_ptr< MBDB_Website_GitHandler>(InternalGitHandler)};

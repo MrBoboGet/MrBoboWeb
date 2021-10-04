@@ -69,6 +69,8 @@ private:
 	
 	//TODO fixa separat upload/write mutex så man läsa samtidigt så länge ingen annan försöker ladda upp
 	std::mutex m_WriteMutex;
+
+	void p_IncorporatePacketChanges(std::string const& UpdatedPacket);
 public:
 	//void AddPacketDirectory(std::string const& NewDirectory);
 	MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator);
