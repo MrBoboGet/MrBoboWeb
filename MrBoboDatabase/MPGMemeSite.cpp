@@ -2001,7 +2001,7 @@ std::string MBDB_Website::DBAPI_UnlockBlippFile(std::vector<std::string> const& 
 	{
 		std::string const& FileData = Arguments[0];
 		std::string Timestamp = p_GetTimestamp();
-		if (LatestUserDownload == UserPermissions.AssociatedUser || (Arguments.size() > 0 && Arguments[0] == "Dev"))
+		if (LatestUserDownload == UserPermissions.AssociatedUser)
 		{
 			std::ofstream LatestAccess = std::ofstream(MBDBResources + BlippArchives+"LatestAccess", std::ios::out | std::ios::binary);
 			LatestAccess << "";
@@ -2012,10 +2012,10 @@ std::string MBDB_Website::DBAPI_UnlockBlippFile(std::vector<std::string> const& 
 		}
 		else
 		{
-			if (LatestUserDownload == "" && (Arguments.size() > 0 && Arguments[0] == "Dev"))
+			if (Arguments.size() > 0 && Arguments[0] == "Dev")
 			{
 				std::ofstream LatestAccess = std::ofstream(MBDBResources + BlippArchives + "LatestAccess", std::ios::out | std::ios::binary);
-				LatestAccess << UserPermissions.AssociatedUser;
+				LatestAccess << UserPermissions.AssociatedUser	;
 				LatestAccess.flush();
 				LatestAccess.close();
 
