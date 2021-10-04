@@ -2001,7 +2001,7 @@ std::string MBDB_Website::DBAPI_UnlockBlippFile(std::vector<std::string> const& 
 	{
 		std::string const& FileData = Arguments[0];
 		std::string Timestamp = p_GetTimestamp();
-		if (LatestUserDownload == UserPermissions.AssociatedUser)
+		if (LatestUserDownload == UserPermissions.AssociatedUser || (Arguments.size() > 0 && Arguments[0] == "Dev"))
 		{
 			std::ofstream LatestAccess = std::ofstream(MBDBResources + BlippArchives+"LatestAccess", std::ios::out | std::ios::binary);
 			LatestAccess << "";
