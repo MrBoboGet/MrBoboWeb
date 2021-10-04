@@ -263,7 +263,12 @@ void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(std::string const& Pa
 			{
 				if (Entry.is_regular_file())
 				{
-					std::string FilePath = MBUnicode::PathToUTF8(std::filesystem::relative(UploadedChangesDirectory, Entry.path()));
+					std::string FilePath = MBUnicode::PathToUTF8(std::filesystem::relative(Entry.path(),UploadedChangesDirectory).generic_string());
+					std::filesystem::path NewFileDirectory = std::filesystem::path(PacketTopDirectory + FilePath).parent_path();
+					if (!std::filesystem::exists(NewFileDirectory))
+					{
+						std::filesystem::create_directories(NewFileDirectory);
+					}
 					std::filesystem::rename(UploadedChangesDirectory + FilePath, PacketTopDirectory + FilePath);
 				}
 			}
