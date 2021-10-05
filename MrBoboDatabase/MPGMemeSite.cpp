@@ -413,6 +413,7 @@ MBDB_Website::MBDB_Website()
 	{
 		ServerPacketPath = ServerPacketPathData;
 	}
+	std::cout << "Server packets path: " << ServerPacketPath << std::endl;
 	m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler(ServerPacketPath, m_BasicPasswordAuthenticator.get())); // ta och ändra
 	
 	//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());

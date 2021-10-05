@@ -1,10 +1,10 @@
 {
-	"PacketName":"MBParsing",
+	"PacketName":"MBMime",
 	"Attributes":["Embeddable"],
 	"OutputConfigurations":["StaticDebug","StaticRelease"],
 	"OutputTargetNames": {
-		"StaticRelease": "MBParsing_SR",
-		"StaticDebug": "MBParsing_SD"
+		"StaticRelease": "MBMime_SR",
+		"StaticDebug": "MBMime_SD"
 	},
 	"Dependancies":["MBUnicode","MBUtility"],
 }

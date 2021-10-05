@@ -1,10 +1,10 @@
 {
-	"PacketName":"MrBigInt",
+	"PacketName":"MrBoboSockets",
 	"Attributes":["Embeddable"],
 	"OutputConfigurations":["StaticDebug","StaticRelease"],
 	"OutputTargetNames": {
-		"StaticRelease": "MrBigInt_SR",
-		"StaticDebug": "MrBigInt_SD"
+		"StaticRelease": "MrBoboSockets_SR",
+		"StaticDebug": "MrBoboSockets_SD"
 	},
-	"Dependancies":["MBUtility"],
+	"Dependancies":["MBCrypto","MrBigInt","MBUtility"],
 }
