@@ -1,6 +1,6 @@
 #include <MBSearchEngine/MBSearchEngine.h>
-#include <MinaStringOperations.h>
-#include <MBAlgorithms.h>
+#include <MBUtility/MBAlgorithms.h>
+#include <MBUtility/MBStrings.h>
 #include <fstream>
 #include <algorithm>
 #include <iostream>
@@ -812,7 +812,7 @@ namespace MBSearchEngine
 		{
 			return ReturnValue;
 		}
-		std::vector<std::string> PhraseWords = Split(QuerryToEvaluate.substr(1,QuerryToEvaluate.size()-2), " ");
+		std::vector<std::string> PhraseWords = MBUtility::Split(QuerryToEvaluate.substr(1,QuerryToEvaluate.size()-2), " ");
 		std::vector<int> PostinglistIterators = std::vector<int>(PhraseWords.size(), 0);
 		std::vector<std::shared_ptr<const PostingsList>> PostingLists = {};
 		for (size_t i = 0; i < PhraseWords.size(); i++)

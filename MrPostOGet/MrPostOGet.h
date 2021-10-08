@@ -1,7 +1,7 @@
 #pragma once
 #include <MrBoboSockets/MrBoboSockets.h>
 #include <MBMime/MBMime.h>
-#include <TextReader.h>
+#include <MBUtility/TextReader.h>
 #include <cstring>
 
 namespace MrPostOGet 

@@ -1,6 +1,6 @@
 #include <MBCrawler.h>
 #include <MrBoboSockets/MrBoboSockets.h>
-#include <MBStrings.h>
+#include <MBUtility/MBStrings.h>
 #include <filesystem>
 #include <MrPostOGet/MrPostOGet.h>
 #include <atomic>

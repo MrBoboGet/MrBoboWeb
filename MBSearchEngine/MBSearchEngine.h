@@ -1,9 +1,9 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 #include <unordered_map>
-#include <MBAlgorithms.h>
+#include <MBUtility/MBAlgorithms.h>
 #include <fstream>
 #include <algorithm>
 #include <iostream>

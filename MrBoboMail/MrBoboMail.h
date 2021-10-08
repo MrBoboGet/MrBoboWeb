@@ -5,7 +5,7 @@
 #include <MrBoboSockets/MrBoboSockets.h>
 #include <MBMime/MBMime.h>
 #include <MBUnicode/MBUnicode.h>
-#include <MBStrings.h>
+#include <MBUtility/MBStrings.h>
 namespace MBMail
 {
 	struct MailAttachment

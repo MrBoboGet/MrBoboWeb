@@ -3,10 +3,10 @@
 #include <MrBoboDatabase/MrBoboDatabase.h>
 #include <MrPostOGet/MrPostOGet.h>
 #include <MBSearchEngine/MBSearchEngine.h>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
 #include <atomic>
-#include <MBInterfaces.h>
+#include <MBUtility/MBInterfaces.h>
 
 struct DBPermissionsList
 {

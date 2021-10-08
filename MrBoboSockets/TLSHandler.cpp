@@ -3,11 +3,10 @@
 #include <MrBoboSockets/MrBoboSockets.h>
 #include "TLSHandler.h"
 #include <math.h>
-#include <MBRandom.h>
-#include <MinaStringOperations.h>
+#include <MBUtility/MBRandom.h>
+#include <MBUtility/MBStrings.h>
 #include <filesystem>
 #include <mutex>
-#include <MBStrings.h>
 #include <ostream>
 #include <iostream>
 //MBSockets::Socket* AssociatedSocket = nullptr;
@@ -1912,9 +1911,9 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 	//std::cout << MBUtility::ReplaceAll(MBUtility::HexEncodeString(MAC)," ","") << std::endl;
 	if (MAC != Hash)
 	{
-		std::cout << HexEncodeString(MAC) << std::endl;
-		std::cout << HexEncodeString(Hash) << std::endl;
-		std::cout << HexEncodeString(std::string((char*)ConnectionParameters.master_secret,48)) << std::endl;
+		std::cout << MBUtility::HexEncodeString(MAC) << std::endl;
+		std::cout << MBUtility::HexEncodeString(Hash) << std::endl;
+		std::cout << MBUtility::HexEncodeString(std::string((char*)ConnectionParameters.master_secret,48)) << std::endl;
 		std::cout << "uh oh" << std::endl;
 	}
 	return(MAC == Hash);

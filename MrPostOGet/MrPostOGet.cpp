@@ -1,5 +1,5 @@
 ﻿#include "MrPostOGet.h"
-#include <MBStrings.h>
+#include <MBUtility/MBStrings.h>
 #include <MBUnicode/MBUnicode.h>
 #include <MBParsing/MBParsing.h>
 #include <MBMime/MBMime.h>

@@ -1,7 +1,7 @@
 #include "MBBitTorrent.h"
 #include <MBCrypto/MBCrypto.h>
 #include <MrBoboSockets/MrBoboSockets.h>
-#include <MBStrings.h>
+#include <MBUtility/MBStrings.h>
 namespace MBTorrent
 {
 	//BEGIN MBBitTorrentPeerConnection

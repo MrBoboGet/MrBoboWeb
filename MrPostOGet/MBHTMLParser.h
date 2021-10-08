@@ -2,10 +2,9 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <MBErrorHandling.h>
-#include <MBStrings.h>
+#include <MBUtility/MBErrorHandling.h>
+#include <MBUtility/MBStrings.h>
 #include <algorithm>
-#include <MBStrings.h>
 #include <assert.h>
 #include <MBParsing/MBParsing.h>
 inline std::string StringToLower(std::string const& StringToLowercase)

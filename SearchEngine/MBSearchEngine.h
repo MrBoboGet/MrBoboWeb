@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 #include <MrBoboSockets/MrBoboSockets.h>
-#include <MinaStringOperations.h>
-#include <TextReader.h>
+#include <MBUtility/TextReader.h>
+#include <MBUtility/MBStrings.h>
 #include <filesystem>
 #include <thread>
 //tanken med search enginen är att vi ska returnera ett antal hyperlinks som innehåler data vi är intresserad av
@@ -66,7 +66,7 @@ public:
 };
 std::vector<std::string> SearchWebsites(std::string SearchString)
 {
-	std::vector<std::string> SearchTerms = Split(SearchString," ");
+	std::vector<std::string> SearchTerms = MBUtility::Split(SearchString," ");
 	//här borde vi ha några steg där vi avgör vilka hemsidor vi ens är intresserad av att söka på i första hand, men i vårt fall har vi ju indexerat så få att vi inte egentligen bryr oss
 	//TODO Ha website culling
 
@@ -80,7 +80,7 @@ std::vector<std::string> SearchWebsites(std::string SearchString)
 	for (int i = 1; i <= NumberOfResultsToReturn; i++)
 	{
 		int ActualAdressPosition = SearchResult[SearchResult.size() - i].WebsiteUrl.find("www.remar.se\\");
-		std::string HyperlinkAdress = "http://www.remar.se/" + ReplaceAll(ReplaceAll(SearchResult[SearchResult.size() - i].WebsiteUrl.substr(ActualAdressPosition + 13),"_","/"),".txt","");
+		std::string HyperlinkAdress = "http://www.remar.se/" + MBUtility::ReplaceAll(MBUtility::ReplaceAll(SearchResult[SearchResult.size() - i].WebsiteUrl.substr(ActualAdressPosition + 13),"_","/"),".txt","");
 		ReturnValue.push_back(HyperlinkAdress);
 	}
 	return(ReturnValue);

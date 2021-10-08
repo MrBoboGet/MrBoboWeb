@@ -1,5 +1,5 @@
 #include "MBDNSHandler.h"
-#include <MBStrings.h>
+#include <MBUtility/MBStrings.h>
 namespace MBDNS
 {
 	DNSMessageHeader MBDNSHandler::p_ParseMessageHeader(std::string const& DataToParse, size_t InOffset, size_t* OutOffset)

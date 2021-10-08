@@ -199,8 +199,9 @@ set(Source_Files
     "MrBoboDatabase/MBDBObjectScript.cpp"
     "MrPostOGet/MrPostOGet.cpp"
     "MBSystem/MBSystem.cpp"
+    "MrBigInt/MrBigInt.cpp"
     ${EXTLIBS_SOURCE_FILES}
-    "MBErrorHandling.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBUtility/MBErrorHandling.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
      #TODO ta bort MBPM direct dependancien
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.cpp"
@@ -238,8 +239,9 @@ set (MBSE_SOURCES
     "MBSearchEngine/MBSearchEngineCLIClass.cpp"
     "MBUnicode/MBUnicode.cpp"
     "MBParsing/MBParsing.cpp"
+    "MrBigInt/MrBigInt.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBUtility/MBErrorHandling.cpp"
     #TODO flytta error handlingen till MB_STANDARD_LIBRARY
-    "MBErrorHandling.cpp"
 )
 set (MBSE_ALL_FILES
    ${MBSE_HEADERS}
@@ -259,6 +261,7 @@ target_compile_features("mbse" PRIVATE cxx_std_17)
 target_include_directories("mbse" PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/.;"
     "${MB_STANDARD_LIBRARY_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../;"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/;"
 )
 #target_include_directories(${PROJECT_NAME} PUBLIC

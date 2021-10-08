@@ -3,7 +3,7 @@
 #include <vector>
 #include <tuple>
 #include <assert.h>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 class sqlite3;
 struct sqlite3_stmt;
 namespace MBDB

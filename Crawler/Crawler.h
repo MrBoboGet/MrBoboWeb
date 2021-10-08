@@ -77,9 +77,9 @@ int IndexWebsite_(std::string TopDomain,std::string ResourceToStartWith = "")
 	//skapar socketen vi kommer använda
 	VisitedUrls.clear();
 	URLsToVisit.clear();
-	if (!DirExists(ReplaceAll(ReplaceAll(TopDomain, "/", "_"), ":", "_").c_str()))
+	if (!DirExists(MBUtility::ReplaceAll(MBUtility::ReplaceAll(TopDomain, "/", "_"), ":", "_").c_str()))
 	{
-		if (_mkdir(ReplaceAll(ReplaceAll(TopDomain, "/", "_"), ":", "_").c_str()) == -1)
+		if (_mkdir(MBUtility::ReplaceAll(MBUtility::ReplaceAll(TopDomain, "/", "_"), ":", "_").c_str()) == -1)
 		{
 			std::cout << "Could not make directory" << std::endl;
 			return(-1);
@@ -128,8 +128,8 @@ void IndexWebsiteSubroutine(std::string ResourceToIndex, const std::string TopDo
 	std::fstream FileToSave;
 	FilesIndexed += 1;
 	//tar bort \r så det ser lite mindre aids ut?
-	ReplaceAll(&BodyContent, "\r", "");
-	FileToSave.open(ReplaceAll(TopDomain, "/", "_") + "/" + ReplaceAll(ResourceToIndex, "/", "_") + ".txt", std::fstream::out);
+	MBUtility::ReplaceAll(&BodyContent, "\r", "");
+	FileToSave.open(MBUtility::ReplaceAll(TopDomain, "/", "_") + "/" + MBUtility::ReplaceAll(ResourceToIndex, "/", "_") + ".txt", std::fstream::out);
 	//tillskillnad från förrut inkluderar vi header filen när vi savar, men tbh är det helt okej, bara försumbart långsam,amre och tar lika mycket minne
 	FileToSave.write(BodyContent.c_str(), BodyContent.size());
 	FileToSave.close();
@@ -143,9 +143,9 @@ void IndexWebsiteSubroutine(std::string ResourceToIndex, const std::string TopDo
 	{
 		std::string TempString = HyperLinks[i];
 		std::cout << HyperLinks[i] << std::endl;
-		ReplaceAll(&TempString, "https://", "");
-		ReplaceAll(&TempString, "http://", "");
-		ReplaceAll(&TempString, "www.", "");
+		MBUtility::ReplaceAll(&TempString, "https://", "");
+		MBUtility::ReplaceAll(&TempString, "http://", "");
+		MBUtility::ReplaceAll(&TempString, "www.", "");
 		//vi kan också kolla om får string inte innehåller någon av detta, dvs tempstring.size() == hyperlinks[i].size(), för att också få in relativa hrefs
 		if(TempString.substr(0,TopDomain.size()-4) == TopDomain.substr(4) || TempString.size() == HyperLinks[i].size())
 		{
@@ -154,7 +154,7 @@ void IndexWebsiteSubroutine(std::string ResourceToIndex, const std::string TopDo
 			if (TempString.size() == HyperLinks[i].size())
 			{
 				//realtiv link, finns ett antal olika cases, den enklaste är om vi är i ett directory och en relativ path som inte börjar på ./ eller /
-				ReplaceAll(&TempString, "./", "");
+				MBUtility::ReplaceAll(&TempString, "./", "");
 				if (ResourceToIndex.back() == '/' && (TempString.front() != '.' && TempString.front() != '/'))
 				{
 					//vi är i en folder och referar till ett element i den foldern

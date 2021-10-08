@@ -1,5 +1,5 @@
 #pragma once
-#include <MinaStringOperations.h>
+//#include <MinaStringOperations.h>
 /*
 void ReplaceAll(std::string* Stringen,std::string StringToReplace, std::string StringToReplaceWith)
 {

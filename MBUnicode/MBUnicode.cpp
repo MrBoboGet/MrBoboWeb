@@ -1,7 +1,7 @@
 #include "MBUnicode.h"
 #include "MBUnicodeMacros.h"
 #include <string>
-#include <MinaStringOperations.h>
+#include <MBUtility/MBStrings.h>
 #include <fstream>
 #include <vector>
 #include <iostream>
@@ -85,7 +85,7 @@ namespace MBUnicode
 		std::string ReturnValue = "";
 		for (size_t i = 0; i < m_Codepoints.size(); i++)
 		{
-			ReturnValue += HexEncodeInt(m_Codepoints[i]) + " ";
+			ReturnValue += MBUtility::HexEncodeInt(m_Codepoints[i]) + " ";
 		}
 		return(ReturnValue);
 	}
@@ -118,7 +118,7 @@ namespace MBUnicode
 				continue;
 			}
 			std::string UnicodeRangeData = CurrentLine.substr(0, CurrentLine.find(" "));
-			std::vector<std::string> Ranges = Split(UnicodeRangeData, "..");
+			std::vector<std::string> Ranges = MBUtility::Split(UnicodeRangeData, "..");
 			//std::string NewLine = "{0x" + Ranges[0] + ",";
 			CodepointRange NewCodepointRange;
 			NewCodepointRange.Lower = std::stoi(Ranges[0], nullptr, 16);
@@ -146,7 +146,7 @@ namespace MBUnicode
 		std::sort(CodePointRanges.begin(), CodePointRanges.end(), CompareCodepointRange);
 		for (size_t i = 0; i < CodePointRanges.size(); i++)
 		{
-			OutputFile << "{0x" + HexEncodeInt(CodePointRanges[i].Lower) + ",0x" + HexEncodeInt(CodePointRanges[i].Higher) + "},\\\n";
+			OutputFile << "{0x" + MBUtility::HexEncodeInt(CodePointRanges[i].Lower) + ",0x" + MBUtility::HexEncodeInt(CodePointRanges[i].Higher) + "},\\\n";
 		}
 		OutputFile << "}";
 		return(0);

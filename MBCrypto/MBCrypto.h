@@ -5,7 +5,7 @@
 #include <cryptopp/integer.h>
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 namespace MBCrypto
 {
 	enum class HashFunction

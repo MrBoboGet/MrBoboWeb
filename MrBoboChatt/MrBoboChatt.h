@@ -2,10 +2,10 @@
 #define _CRT_RAND_S 
 #pragma once
 #include <MrBoboSockets/MrBoboSockets.h>
-#include <MinaStringOperations.h>
-#include <MBRandom.h>
+#include <MBUtility/MBStrings.h>
+#include <MBUtility/MBRandom.h>
 #include <MrBoboChatt/MBCProtocols.h>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 #include <MrBoboChatt/MBChatConnection.h>
 #include <MrBoboChatt/MrBoboChatt.h>
 //olika depandancies

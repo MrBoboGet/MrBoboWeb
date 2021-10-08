@@ -8,7 +8,7 @@
 #include <deque>
 #include <MrBigInt/MrBigInt.h>
 #include <MrBoboSockets/MrBoboSockets.h>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 //#include <MrBoboChatt/MrBoboChatt.h>
 struct MBChatConnection_SecurityParameters
 {

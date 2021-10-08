@@ -4,14 +4,14 @@
 #include <iostream>
 #include <time.h>
 //#include <plusaes.hpp>
-#include <MBErrorHandling.h>
+#include <MBUtility/MBErrorHandling.h>
 #include <filesystem>
 #include <deque>
 
 #include <MBCrypto/MBCrypto.h>
 #include <MBCrypto/Asn1Handlers.h>
 #include <fstream>
-#include <MBStrings.h>
+#include <MBUtility/MBStrings.h>
 enum class TLSVersions
 {
 	TLS1_2,

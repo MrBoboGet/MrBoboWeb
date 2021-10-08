@@ -1,6 +1,5 @@
 #define NOMINMAX
 #include <MrBoboDatabase/MPGMemeSite.h>
-#include <MinaStringOperations.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <filesystem>
 #include <MBUnicode/MBUnicode.h>
@@ -9,6 +8,7 @@
 #include <ctime>
 #include <chrono>
 #include <MBSystem/MBSystem.h>
+#include <MBUtility/MBStrings.h>
 
 #include <MBPacketManager/MBPacketManager.h>
 
@@ -624,7 +624,7 @@ bool MBDB_Website::p_StringIsPath(std::string const& StringToCheck)
 bool MBDB_Website::DBLogin_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DBLogin")
@@ -655,7 +655,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBLogin_ResponseGenerator(std::string con
 bool MBDB_Website::DBSite_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >=1)
 	{
 		if (Directorys[0] == "DBSite")
@@ -741,7 +741,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string cons
 bool MBDB_Website::UploadFile_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "UploadFile" && MrPostOGet::GetRequestType(RequestData) == "POST") 
@@ -785,7 +785,7 @@ MrPostOGet::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string 
 	size_t EndOfFirstParameters = RequestData.find("\r\n",FirstFormParameterLocation);
 	std::string FieldParameters = RequestData.substr(FirstFormParameterLocation, EndOfFirstParameters - FirstFormParameterLocation);
 	//hardcodat eftersom vi vet formtatet av formuläret
-	std::vector<std::string> FirstFieldValues = Split(FieldParameters, "; ");
+	std::vector<std::string> FirstFieldValues = MBUtility::Split(FieldParameters, "; ");
 	std::string FileNameHeader = "filename=\"";
 	std::string FileName =GetResourceFolderPath()+ FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
 	int FilesWithSameName = 0;
@@ -826,7 +826,7 @@ MrPostOGet::HTTPDocument MBDB_Website::UploadFile_ResponseGenerator(std::string 
 bool MBDB_Website::DBGet_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DB")
@@ -851,16 +851,16 @@ MrPostOGet::HTTPDocument MBDB_Website::DBGet_ResponseGenerator(std::string const
 	}
 	std::string RangeData = MrPostOGet::GetHeaderValue("Range", RequestData);
 	std::string IntervallsData = RangeData.substr(RangeData.find_first_of("=") + 1);
-	ReplaceAll(&IntervallsData, "\r", "");
-	ReplaceAll(&IntervallsData, "\n", "");
+	MBUtility::ReplaceAll(&IntervallsData, "\r", "");
+	MBUtility::ReplaceAll(&IntervallsData, "\n", "");
 	std::vector<FiledataIntervall> ByteIntervalls = {};
 	if (RangeData != "")
 	{
-		std::vector<std::string> Intervalls = Split(ReplaceAll(IntervallsData," ",""), ",");
+		std::vector<std::string> Intervalls = MBUtility::Split(MBUtility::ReplaceAll(IntervallsData," ",""), ",");
 		for (int i = 0; i < Intervalls.size(); i++)
 		{
 			FiledataIntervall NewIntervall = { uint64_t(-1),uint64_t(-1) };
-			std::vector<std::string> IntervallNumbers = Split(Intervalls[i], "-");
+			std::vector<std::string> IntervallNumbers = MBUtility::Split(Intervalls[i], "-");
 			if (IntervallNumbers[0] != "")
 			{
 				NewIntervall.FirstByte = std::stoll(IntervallNumbers[0]);
@@ -920,7 +920,7 @@ std::string MBDB_Website::p_GetEmbeddedPDF(std::string const& ImagePath)
 bool MBDB_Website::DBView_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DBView")
@@ -1394,7 +1394,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBView_ResponseGenerator(std::string cons
 bool MBDB_Website::DBViewEmbedd_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DBViewEmbedd")
@@ -1432,7 +1432,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBViewEmbedd_ResponseGenerator(std::strin
 bool MBDB_Website::DBAdd_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DBAdd")
@@ -1458,7 +1458,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBAdd_ResponseGenerator(std::string const
 bool MBDB_Website::DBGeneralAPI_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DBGeneralAPI")
@@ -2219,7 +2219,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBGeneralAPI_ResponseGenerator(std::strin
 bool MBDB_Website::DBUpdate_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "DBUpdate")
@@ -2240,7 +2240,7 @@ MrPostOGet::HTTPDocument MBDB_Website::DBUpdate_ResponseGenerator(std::string co
 bool MBDB_Website::DBOperationBlipp_Predicate(std::string const& RequestData)
 {
 	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-	std::vector<std::string> Directorys = Split(RequestResource, "/");
+	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
 	if (Directorys.size() >= 1)
 	{
 		if (Directorys[0] == "operationblipp")
