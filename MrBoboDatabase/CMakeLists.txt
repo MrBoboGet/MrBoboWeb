@@ -1,10 +1,9 @@
-project(MBCrypto)
-set(PROJECT_NAME "MBCrypto")
+project(MrBoboDatabase)
+set(PROJECT_NAME "MrBoboDatabase")
 ##BEGIN MBPM_VARIABLES
 set(MBPM_DEPENDENCIES 
-	MrBigInt
-	cryptopp
 	MBUtility
+	sqlite3
 )
 set(MBPM_TARGET_EXTPACKET_LIBRARIES )
 set(MBPM_TARGET_COMPILE_OPTIONS )
@@ -97,11 +96,14 @@ endmacro()
 ##END MBPM_VARIABLES
 set(PROJECT_SOURCES 
 
-	"${CMAKE_CURRENT_SOURCE_DIR}//MBCrypto.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MBDBObjectScript.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MPGMemeSite.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MrBoboDatabase.cpp"
 )
 set(PROJECT_HEADERS 
-	"${CMAKE_CURRENT_SOURCE_DIR}//Asn1Handlers.h"
-	"${CMAKE_CURRENT_SOURCE_DIR}//MBCrypto.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MBDBObjectScript.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MPGMemeSite.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MrBoboDatabase.h"
 )
 set(COMMON_FILES ${PROJECT_SOURCES} ${PROJECT_HEADERS})
 set(COMMON_DYNAMIC_LIBRARIES 
@@ -110,12 +112,12 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBCrypto_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBCrypto_SD" "STATIC" "DEBUG")
-target_compile_features("MBCrypto_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBCrypto_SD" ${COMMON_LIBRARIES})
+add_library(MrBoboDatabase_SD STATIC ${COMMON_FILES})
+MBPM_ApplyTargetConfiguration("MrBoboDatabase_SD" "STATIC" "DEBUG")
+target_compile_features("MrBoboDatabase_SD" PRIVATE cxx_std_17)
+target_link_libraries("MrBoboDatabase_SD" ${COMMON_LIBRARIES})
 
-add_library(MBCrypto_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBCrypto_SR" "STATIC" "RELEASE")
-target_compile_features("MBCrypto_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBCrypto_SR" ${COMMON_LIBRARIES})
+add_library(MrBoboDatabase_SR STATIC ${COMMON_FILES})
+MBPM_ApplyTargetConfiguration("MrBoboDatabase_SR" "STATIC" "RELEASE")
+target_compile_features("MrBoboDatabase_SR" PRIVATE cxx_std_17)
+target_link_libraries("MrBoboDatabase_SR" ${COMMON_LIBRARIES})

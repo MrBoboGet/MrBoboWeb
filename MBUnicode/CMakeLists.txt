@@ -1,9 +1,7 @@
-project(MBCrypto)
-set(PROJECT_NAME "MBCrypto")
+project(MBUnicode)
+set(PROJECT_NAME "MBUnicode")
 ##BEGIN MBPM_VARIABLES
 set(MBPM_DEPENDENCIES 
-	MrBigInt
-	cryptopp
 	MBUtility
 )
 set(MBPM_TARGET_EXTPACKET_LIBRARIES )
@@ -97,11 +95,11 @@ endmacro()
 ##END MBPM_VARIABLES
 set(PROJECT_SOURCES 
 
-	"${CMAKE_CURRENT_SOURCE_DIR}//MBCrypto.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MBUnicode.cpp"
 )
 set(PROJECT_HEADERS 
-	"${CMAKE_CURRENT_SOURCE_DIR}//Asn1Handlers.h"
-	"${CMAKE_CURRENT_SOURCE_DIR}//MBCrypto.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MBUnicode.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}//MBUnicodeMacros.h"
 )
 set(COMMON_FILES ${PROJECT_SOURCES} ${PROJECT_HEADERS})
 set(COMMON_DYNAMIC_LIBRARIES 
@@ -110,12 +108,12 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBCrypto_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBCrypto_SD" "STATIC" "DEBUG")
-target_compile_features("MBCrypto_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBCrypto_SD" ${COMMON_LIBRARIES})
+add_library(MBUnicode_SD STATIC ${COMMON_FILES})
+MBPM_ApplyTargetConfiguration("MBUnicode_SD" "STATIC" "DEBUG")
+target_compile_features("MBUnicode_SD" PRIVATE cxx_std_17)
+target_link_libraries("MBUnicode_SD" ${COMMON_LIBRARIES})
 
-add_library(MBCrypto_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBCrypto_SR" "STATIC" "RELEASE")
-target_compile_features("MBCrypto_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBCrypto_SR" ${COMMON_LIBRARIES})
+add_library(MBUnicode_SR STATIC ${COMMON_FILES})
+MBPM_ApplyTargetConfiguration("MBUnicode_SR" "STATIC" "RELEASE")
+target_compile_features("MBUnicode_SR" PRIVATE cxx_std_17)
+target_link_libraries("MBUnicode_SR" ${COMMON_LIBRARIES})

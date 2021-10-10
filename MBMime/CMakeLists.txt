@@ -2,8 +2,8 @@ project(MBMime)
 set(PROJECT_NAME "MBMime")
 ##BEGIN MBPM_VARIABLES
 set(MBPM_DEPENDENCIES 
-	MBUtility
 	MBUnicode
+	MBUtility
 )
 set(MBPM_TARGET_EXTPACKET_LIBRARIES )
 set(MBPM_TARGET_COMPILE_OPTIONS )
@@ -92,7 +92,8 @@ macro(MBPM_ApplyTargetConfiguration TargetToUpdate LinkType BuildType)
 	MBPM_UpdateOutput(${TargetToUpdate})
 	MBPM_SetTargetCompileOptions(${TargetToUpdate} ${LinkType} ${BuildType})
 	MBPM_SetTargetIncludeDirectories(${TargetToUpdate})
-endmacro()##END MBPM_VARIABLES
+endmacro()
+##END MBPM_VARIABLES
 set(PROJECT_SOURCES 
 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MBMime.cpp"

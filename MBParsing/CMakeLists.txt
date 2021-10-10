@@ -91,7 +91,8 @@ macro(MBPM_ApplyTargetConfiguration TargetToUpdate LinkType BuildType)
 	MBPM_UpdateOutput(${TargetToUpdate})
 	MBPM_SetTargetCompileOptions(${TargetToUpdate} ${LinkType} ${BuildType})
 	MBPM_SetTargetIncludeDirectories(${TargetToUpdate})
-endmacro()##END MBPM_VARIABLES
+endmacro()
+##END MBPM_VARIABLES
 set(PROJECT_SOURCES 
 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MBParsing.cpp"

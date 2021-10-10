@@ -250,7 +250,7 @@ bool MBDB_Website_MBPP_Handler::HandlesRequest(MrPostOGet::HTTPClientRequest con
 {
 	return(RequestToHandle.RequestResource == "/MBPM" || RequestToHandle.RequestResource == "/MBPM/");
 }
-void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(std::string const& PacketToUpdate)
+void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(std::string const& PacketToUpdate,std::vector<std::string> const& ObjectToDelete)
 {
 	if (std::filesystem::exists(m_PacketsDirectory + PacketToUpdate))
 	{
@@ -272,7 +272,22 @@ void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(std::string const& Pa
 					std::filesystem::rename(UploadedChangesDirectory + FilePath, PacketTopDirectory + FilePath);
 				}
 			}
+			//deletar det som ska deletas
 			//resettar directoryn
+			for (size_t i = 0; i < ObjectToDelete.size(); i++)
+			{
+				if (MBPM::MBPP_PathIsValid(ObjectToDelete[i]))
+				{
+					try
+					{
+						std::filesystem::remove_all(PacketTopDirectory + "/" + ObjectToDelete[i]);
+					}
+					catch (const std::exception& e)
+					{
+						std::cout << "Error deleting file from updated packet: " << e.what() << std::endl;
+					}
+				}
+			}
 			std::filesystem::remove_all(UploadedChangesDirectory);
 			//skapar nytt index
 			MBPM::CreatePacketFilesData(PacketTopDirectory);
@@ -321,7 +336,7 @@ MrPostOGet::HTTPDocument MBDB_Website_MBPP_Handler::GenerateResponse(MrPostOGet:
 			//det är nu vi collar huruvida ett packet uppdaterats
 			if (ResponseGenerator.PacketUpdated())
 			{
-				p_IncorporatePacketChanges(ResponseGenerator.GetUpdatedPacket());
+				p_IncorporatePacketChanges(ResponseGenerator.GetUpdatedPacket(),ResponseGenerator.GetPacketRemovedFiles());
 			}
 		}
 	}
