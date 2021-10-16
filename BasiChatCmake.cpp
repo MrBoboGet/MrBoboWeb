@@ -6,7 +6,7 @@
 #include <MrPostOGet/MrPostOGet.h>
 #include <MrBoboChatt/MrBoboChatt.h>
 #include <MrBoboDatabase/MrBoboDatabase.h>
-#include <MrBoboDatabase/MPGMemeSite.h>
+#include <MBWebsite/MPGMemeSite.h>
 #include <MrBoboMedia/MBMedia.h>
 #include <MBUnicode/MBUnicode.h>
 #include <MBSearchEngine/MBSearchEngine.h>
@@ -29,7 +29,7 @@
 int main()
 {
 	MBSockets::Init();
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
 	//MBSystem::SubProcess TestProcess("dir");
 	//while (!TestProcess.Finished())
@@ -52,7 +52,7 @@ int main()
 	//std::cout << TLSResult.ErrorMessage << std::endl;
 	//std::cout << TestSocket.GetDataFromRequest("GET","/") << std::endl;
 	
-	MBGWebsiteMain();
+	MBWebsite::MBGWebsiteMain();
 	exit(0);
 	MBTorrent::MBBitTorrentHandler TestTorrent;
 	TestTorrent.LoadTorrentInfo("Serial Experiments Lain Storyboard.torrent");

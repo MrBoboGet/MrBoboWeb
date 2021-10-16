@@ -131,7 +131,7 @@ std::string MBCLineObject::GetLineData()
 }
 void MBCLineObject::SetLineData(std::string NewData)
 {
-	LineData = ReplaceAll(NewData,"\n","");
+	LineData = MBUtility::ReplaceAll(NewData,"\n","");
 	AssociatedChatObject->PrintLineAtIndex(LineNumber,NewData);
 }
 
@@ -361,7 +361,7 @@ void MrBoboChat::ParseInput(std::string StringToParse)
 	if (StringToParse[0] == '/')
 	{
 		//vi gör ett speciall commando
-		std::vector<std::string> CommandWithArguments = Split(StringToParse, " ");
+		std::vector<std::string> CommandWithArguments = MBUtility::Split(StringToParse, " ");
 		if (CommandList.find(CommandWithArguments[0]) != CommandList.end())
 		{
 			CommandList[CommandWithArguments[0]](CommandWithArguments, this);
@@ -664,7 +664,7 @@ void MrBoboChat::MainLoop()
 				else
 				{
 					//vi vill printa funktionen och argumenten med olika färg
-					std::vector<std::string> InputToPrint = Split(CurrentInputCopy, " ");
+					std::vector<std::string> InputToPrint = MBUtility::Split(CurrentInputCopy, " ");
 					PrintString(ANSI::YELLOW +InputToPrint[0]+ANSI::BOLDCYAN);
 					for (size_t i = 1; i < InputToPrint.size(); i++)
 					{
@@ -1216,7 +1216,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 						}
 						else if (Data.substr(0, 10) == "\1sendfile ")
 						{
-							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET + " Wants to send you a file named " + Split(Data.substr(10), "/").back() + "\n Do you accept? [y/n]");
+							AssociatedConnectionObject->AssociatedChatObject->PrintLine(ANSI::BLUE + PeerUserName + ANSI::RESET + " Wants to send you a file named " + MBUtility::Split(Data.substr(10), "/").back() + "\n Do you accept? [y/n]");
 							SizeOfPeerFile = std::stoi(Split(Data, " ").back());
 							PeerSentFileTransferRequest = true;
 						}
@@ -1307,7 +1307,7 @@ void ChatMainFunction(MBChatConnection* AssociatedConnectionObject)
 					if (Data.substr(1, 9) == "sendfile ")
 					{
 						std::string FilePath = Data.substr(10);
-						std::string FileName = Split(FilePath, "/").back();
+						std::string FileName = MBUtility::Split(FilePath, "/").back();
 						FileLocalWantedToSend = FilePath;
 						//vi skickar med file data längden här
 						long long FileSize = GetFileSize(FilePath);
@@ -1414,7 +1414,7 @@ MBError CreateConnection(std::string IPAdress, MrBoboChat* AssociatedChatObject,
 			if ((clock() - UpdateDotTimer) / float(CLOCKS_PER_SEC) > UpdateDotDelay)
 			{
 				std::string CurrentLine = InitiatingConnectionLine.GetLineData();
-				std::string ReplacedLine = ReplaceAll(CurrentLine, ".", "");
+				std::string ReplacedLine = MBUtility::ReplaceAll(CurrentLine, ".", "");
 				if(ReplacedLine.size()+3 == CurrentLine.size())
 				{
 					InitiatingConnectionLine.SetLineData("Initiating connection     (Press enter to cancel)");

@@ -177,6 +177,7 @@ namespace MrPostOGet
 		static HTTPDocument m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath,HTTPServer* AssociatedServer);
 		static void p_ParseHTTPClientRequest(HTTPClientRequest& ClientRequest, std::string& RawData);
 		static std::unordered_map<std::string, std::string> p_ParseSearchParameters(std::string const& URL);
+		static bool p_PathIsValid(std::string const& PathToCheck);
 		//std::mutex HTTPServerResourcesMutex;
 	public:
 		HTTPServer(std::string PathToResources, int PortToListenTo);

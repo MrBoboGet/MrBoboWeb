@@ -265,8 +265,9 @@ namespace MBSearchEngine
 						}
 					}
 					EntryToAdd = MBUtility::ReplaceAll(EntryPath, "/", " ");
-					EntryToAdd = MBUtility::ReplaceAll(EntryPath, "\\", " ");
+					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, "\\", " ");
 					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, "_", " ");
+					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, "-", " ");
 					EntryToAdd = MBUtility::ReplaceAll(EntryToAdd, ".", " ");
 					//DEBUG
 					//std::string DEBUG_StringToSearch = "emanu";
@@ -281,6 +282,10 @@ namespace MBSearchEngine
 					//		std::cout << "stringe är i pathen: " << EntryPath << std::endl;
 					//	}
 					//}
+					if (EntryPath.find("libavcodec") != EntryPath.npos && EntryPath.find("Steam") != EntryPath.npos)
+					{
+						std::cout << EntryToAdd << std::endl << EntryPath << std::endl;
+					}
 					ResultIndex.IndextTextData(EntryToAdd, EntryPath);
 				}
 				DirectoryIterator. Increment();

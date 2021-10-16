@@ -43,12 +43,12 @@ Thumbs.db
 /x64
 CmakeInnanÄndringar
 BasicChatCmake
-/ServerResources/mrboboget.se/EncryptionResources/
-/ServerResources/MrBoboGet/EncryptionResources/
+/MBWebsite/ServerResources/mrboboget.se/EncryptionResources/
+/MBWebsite/ServerResources/MrBoboGet/EncryptionResources/
 Makefile
 CMakeFiles
 cmake_install.cmake
-/ServerResources/mrboboget.se/HTMLResources/.well-known/
+/MBWebsite/ServerResources/mrboboget.se/HTMLResources/.well-known/
 /CMakeCache.txt
 /ServerResources/..gitignore.swp
 /Ossian*
@@ -59,7 +59,7 @@ cmake_install.cmake
 /remar.se/
 RelativeRemar.se/
 /MrBoboSocketsOld.h
-/ServerResources/mrboboget.se/SMTPResources/RelayInfo.txt
+/MBWebsite/ServerResources/mrboboget.se/SMTPResources/RelayInfo.txt
 
 
 LainBitTorrentCapture.pcapng

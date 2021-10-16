@@ -131,8 +131,8 @@ set(no_group_source_files
 source_group("" FILES ${no_group_source_files})
 
 set(EXTLIBS_HEADER_FILES
-    "${EXTLIBS_DIR}/SQLite/sqlite3ext.h"
-    "${EXTLIBS_DIR}/SQLite/sqlite3.h"
+    "${EXTLIBS_DIR}/sqlite3/sqlite3ext.h"
+    "${EXTLIBS_DIR}/sqlite3/sqlite3.h"
     "${EXTLIBS_DIR}/cryptopp/cryptlib.h"
     #"${EXTLIBS_DIR}/tinyxml2/tinyxml2.h"
     #"${EXTLIBS_DIR}/ffmpeg/libavutil/avconfig.h"
@@ -155,7 +155,6 @@ set(Header_Files
     "${CMAKE_CURRENT_SOURCE_DIR}/MrBoboSockets/TLSHandler.h"
     "SearchEngine/MBSearchEngine.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
-    "MrBoboDatabase/MPGMemeSite.h"
     "MrBoboMedia/MBMedia.h"
     ${EXTLIBS_HEADER_FILES}
     #search engine
@@ -171,6 +170,7 @@ set(Header_Files
     "MBCrypto/MBCrypto.h"
     "MBParsing/MBParsing.h"
     "MrBoboDatabase/MBDBObjectScript.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/MBWebsite/MPGMemeSite.h"
      "MBSystem/MBSystem.h"
      #TODO ta bort MBPM direct dependancien
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.h"
@@ -185,7 +185,7 @@ set(Source_Files
     "BasiChatCmake.cpp"
     "MrBoboSockets/TLSHandler.cpp"
     "MrBoboDatabase/MrBoboDatabase.cpp"
-    "MrBoboDatabase/MPGMemeSite.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/MBWebsite/MPGMemeSite.cpp"
     "MrBoboMedia/MBMedia.cpp"
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBUnicode/MBUnicode.cpp"
@@ -382,9 +382,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/../;"
     "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
     "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../MyLibrary/;"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../MrBoboLibrary/;"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/PicoSHA2/;"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/;"
     #"${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/plusaes/include/plusaes/"
 )
@@ -496,7 +493,7 @@ set (FFMPEG_LIBS
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES 
         "stdc++fs"
-        "${EXTLIBS_DIR}/SQLite/sqlite3.a"
+        "${EXTLIBS_DIR}/sqlite3/sqlite3.a"
         "${EXTLIBS_DIR}/cryptopp/libcryptopp.a"
         "dl"
         #"${FFMPEG_LIBS}"
@@ -510,7 +507,7 @@ else()
         "Mfplat.lib"
         "Mfuuid.lib"
         "Strmiids.lib"
-        "${EXTLIBS_DIR}/SQLite/sqlite3.lib"
+        "${EXTLIBS_DIR}/sqlite3/sqlite3.lib"
         #"${EXTLIBS_DIR}/cryptopp/cryptlib_D.lib"
         #"${EXTLIBS_DIR}/cryptopp/cryptlib.lib"
         #"${FFMPEG_LIBS}"

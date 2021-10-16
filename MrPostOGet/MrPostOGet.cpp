@@ -248,7 +248,19 @@ namespace MrPostOGet
 	}
 	//END Utility Functions
 
-
+	bool HTTPServer::p_PathIsValid(std::string const& PathToCheck)
+	{
+		bool ReturnValue = true;
+		if (PathToCheck.front() != '/')
+		{
+			ReturnValue = false;
+		}
+		if (PathToCheck.find("..") != PathToCheck.npos)
+		{
+			ReturnValue = false;
+		}
+		return(ReturnValue);
+	}
 	std::unordered_map<std::string, std::string> HTTPServer::p_ParseSearchParameters(std::string const& URL)
 	{
 		std::unordered_map<std::string, std::string> ReturnValue = {};
@@ -338,6 +350,15 @@ namespace MrPostOGet
 				}
 				HTTPClientRequest CurrentRequest;
 				p_ParseHTTPClientRequest(CurrentRequest, RequestData);
+				if (!p_PathIsValid(CurrentRequest.RequestResource))
+				{
+					HTTPDocument DocumentToSend;
+					DocumentToSend.RequestStatus = HTTPRequestStatus::NotFound;
+					DocumentToSend.Type = MBMIME::MIMEType::Text;
+					DocumentToSend.DocumentData = "Invalid request path";
+					ConnectedClient->SendHTTPDocument(DocumentToSend);
+					continue;
+				}
 				//ANTAGANDE när man väl lyssnar läggs inga handlers till, vilket gör att nedstående trick fungerar
 				bool HandlerHasHandled = false;
 				size_t NumberOfHandlers = 0;

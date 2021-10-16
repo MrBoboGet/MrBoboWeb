@@ -1781,11 +1781,18 @@ std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 	{
 		ActualDomainName = DefaultDomain;
 	}
-	return("./ServerResources/" + ActualDomainName +"/");
+	//TODO detta är MEGA yikes, vi hardcodar en path som den här ska gå till... Borde kanske ha en socket factory eller att serversockets kräver mer data?
+	std::string ReturnValue = "./MBWebsite/ServerResources/" + ActualDomainName + "/";
+	if (!std::filesystem::exists(ReturnValue))
+	{
+		std::cout << "TLS domain resource path doesn't exist";
+	}
+	return(ReturnValue);
 }
 std::string TLSHandler::GetDefaultCertificate()
 {
-	return("./ServerResources/" + DefaultDomain + "/" + "EncryptionResources/SignedCertificateRSA2096.der");
+	//TODO MEGA yikes det här med
+	return("./MBWebsite/ServerResources/" + DefaultDomain + "/" + "EncryptionResources/SignedCertificateRSA2096.der");
 }
 std::string TLSHandler::GenerateServerCertificateRecord(std::string const& DomainName)
 {
