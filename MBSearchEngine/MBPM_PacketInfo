@@ -6,5 +6,6 @@
 		"StaticRelease": "MBSearchEngine_SR",
 		"StaticDebug": "MBSearchEngine_SD"
 	},
+	"ExportedExecutableTargets":["mbse"],
 	"Dependancies":["MBUtility","MrPostOGet"],
 }
