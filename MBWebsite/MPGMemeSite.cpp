@@ -1943,6 +1943,8 @@ namespace MBWebsite
 				LatestAccess.flush();
 				LatestAccess.close();
 				ReturnValue = MrPostOGet::LoadWholeFile(MBDBResources + BlippArchives + "latest");
+				std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out|std::ios::app);
+				AccessLog << "Dowload " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
 			}
 			else
 			{
@@ -1992,6 +1994,9 @@ namespace MBWebsite
 				LatestAccess.flush();
 				LatestAccess.close();
 
+				std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out | std::ios::app);
+				AccessLog << "Dowload " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+
 				ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 			}
 			else
@@ -2027,6 +2032,8 @@ namespace MBWebsite
 				LatestAccess.flush();
 				LatestAccess.close();
 
+				std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out | std::ios::app);
+				AccessLog << "Unlock " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
 				ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 			}
 			else
@@ -2037,6 +2044,9 @@ namespace MBWebsite
 					LatestAccess << UserPermissions.AssociatedUser;
 					LatestAccess.flush();
 					LatestAccess.close();
+
+					std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out | std::ios::app);
+					AccessLog << "Unlock " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
 
 					ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 				}
@@ -2049,6 +2059,36 @@ namespace MBWebsite
 		else
 		{
 			ReturnValue = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+		}
+		return(ReturnValue);
+	}
+	std::string MBDB_Website::DBAPI_UploadBlippBugReport(std::vector<std::string> const& Arguments, DBPermissionsList const& UserPermissions)
+	{
+		std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
+		std::string ReturnValue = "";
+		if (UserPermissions.AssociatedUser == "guest" || UserPermissions.AssociatedUser == "")
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+		}
+		else
+		{
+			if (Arguments.size() < 2)
+			{
+				ReturnValue = "{\"MBDBAPI_Status\":\"InvalidArguments\"}";
+				return(ReturnValue);
+			}
+			std::string MBDBResources = GetResourceFolderPath();
+			std::string BlippBugDirectory = "/operationblipp/archives/CrashReports/";
+			if (Arguments.size() == 3 && Arguments[2] == "Dev")
+			{
+				BlippBugDirectory = "/operationblipp/Dev/archives/CrashReports/";
+			}
+			std::string NewFileName = p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+			std::ofstream NewFile = std::ofstream(MBDBResources+BlippBugDirectory+NewFileName,std::ios::out);
+			NewFile << Arguments[0] << std::endl;
+			NewFile << "---STACK TRACE---" << std::endl;
+			NewFile << Arguments[1] << std::endl;
+			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 		}
 		return(ReturnValue);
 	}
@@ -2218,6 +2258,17 @@ namespace MBWebsite
 				else
 				{
 					ReturnValue.DocumentData = DBAPI_UnlockBlippFile(APIDirectiveArguments, ConnectionPermissions);
+				}
+			}
+			else if(APIDirective == "UploadBlippBugReport")
+			{
+				if (ConnectionPermissions.AssociatedUser == "guest")
+				{
+					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+				}
+				else
+				{
+					ReturnValue.DocumentData = DBAPI_UploadBlippBugReport(APIDirectiveArguments, ConnectionPermissions);
 				}
 			}
 			else
