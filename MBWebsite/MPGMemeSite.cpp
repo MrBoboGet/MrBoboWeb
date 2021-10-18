@@ -2066,30 +2066,23 @@ namespace MBWebsite
 	{
 		std::lock_guard<std::mutex> Lock(m_BlippFileMutex);
 		std::string ReturnValue = "";
-		if (UserPermissions.AssociatedUser == "guest" || UserPermissions.AssociatedUser == "")
+		if (Arguments.size() < 2)
 		{
-			ReturnValue = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+			ReturnValue = "{\"MBDBAPI_Status\":\"InvalidArguments\"}";
+			return(ReturnValue);
 		}
-		else
+		std::string MBDBResources = GetResourceFolderPath();
+		std::string BlippBugDirectory = "/operationblipp/archives/CrashReports/";
+		if (Arguments.size() == 3 && Arguments[2] == "Dev")
 		{
-			if (Arguments.size() < 2)
-			{
-				ReturnValue = "{\"MBDBAPI_Status\":\"InvalidArguments\"}";
-				return(ReturnValue);
-			}
-			std::string MBDBResources = GetResourceFolderPath();
-			std::string BlippBugDirectory = "/operationblipp/archives/CrashReports/";
-			if (Arguments.size() == 3 && Arguments[2] == "Dev")
-			{
-				BlippBugDirectory = "/operationblipp/Dev/archives/CrashReports/";
-			}
-			std::string NewFileName = p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
-			std::ofstream NewFile = std::ofstream(MBDBResources+BlippBugDirectory+NewFileName,std::ios::out);
-			NewFile << Arguments[0] << std::endl;
-			NewFile << "---STACK TRACE---" << std::endl;
-			NewFile << Arguments[1] << std::endl;
-			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+			BlippBugDirectory = "/operationblipp/Dev/archives/CrashReports/";
 		}
+		std::string NewFileName = p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+		std::ofstream NewFile = std::ofstream(MBDBResources+BlippBugDirectory+NewFileName,std::ios::out);
+		NewFile << Arguments[0] << std::endl;
+		NewFile << "---STACK TRACE---" << std::endl;
+		NewFile << Arguments[1] << std::endl;
+		ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 		return(ReturnValue);
 	}
 	//
@@ -2262,14 +2255,7 @@ namespace MBWebsite
 			}
 			else if(APIDirective == "UploadBlippBugReport")
 			{
-				if (ConnectionPermissions.AssociatedUser == "guest")
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
-				}
-				else
-				{
-					ReturnValue.DocumentData = DBAPI_UploadBlippBugReport(APIDirectiveArguments, ConnectionPermissions);
-				}
+				ReturnValue.DocumentData = DBAPI_UploadBlippBugReport(APIDirectiveArguments, ConnectionPermissions);
 			}
 			else
 			{
