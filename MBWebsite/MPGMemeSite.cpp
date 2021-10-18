@@ -1944,7 +1944,7 @@ namespace MBWebsite
 				LatestAccess.close();
 				ReturnValue = MrPostOGet::LoadWholeFile(MBDBResources + BlippArchives + "latest");
 				std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out|std::ios::app);
-				AccessLog << "Dowload " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+				AccessLog << "Dowload " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")"<<std::endl;
 			}
 			else
 			{
@@ -1995,7 +1995,7 @@ namespace MBWebsite
 				LatestAccess.close();
 
 				std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out | std::ios::app);
-				AccessLog << "Dowload " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+				AccessLog << "Dowload " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")" << std::endl;
 
 				ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 			}
@@ -2033,7 +2033,7 @@ namespace MBWebsite
 				LatestAccess.close();
 
 				std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out | std::ios::app);
-				AccessLog << "Unlock " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+				AccessLog << "Unlock " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")"<<std::endl;
 				ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 			}
 			else
@@ -2046,7 +2046,7 @@ namespace MBWebsite
 					LatestAccess.close();
 
 					std::ofstream AccessLog = std::ofstream(MBDBResources + BlippArchives + "AccessLog", std::ios::out | std::ios::app);
-					AccessLog << "Unlock " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")";
+					AccessLog << "Unlock " + p_GetTimestamp() + " (" + UserPermissions.AssociatedUser + ")"<<std::endl;
 
 					ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
 				}
