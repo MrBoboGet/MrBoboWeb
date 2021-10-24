@@ -10,7 +10,8 @@
 #include <MBSystem/MBSystem.h>
 #include <MBUtility/MBStrings.h>
 #include <MBPacketManager/MBPacketManager.h>
-
+#include <unordered_map>
+#include <unordered_set>
 //username cookie = 
 //password cookie = 
 namespace MBWebsite
@@ -238,6 +239,15 @@ namespace MBWebsite
 	}
 	//END MBDB_Website_GitHandler
 
+	//BEGIN MBDB_Website_MBPP_UploadIncorporator
+	void MBDB_Website_MBPP_UploadIncorporator::IncorporatePacketChanges(std::string const& UpdatedPacket, MBPM::MBPP_ComputerInfo ComputerInfo, std::vector<std::string> const& RemovedObjects)
+	{
+		UpdatedPackets.push_back({ UpdatedPacket,ComputerInfo,RemovedObjects });
+	}
+	//END MBDB_Website_MBPP_UploadIncorporator
+
+
+
 	//BEGIN MBDB_Website_MBPP_Handler
 	MBDB_Website_MBPP_Handler::MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator)
 	{
@@ -252,20 +262,57 @@ namespace MBWebsite
 	{
 		return(RequestToHandle.RequestResource == "/MBPM" || RequestToHandle.RequestResource == "/MBPM/");
 	}
-	void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(std::string const& PacketToUpdate, std::vector<std::string> const& ObjectToDelete)
+	std::string MBDB_Website_MBPP_Handler::p_GetComputerDiffTopDirectory(std::string const& PacketName, MBPM::MBPP_ComputerInfo ComputerInfo)
 	{
-		if (std::filesystem::exists(m_PacketsDirectory + PacketToUpdate))
+		std::string ReturnValue = "";
+		std::string PacketTopDirectory = m_PacketsDirectory + PacketName + "/";
+		std::string PacketComputerDiffInfoDirectory = PacketTopDirectory + ".mbpm/ComputerDiff/";
+		if (std::filesystem::exists(PacketTopDirectory + ".mbpm/ComputerDiff/MBPM_ComputerDiffInfo.json"))
 		{
-			if (std::filesystem::exists(m_PacketsDirectory + PacketToUpdate + "/MBPM_UploadedChanges"))
+			MBError ParsingError = true;
+			MBPM::MBPP_ComputerDiffInfo ComputerDiffInfo;
+			ParsingError = ComputerDiffInfo.ReadInfo(PacketTopDirectory + ".mbpm/ComputerDiff/MBPM_ComputerDiffInfo.json");
+			if (ParsingError)
 			{
-				std::string PacketTopDirectory = m_PacketsDirectory + PacketToUpdate + "/";
-				std::string UploadedChangesDirectory = m_PacketsDirectory + PacketToUpdate + "/MBPM_UploadedChanges/";
+				std::string ComputerDiffDirectory = ComputerDiffInfo.Match(ComputerInfo);
+				if (ComputerDiffDirectory != "")
+				{
+					ReturnValue = PacketComputerDiffInfoDirectory + ComputerDiffDirectory + "/";
+				}
+			}
+		}
+
+		return(ReturnValue);
+	}
+	void MBDB_Website_MBPP_Handler::p_IncorporatePacketChanges(MBPM::MBPP_ComputerInfo ComputerInfo, std::string const& UpdatedPacket,std::vector<std::string> const& DeletedObjects)
+	{
+		if (std::filesystem::exists(m_PacketsDirectory + UpdatedPacket))
+		{
+			if (std::filesystem::exists(m_PacketsDirectory + UpdatedPacket + "/MBPM_UploadedChanges"))
+			{
+				bool UpdatedComputerDiff = false;
+				std::string ComputerDiffTopDirectory = "";
+				std::string PacketTopDirectory = m_PacketsDirectory + UpdatedPacket + "/";
+				if (ComputerInfo.OSType != MBPM::MBPP_OSType::Null || ComputerInfo.ProcessorType != MBPM::MBPP_ProcessorType::Null)
+				{
+					UpdatedComputerDiff = true;
+					ComputerDiffTopDirectory = p_GetComputerDiffTopDirectory(UpdatedPacket, ComputerInfo);
+					if (ComputerDiffTopDirectory != "")
+					{
+						//om detta eje stämmer borde vi egenttligen throwa error, kan ju korrumpera directoryn
+						PacketTopDirectory = ComputerDiffTopDirectory + "/Data/";
+					}
+				}
+				std::string UploadedChangesDirectory = m_PacketsDirectory + UpdatedPacket + "/MBPM_UploadedChanges/";
 				std::filesystem::recursive_directory_iterator UploadedChangesIterator = std::filesystem::recursive_directory_iterator(UploadedChangesDirectory);
+				//händer oavsett
+				std::set<std::filesystem::path> UploadedFiles = {};
 				for (auto const& Entry : UploadedChangesIterator)
 				{
 					if (Entry.is_regular_file())
 					{
 						std::string FilePath = MBUnicode::PathToUTF8(std::filesystem::relative(Entry.path(), UploadedChangesDirectory).generic_string());
+						UploadedFiles.insert(std::filesystem::path("/" + FilePath).lexically_normal());
 						std::filesystem::path NewFileDirectory = std::filesystem::path(PacketTopDirectory + FilePath).parent_path();
 						if (!std::filesystem::exists(NewFileDirectory))
 						{
@@ -276,13 +323,21 @@ namespace MBWebsite
 				}
 				//deletar det som ska deletas
 				//resettar directoryn
-				for (size_t i = 0; i < ObjectToDelete.size(); i++)
+				std::vector<std::string> RemovedDefaultObjects = {};
+				for (size_t i = 0; i < DeletedObjects.size(); i++)
 				{
-					if (MBPM::MBPP_PathIsValid(ObjectToDelete[i]))
+					if (MBPM::MBPP_PathIsValid(DeletedObjects[i]))
 					{
 						try
 						{
-							std::filesystem::remove_all(PacketTopDirectory + "/" + ObjectToDelete[i]);
+							if (std::filesystem::exists(PacketTopDirectory + "/" + DeletedObjects[i]))
+							{
+								std::filesystem::remove_all(PacketTopDirectory + "/" + DeletedObjects[i]);
+							}
+							else
+							{
+								RemovedDefaultObjects.push_back(DeletedObjects[i]);
+							}
 						}
 						catch (const std::exception& e)
 						{
@@ -292,7 +347,51 @@ namespace MBWebsite
 				}
 				std::filesystem::remove_all(UploadedChangesDirectory);
 				//skapar nytt index
-				MBPM::CreatePacketFilesData(PacketTopDirectory);
+				if (!UpdatedComputerDiff)
+				{
+					MBPM::CreatePacketFilesData(PacketTopDirectory);
+				}
+				else
+				{
+					//vi uppdaterat txt filen, samt fixar MBPM_FileInfon
+					std::set<std::string> ComputerDiffRemovedObjects = {};
+					std::ifstream DiffRemovedObjects = std::ifstream(ComputerDiffTopDirectory + "/MBPM_RemovedObjects.txt", std::ios::in);
+					std::string CurrentLine = "";
+					while (std::getline(DiffRemovedObjects, CurrentLine))
+					{
+						if (CurrentLine.size() > 0 && CurrentLine.back() == '\r')
+						{
+							CurrentLine.resize(CurrentLine.size() - 1);
+						}
+						ComputerDiffRemovedObjects.insert(CurrentLine);
+					}
+					DiffRemovedObjects.close();
+					for (size_t i = 0; i < RemovedDefaultObjects.size(); i++)
+					{
+						ComputerDiffRemovedObjects.insert((RemovedDefaultObjects[i]));
+					}
+					std::vector<std::string> NewComputerDiffRemovedObjects = {};
+					for (std::string const& RemovedObjects : ComputerDiffRemovedObjects)
+					{
+						if (UploadedFiles.find(std::filesystem::path(RemovedObjects).lexically_normal()) == UploadedFiles.end())
+						{
+							NewComputerDiffRemovedObjects.push_back(RemovedObjects);
+						}
+					}
+					std::ofstream NewRemovedObjectsFile = std::ofstream(ComputerDiffTopDirectory + "/MBPM_RemovedObjects.txt", std::ios::out);
+					for (size_t i = 0; i < NewComputerDiffRemovedObjects.size(); i++)
+					{
+						NewRemovedObjectsFile << NewComputerDiffRemovedObjects[i] << std::endl;
+					}
+					NewRemovedObjectsFile.flush();
+					NewRemovedObjectsFile.close();
+					//FileInfon
+					std::ofstream NewFileInfo = std::ofstream(ComputerDiffTopDirectory + "/MBPM_UpdatedFileInfo", std::ios::out | std::ios::binary);
+					MBUtility::MBFileOutputStream OutputStream = MBUtility::MBFileOutputStream(&NewFileInfo);
+					MBPM::CreatePacketFilesData(ComputerDiffTopDirectory + "/Data/", &OutputStream);
+					NewFileInfo.flush();
+					NewFileInfo.close();
+				}
 			}
 			else
 			{
@@ -312,7 +411,7 @@ namespace MBWebsite
 		ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::Conflict;
 		try
 		{
-			MBPM::MBPP_Server ResponseGenerator(m_PacketsDirectory);
+			MBPM::MBPP_Server ResponseGenerator(m_PacketsDirectory,&m_UploadIncorporator);
 			ResponseGenerator.SetUserAuthenticator(m_UserAuthenticator);
 			GenerationError = ResponseGenerator.InsertClientData(Request.BodyData);
 			//här ska också några checks göras för att se huruvida datan är av typen upload, och därmed kräver verifiering
@@ -336,10 +435,17 @@ namespace MBWebsite
 				ResponseGenerator.FreeResponseIterator(ResponseIterator);
 				ReturnValue.DataSent = true;
 				//det är nu vi collar huruvida ett packet uppdaterats
-				if (ResponseGenerator.PacketUpdated())
+				//if (ResponseGenerator.PacketUpdated())
+				//{
+				//	p_IncorporatePacketChanges(ResponseGenerator.GetUpdatedPacket(), ResponseGenerator.GetPacketRemovedFiles());
+				//}
+				for (size_t i = 0; i < m_UploadIncorporator.UpdatedPackets.size(); i++)
 				{
-					p_IncorporatePacketChanges(ResponseGenerator.GetUpdatedPacket(), ResponseGenerator.GetPacketRemovedFiles());
+					MBPP_UploadPacketTuple CurrentTuple = m_UploadIncorporator.UpdatedPackets.back();
+					p_IncorporatePacketChanges(CurrentTuple.ComputerInfo, CurrentTuple.UpdatedPacket, CurrentTuple.RemovedObjects);
+					m_UploadIncorporator.UpdatedPackets.pop_back();
 				}
+
 			}
 		}
 		catch (const std::exception& e)

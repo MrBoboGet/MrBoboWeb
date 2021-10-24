@@ -7,6 +7,7 @@
 #include <MrBoboDatabase/MBDBObjectScript.h>
 #include <atomic>
 #include <MBUtility/MBInterfaces.h>
+#include <MBPacketManager/MBPacketManager.h>
 
 namespace MBWebsite
 {
@@ -63,16 +64,34 @@ namespace MBWebsite
 		MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*) override;
 	};
 
+	struct MBPP_UploadPacketTuple
+	{
+		std::string UpdatedPacket = "";
+		MBPM::MBPP_ComputerInfo ComputerInfo;
+		std::vector<std::string> RemovedObjects = {};
+	};
+	class MBDB_Website_MBPP_UploadIncorporator : public MBPM::MBPP_UploadChangesIncorporator
+	{
+	private:
+	public:
+		std::vector<MBPP_UploadPacketTuple> UpdatedPackets = {};
+		void IncorporatePacketChanges(std::string const& UpdatedPacket, MBPM::MBPP_ComputerInfo ComputerInfo, std::vector<std::string> const& RemovedObjects) override;
+		virtual ~MBDB_Website_MBPP_UploadIncorporator() override
+		{
+
+		}
+	};
 	class MBDB_Website_MBPP_Handler : public MrPostOGet::HTTPRequestHandler
 	{
 	private:
 		std::string m_PacketsDirectory = "";
 		MBUtility::MBBasicUserAuthenticator* m_UserAuthenticator = nullptr;
-
+		MBDB_Website_MBPP_UploadIncorporator m_UploadIncorporator;
 		//TODO fixa separat upload/write mutex så man läsa samtidigt så länge ingen annan försöker ladda upp
 		std::mutex m_WriteMutex;
 
-		void p_IncorporatePacketChanges(std::string const& UpdatedPacket, std::vector<std::string> const& RemovedObjects);
+		std::string p_GetComputerDiffTopDirectory(std::string const& PacketName, MBPM::MBPP_ComputerInfo ComputerInfo);
+		void p_IncorporatePacketChanges(MBPM::MBPP_ComputerInfo ComputerInfo,std::string const& UpdatedPacket, std::vector<std::string> const& RemovedObjects);
 	public:
 		//void AddPacketDirectory(std::string const& NewDirectory);
 		MBDB_Website_MBPP_Handler(std::string const& PacketDirectory, MBUtility::MBBasicUserAuthenticator* Authenticator);

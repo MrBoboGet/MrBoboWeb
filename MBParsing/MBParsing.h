@@ -45,6 +45,9 @@ namespace MBParsing
 	typedef uintmax_t JSONIntegerType;
 	typedef double JSONFloatType;
 	class JSONObject;
+
+	std::string ToJason(std::string const& ValueToJason);
+
 	//typedef std::vector<JSONObject> JSONVectorType;
 	enum class JSONObjectType
 	{
@@ -65,9 +68,14 @@ namespace MBParsing
 
 		JSONObjectType m_Type = JSONObjectType::Null;
 		void* m_ObjectData = nullptr;
+
+		std::string p_ToString_Array() const;
+		std::string p_ToString_Aggregate() const;
+		std::string p_ToString_Atomic() const;
 	public:
 		JSONObject() {};
-		JSONObject(JSONObject&& ObjectToSteal);
+		//JSONObject(JSONObjectType InitialType);
+		JSONObject(JSONObject&& ObjectToSteal) noexcept;
 		JSONObject(JSONObject const& ObjectToCopy);
 		JSONObject(std::string&& StringInitializer);
 		JSONObject(intmax_t IntegerInitializer);
@@ -78,18 +86,21 @@ namespace MBParsing
 		JSONObject& operator=(JSONObject ObjectToCopy);
 		~JSONObject();
 
-		JSONObjectType GetType() { return(m_Type); };
+		JSONObjectType GetType() const { return(m_Type); };
 
 		intmax_t GetIntegerData() const;
 		std::string const& GetStringData() const;
 		bool GetBooleanData() const;
+
+		JSONObject& operator[](std::string const& AttributeName);
 		
 		std::vector<JSONObject>& GetArrayData();
 		std::vector<JSONObject>const& GetArrayData() const;
 		
-		bool HasAttribute(std::string const& AttributeName);
+		bool HasAttribute(std::string const& AttributeName) const;
 		JSONObject& GetAttribute(std::string const& AttributeName);
 		JSONObject const& GetAttribute(std::string const& AttributeName) const;
+		std::string ToString() const;
 	};
 	//en rule
 	//RuleObject.Matches(void const* DataToparse,size_t DataSize);

@@ -2,6 +2,7 @@
 #include <cstring>
 #include <algorithm>
 #include <assert.h>
+#include <stdexcept>
 namespace MBParsing
 {
 	void WriteBigEndianInteger(void* Buffer, uintmax_t IntegerToWrite, char IntegerSize)
@@ -556,10 +557,14 @@ namespace MBParsing
 		m_Type = ObjectToCopy.m_Type;
 		m_ObjectData = ObjectToCopy.p_CloneData();
 	}
-	JSONObject::JSONObject(JSONObject&& ObjectToSteal)
+	JSONObject::JSONObject(JSONObject&& ObjectToSteal) noexcept
 	{
 		swap(*this, ObjectToSteal);
 	}
+	//JSONObject::JSONObject(JSONObjectType InitialType)
+	//{
+	//	if(initia)
+	//}
 	JSONObject::JSONObject(std::string&& StringInitializer)
 	{
 		m_Type = JSONObjectType::String;
@@ -614,22 +619,140 @@ namespace MBParsing
 		return(*(const std::vector<JSONObject>*)m_ObjectData);
 	}
 
-	bool JSONObject::HasAttribute(std::string const& AttributeName)
+	bool JSONObject::HasAttribute(std::string const& AttributeName) const
 	{
 		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
 		return(ObjectMap.find(AttributeName) != ObjectMap.end());
 	}
 	JSONObject& JSONObject::GetAttribute(std::string const& AttributeName)
 	{
+		if (m_Type != JSONObjectType::Aggregate)
+		{
+			throw std::domain_error("JSON objet not of Aggregate typed");
+		}
 		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
 		return(ObjectMap[AttributeName]);
+	}
+	JSONObject& JSONObject::operator[](std::string const& AttributeName)
+	{
+		return(GetAttribute(AttributeName));
 	}
 	JSONObject const& JSONObject::GetAttribute(std::string const& AttributeName) const
 	{
 		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
 		return(ObjectMap.at(AttributeName));
 	}
+	std::string JSONObject::ToString() const
+	{
+		std::string ReturnValue = "";
+		if (m_Type == JSONObjectType::Array)
+		{
+			ReturnValue = p_ToString_Array();
+		}
+		else if (m_Type == JSONObjectType::Aggregate)
+		{
+			ReturnValue = p_ToString_Aggregate();
+		}
+		else
+		{
+			ReturnValue = p_ToString_Atomic();
+		}
+		return(ReturnValue);
+	}
+	std::string JSONObject::p_ToString_Array() const
+	{
+		std::string ReturnValue = "";
+		std::vector<JSONObject> const& ArrayToConvert = *((std::vector<JSONObject>*)m_ObjectData);
+		ReturnValue += "[";
+		for (size_t i = 0; i < ArrayToConvert.size(); i++)
+		{
+			ReturnValue += ArrayToConvert[i].ToString();
+			if (i + 1 < ArrayToConvert.size())
+			{
+				ReturnValue += ",";
+			}
+		}
+		ReturnValue += "]";
+		return(ReturnValue);
+	}
+	std::string JSONObject::p_ToString_Aggregate() const
+	{
+		std::string ReturnValue = "";
+		std::map<std::string, JSONObject> const& Data = *((std::map<std::string, JSONObject>*)m_ObjectData);
+		ReturnValue += "{";
+		for(auto const& Entry : Data)
+		{
+			ReturnValue += ToJason(Entry.first)+":"+Entry.second.ToString()+",";
+		}
+		ReturnValue.resize(ReturnValue.size() - 1);
+		ReturnValue += "}";
+		return(ReturnValue);
+	}
+	std::string JSONObject::p_ToString_Atomic() const
+	{
+		std::string ReturnValue = "";
+		if (m_Type == JSONObjectType::Bool)
+		{
+			bool Data = *((bool*)m_ObjectData);
+			ReturnValue = Data ? "true" : "false";
+		}
+		else if (m_Type == JSONObjectType::String)
+		{
+			ReturnValue = ToJason(*((std::string*)m_ObjectData));
+		}
+		else if (m_Type == JSONObjectType::Integer)
+		{
+			ReturnValue = std::to_string(*((intmax_t*)m_ObjectData));
+		}
+		else if (m_Type == JSONObjectType::Null)
+		{
+			ReturnValue = "null";
+		}
+
+		return(ReturnValue);
+	}
 	//END JSONObject
+
+	std::string ToJason(std::string const& ValueToJason)
+	{
+		std::string EscapedJasonString = "";
+		for (size_t i = 0; i < ValueToJason.size(); i++)
+		{
+			if (ValueToJason[i] == '"')
+			{
+				EscapedJasonString += "\\\"";
+			}
+			else if (ValueToJason[i] == '\\')
+			{
+				EscapedJasonString += "\\\\";
+			}
+			else if (ValueToJason[i] == '\b')
+			{
+				EscapedJasonString += "\\b";
+			}
+			else if (ValueToJason[i] == '\f')
+			{
+				EscapedJasonString += "\\f";
+			}
+			else if (ValueToJason[i] == '\n')
+			{
+				EscapedJasonString += "\\n";
+			}
+			else if (ValueToJason[i] == '\r')
+			{
+				EscapedJasonString += "\\r";
+			}
+			else if (ValueToJason[i] == '\t')
+			{
+				EscapedJasonString += "\\t";
+			}
+			else
+			{
+				EscapedJasonString += ValueToJason[i];
+			}
+		}
+		return("\"" + EscapedJasonString + "\"");
+	}
 
 
 	JSONObject ParseJSONObject(const void* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
