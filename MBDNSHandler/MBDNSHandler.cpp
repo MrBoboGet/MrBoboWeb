@@ -246,7 +246,7 @@ namespace MBDNS
 			//m_TCPSocket = MBSockets::ConnectSocket(DNSServerIP, "53", MBSockets::TraversalProtocol::TCP);
 			//m_TCPSocket.Connect();
 			//m_TCPSocket.SendData(StringToSend.c_str(), StringToSend.size());
-			MBSockets::ClientSocket SocketToUse(DNSServerIP, "53");
+			MBSockets::TCPClient SocketToUse(DNSServerIP, "53");
 			SocketToUse.Connect();
 			SocketToUse.SendData(StringToSend.c_str(), StringToSend.size());
 			ReturnValue = SocketToUse.RecieveData();

@@ -20,6 +20,7 @@
 #include <MBTorrent/MBBitTorrent.h>
 #include <MrBoboDatabase/MBDBObjectScript.h>
 #include <MBSystem/MBSystem.h>
+#include <MBCrypto/MBCrypto.h>
 //#include <string>
 //#include <iostream>
 //#include <fstream>
@@ -29,6 +30,8 @@
 int main()
 {
 	MBSockets::Init();
+
+
 	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
 	//MBSystem::SubProcess TestProcess("dir");
@@ -52,6 +55,13 @@ int main()
 	//std::cout << TLSResult.ErrorMessage << std::endl;
 	//std::cout << TestSocket.GetDataFromRequest("GET","/") << std::endl;
 	
+	//MBSockets::HTTPClientSocket TestSocket;
+	//TestSocket.Connect("www.google.com", "443");
+	//TestSocket.EstablishTLSConnection();
+	//std::cout << TestSocket.GetDataFromRequest("GET", "/") << std::endl;
+
+
+	//return(0);
 	MBWebsite::MBGWebsiteMain();
 	exit(0);
 	MBTorrent::MBBitTorrentHandler TestTorrent;

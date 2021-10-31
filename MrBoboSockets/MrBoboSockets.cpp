@@ -81,7 +81,52 @@ namespace MBSockets
 
 
 	//BEGIN Socket
-	std::string Socket::p_GetLastError()
+//	std::string Socket::p_GetLastError()
+//	{
+//#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+//		return(std::to_string(WSAGetLastError()));
+//#elif __linux__
+//		return(std::string(strerror(errno)));
+//#endif
+//	}
+	//void Socket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
+	//{
+	//	//DEBUG GREJER
+	//	std::cout << ErrorMessage << std::endl;
+	//	m_LastErrorMessage = ErrorMessage;
+	//	if (IsLethal == true)
+	//	{
+	//		m_Invalid = true;
+	//	}
+	//}
+	//bool Socket::IsValid()
+	//{
+	//	return(!m_Invalid);
+	//}
+	//bool Socket::IsConnected()
+	//{
+	//	return(!ConnectionClosed);
+	//}
+	//void Socket::Close()
+	//{
+	//	MBCloseSocket(m_UnderlyingHandle);
+	//	m_Invalid = true;
+	//	m_UnderlyingHandle = MBInvalidSocket;
+	//}
+	//
+	//Socket::Socket()
+	//{
+	//	m_UnderlyingHandle = MBInvalidSocket;
+	//}
+	//Socket::~Socket()
+	//{
+	//	MBCloseSocket(m_UnderlyingHandle);
+	//}
+	//END Socket
+
+	//BEGIN UDPSocket
+	//class UDPSocket : public Socket
+	std::string UDPSocket::p_GetLastError()
 	{
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 		return(std::to_string(WSAGetLastError()));
@@ -89,7 +134,7 @@ namespace MBSockets
 		return(std::string(strerror(errno)));
 #endif
 	}
-	void Socket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
+	void UDPSocket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
 	{
 		//DEBUG GREJER
 		std::cout << ErrorMessage << std::endl;
@@ -99,33 +144,6 @@ namespace MBSockets
 			m_Invalid = true;
 		}
 	}
-	bool Socket::IsValid()
-	{
-		return(!m_Invalid);
-	}
-	//bool Socket::IsConnected()
-	//{
-	//	return(!ConnectionClosed);
-	//}
-	void Socket::Close()
-	{
-		MBCloseSocket(m_UnderlyingHandle);
-		m_Invalid = true;
-		m_UnderlyingHandle = MBInvalidSocket;
-	}
-
-	Socket::Socket()
-	{
-		m_UnderlyingHandle = MBInvalidSocket;
-	}
-	Socket::~Socket()
-	{
-		MBCloseSocket(m_UnderlyingHandle);
-	}
-	//END Socket
-
-	//BEGIN UDPSocket
-	//class UDPSocket : public Socket
 	UDPSocket::UDPSocket(std::string const& Adress, std::string const& Port)
 	{
 		struct addrinfo* result = NULL, * ptr = NULL, hints;
@@ -155,6 +173,18 @@ namespace MBSockets
 			p_HandleError("Error at socket(): " + p_GetLastError(), true);
 			//freeaddrinfo(result);
 			return;
+		}
+	}
+	bool UDPSocket::IsValid()
+	{
+		return(!m_Invalid);
+	}
+	void UDPSocket::Close()
+	{
+		if (!m_SocketClosed)
+		{
+			MBCloseSocket(m_UnderlyingHandle);
+			m_SocketClosed = true;
 		}
 	}
 	void UDPSocket::UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber)
@@ -231,57 +261,352 @@ namespace MBSockets
 
 	//BEGIN ConnectSocket	
 	//class ConnectSocket:: : public Socket
-	ConnectSocket::~ConnectSocket()
-	{
-		delete _m_addr;
-	}
-	bool ConnectSocket::IsConnected()
-	{
-		return(m_IsConnected && !m_Invalid);
-	}
-	std::string ConnectSocket::GetIpOfConnectedSocket()
-	{
-		return("");
-	}
-	int ConnectSocket::SendRawData(const void* DataPointer, size_t DataLength)
-	{
-		size_t TotalDataSent = 0;
-		while (TotalDataSent != DataLength)
-		{
-			m_ErrorResult = send(m_UnderlyingHandle, (const char*)DataPointer, DataLength, 0);
-			if (m_ErrorResult == MBSocketError())
-			{
-				p_HandleError("send failed with error: " + p_GetLastError(), true);
-				return(0);
-			}
-			TotalDataSent += m_ErrorResult;
-		}
-	}
-	int ConnectSocket::SendData(const void* DataPointer, size_t DataLength)
-	{
-		if (!m_TLSConnectionEstablished)
-		{
-			try
-			{
-				SendRawData(DataPointer, DataLength);
-			}
-			catch (const std::exception&)
-			{
-				p_HandleError("send failed with unknown error", true);
-				return(-1);
-			}
-		}
-		else
-		{
-			m_TLSHandler.SendDataAsRecord(DataPointer, DataLength,this);
-		}
-		return(0);
-	}
+	//ConnectSocket::~ConnectSocket()
+	//{
+	//	delete _m_addr;
+	//}
+	//bool ConnectSocket::IsConnected()
+	//{
+	//	return(m_IsConnected && !m_Invalid);
+	//}
+	//std::string ConnectSocket::GetIpOfConnectedSocket()
+	//{
+	//	return("");
+	//}
+	//int ConnectSocket::SendRawData(const void* DataPointer, size_t DataLength)
+	//{
+	//	size_t TotalDataSent = 0;
+	//	while (TotalDataSent != DataLength)
+	//	{
+	//		m_ErrorResult = send(m_UnderlyingHandle, (const char*)DataPointer, DataLength, 0);
+	//		if (m_ErrorResult == MBSocketError())
+	//		{
+	//			p_HandleError("send failed with error: " + p_GetLastError(), true);
+	//			return(0);
+	//		}
+	//		TotalDataSent += m_ErrorResult;
+	//	}
+	//}
+	//int ConnectSocket::SendData(const void* DataPointer, size_t DataLength)
+	//{
+	//	if (!m_TLSConnectionEstablished)
+	//	{
+	//		try
+	//		{
+	//			SendRawData(DataPointer, DataLength);
+	//		}
+	//		catch (const std::exception&)
+	//		{
+	//			p_HandleError("send failed with unknown error", true);
+	//			return(-1);
+	//		}
+	//	}
+	//	else
+	//	{
+	//		m_TLSHandler.SendDataAsRecord(DataPointer, DataLength,this);
+	//	}
+	//	return(0);
+	//}
 	//int ConnectSocket::SendData(std::string const& DataToSend)
 	//{
 	//	return(SendData(DataToSend.c_str(), DataToSend.size()));
 	//}
-	std::string ConnectSocket::RecieveRawData(size_t MaxNumberOfBytes)
+	//std::string ConnectSocket::RecieveRawData(size_t MaxNumberOfBytes)
+	//{
+	//	size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
+	//	char* Buffer = (char*)malloc(InitialBufferSize);
+	//	size_t MaxRecieveSize = InitialBufferSize;
+	//	int LengthOfDataRecieved = 0;
+	//	size_t TotalLengthOfData = 0;
+	//	while ((LengthOfDataRecieved = recv(m_UnderlyingHandle, &Buffer[TotalLengthOfData], MaxRecieveSize, 0)) > 0)
+	//	{
+	//		TotalLengthOfData += LengthOfDataRecieved;
+	//		if (TotalLengthOfData >= MaxNumberOfBytes)
+	//		{
+	//			break;
+	//		}
+	//		if (LengthOfDataRecieved == MaxRecieveSize)
+	//		{
+	//			MaxRecieveSize = InitialBufferSize;
+	//			if (TotalLengthOfData + MaxRecieveSize > MaxNumberOfBytes)
+	//			{
+	//				MaxRecieveSize = MaxNumberOfBytes - TotalLengthOfData;
+	//			}
+	//			Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
+	//			assert(Buffer != nullptr);
+	//		}
+	//		else
+	//		{
+	//			break;
+	//		}
+	//	}
+	//	std::string ReturnValue(Buffer, TotalLengthOfData);
+	//	free(Buffer);
+	//	return(ReturnValue);
+	//}
+	//std::string ConnectSocket::RecieveData(size_t MaxNumberOfBytes)
+	//{
+	//	if (!m_TLSConnectionEstablished)
+	//	{
+	//		return(RecieveRawData(MaxNumberOfBytes));
+	//	}
+	//	else
+	//	{
+	//		return(m_TLSHandler.GetApplicationData(this, MaxNumberOfBytes));
+	//	}
+	//}
+	//ConnectSocket& ConnectSocket::operator<<(std::string const& DataToSend)
+	//{
+	//	SendData(DataToSend);
+	//	return(*this);
+	//}
+	//ConnectSocket& ConnectSocket::operator>>(std::string& DataBuffer)
+	//{
+	//	DataBuffer = RecieveData(-1);
+	//	return(*this);
+	//}
+	//MBError ConnectSocket::EstablishTLSConnection()
+	//{
+	//	return(MBError(false));
+	//}
+	//END ConnectSocket
+
+	//BEGIN ClientSocket
+	//MBError ClientSocket::EstablishTLSConnection()
+	//{
+	//	MBError ReturnValue(false);
+	//	try
+	//	{
+	//		ReturnValue = m_TLSHandler.EstablishTLSConnection(this);
+	//	}
+	//	catch (const std::exception&)
+	//	{
+	//		ReturnValue = false;
+	//		ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
+	//	}
+	//	if (!ReturnValue)
+	//	{
+	//		//om det fuckade vill vi reseta vårt tls object
+	//		m_TLSHandler = TLSHandler();
+	//	}
+	//	else
+	//	{
+	//		m_TLSConnectionEstablished = true;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//ClientSocket::ClientSocket(std::string const& Adress, std::string const& Port)
+	//{
+	//	HostName = Adress;
+	//	struct addrinfo* result = NULL, * ptr = NULL, hints;
+	//	memset(&hints, 0, sizeof(hints));
+	//	hints.ai_family = AF_UNSPEC;
+	//	hints.ai_socktype = SOCK_STREAM;
+	//	hints.ai_protocol = IPPROTO_TCP;
+	//
+	//	m_ErrorResult = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
+	//	if (m_ErrorResult != 0)
+	//	{
+	//		//error grejer, helst v�ra egna ocks�
+	//		p_HandleError("getaddrinfo with adress " + Adress + " failed: " + p_GetLastError(), true);
+	//		//std::cout << Adress << std::endl;
+	//		return;
+	//	}
+	//
+	//	m_UnderlyingHandle = MBInvalidSocket;
+	//	// Attempt to connect to the first address returned by
+	//	// the call to getaddrinfo
+	//	ptr = result;
+	//	// Create a SOCKET for connecting to server
+	//	m_UnderlyingHandle = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+	//	_m_ai_addrlen = ptr->ai_addrlen;
+	//	_m_addr = new sockaddr;
+	//	*_m_addr = *(ptr->ai_addr);
+	//	freeaddrinfo(result);
+	//	if (m_UnderlyingHandle == MBInvalidSocket)
+	//	{
+	//		//egen error hantering
+	//		p_HandleError("Error at socket(): " + p_GetLastError(), true);
+	//		//freeaddrinfo(result);
+	//	}
+	//}
+	//int ClientSocket::Connect()
+	//{
+	//	m_ErrorResult = connect(m_UnderlyingHandle, _m_addr, _m_ai_addrlen);
+	//	if (m_ErrorResult == MBSocketError())
+	//	{
+	//		p_HandleError("Error Att connecta " + p_GetLastError(), false);
+	//	}
+	//	else
+	//	{
+	//		m_IsConnected = true;
+	//	}
+	//	return(0);
+	//}
+	//END ClientSocket
+
+	//BEGIN ServerSocket
+	//MBError ServerSocket::EstablishTLSConnection()
+	//{
+	//	MBError ReturnValue(true);
+	//	try
+	//	{
+	//		ReturnValue = m_TLSHandler.EstablishHostTLSConnection(this);
+	//	}
+	//	catch (const std::exception&)
+	//	{
+	//		ReturnValue = false;
+	//		ReturnValue.ErrorMessage = "Unknown error in establishing host tls connection";
+	//		std::cout << "Unknown error in establishing host tls connection" << std::endl;
+	//	}
+	//	if (!ReturnValue)
+	//	{
+	//		m_TLSHandler = TLSHandler();
+	//	}
+	//	else
+	//	{
+	//		m_TLSConnectionEstablished = true;
+	//	}
+	//	return(ReturnValue);
+	//}
+	//int ServerSocket::Bind()
+	//{
+	//	m_ErrorResult = bind(m_ListenerSocket, _m_addr, _m_ai_addrlen);
+	//	if (m_ErrorResult == MBSocketError()) 
+	//	{
+	//		p_HandleError("bind failed with error: " + p_GetLastError(), false);
+	//	}
+	//	return(0);
+	//}
+	//int ServerSocket::Listen()
+	//{
+	//	m_ErrorResult = listen(m_ListenerSocket, SOMAXCONN);
+	//	if (m_ErrorResult == MBSocketError())
+	//	{
+	//		p_HandleError("listen failed with error: " + p_GetLastError(), false);
+	//		//MBCloseSocket(ConnectedSocket);
+	//	}
+	//	return(0);
+	//}
+	//void ServerSocket::TransferConnectedSocket(ServerSocket& OtherSocket)
+	//{
+	//	OtherSocket.m_UnderlyingHandle = m_UnderlyingHandle;
+	//	m_UnderlyingHandle = MBInvalidSocket;
+	//	OtherSocket.SocketTlsHandler = SocketTlsHandler;
+	//	SocketTlsHandler = TLSHandler();
+	//	OtherSocket.m_IsConnected = m_IsConnected;
+	//}
+	//ServerSocket::ServerSocket() : m_ListenerSocket(MBInvalidSocket)
+	//{
+	//	
+	//}
+	//int ServerSocket::Accept()
+	//{
+	//	m_UnderlyingHandle = accept(m_ListenerSocket, NULL, NULL);
+	//	if (m_UnderlyingHandle == MBInvalidSocket) {
+	//		p_HandleError("accept failed with error: " + p_GetLastError(), true);
+	//		//MBCloseSocket(ConnectedSocket);
+	//		m_IsConnected = false;
+	//	}
+	//	else
+	//	{
+	//		m_IsConnected = true;
+	//	}
+	//	return(0);
+	//}
+	//ServerSocket::ServerSocket(std::string const& Port) : m_ListenerSocket(MBInvalidSocket)
+	//{
+	//	struct addrinfo* result = NULL, * ptr = NULL, hints;
+	//	memset(&hints, 0, sizeof(hints));
+	//
+	//	hints.ai_family = AF_INET;
+	//	hints.ai_socktype = SOCK_STREAM;
+	//	hints.ai_protocol = IPPROTO_TCP;
+	//	hints.ai_flags = AI_PASSIVE;
+	//
+	//	m_ErrorResult = getaddrinfo(NULL, Port.c_str(), &hints, &result);
+	//	if (m_ErrorResult != 0)
+	//	{
+	//		//error grejer, helst v�ra egna ocks�
+	//		p_HandleError("getaddrinfo failed: " + p_GetLastError(), true);
+	//		return;
+	//	}
+	//
+	//	m_ListenerSocket = MBInvalidSocket;
+	//	// Attempt to connect to the first address returned by
+	//	// the call to getaddrinfo
+	//	ptr = result;
+	//	// Create a SOCKET for connecting to server
+	//	m_ListenerSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
+	//	_m_ai_addrlen = ptr->ai_addrlen;
+	//	_m_addr = new sockaddr;
+	//	*_m_addr = *(ptr->ai_addr);
+	//	freeaddrinfo(result);
+	//	if (m_ListenerSocket == MBInvalidSocket)
+	//	{
+	//		//egen error hantering
+	//		p_HandleError("error at socket(): " + p_GetLastError(), true);
+	//		//freeaddrinfo(result);
+	//	}
+	//	else
+	//	{
+	//		//nu fixar vi specifika options, som bbland annat SO_REUSEADRR
+	//		//TODO Detta var copy pastat från stack overflow, men kan det vara så att det faktiskt beror på endianessen av ens dator?
+	//		int Enable = 1;
+	//		m_ErrorResult = setsockopt(m_ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof(int));
+	//		if (m_ErrorResult < 0)
+	//		{
+	//			p_HandleError("Error at socket() when setting SO_REUSEADDR:" + p_GetLastError(), true);
+	//		}
+	//	}
+	//}
+	//ServerSocket::~ServerSocket()
+	//{
+	//	MBCloseSocket(m_ListenerSocket);
+	//}
+	//END ServerSocket
+
+	//BEGIN OSSocket
+	void OSSocket::p_Swap(OSSocket& SocketToSwapWith)
+	{
+		std::swap(m_UnderlyingHandle, SocketToSwapWith.m_UnderlyingHandle);
+		std::swap(m_ErrorResult, SocketToSwapWith.m_ErrorResult);
+		std::swap(m_OSSocketClosed, SocketToSwapWith.m_OSSocketClosed);
+		std::swap(m_Invalid, SocketToSwapWith.m_Invalid);
+		std::swap(m_LastErrorMessage, SocketToSwapWith.m_LastErrorMessage);
+	}
+	std::string OSSocket::p_GetLastError()
+	{
+		#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+			return(std::to_string(WSAGetLastError()));
+		#elif __linux__
+			return(std::string(strerror(errno)));
+		#endif
+	}
+	void OSSocket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
+	{
+		//DEBUG GREJER
+		std::cout << ErrorMessage << std::endl;
+		m_LastErrorMessage = ErrorMessage;
+		if (IsLethal == true)
+		{
+			m_Invalid = true;
+		}
+	}
+	void OSSocket::p_SendAllData(MB_OS_Socket ConnectedSocket, const void* DataToSend, size_t DataSize)
+	{
+		size_t TotalDataSent = 0;
+		while (TotalDataSent != DataSize)
+		{
+			m_ErrorResult = send(m_UnderlyingHandle, (const char*)DataToSend, DataSize, 0);
+			if (m_ErrorResult == MBSocketError())
+			{
+				p_HandleError("send failed with error: " + p_GetLastError(), true);
+			}
+			TotalDataSent += m_ErrorResult;
+		}
+	}
+	std::string OSSocket::p_RecieveData(MB_OS_Socket ConnectedSocket, size_t MaxNumberOfBytes)
 	{
 		size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
 		char* Buffer = (char*)malloc(InitialBufferSize);
@@ -314,60 +639,47 @@ namespace MBSockets
 		free(Buffer);
 		return(ReturnValue);
 	}
-	std::string ConnectSocket::RecieveData(size_t MaxNumberOfBytes)
+	void OSSocket::p_CloseOSSocket()
 	{
-		if (!m_TLSConnectionEstablished)
+		m_Invalid = true;
+		if (m_OSSocketClosed == false)
 		{
-			return(RecieveRawData(MaxNumberOfBytes));
-		}
-		else
-		{
-			return(m_TLSHandler.GetApplicationData(this, MaxNumberOfBytes));
+			if (m_OSSocketClosed != MBInvalidSocket)
+			{
+				MBCloseSocket(m_OSSocketClosed);
+			}
+			m_OSSocketClosed = true;
 		}
 	}
-	//ConnectSocket& ConnectSocket::operator<<(std::string const& DataToSend)
-	//{
-	//	SendData(DataToSend);
-	//	return(*this);
-	//}
-	//ConnectSocket& ConnectSocket::operator>>(std::string& DataBuffer)
-	//{
-	//	DataBuffer = RecieveData(-1);
-	//	return(*this);
-	//}
-	MBError ConnectSocket::EstablishTLSConnection()
+	OSSocket::OSSocket()
 	{
-		return(MBError(false));
+		m_UnderlyingHandle = MBInvalidSocket;
 	}
-	//END ConnectSocket
+	OSSocket::~OSSocket()
+	{
+		p_CloseOSSocket();
+	}
+	//END OSSocket
 
-	//BEGIN ClientSocket
-	MBError ClientSocket::EstablishTLSConnection()
+	//BEGIN TCPClient
+	TCPClient::TCPClient()
 	{
-		MBError ReturnValue(false);
-		try
-		{
-			ReturnValue = m_TLSHandler.EstablishTLSConnection(this);
-		}
-		catch (const std::exception&)
-		{
-			ReturnValue = false;
-			ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
-		}
-		if (!ReturnValue)
-		{
-			//om det fuckade vill vi reseta vårt tls object
-			m_TLSHandler = TLSHandler();
-		}
-		else
-		{
-			m_TLSConnectionEstablished = true;
-		}
-		return(ReturnValue);
+		
 	}
-	ClientSocket::ClientSocket(std::string const& Adress, std::string const& Port)
+	void TCPClient::p_Swap(TCPClient& SocketToSwapWith)
 	{
-		HostName = Adress;
+		std::swap(m_IsConnected, SocketToSwapWith.m_IsConnected);
+		std::swap(m_Closed, SocketToSwapWith.m_Closed);
+		std::swap(_m_ai_addrlen, SocketToSwapWith._m_ai_addrlen);
+		std::swap(_m_addr, SocketToSwapWith._m_addr);
+	}
+	MBError TCPClient::Initialize(std::string const& Adress, std::string const& Port)
+	{
+		MBError ReturnValue = true;
+		TCPClient SocketToSwap;
+		OSSocket::p_Swap(SocketToSwap);
+		TCPClient::p_Swap(SocketToSwap);
+
 		struct addrinfo* result = NULL, * ptr = NULL, hints;
 		memset(&hints, 0, sizeof(hints));
 		hints.ai_family = AF_UNSPEC;
@@ -380,7 +692,9 @@ namespace MBSockets
 			//error grejer, helst v�ra egna ocks�
 			p_HandleError("getaddrinfo with adress " + Adress + " failed: " + p_GetLastError(), true);
 			//std::cout << Adress << std::endl;
-			return;
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = p_GetLastError();
+			return ReturnValue;
 		}
 
 		m_UnderlyingHandle = MBInvalidSocket;
@@ -397,10 +711,17 @@ namespace MBSockets
 		{
 			//egen error hantering
 			p_HandleError("Error at socket(): " + p_GetLastError(), true);
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = p_GetLastError();
 			//freeaddrinfo(result);
 		}
+		return(ReturnValue);
 	}
-	int ClientSocket::Connect()
+	TCPClient::TCPClient(std::string const& Adress, std::string const& Port)
+	{
+		Initialize(Adress, Port);
+	}
+	int TCPClient::Connect()
 	{
 		m_ErrorResult = connect(m_UnderlyingHandle, _m_addr, _m_ai_addrlen);
 		if (m_ErrorResult == MBSocketError())
@@ -413,80 +734,79 @@ namespace MBSockets
 		}
 		return(0);
 	}
-	//END ClientSocket
-
-	//BEGIN ServerSocket
-	MBError ServerSocket::EstablishTLSConnection()
+	bool TCPClient::IsValid()
 	{
-		MBError ReturnValue(true);
-		try
+		return(!m_Invalid);
+	}
+	void TCPClient::Close()
+	{
+		p_CloseOSSocket();
+		m_IsConnected = false;
+	}
+
+	bool TCPClient::IsConnected()
+	{
+		return(m_IsConnected);
+	}
+	std::string TCPClient::RecieveData(size_t MaxNumberOfBytes)
+	{
+		std::string ReturnValue = p_RecieveData(m_UnderlyingHandle);
+		if (!IsValid())
 		{
-			ReturnValue = m_TLSHandler.EstablishHostTLSConnection(this);
-		}
-		catch (const std::exception&)
-		{
-			ReturnValue = false;
-			ReturnValue.ErrorMessage = "Unknown error in establishing host tls connection";
-			std::cout << "Unknown error in establishing host tls connection" << std::endl;
-		}
-		if (!ReturnValue)
-		{
-			m_TLSHandler = TLSHandler();
-		}
-		else
-		{
-			m_TLSConnectionEstablished = true;
+			m_IsConnected = false;
 		}
 		return(ReturnValue);
 	}
-	int ServerSocket::Bind()
+	MBError TCPClient::SendData(const void* DataPointer, size_t DataLength)
 	{
-		m_ErrorResult = bind(m_ListenerSocket, _m_addr, _m_ai_addrlen);
-		if (m_ErrorResult == MBSocketError()) {
-			p_HandleError("bind failed with error: " + p_GetLastError(), false);
-			//freeaddrinfo(result);
-			//MBCloseSocket(ConnectedSocket);
-		}
-		return(0);
-	}
-	int ServerSocket::Listen()
-	{
-		m_ErrorResult = listen(m_ListenerSocket, SOMAXCONN);
-		if (m_ErrorResult == MBSocketError())
+		MBError ReturnValue = true;
+		p_SendAllData(m_UnderlyingHandle,DataPointer,DataLength);
+		if (!IsValid())
 		{
-			p_HandleError("listen failed with error: " + p_GetLastError(), false);
-			//MBCloseSocket(ConnectedSocket);
-		}
-		return(0);
-	}
-	void ServerSocket::TransferConnectedSocket(ServerSocket& OtherSocket)
-	{
-		OtherSocket.m_UnderlyingHandle = m_UnderlyingHandle;
-		m_UnderlyingHandle = MBInvalidSocket;
-		OtherSocket.SocketTlsHandler = SocketTlsHandler;
-		SocketTlsHandler = TLSHandler();
-		OtherSocket.m_IsConnected = m_IsConnected;
-	}
-	ServerSocket::ServerSocket() : m_ListenerSocket(MBInvalidSocket)
-	{
-		
-	}
-	int ServerSocket::Accept()
-	{
-		m_UnderlyingHandle = accept(m_ListenerSocket, NULL, NULL);
-		if (m_UnderlyingHandle == MBInvalidSocket) {
-			p_HandleError("accept failed with error: " + p_GetLastError(), true);
-			//MBCloseSocket(ConnectedSocket);
 			m_IsConnected = false;
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = p_GetLastError();
 		}
-		else
-		{
-			m_IsConnected = true;
-		}
-		return(0);
+		return(ReturnValue);
 	}
-	ServerSocket::ServerSocket(std::string const& Port) : m_ListenerSocket(MBInvalidSocket)
+	MBError TCPClient::SendData(std::string const& DataToSend)
 	{
+		return(SendData(DataToSend.data(), DataToSend.size()));
+	}
+	TCPClient::~TCPClient()
+	{
+		Close();
+		delete _m_addr;
+	}
+	//
+
+	//BEGIN TCPServer
+	TCPServer::TCPServer()
+	{
+		m_ListenerClosed = MBInvalidSocket;
+	}
+	void TCPServer::p_Swap(TCPServer& SocketToSwapWith)
+	{
+		std::swap(m_IsConnected, SocketToSwapWith.m_IsConnected);
+		std::swap(m_ListenerClosed, SocketToSwapWith.m_ListenerClosed);
+		std::swap(_m_ai_addrlen, SocketToSwapWith._m_ai_addrlen);
+		std::swap(_m_addr, SocketToSwapWith._m_addr);
+	}
+	void TCPServer::TransferConnectedSocket(TCPServer* ServerToRecieve)
+	{
+		OSSocket::p_Swap(*ServerToRecieve);
+		ServerToRecieve->m_IsConnected = m_IsConnected;
+		m_IsConnected = false;
+	}
+	MBError TCPServer::Initialize(std::string const& Port)
+	{
+		//utifall fi initializer en socket som redan existerar
+		MBError ReturnValue = true;
+		TCPServer SocketToSwap;
+		OSSocket::p_Swap(SocketToSwap);
+		TCPServer::p_Swap(SocketToSwap);
+
+		m_ListenerSocket = MBInvalidSocket;
 		struct addrinfo* result = NULL, * ptr = NULL, hints;
 		memset(&hints, 0, sizeof(hints));
 
@@ -500,7 +820,9 @@ namespace MBSockets
 		{
 			//error grejer, helst v�ra egna ocks�
 			p_HandleError("getaddrinfo failed: " + p_GetLastError(), true);
-			return;
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = p_GetLastError();
+			return ReturnValue;
 		}
 
 		m_ListenerSocket = MBInvalidSocket;
@@ -524,25 +846,225 @@ namespace MBSockets
 			//nu fixar vi specifika options, som bbland annat SO_REUSEADRR
 			//TODO Detta var copy pastat från stack overflow, men kan det vara så att det faktiskt beror på endianessen av ens dator?
 			int Enable = 1;
+			m_ListenerClosed = false;
 			m_ErrorResult = setsockopt(m_ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof(int));
 			if (m_ErrorResult < 0)
 			{
-				p_HandleError("Error at socket() when setting SO_REUSEADDR:" + p_GetLastError(), true);
+				p_HandleError("Error at socket() when setting SO_REUSEADDR: " + p_GetLastError(), true);
 			}
 		}
+		if (!IsValid())
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = p_GetLastError();
+		}
+		return(ReturnValue);
 	}
-	ServerSocket::~ServerSocket()
+	TCPServer::TCPServer(std::string const& Port)
 	{
-		MBCloseSocket(m_ListenerSocket);
+		Initialize(Port);
 	}
-	//END ServerSocket
+	int TCPServer::Bind()
+	{
+		m_ErrorResult = bind(m_ListenerSocket, _m_addr, _m_ai_addrlen);
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("bind failed with error: " + p_GetLastError(), false);
+		}
+		return(0);
+	}
+	int TCPServer::Listen()
+	{
+		m_ErrorResult = listen(m_ListenerSocket, SOMAXCONN);
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("listen failed with error: " + p_GetLastError(), false);
+			//MBCloseSocket(ConnectedSocket);
+		}
+		return(0);
+	}
+	int TCPServer::Accept()
+	{
+		m_UnderlyingHandle = accept(m_ListenerSocket, NULL, NULL);
+		if (m_UnderlyingHandle == MBInvalidSocket) {
+			p_HandleError("accept failed with error: " + p_GetLastError(), true);
+			//MBCloseSocket(ConnectedSocket);
+			m_IsConnected = false;
+		}
+		else
+		{
+			m_IsConnected = true;
+		}
+		return(0);
+	}
+	bool TCPServer::IsValid()
+	{
+		return(!m_Invalid);
+	}
+	void TCPServer::Close()
+	{
+		p_CloseOSSocket();
+		m_IsConnected = false;
+		if (m_ListenerClosed == false)
+		{
+			MBCloseSocket(m_ListenerSocket);
+		}
+	}
+	bool TCPServer::IsConnected()
+	{
+		return(m_IsConnected);
+	}
+	std::string TCPServer::RecieveData(size_t MaxNumberOfBytes)
+	{
+		std::string ReturnValue = p_RecieveData(m_UnderlyingHandle, MaxNumberOfBytes);
+		if (!IsValid())
+		{
+			m_IsConnected = false;
+		}
+		return(ReturnValue);
+	}
+	MBError TCPServer::SendData(const void* DataPointer, size_t DataLength)
+	{
+		MBError ReturnValue = true;
+		p_SendAllData(m_UnderlyingHandle, DataPointer, DataLength);
+		if (!IsValid())
+		{
+			m_IsConnected = false;
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = p_GetLastError();
+		}
+		return(ReturnValue);
+	}
+	MBError TCPServer::SendData(std::string const& DataToSend)
+	{
+		return(SendData(DataToSend.data(), DataToSend.size()));
+	}
+	TCPServer::~TCPServer()
+	{
+		delete _m_addr;
+		Close();
+	}
+	//END TCPServer
+	//BEGIN TLSConnectSocket
+	void TLSConnectSocket::p_Initialize(std::unique_ptr<ConnectSocket> NewSocket)
+	{
+		m_UnderlyingSocket = std::move(NewSocket);
+	}
+	TLSConnectSocket::TLSConnectSocket(std::unique_ptr<ConnectSocket> NewSocket)
+	{
+		p_Initialize(std::move(NewSocket));
+	}
+
+	MBError TLSConnectSocket::EstablishTLSConnection(bool IsHost,std::string const& HostName)
+	{
+		MBError ReturnValue = true;
+		if (m_UnderlyingSocket == nullptr)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "No internal ConnecSocket to connect";
+			return(ReturnValue);
+		}
+		if (m_TLSHandler.EstablishedSecureConnection())
+		{
+			return(ReturnValue);
+		}
+		if (!IsHost)
+		{
+			m_TLSHandler.EstablishTLSConnection(m_UnderlyingSocket.get(),HostName);
+		}
+		else
+		{
+			m_TLSHandler.EstablishHostTLSConnection(m_UnderlyingSocket.get());
+		}
+		return(ReturnValue);
+	}
+	bool TLSConnectSocket::IsValid()
+	{
+		if(m_UnderlyingSocket == nullptr)
+		{
+			return(false);
+		}
+		else
+		{
+			return(m_UnderlyingSocket->IsValid());
+		}
+	}
+	void TLSConnectSocket::Close()
+	{
+		if (m_UnderlyingSocket == nullptr)
+		{
+			return;
+		}
+		else
+		{
+			return(m_UnderlyingSocket->Close());
+		}
+	}
+	bool TLSConnectSocket::IsConnected()
+	{
+		if (m_UnderlyingSocket == nullptr)
+		{
+			return false;
+		}
+		else
+		{
+			return(m_UnderlyingSocket->IsConnected());
+		}
+	}
+	std::string TLSConnectSocket::RecieveData(size_t MaxNumberOfBytes)
+	{
+		std::string ReturnValue = "";
+		if (m_UnderlyingSocket == nullptr)
+		{
+			return ReturnValue;
+		}
+		else
+		{
+			if (m_TLSHandler.EstablishedSecureConnection() && m_TLSHandler.ConnectionIsActive())
+			{
+				ReturnValue = m_TLSHandler.GetApplicationData(m_UnderlyingSocket.get(),MaxNumberOfBytes);
+			}
+			else
+			{
+				ReturnValue = m_UnderlyingSocket->RecieveData(MaxNumberOfBytes);
+			}
+		}
+		return(ReturnValue);
+	}
+	MBError TLSConnectSocket::SendData(const void* DataPointer, size_t DataLength)
+	{
+		MBError ReturnValue = true;
+		if (m_UnderlyingSocket == nullptr)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "No underyling ConnectSocket";
+			return(ReturnValue);
+		}
+		else
+		{
+			if (m_TLSHandler.EstablishedSecureConnection() && m_TLSHandler.ConnectionIsActive())
+			{
+				m_TLSHandler.SendDataAsRecord(DataPointer, DataLength, m_UnderlyingSocket.get());
+			}
+			else
+			{
+				return(m_UnderlyingSocket->SendData(DataPointer,DataLength));
+			}
+		}
+		return(ReturnValue);
+	}
+	MBError TLSConnectSocket::SendData(std::string const& DataToSend) 
+	{
+		return(SendData(DataToSend.data(), DataToSend.size()));
+	}
+	//END TLSConnetSocket
 
 	//BEGIN HTTPConnectSocket
-	bool HTTPConnectSocket::DataIsAvailable()
+	bool HTTPClientSocket::DataIsAvailable()
 	{
 		return(!RequestFinished);
 	}
-	std::string  HTTPConnectSocket::p_GetHeaderValue(std::string const& Header, const std::string& HeaderContent)
+	std::string  HTTPClientSocket::p_GetHeaderValue(std::string const& Header, const std::string& HeaderContent)
 	{
 		std::string HeaderData = HeaderContent.substr(0, HeaderContent.find("\r\n\r\n") + 4);
 		int HeaderPosition = HeaderData.find(Header + ": ");
@@ -556,7 +1078,7 @@ namespace MBSockets
 			return(HeaderData.substr(HeaderPosition + Header.size() + 2, FirstEndlineAfterContentPos - (HeaderPosition + Header.size() + 2)));
 		}
 	}
-	void HTTPConnectSocket::ResetRequestRecieveState()
+	void HTTPClientSocket::ResetRequestRecieveState()
 	{
 		CurrentContentLength = -1;
 		RecievedContentData = 0;
@@ -568,7 +1090,7 @@ namespace MBSockets
 		CurrentRecievedChunkData = 0;
 		size_t ChunkParseOffset = 0;
 	}
-	void HTTPConnectSocket::UpdateAndDechunkData(std::string& DataToDechunk, size_t Offset)
+	void HTTPClientSocket::UpdateAndDechunkData(std::string& DataToDechunk, size_t Offset)
 	{
 		while (true)
 		{
@@ -619,20 +1141,13 @@ namespace MBSockets
 			}
 		}
 	}
-	std::string HTTPConnectSocket::HTTPGetData()
+	std::string HTTPClientSocket::HTTPGetData()
 	{
 		std::string ReturnValue = "";
 		while (true)
 		{
 			size_t PreviousDataSize = ReturnValue.size();
-			if (UsingHTTPS == false)
-			{
-				ReturnValue += RecieveData(MaxBytesInMemory);
-			}
-			else
-			{
-				ReturnValue += TLSConnectionHandler.GetApplicationData(this, MaxBytesInMemory);
-			}
+			ReturnValue += m_UnderlyingSocket->RecieveData(MaxBytesInMemory);
 			size_t HeaderSize = 0;
 			if (!HeadRecieved)
 			{
@@ -705,21 +1220,21 @@ namespace MBSockets
 		ChunkParseOffset = 0;
 		return(ReturnValue);
 	}
-	int HTTPConnectSocket::Get(std::string Resource)
+	int HTTPClientSocket::Get(std::string Resource)
 	{
 		std::string Meddelandet = "GET /" + Resource + " " + "HTTP/1.1\r\nHost: " + URl + "\r\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
 		//SendData(Meddelandet.c_str(), Meddelandet.length());
-		ConnectSocket::SendData(Meddelandet);
+		m_UnderlyingSocket->SendData(Meddelandet);
 		return(0);
 	}
-	int HTTPConnectSocket::Head(std::string Resource)
+	int HTTPClientSocket::Head(std::string Resource)
 	{
 		std::string Meddelandet = "HEAD /" + Resource + " " + "HTTP/1.1\r\nHost: " + URl + "\r\n" + "accept-encoding: identity" + "\r\n" + "\r\n";
 		//SendData(Meddelandet.c_str(), Meddelandet.length());
-		ConnectSocket::SendData(Meddelandet);
+		m_UnderlyingSocket->SendData(Meddelandet);
 		return(0);
 	}
-	std::string HTTPConnectSocket::GetDataFromRequest(const std::string& RequestType, std::string Resource)
+	std::string HTTPClientSocket::GetDataFromRequest(const std::string& RequestType, std::string Resource)
 	{
 		if (RequestType == "HEAD")
 		{
@@ -732,11 +1247,50 @@ namespace MBSockets
 		std::string ReturnValue = HTTPGetData();
 		return(ReturnValue);
 	}
-	HTTPConnectSocket::HTTPConnectSocket(std::string const& URL, std::string const& Port) : ClientSocket(URL,Port)
+	MBError HTTPClientSocket::EstablishTLSConnection()
+	{
+		return(m_UnderlyingSocket->EstablishTLSConnection(false,m_RemoteHost));
+	}
+	HTTPClientSocket::HTTPClientSocket(std::unique_ptr<TLSConnectSocket> ConnectedSocket,std::string const& Host)
+	{
+		m_RemoteHost = Host;
+		m_UnderlyingSocket = std::move(ConnectedSocket);
+	}
+	bool HTTPClientSocket::IsConnected()
+	{
+		if (m_UnderlyingSocket != nullptr)
+		{
+			return(false);
+		}
+		return(m_UnderlyingSocket->IsConnected());
+	}
+	bool HTTPClientSocket::IsValid()
+	{
+		if (m_UnderlyingSocket != nullptr)
+		{
+			return(false);
+		}
+		return(m_UnderlyingSocket->IsValid());
+	}
+	MBError HTTPClientSocket::Connect(std::string const& Host, std::string const& Port)
+	{
+		MBError ReturnValue = true;
+		this->URl = Host;
+		std::unique_ptr<TCPClient> TCPConnection = std::unique_ptr<TCPClient>(new TCPClient(Host, Port));
+		TCPConnection->Connect();
+		m_UnderlyingSocket = std::unique_ptr<TLSConnectSocket>(new TLSConnectSocket(std::move(TCPConnection)));
+		m_RemoteHost = Host;
+		return(ReturnValue);
+	}
+	HTTPClientSocket::HTTPClientSocket(std::string const& URL, std::string const& Port)
 	{
 		this->URl = URL;
+		std::unique_ptr<TCPClient> TCPConnection = std::unique_ptr<TCPClient>(new TCPClient(URL, Port));
+		TCPConnection->Connect();
+		m_UnderlyingSocket = std::unique_ptr<TLSConnectSocket>(new TLSConnectSocket(std::move(TCPConnection)));
+		m_RemoteHost = URL;
 	}
-	HTTPConnectSocket::~HTTPConnectSocket()
+	HTTPClientSocket::~HTTPClientSocket()
 	{
 
 	}

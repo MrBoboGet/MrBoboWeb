@@ -383,6 +383,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/BasicChat;"
     "${CMAKE_CURRENT_SOURCE_DIR}/Crawler;"
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/;"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/;"
     #"${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/plusaes/include/plusaes/"
 )
 ################################################################################

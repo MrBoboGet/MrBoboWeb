@@ -426,10 +426,10 @@ namespace MBWebsite
 				std::string HTTPHeader = "HTTP/1.1 200 OK\r\n";
 				HTTPHeader += "Content-Type: application/x-MBPP-record\r\n";
 				HTTPHeader += "Content-Length: " + std::to_string(ResponseIterator->GetResponseSize()) + "\r\n\r\n";
-				Socket->SendData(HTTPHeader);
+				Socket->SendRawData(HTTPHeader);
 				while (!ResponseIterator->IsFinished())
 				{
-					Socket->SendData(**ResponseIterator);
+					Socket->SendRawData(**ResponseIterator);
 					ResponseIterator->Increment();
 				}
 				ResponseGenerator.FreeResponseIterator(ResponseIterator);

@@ -12,6 +12,7 @@ namespace MBCrypto
 	{
 		SHA1,
 		SHA256,
+		MD5,
 		Null
 	};
 	struct RSAPrivateKey

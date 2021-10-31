@@ -150,7 +150,7 @@ namespace MBDNS
 	{
 	private:
 		MBSockets::UDPSocket m_UDPSocket;
-		MBSockets::ClientSocket m_TCPSocket;
+		MBSockets::TCPClient m_TCPSocket;
 		static std::string p_EncodeDomain(std::string const& DomainToEncode);
 		static std::string p_EncodeBigEndianInteger(uintmax_t IntegerToEncode,unsigned char IntegerSize);
 		static std::string p_EncodeMessageHeader(DNSMessageHeader const& HeaderToEncode);

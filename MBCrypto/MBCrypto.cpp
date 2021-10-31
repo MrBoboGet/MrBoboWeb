@@ -13,6 +13,7 @@
 #include <cryptopp/modes.h>
 #include <cryptopp/gcm.h>
 #include <cryptopp/cbcmac.h>
+#include <cryptopp/md5.h>
 
 //DEBUG GREJER
 #include <MBUtility/MBStrings.h>
@@ -797,6 +798,14 @@ namespace MBCrypto
 			Hasher.Update((CryptoPP::byte*)DataToHash.data(), DataToHash.size());
 			Hasher.Final(digest);
 			return(std::string((char*)digest, CryptoPP::SHA1::DIGESTSIZE));
+		}
+		if (FunctionToUse == HashFunction::MD5)
+		{
+			CryptoPP::MD5 Hasher;
+			CryptoPP::byte digest[CryptoPP::MD5::DIGESTSIZE];
+			Hasher.Update((CryptoPP::byte*)DataToHash.data(), DataToHash.size());
+			Hasher.Final(digest);
+			return(std::string((char*)digest, CryptoPP::MD5::DIGESTSIZE));
 		}
 	}
 }

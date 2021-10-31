@@ -45,32 +45,38 @@ namespace MBSockets
 	class Socket
 	{
 	protected:
-		MB_OS_Socket m_UnderlyingHandle;
-		int m_ErrorResult = 0;
-		bool m_Invalid = false;
-		std::string m_LastErrorMessage = "";
-		std::string p_GetLastError();
-		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
-		friend void swap(Socket& FirstSocket, Socket& SecondSocket);
+		//MB_OS_Socket m_UnderlyingHandle;
+		//int m_ErrorResult = 0;
+		//bool m_Invalid = false;
+		//std::string m_LastErrorMessage = "";
+		//std::string p_GetLastError();
+		//void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
 	public:
 		Socket& operator=(Socket const&) = delete;
-		Socket& operator=(Socket&&);
 		Socket(Socket const&) = delete;
-		Socket(Socket&&);
-		virtual bool IsValid();
-		virtual void Close();
-		//int SendData(const char* DataPointer, int DataLength);
-		//int RecieveData(char* Buffer, int BufferSize);
-		//std::string RecieveData();
-		//std::string RecieveData(int MaxNumberOfBytes);
-		Socket();
-		~Socket();
+		Socket() {};
+		virtual bool IsValid() = 0;
+		virtual void Close() = 0;
+		virtual ~Socket()
+		{
+
+		};
 	};
 	class UDPSocket : public Socket
 	{
+	private:
+		MB_OS_Socket m_UnderlyingHandle;
+		int m_ErrorResult = 0;
+		bool m_Invalid = false;
+		bool m_SocketClosed = false;
+		std::string m_LastErrorMessage = "";
+		std::string p_GetLastError();
+		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
 	public:
 		UDPSocket(std::string const& Adress, std::string const& Port);
 		void UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber);
+		virtual bool IsValid();
+		virtual void Close();
 		int Bind(int PortToAssociateWith);
 		std::string UDPGetData();
 		void UDPMakeSocketNonBlocking(float SecondsToWait = 0.5);
@@ -79,82 +85,169 @@ namespace MBSockets
 	class ConnectSocket : public Socket
 	{
 	protected:
-		bool m_IsConnected = false;
-		bool m_TLSConnectionEstablished = false;
-		size_t _m_ai_addrlen = 0;
-		sockaddr* _m_addr = nullptr;
-		TLSHandler m_TLSHandler = TLSHandler();
+		//TLSHandler m_TLSHandler = TLSHandler();
+		//bool m_TLSConnectionEstablished = false;
+		//bool m_IsConnected = false;
+		//size_t _m_ai_addrlen = 0;
+		//sockaddr* _m_addr = nullptr;
 	public:
-		std::string HostName;
-		virtual bool IsConnected();
-		std::string GetIpOfConnectedSocket();
-		virtual int SendRawData(const void* DataPointer, size_t DataLength);
-		virtual std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
-		
-		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1);
-		virtual int SendData(const void* DataPointer, size_t DataLength);
-		
+
+		ConnectSocket() {};
+		//std::string HostName;
+		//std::string GetIpOfConnectedSocket();
+		//virtual int SendRawData(const void* DataPointer, size_t DataLength);
+		//virtual std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
+
+		virtual bool IsConnected() = 0;
+
+		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1) = 0;
+
+		virtual MBError SendData(const void* DataPointer, size_t DataLength) = 0;
+		virtual MBError SendData(std::string const& DataToSend) = 0;
+
+		//virtual ConnectSocket& operator<<(std::string const& DataToSend) = 0;
+		//virtual ConnectSocket& operator>>(std::string& DataBuffer) = 0;
+
+
 		//TODO blev en oändlig loop där MBPP_HTTPConverter kallade på koden under, som i sin tur kalla dess overriade med data och length...
 		//måste nog egentligen ta och tänka om hur den här inheritance ska funka, eventuellt en medelstor rewrite, för som det ser ut nu kommer man behöva 
 		//overloada massa funktioner för att saker inte ska kajka
-		virtual int SendData(std::string const& DataToSend) 
+		//virtual MBError EstablishTLSConnection();
+		virtual ~ConnectSocket()
 		{
-			return(ConnectSocket::SendData(DataToSend.data(), DataToSend.size()));
+
 		};
-		virtual ConnectSocket& operator<<(std::string const& DataToSend)
-		{
-			ConnectSocket::SendData(DataToSend);
-			return(*this);
-		}
-		virtual ConnectSocket& operator>>(std::string& DataBuffer)
-		{
-			DataBuffer = ConnectSocket::RecieveData(-1);
-			return(*this);
-		}
-		virtual MBError EstablishTLSConnection();
-		ConnectSocket() {};
-		ConnectSocket(ConnectSocket&&)
-		{
-
-		}
-		~ConnectSocket();
 	};
-	class ClientSocket : public ConnectSocket
+	//class ClientSocket : public ConnectSocket
+	//{
+	//private:
+	//public:
+	//	virtual int Connect();
+	//	//MBError EstablishTLSConnection() override;
+	//	ClientSocket(std::string const& Adress, std::string const& Port);
+	//};
+	//class ServerSocket : public ConnectSocket
+	//{
+	//private:
+	//	MB_OS_Socket m_ListenerSocket;
+	//protected:
+	//	TLSHandler SocketTlsHandler = TLSHandler();
+	//	//bool SecureConnectionEstablished = false;
+	//public:
+	//	//MBError EstablishTLSConnection() override;
+	//	virtual int Bind();
+	//	virtual int Listen();
+	//	virtual int Accept();
+	//
+	//	void TransferConnectedSocket(ServerSocket& OtherSocket);
+	//	ServerSocket();
+	//	ServerSocket(std::string const& Port);
+	//	~ServerSocket();
+	//};
+	class OSSocket
 	{
-	private:
-	public:
-		virtual int Connect();
-		MBError EstablishTLSConnection() override;
-		ClientSocket(std::string const& Adress, std::string const& Port);
-		ClientSocket(ClientSocket&&)
-		{
-
-		}
-	};
-	class ServerSocket : public ConnectSocket
-	{
-	private:
-		MB_OS_Socket m_ListenerSocket;
 	protected:
-		TLSHandler SocketTlsHandler = TLSHandler();
-		friend void swap(ServerSocket& FirstSocket, ServerSocket& SecondSocket);
-		//bool SecureConnectionEstablished = false;
+		MB_OS_Socket m_UnderlyingHandle;
+		int m_ErrorResult = 0;
+		bool m_Invalid = false;
+		bool m_OSSocketClosed = false;
+		std::string m_LastErrorMessage = "";
+
+
+		void p_Swap(OSSocket& SocketToSwapWith);
+
+		std::string p_GetLastError();
+		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
+		OSSocket();
+		void p_SendAllData(MB_OS_Socket ConnectedSocket, const void* DataToSend, size_t DataSize);
+		std::string p_RecieveData(MB_OS_Socket ConnectedSocket, size_t MaxNumberOfBytes = -1);
+		void p_CloseOSSocket();
 	public:
-		MBError EstablishTLSConnection() override;
-		virtual int Bind();
-		virtual int Listen();
-		void TransferConnectedSocket(ServerSocket& OtherSocket);
-		virtual int Accept();
-		ServerSocket();
-		ServerSocket(std::string const& Port);
-		~ServerSocket();
+		OSSocket(OSSocket const&) = delete;
+		~OSSocket();
 	};
-	class HTTPConnectSocket : public ClientSocket
+	class TCPClient : protected OSSocket, public ConnectSocket
+	{
+	private:
+		bool m_IsConnected = false;
+		bool m_Closed = false;
+
+		size_t _m_ai_addrlen = 0;
+		sockaddr* _m_addr = nullptr;
+		void p_Swap(TCPClient& SocketToSwapWith);
+	public:
+		TCPClient();
+		MBError Initialize(std::string const& Adress, std::string const& Port);
+		TCPClient(std::string const& Adress, std::string const& Port);
+
+		int Connect();
+		
+		//overrides
+		virtual bool IsValid() override;
+		virtual void Close() override;
+
+		virtual bool IsConnected() override;
+		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1) override;
+		virtual MBError SendData(const void* DataPointer, size_t DataLength) override;
+		virtual MBError SendData(std::string const& DataToSend) override;
+		virtual ~TCPClient();
+	};
+	class TCPServer : protected OSSocket, public ConnectSocket
+	{
+	private:
+		bool m_IsConnected = false;
+		bool m_ListenerClosed = true;
+		size_t _m_ai_addrlen = 0;
+		sockaddr* _m_addr = nullptr;
+
+		void p_Swap(TCPServer& SocketToSwapWith);
+		MB_OS_Socket m_ListenerSocket;
+	public:
+		TCPServer();
+		MBError Initialize(std::string const& Port);
+		TCPServer(std::string const& Port);
+		int Bind();
+		int Listen();
+		int Accept();
+
+		void TransferConnectedSocket(TCPServer* ServerToRecieve);
+		//overrides
+		virtual bool IsValid() override;
+		virtual void Close() override;
+
+		virtual bool IsConnected() override;
+		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1) override;
+		virtual MBError SendData(const void* DataPointer, size_t DataLength) override;
+		virtual MBError SendData(std::string const& DataToSend) override;
+		virtual ~TCPServer();
+	};
+	class TLSConnectSocket : public ConnectSocket
+	{
+		TLSHandler m_TLSHandler = TLSHandler();
+		std::string m_HostName = "";
+		std::unique_ptr<ConnectSocket> m_UnderlyingSocket;
+
+		void p_Initialize(std::unique_ptr<ConnectSocket> NewSocket);
+	public:
+		TLSConnectSocket(std::unique_ptr<ConnectSocket> NewSocket);
+
+		MBError EstablishTLSConnection(bool IsHost,std::string const& RemoteHostName);
+		virtual bool IsValid() override;
+		virtual void Close() override;
+
+		virtual bool IsConnected() override;
+		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1) override;
+		virtual MBError SendData(const void* DataPointer, size_t DataLength) override;
+		virtual MBError SendData(std::string const& DataToSend) override;
+	};
+	class HTTPClientSocket
 	{
 	private:
 		std::string URl;
-		bool UsingHTTPS = false;
-		TLSHandler TLSConnectionHandler = TLSHandler();
+		//bool UsingHTTPS = false;
+		
+		std::unique_ptr<TLSConnectSocket> m_UnderlyingSocket;
+		std::string m_RemoteHost = "";
 
 		//recieve data status
 		int MaxBytesInMemory = 100000000;//100 MB, helt godtyckligt
@@ -169,17 +262,27 @@ namespace MBSockets
 		size_t ChunkParseOffset = 0;
 
 		std::string p_GetHeaderValue(std::string const& Header,std::string const& HeaderContent);
-	public:
-		//int HTTPSendData(std::string const& DataToSend);
-		bool DataIsAvailable();
-		void ResetRequestRecieveState();
 		void UpdateAndDechunkData(std::string& DataToDechunk, size_t Offset);
-		std::string HTTPGetData();
+		void ResetRequestRecieveState();
 		int Get(std::string Resource = "");
 		int Head(std::string Resource = "");
+
+		
+	public:
+		//int HTTPSendData(std::string const& DataToSend);
+		std::string HTTPGetData();
+		bool DataIsAvailable();
+		MBError EstablishTLSConnection();
 		std::string GetDataFromRequest(const std::string& RequestType, std::string Resource);
-		HTTPConnectSocket(std::string const& URL, std::string const& Port);
-		~HTTPConnectSocket();
+		MBError Connect(std::string const& Host, std::string const& Port);
+		HTTPClientSocket() {};
+		HTTPClientSocket(std::string const& URL, std::string const& Port);
+		HTTPClientSocket(std::unique_ptr<TLSConnectSocket> ConnectedSocket,std::string const& Host);
+
+		bool IsConnected();
+		bool IsValid();
+		//overrides
+		~HTTPClientSocket();
 	};
 
 

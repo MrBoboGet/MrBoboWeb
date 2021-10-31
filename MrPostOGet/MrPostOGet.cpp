@@ -397,6 +397,7 @@ namespace MrPostOGet
 		{
 			std::cout << "Uncaught exception when handling connection: " << CaughtException.what() << std::endl;
 		}
+		delete ConnectedClient;
 		//delete ConnectedClient;
 	}
 	MrPostOGet::HTTPDocument HTTPServer::m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath, HTTPServer* AssociatedServer)
@@ -465,7 +466,7 @@ namespace MrPostOGet
 	//HTTPServer
 	HTTPServer::HTTPServer(std::string PathToResources, int PortToListenTo)
 	{
-		ServerSocketen = new MrPostOGet::HTTPServerSocket(std::to_string(PortToListenTo));
+		ServerSocketen = new MBSockets::TCPServer(std::to_string(PortToListenTo));
 		Port = PortToListenTo;
 		m_DefaultResourcePath = PathToResources;
 	}
@@ -602,9 +603,9 @@ namespace MrPostOGet
 			if (ServerSocketen->IsValid())
 			{
 				NumberOfConnections += 1;
-				MrPostOGet::HTTPServerSocket* NewSocket = new MrPostOGet::HTTPServerSocket(std::to_string(Port));
-				ServerSocketen->TransferConnectedSocket(*NewSocket);
-				std::thread* NewThread = new std::thread(&HTTPServer::m_HandleConnectedSocket,this, NewSocket);
+				MBSockets::TCPServer* NewTCPSocket = new MBSockets::TCPServer();
+				ServerSocketen->TransferConnectedSocket(NewTCPSocket);
+				std::thread* NewThread = new std::thread(&HTTPServer::m_HandleConnectedSocket,this, new HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket>(NewTCPSocket)));
 				CurrentActiveThreads.push_back(NewThread);
 				std::cout << NumberOfConnections << std::endl;
 			}
@@ -1059,13 +1060,39 @@ namespace MrPostOGet
 			return(false);
 		}
 	}
-	HTTPServerSocket::HTTPServerSocket(std::string const& Port) : ServerSocket(Port)
+	MBError HTTPServerSocket::SendRawData(const void* DataToSend, size_t DataToLength)
 	{
+		return(m_UnderlyingSocket->SendData(DataToSend, DataToLength));
+	}
+	MBError HTTPServerSocket::SendRawData(std::string const& DataToSend)
+	{
+		return(SendRawData(DataToSend.data(), DataToSend.size()));
+	}
 
+	int HTTPServerSocket::Close()
+	{
+		m_UnderlyingSocket->Close();
+		return(0);
+	}
+	bool HTTPServerSocket::IsConnected()
+	{
+		return(m_UnderlyingSocket->IsConnected());
+	}
+	bool HTTPServerSocket::IsValid()
+	{
+		return(m_UnderlyingSocket->IsValid());
+	}
+	MBError HTTPServerSocket::EstablishTLSConnection()
+	{
+		return(m_UnderlyingSocket->EstablishTLSConnection(true,""));
+	}
+	HTTPServerSocket::HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket> ConntectedSocket)
+	{
+		m_UnderlyingSocket = std::unique_ptr<MBSockets::TLSConnectSocket>(new MBSockets::TLSConnectSocket(std::move(ConntectedSocket)));
 	}
 	int HTTPServerSocket::p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
 	{
-		int ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
+		size_t ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
 		std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
 		OutChunkDataBeginning = ChunkHeaderEnd + 2;
 		return(std::stoi(NumberOfChunkBytes));
@@ -1129,15 +1156,7 @@ namespace MrPostOGet
 		int TotalRecievedData = 0;
 		while (true)
 		{
-			if (!SocketTlsHandler.EstablishedSecureConnection())
-			{
-				ReturnValue += RecieveData(MaxDataInMemory - TotalRecievedData);
-			}
-			else
-			{
-				ReturnValue += SocketTlsHandler.GetApplicationData(this, MaxDataInMemory - TotalRecievedData);
-				//Kollar lite att det stämmer osv
-			}
+			ReturnValue = m_UnderlyingSocket->RecieveData(MaxDataInMemory - TotalRecievedData);
 			if (!this->IsValid())
 			{
 				//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
@@ -1207,12 +1226,12 @@ namespace MrPostOGet
 	{
 		std::string Body = "<html>\n<body>\n" + Data + "</body>\n</html>";
 		std::string Request = p_GenerateRequest(Body);
-		SendData(Request);
+		m_UnderlyingSocket->SendData(Request);
 	}
 	void HTTPServerSocket::SendHTTPBody(const std::string& Data)
 	{
 		std::string Request = p_GenerateRequest(Data);
-		SendData(Request);
+		m_UnderlyingSocket->SendData(Request);
 	}
 	//void HTTPServerSocket::SendFullResponse(std::string const& DataToSend)
 	//{
@@ -1344,12 +1363,12 @@ namespace MrPostOGet
 			std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
 			NewDocument.ExtraHeaders["Content-Range"].push_back(ContentRangeHeader);
 			std::string DataToSend = p_GenerateRequest(NewDocument);
-			SendData(DataToSend);
+			m_UnderlyingSocket->SendData(DataToSend);
 		}
 		else
 		{
 			std::string DataToSend = p_GenerateRequest(DocumentToSend);
-			SendData(DataToSend);
+			m_UnderlyingSocket->SendData(DataToSend);
 		}
 		if (DocumentToSend.DocumentDataFileReference != "")
 		{
@@ -1381,9 +1400,9 @@ namespace MrPostOGet
 			FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
 			while (!DataExtracter.IsDone())
 			{
-				SendData(DataExtracter.GetNextIntervall());
+				m_UnderlyingSocket->SendData(DataExtracter.GetNextIntervall());
 			}
-			int hej = 2;
+			//int hej = 2;
 		}
 	}
 	std::string HTTPServerSocket::GetNextChunkData()

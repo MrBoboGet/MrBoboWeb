@@ -58,15 +58,19 @@ namespace MrPostOGet
 	//std::string GenerateRequest(HTTPDocument const& DocumentToSend);
 	//std::string GenerateRequest(const std::string& HTMLBody);
 
-	class HTTPServerSocket : public MBSockets::ServerSocket
+	class HTTPServerSocket
 	{
 	private:
+		std::unique_ptr<MBSockets::TLSConnectSocket> m_UnderlyingSocket = nullptr;
+
 		bool ChunksRemaining = false;
 		bool RequestIsChunked = false;
 		int CurrentChunkSize = 0;
 		int CurrentChunkParsed = 0;
 		int CurrentContentLength = 0;
 		int ParsedContentData = 0;
+
+
 		int p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
 		std::string p_UpdateAndDeChunkData(std::string const& ChunkedData);
 
@@ -75,11 +79,21 @@ namespace MrPostOGet
 		std::string p_HTTPRequestStatusToString(HTTPRequestStatus StatusToConvert);
 	public:
 		bool DataIsAvailable();
-		HTTPServerSocket(std::string const& Port);
+		//HTTPServerSocket(std::string const& Port);
+		HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket> ConntectedSocket);
+
 		std::string GetHTTPRequest();
 		void SendDataAsHTTPBody(const std::string& Data);
 		void SendHTTPBody(const std::string& Data);
 		void SendHTTPDocument(HTTPDocument const& DocumentToSend);
+		
+		MBError SendRawData(const void* DataToSend, size_t DataToLength);
+		MBError SendRawData(std::string const& DataToSend);
+
+		int Close();
+		bool IsConnected();
+		bool IsValid();
+		MBError EstablishTLSConnection();
 		std::string GetNextChunkData();
 	};
 
@@ -163,7 +177,7 @@ namespace MrPostOGet
 	private:
 		uint16_t Port = -1;
 		size_t MaxDocumentInMemorySize = 100000;
-		HTTPServerSocket* ServerSocketen;
+		MBSockets::TCPServer* ServerSocketen;
 		
 		std::string m_DefaultResourcePath = "";
 		std::unordered_map<std::string, std::string> m_DomainResourcePaths = {};

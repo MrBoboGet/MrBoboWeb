@@ -121,8 +121,8 @@ void IndexWebsiteSubroutine(std::string ResourceToIndex, const std::string TopDo
 		std::unique_lock<std::mutex> Locken(ClockLock);
 		WaitConditional.wait(Locken);
 	}
-	MBSockets::HTTPConnectSocket HttpConnecter(TopDomain, "80");
-	HttpConnecter.Connect();
+	MBSockets::HTTPClientSocket HttpConnecter(TopDomain, "80");
+	//HttpConnecter.Connect();
 	//tar reda på storleken av header och body datan, så vi bara behöver allokera så pass mycket minne som behövs
 	std::string BodyContent = HttpConnecter.GetDataFromRequest("GET",ResourceToIndex);
 	std::fstream FileToSave;

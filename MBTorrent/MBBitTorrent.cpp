@@ -47,7 +47,7 @@ namespace MBTorrent
 	}
 	void MBBitTorrentPeerConnection::InitiateConnection(std::string const& IPAdressToConnectTo, std::string const& PortToUse)
 	{
-		MBSockets::ClientSocket* SocketToUse = new MBSockets::ClientSocket(IPAdressToConnectTo, PortToUse);
+		MBSockets::TCPClient* SocketToUse = new MBSockets::TCPClient(IPAdressToConnectTo, PortToUse);
 		SocketToUse->Connect();
 		m_AssociatedSocket.store(SocketToUse);
 		if (SocketToUse->IsConnected())
@@ -722,8 +722,8 @@ namespace MBTorrent
 			ConnectTuple ConnectionToTest = p_GetAnnounceURLConnectionTuple(AnnounceURLToTest);
 			std::string Host = ConnectionToTest.Adress.substr(ConnectionToTest.Adress.find("//") + 2);
 			Host = Host.substr(0, Host.find_last_of('/'));
-			MBSockets::HTTPConnectSocket SocketToUse(Host, ConnectionToTest.Port);
-			SocketToUse.Connect();
+			MBSockets::HTTPClientSocket SocketToUse(Host, ConnectionToTest.Port);
+			//SocketToUse.Connect();
 			if (ConnectionToTest.Adress.substr(0, 5) == "https")
 			{
 				SocketToUse.EstablishTLSConnection();

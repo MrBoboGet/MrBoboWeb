@@ -853,7 +853,7 @@ public:
 	TLSHandler();
 	bool ConnectionIsActive() { return(IsConnected); };
 	RSADecryptInfo GetRSADecryptInfo(std::string const& DomainName);
-	MBError EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
+	MBError EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect,std::string const& HostName);
 	MBError EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
 	std::string GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect);
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
@@ -878,7 +878,7 @@ public:
 	//}
 	bool EstablishedSecureConnection() { return(ConnectionParameters.HandshakeFinished); };
 	std::string GenerateVerifyDataMessage();
-	MBError InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect);
+	MBError InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect,std::string const& HostName);
 	bool VerifyFinishedMessage(std::string DataToVerify);
 	bool VerifyMac(std::string Hash, TLS1_2::TLS1_2GenericRecord RecordToEncrypt);
 	void SendDataAsRecord(std::string const& Data, MBSockets::ConnectSocket* AssociatedSocket);

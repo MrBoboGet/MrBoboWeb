@@ -31,9 +31,9 @@ namespace MBMail
 		std::ofstream OutputFile = std::ofstream(MailOutputPath,std::ios::binary);
 		t_InsertMail(MailToSend, PostBoxReciever, OutputFile);
 	}
-	MBSockets::ClientSocket MBMailSender::p_GetServerConnection(std::string const& DomainName)
+	std::unique_ptr<MBSockets::TCPClient> MBMailSender::p_GetServerConnection(std::string const& DomainName)
 	{
-		MBSockets::ClientSocket ReturnValue("smtp-relay.gmail.com", "465");
+		std::unique_ptr<MBSockets::TCPClient> ReturnValue = std::unique_ptr<MBSockets::TCPClient>(new MBSockets::TCPClient("smtp-relay.gmail.com", "465"));
 		return(ReturnValue);
 	}
 	SMTPAuthenticationData MBMailSender::p_GetAuthenticationData()
@@ -56,19 +56,19 @@ namespace MBMail
 		MailError ReturnValue;
 		std::string BodyContent = p_GetMailBody(MailToSend);
 		m_DKIMSigner.SignMail(MailToSend, BodyContent);
-		MBSockets::ClientSocket MailServerConnection = p_GetServerConnection(PostBoxReciever.substr(PostBoxReciever.find_last_of('@') + 1));
-		m_CurrentSMTPConnectionState = p_StartSMTPConnection<MBSockets::ConnectSocket>(PostBoxReciever.substr(PostBoxReciever.find("@") + 1), &MailServerConnection,SendInfo);
+		std::unique_ptr<MBSockets::TCPClient> MailServerConnection = p_GetServerConnection(PostBoxReciever.substr(PostBoxReciever.find_last_of('@') + 1));
+		m_CurrentSMTPConnectionState = p_StartSMTPConnection<MBSockets::ConnectSocket>(PostBoxReciever.substr(PostBoxReciever.find("@") + 1), MailServerConnection.get(),SendInfo);
 		p_Authenticate(m_CurrentSMTPConnectionState, MailServerConnection);
 		p_StartMailTranser(m_CurrentSMTPConnectionState, MailServerConnection,SendInfo);
 		for (size_t i = 0; i < MailToSend.MimeHeaders.size(); i++)
 		{
 			std::string CurrentHeaderData = GetMIMEHeaderLines(MailToSend.MimeHeaders[i]);
-			MailServerConnection<<CurrentHeaderData;
+			MailServerConnection->SendData(CurrentHeaderData);
 		}
-		MailServerConnection<<"\r\n";
+		MailServerConnection->SendData("\r\n");
 		assert(BodyContent.find("\r\n.\r\n") == BodyContent.npos);
 		//TODO fix dot-stuffing
-		MailServerConnection << BodyContent;
+		MailServerConnection->SendData(BodyContent);
 		//for (size_t i = 0; i < MailToSend.Attachments.size(); i++)
 		//{
 		//	p_SendAttachmentData(m_CurrentSMTPConnectionState, MailToSend.Attachments[i]);
@@ -476,20 +476,21 @@ namespace MBMail
 	}
 	void MBMailReciever::StartListening(std::string const& AssociatedDomain, std::string const& PortToListenTo, bool UseImplicitTLS)
 	{
-		MBSockets::ServerSocket ListenSocket(PortToListenTo);
+		MBSockets::TCPServer ListenSocket(PortToListenTo);
 		ListenSocket.Bind();
 		size_t CurrentConnectionID = 0;
 		while (true)
 		{
 			ListenSocket.Listen();
 			ListenSocket.Accept();
+			MBSockets::TCPServer* NewSocket = new MBSockets::TCPServer();
+			ListenSocket.TransferConnectedSocket(NewSocket);
+			MBSockets::TLSConnectSocket* NewConnection =new MBSockets::TLSConnectSocket(std::unique_ptr<MBSockets::TCPServer>(NewSocket));
 			if (UseImplicitTLS)
 			{
-				ListenSocket.EstablishTLSConnection();
+				NewConnection->EstablishTLSConnection(true,"");
 			}
-			MBSockets::ServerSocket* NewSocket = new MBSockets::ServerSocket();
-			ListenSocket.TransferConnectedSocket(*NewSocket);
-			std::shared_ptr<MBSockets::ConnectSocket> SharedSocketPointer(NewSocket);
+			std::shared_ptr<MBSockets::TLSConnectSocket> SharedSocketPointer(NewConnection);
 			MBMailSMTPServerConnection* ConnectionPointer = new MBMailSMTPServerConnection(SharedSocketPointer, CurrentConnectionID, UseImplicitTLS);
 			p_AddConnection(CurrentConnectionID, std::shared_ptr<MBMailSMTPServerConnection>(ConnectionPointer));
 			CurrentConnectionID += 1;
@@ -572,7 +573,7 @@ namespace MBMail
 		else if (CommandVerb == "starttls")
 		{
 			m_AssociatedSocket->SendData("250 Ready to start TLS\r\n");
-			m_AssociatedSocket->EstablishTLSConnection();
+			m_AssociatedSocket->EstablishTLSConnection(true,"");
 			return;
 		}
 		else if (CommandVerb == "mail")
@@ -585,7 +586,8 @@ namespace MBMail
 				m_AssociatedSocket->SendData("501 Invalid postbox\r\n");
 				return;
 			}
-			bool PRFPassed = p_VerifyPRF(SenderDomain,m_AssociatedSocket->GetIpOfConnectedSocket());
+			//bool PRFPassed = p_VerifyPRF(SenderDomain,m_AssociatedSocket->GetIpOfConnectedSocket());
+			bool PRFPassed = false;
 			if (!PRFPassed)
 			{
 				m_AssociatedSocket->SendData("550 PRF not passed, closing connection\r\n");
@@ -683,7 +685,7 @@ namespace MBMail
 		}
 		m_AssociatedReciever->p_RemoveConnection(m_ConnectionID);
 	}
-	MBMailSMTPServerConnection::MBMailSMTPServerConnection(std::shared_ptr<MBSockets::ConnectSocket> AssociatedConnection, size_t ConnectionID, bool UsedImplicitTLS)
+	MBMailSMTPServerConnection::MBMailSMTPServerConnection(std::shared_ptr<MBSockets::TLSConnectSocket> AssociatedConnection, size_t ConnectionID, bool UsedImplicitTLS)
 	{
 		m_AssociatedSocket = AssociatedConnection;
 		m_ConnectionID = ConnectionID;

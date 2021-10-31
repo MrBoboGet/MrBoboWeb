@@ -177,42 +177,42 @@ namespace MBMail
 		SMTPResponse p_GetCommandResponse(std::string const& CommandToSend, MBOctetCommunication* CommunicationStream)
 		{
 			SMTPResponse ReturnValue;
-			(*CommunicationStream) << CommandToSend;
-			std::string ResponseData;
-			(*CommunicationStream) >> ResponseData;
-			std::string StatusString = ResponseData.substr(0, 3);
-			ReturnValue.StatusCode = (SMTPStatusCode) std::stoi(ResponseData);
-			bool MultiLine = (ResponseData[3] == ' ');
-			if (MultiLine)
-			{
-				while (true)
-				{
-					size_t LastResponseCodePosition = 0;
-					size_t StringSize = ResponseData.size();
-					for (size_t i = 2; i < ResponseData.size() - 1; i++)
-					{
-						if (ResponseData[StringSize - 1 - i] == '\n' && ResponseData[StringSize - 2 - i] == '\r')
-						{
-							LastResponseCodePosition = StringSize - i;
-						}
-					}
-					if (ResponseData[LastResponseCodePosition + 3] != ' ' || ResponseData.substr(ResponseData.size() - 3) != "\r\n")
-					{
-						std::string NewData;
-						(*CommunicationStream) >> NewData;
-						ResponseData += NewData;
-					}
-					else
-					{
-						break;
-					}
-				}
-			}
-			std::vector<std::string> ResponseLines = MBUtility::Split(ResponseData, "\r\n");
-			for (size_t i = 0; i < ResponseLines.size(); i++)
-			{
-				ReturnValue.ResponseLines.push_back(ResponseLines[i].substr(4));
-			}
+			//(*CommunicationStream) << CommandToSend;
+			//std::string ResponseData;
+			//(*CommunicationStream) >> ResponseData;
+			//std::string StatusString = ResponseData.substr(0, 3);
+			//ReturnValue.StatusCode = (SMTPStatusCode) std::stoi(ResponseData);
+			//bool MultiLine = (ResponseData[3] == ' ');
+			//if (MultiLine)
+			//{
+			//	while (true)
+			//	{
+			//		size_t LastResponseCodePosition = 0;
+			//		size_t StringSize = ResponseData.size();
+			//		for (size_t i = 2; i < ResponseData.size() - 1; i++)
+			//		{
+			//			if (ResponseData[StringSize - 1 - i] == '\n' && ResponseData[StringSize - 2 - i] == '\r')
+			//			{
+			//				LastResponseCodePosition = StringSize - i;
+			//			}
+			//		}
+			//		if (ResponseData[LastResponseCodePosition + 3] != ' ' || ResponseData.substr(ResponseData.size() - 3) != "\r\n")
+			//		{
+			//			std::string NewData;
+			//			(*CommunicationStream) >> NewData;
+			//			ResponseData += NewData;
+			//		}
+			//		else
+			//		{
+			//			break;
+			//		}
+			//	}
+			//}
+			//std::vector<std::string> ResponseLines = MBUtility::Split(ResponseData, "\r\n");
+			//for (size_t i = 0; i < ResponseLines.size(); i++)
+			//{
+			//	ReturnValue.ResponseLines.push_back(ResponseLines[i].substr(4));
+			//}
 			return(ReturnValue);
 		}
 		template<typename MBOctetCommunication>
@@ -320,7 +320,7 @@ namespace MBMail
 			return;
 		}
 		static std::string p_GetDateString();
-		MBSockets::ClientSocket p_GetServerConnection(std::string const& DomainName);
+		std::unique_ptr<MBSockets::TCPClient> p_GetServerConnection(std::string const& DomainName);
 		SMTPAuthenticationData p_GetAuthenticationData();
 	public:
 		void SetMailbox(std::string const& NewMailbox);
@@ -361,7 +361,7 @@ namespace MBMail
 	private:
 		friend class MBMailReciever;
 		size_t m_ConnectionID = -1;
-		std::shared_ptr<MBSockets::ConnectSocket> m_AssociatedSocket = nullptr;
+		std::shared_ptr<MBSockets::TLSConnectSocket> m_AssociatedSocket = nullptr;
 		MBMailReciever* m_AssociatedReciever = nullptr;
 		std::string m_ClientDomain = "";
 		bool m_UsedImplicitTLS = false;
@@ -378,7 +378,7 @@ namespace MBMail
 		static void p_SendServerHello(MBSockets::ConnectSocket* AssociatedSocket);
 		static void p_SendExtensions(MBSockets::ConnectSocket* AssociatedSocket);
 		void p_CloseConnection();
-		MBMailSMTPServerConnection(std::shared_ptr<MBSockets::ConnectSocket> AssociatedConnection, size_t ConnectionID, bool UsedImplicitTLS);
+		MBMailSMTPServerConnection(std::shared_ptr<MBSockets::TLSConnectSocket> AssociatedConnection, size_t ConnectionID, bool UsedImplicitTLS);
 	public:
 	};
 	class MBMailReciever
