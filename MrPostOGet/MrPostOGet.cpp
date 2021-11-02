@@ -1149,14 +1149,17 @@ namespace MrPostOGet
 	std::string HTTPServerSocket::GetHTTPRequest()
 	{
 		std::string ReturnValue = "";
+
+		std::string NewData = "";
+
 		std::string ContentLengthString = "NULL";
-		int ContentLength = 0;
-		int HeaderLength = 0;
-		int MaxDataInMemory = 1650000 * 2;
-		int TotalRecievedData = 0;
+		size_t ContentLength = 0;
+		size_t HeaderLength = 0;
+		size_t MaxDataInMemory = 1650000 * 2;
+		size_t TotalRecievedData = 0;
 		while (true)
 		{
-			ReturnValue = m_UnderlyingSocket->RecieveData(MaxDataInMemory - TotalRecievedData);
+			NewData = m_UnderlyingSocket->RecieveData(MaxDataInMemory - TotalRecievedData);
 			if (!this->IsValid())
 			{
 				//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
@@ -1164,7 +1167,8 @@ namespace MrPostOGet
 				ParsedContentData = 0;
 				return(ReturnValue);
 			}
-			TotalRecievedData = ReturnValue.size();
+			ReturnValue += NewData;
+			TotalRecievedData += NewData.size();
 			if (CurrentContentLength == 0)
 			{
 				if (ContentLengthString == "NULL")
