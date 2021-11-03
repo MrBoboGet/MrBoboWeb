@@ -4,6 +4,10 @@
 #include <MBUtility/TextReader.h>
 #include <cstring>
 
+#include <unordered_map>
+#include <memory>
+#include <stack>
+
 namespace MrPostOGet 
 {
 	class HTTPServer;
@@ -172,6 +176,30 @@ namespace MrPostOGet
 		HTTPDocument GenerateResponse(HTTPClientRequest const&, HTTPClientConnectionState const&, HTTPServerSocket*, HTTPServer*) override;
 	};
 
+	typedef size_t MPGConnectionHandle;
+	class HTTPServer_ConnectionHandler
+	{
+	private:
+		//access
+		std::mutex m_InternalsMutex;
+		std::atomic<bool> m_ShouldStop{ false };
+		std::condition_variable m_WorkerConditional;
+
+		//internals
+		std::unordered_map<MPGConnectionHandle, std::unique_ptr<std::thread>> m_ActiveConnections = {};
+		std::stack<MPGConnectionHandle> m_HandlesToRemove = {};
+		MPGConnectionHandle m_CurrentHandleIndex = 0;
+		std::thread m_WorkerThread;
+
+		void p_ActiveConnectionWorker();
+	public:
+		HTTPServer_ConnectionHandler(HTTPServer_ConnectionHandler const&) = delete;
+		HTTPServer_ConnectionHandler& operator=(HTTPServer_ConnectionHandler const&) = delete;
+		HTTPServer_ConnectionHandler();
+		MPGConnectionHandle AddConnection(std::unique_ptr<std::thread> NewConnection);
+		void RemoveConnection(MPGConnectionHandle HandleToRemove);
+		~HTTPServer_ConnectionHandler();
+	};
 	class HTTPServer
 	{
 	private:
@@ -185,13 +213,18 @@ namespace MrPostOGet
 		std::atomic<bool> m_UseSecureConnection{ true };
 
 		std::mutex m_InternalsMutex;
+
+		HTTPServer_ConnectionHandler m_ActiveConnectionsHandler;
+
 		std::vector<std::unique_ptr<HTTPRequestHandler>> m_RequestHandlers = std::vector<std::unique_ptr<HTTPRequestHandler>>(0);
 
-		void m_HandleConnectedSocket(HTTPServerSocket* ConnectedClient);
+		void m_HandleConnectedSocket(std::unique_ptr<HTTPServerSocket> ConnectedClient,MPGConnectionHandle AssociatedHandle);
+
 		static HTTPDocument m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath,HTTPServer* AssociatedServer);
 		static void p_ParseHTTPClientRequest(HTTPClientRequest& ClientRequest, std::string& RawData);
 		static std::unordered_map<std::string, std::string> p_ParseSearchParameters(std::string const& URL);
 		static bool p_PathIsValid(std::string const& PathToCheck);
+
 		//std::mutex HTTPServerResourcesMutex;
 	public:
 		HTTPServer(std::string PathToResources, int PortToListenTo);

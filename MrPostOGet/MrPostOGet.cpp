@@ -248,6 +248,62 @@ namespace MrPostOGet
 	}
 	//END Utility Functions
 
+	//BEGIN HTTPServer_ConnectionHandler
+	HTTPServer_ConnectionHandler::HTTPServer_ConnectionHandler()
+	{
+		m_WorkerThread = std::move(std::thread(&HTTPServer_ConnectionHandler::p_ActiveConnectionWorker, this));
+	}
+	MPGConnectionHandle HTTPServer_ConnectionHandler::AddConnection(std::unique_ptr<std::thread> NewConnection)
+	{
+		std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+		MPGConnectionHandle ReturnValue = m_CurrentHandleIndex;
+		m_CurrentHandleIndex += 1;
+		m_ActiveConnections[ReturnValue] = std::move(NewConnection);
+		return(ReturnValue);
+	}
+	void HTTPServer_ConnectionHandler::RemoveConnection(MPGConnectionHandle HandleToRemove)
+	{
+		{
+			std::lock_guard<std::mutex> Lock(m_InternalsMutex);
+			m_HandlesToRemove.push(HandleToRemove);
+		}
+		m_WorkerConditional.notify_one();
+		//if (m_ActiveConnections.find(HandleToRemove) != m_ActiveConnections.end())
+		//{
+		//	m_ActiveConnections.erase(HandleToRemove);
+		//}
+
+	}
+	void HTTPServer_ConnectionHandler::p_ActiveConnectionWorker()
+	{
+		while (m_ShouldStop.load() == false)
+		{
+			std::unique_lock<std::mutex> Lock(m_InternalsMutex);
+			while(m_HandlesToRemove.size() == 0)
+			{
+				m_WorkerConditional.wait(Lock);
+			}
+			while (m_HandlesToRemove.size() > 0)
+			{
+				MPGConnectionHandle HandleToRemove = m_HandlesToRemove.top();
+				m_HandlesToRemove.pop();
+				if (m_ActiveConnections.find(HandleToRemove) != m_ActiveConnections.end())
+				{
+					m_ActiveConnections[HandleToRemove]->join();
+					m_ActiveConnections.erase(HandleToRemove);
+				}
+			}
+			std::cout << "Number of active connections: " << m_ActiveConnections.size() << std::endl;
+		}
+	}
+	HTTPServer_ConnectionHandler::~HTTPServer_ConnectionHandler()
+	{
+		m_ShouldStop = true;
+		m_WorkerConditional.notify_one();
+		m_WorkerThread.join();
+	}
+
+	//BEGIN HTTPServer
 	bool HTTPServer::p_PathIsValid(std::string const& PathToCheck)
 	{
 		bool ReturnValue = true;
@@ -324,7 +380,7 @@ namespace MrPostOGet
 
 		ClientRequest.RawRequestData = std::move(RawData);
 	}
-	void HTTPServer::m_HandleConnectedSocket(MrPostOGet::HTTPServerSocket* ConnectedClient)
+	void HTTPServer::m_HandleConnectedSocket(std::unique_ptr<HTTPServerSocket> ConnectedClient,MPGConnectionHandle AssociatedHandle)
 	{
 		try
 		{
@@ -373,7 +429,7 @@ namespace MrPostOGet
 					if (RequestHandlers[i]->HandlesRequest(CurrentRequest, ConnectionState, this))
 					{
 						//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
-						MrPostOGet::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient, this);
+						MrPostOGet::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient.get(), this);
 						if (RequestResponse.DataSent == false)
 						{
 							ConnectedClient->SendHTTPDocument(RequestResponse);
@@ -397,7 +453,7 @@ namespace MrPostOGet
 		{
 			std::cout << "Uncaught exception when handling connection: " << CaughtException.what() << std::endl;
 		}
-		delete ConnectedClient;
+		m_ActiveConnectionsHandler.RemoveConnection(AssociatedHandle);
 		//delete ConnectedClient;
 	}
 	MrPostOGet::HTTPDocument HTTPServer::m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath, HTTPServer* AssociatedServer)
@@ -587,7 +643,7 @@ namespace MrPostOGet
 	{
 		//huvud loopen som tar och faktiskt sk�ter hur allt funkar internt
 		int NumberOfConnections = 0;
-		std::vector<std::thread*> CurrentActiveThreads = {};
+		//std::vector<std::thread*> CurrentActiveThreads = {};
 		ServerSocketen->Bind();
 		ServerSocketen->Listen();
 		while (true)
@@ -605,9 +661,11 @@ namespace MrPostOGet
 				NumberOfConnections += 1;
 				MBSockets::TCPServer* NewTCPSocket = new MBSockets::TCPServer();
 				ServerSocketen->TransferConnectedSocket(NewTCPSocket);
-				std::thread* NewThread = new std::thread(&HTTPServer::m_HandleConnectedSocket,this, new HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket>(NewTCPSocket)));
-				CurrentActiveThreads.push_back(NewThread);
-				std::cout << NumberOfConnections << std::endl;
+				std::thread* NewThread = new std::thread();
+				//CurrentActiveThreads.push_back(NewThread);
+				MPGConnectionHandle NewHandle = m_ActiveConnectionsHandler.AddConnection(std::unique_ptr<std::thread>(NewThread));
+				*NewThread = std::move(std::thread(&HTTPServer::m_HandleConnectedSocket, this,std::unique_ptr<HTTPServerSocket>(new HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket>(NewTCPSocket))),NewHandle));
+				//std::cout << NumberOfConnections << std::endl;
 			}
 		}
 	}

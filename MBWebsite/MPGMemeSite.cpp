@@ -416,9 +416,9 @@ namespace MBWebsite
 			GenerationError = ResponseGenerator.InsertClientData(Request.BodyData);
 			//här ska också några checks göras för att se huruvida datan är av typen upload, och därmed kräver verifiering
 			//alternativt så ger vi den en Password verifierare
-			while (!ResponseGenerator.ClientRequestFinished() && Socket->DataIsAvailable() && GenerationError)
+			while (!ResponseGenerator.ClientRequestFinished() && Socket->DataIsAvailable() && GenerationError && Socket->IsConnected() && Socket->IsValid())
 			{
-				ResponseGenerator.InsertClientData(Socket->GetNextChunkData());
+				GenerationError = ResponseGenerator.InsertClientData(Socket->GetNextChunkData());
 			}
 			if (ResponseGenerator.ClientRequestFinished())
 			{
@@ -426,11 +426,14 @@ namespace MBWebsite
 				std::string HTTPHeader = "HTTP/1.1 200 OK\r\n";
 				HTTPHeader += "Content-Type: application/x-MBPP-record\r\n";
 				HTTPHeader += "Content-Length: " + std::to_string(ResponseIterator->GetResponseSize()) + "\r\n\r\n";
-				Socket->SendRawData(HTTPHeader);
-				while (!ResponseIterator->IsFinished())
+				if (Socket->IsConnected() && Socket->IsValid())
 				{
-					Socket->SendRawData(**ResponseIterator);
-					ResponseIterator->Increment();
+					Socket->SendRawData(HTTPHeader);
+					while (!ResponseIterator->IsFinished() && Socket->IsConnected() && Socket->IsValid())
+					{
+						Socket->SendRawData(**ResponseIterator);
+						ResponseIterator->Increment();
+					}
 				}
 				ResponseGenerator.FreeResponseIterator(ResponseIterator);
 				ReturnValue.DataSent = true;
@@ -926,7 +929,7 @@ namespace MBWebsite
 		NewFile.write(&RequestData[FileDataLocation], RequestData.size() - FileDataLocation);
 		clock_t WriteTimer = clock();
 		std::string NewData;
-		while (AssociatedConnection->DataIsAvailable())
+		while (AssociatedConnection->DataIsAvailable() && AssociatedConnection->IsConnected() && AssociatedConnection->IsValid())
 		{
 			NewFile.seekp(0, std::ostream::end);
 			NewData = AssociatedConnection->GetNextChunkData();
@@ -2374,7 +2377,7 @@ namespace MBWebsite
 			ReturnValue.Type = MBMIME::MIMEType::HTML;
 			ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
 		}
-		std::cout << ReturnValue.DocumentData << std::endl;
+		//std::cout << ReturnValue.DocumentData << std::endl;
 		return(ReturnValue);
 	}
 	bool MBDB_Website::DBUpdate_Predicate(std::string const& RequestData)
