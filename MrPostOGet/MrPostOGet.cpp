@@ -398,7 +398,7 @@ namespace MrPostOGet
 			{
 				if (!ConnectedClient->IsConnected())
 				{
-					continue;
+					break;
 				}
 				if (!ConnectedClient->IsValid())
 				{
