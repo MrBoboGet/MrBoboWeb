@@ -602,41 +602,46 @@ namespace MBSockets
 			if (m_ErrorResult == MBSocketError())
 			{
 				p_HandleError("send failed with error: " + p_GetLastError(), true);
+				break;
 			}
 			TotalDataSent += m_ErrorResult;
 		}
 	}
 	std::string OSSocket::p_RecieveData(MB_OS_Socket ConnectedSocket, size_t MaxNumberOfBytes)
 	{
-		size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
-		char* Buffer = (char*)malloc(InitialBufferSize);
-		size_t MaxRecieveSize = InitialBufferSize;
+		size_t BufferSize = std::min((size_t)4096 * 16, MaxNumberOfBytes);//totalt godtyckligt
+		std::string ReturnValue = std::string(BufferSize,0);
 		int LengthOfDataRecieved = 0;
-		size_t TotalLengthOfData = 0;
-		while ((LengthOfDataRecieved = recv(m_UnderlyingHandle, &Buffer[TotalLengthOfData], MaxRecieveSize, 0)) > 0)
+		LengthOfDataRecieved = recv(m_UnderlyingHandle, ReturnValue.data(), BufferSize, 0);
+		//TODO kolla om det finns ett sätt att få alla bytes "client vill skicka"
+		//while ((LengthOfDataRecieved = recv(m_UnderlyingHandle,Buffer.data(), BufferSize, 0)) > 0)
+		//{
+		//	Buffer.resize(LengthOfDataRecieved);
+		//	ReturnValue += Buffer;
+		//	if (ReturnValue.size() >= MaxNumberOfBytes)
+		//	{
+		//		break;
+		//	}
+		//	else
+		//	{
+		//		BufferSize = std::min((size_t)(MaxNumberOfBytes - ReturnValue.size()), BufferSize);
+		//		Buffer.resize(BufferSize);
+		//	}
+		//}
+		if (LengthOfDataRecieved < 0)
 		{
-			TotalLengthOfData += LengthOfDataRecieved;
-			if (TotalLengthOfData >= MaxNumberOfBytes)
+			//borde väl kunna vara ett error här?
+			//std::cout << "Recieved negative error code on recv: " + p_GetLastError() << std::endl;
+			p_HandleError("Recieved negative error code on recv: " + p_GetLastError(), true);
+		}
+		else
+		{
+			ReturnValue.resize(LengthOfDataRecieved);
+			if (LengthOfDataRecieved == 0)
 			{
-				break;
-			}
-			if (LengthOfDataRecieved == MaxRecieveSize)
-			{
-				MaxRecieveSize = InitialBufferSize;
-				if (TotalLengthOfData + MaxRecieveSize > MaxNumberOfBytes)
-				{
-					MaxRecieveSize = MaxNumberOfBytes - TotalLengthOfData;
-				}
-				Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
-				assert(Buffer != nullptr);
-			}
-			else
-			{
-				break;
+				//connection closar, gör inget på den här nivån
 			}
 		}
-		std::string ReturnValue(Buffer, TotalLengthOfData);
-		free(Buffer);
 		return(ReturnValue);
 	}
 	void OSSocket::p_CloseOSSocket()

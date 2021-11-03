@@ -416,6 +416,7 @@ namespace MBWebsite
 			GenerationError = ResponseGenerator.InsertClientData(Request.BodyData);
 			//här ska också några checks göras för att se huruvida datan är av typen upload, och därmed kräver verifiering
 			//alternativt så ger vi den en Password verifierare
+			//kan vi anta att en socket alltid är valid samtidigt som den är connectad? i sånna fall kan vi nog skippa dem här redun
 			while (!ResponseGenerator.ClientRequestFinished() && Socket->DataIsAvailable() && GenerationError && Socket->IsConnected() && Socket->IsValid())
 			{
 				GenerationError = ResponseGenerator.InsertClientData(Socket->GetNextChunkData());
