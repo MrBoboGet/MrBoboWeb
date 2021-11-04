@@ -1576,7 +1576,7 @@ std::string TLSHandler::RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& Decry
 		std::cout << "error decrypting key exchange" << std::endl;
 	}
 
-	std::cout << "RSA Decryption Time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << "s";
+	std::cout << "RSA Decryption Time: " << (clock() - Timer) / double(CLOCKS_PER_SEC) << "s"<<std::endl;
 	return(PlaintextMessage);
 }
 TLS1_2::TLS1_2HelloClientStruct TLSHandler::ParseClientHelloStruct(std::string const& ClientHelloData)

@@ -651,9 +651,11 @@ namespace MBSockets
 		{
 			if (m_OSSocketClosed != MBInvalidSocket)
 			{
-				MBCloseSocket(m_OSSocketClosed);
+				MBCloseSocket(m_UnderlyingHandle);
 			}
 			m_OSSocketClosed = true;
+			//DEBUG
+			//std::cout << "Closed socket handle: " + std::to_string(m_UnderlyingHandle) << std::endl;
 		}
 	}
 	OSSocket::OSSocket()
