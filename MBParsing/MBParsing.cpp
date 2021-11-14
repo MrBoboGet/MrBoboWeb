@@ -598,29 +598,69 @@ namespace MBParsing
 
 	intmax_t JSONObject::GetIntegerData() const
 	{
+		if (m_Type != JSONObjectType::Integer)
+		{
+			throw std::domain_error("JSON object not of integer type");
+		}
 		return(*(const intmax_t*)m_ObjectData);
 	}
 	std::string const& JSONObject::GetStringData() const
 	{
+		if (m_Type != JSONObjectType::String)
+		{
+			throw std::domain_error("JSON object not of string type");
+		}
 		std::string const& ReturnValue = *(const std::string*)m_ObjectData;
 		return(ReturnValue);
 	}
 	bool JSONObject::GetBooleanData() const
 	{
+		if (m_Type != JSONObjectType::Bool)
+		{
+			throw std::domain_error("JSON object not of bool type");
+		}
 		return(*(const bool*)m_ObjectData);
 	}
 
+	std::map<std::string, JSONObject> const& JSONObject::GetMapData() const
+	{
+		if (m_Type != JSONObjectType::Aggregate)
+		{
+			throw std::domain_error("JSON object not of Aggregate type");
+		}
+		return(*(std::map<std::string, JSONObject>*)m_ObjectData);
+	}
+	std::map<std::string, JSONObject>& JSONObject::GetMapData()
+	{
+		if (m_Type != JSONObjectType::Aggregate)
+		{
+			throw std::domain_error("JSON object not of Aggregate type");
+		}
+		return(*(std::map<std::string, JSONObject>*)m_ObjectData);
+	}
 	std::vector<JSONObject>& JSONObject::GetArrayData()
 	{
+		if (m_Type != JSONObjectType::Array)
+		{
+			throw std::domain_error("JSON object not of array type");
+		}
 		return(*(std::vector<JSONObject>*)m_ObjectData);
 	}
 	std::vector<JSONObject>const& JSONObject::GetArrayData() const
 	{
+		if (m_Type != JSONObjectType::Array)
+		{
+			throw std::domain_error("JSON object not of array type");
+		}
 		return(*(const std::vector<JSONObject>*)m_ObjectData);
 	}
 
 	bool JSONObject::HasAttribute(std::string const& AttributeName) const
 	{
+		if (m_Type != JSONObjectType::Aggregate)
+		{
+			throw std::domain_error("JSON object not of aggregate type");
+		}
 		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
 		return(ObjectMap.find(AttributeName) != ObjectMap.end());
 	}
@@ -628,7 +668,7 @@ namespace MBParsing
 	{
 		if (m_Type != JSONObjectType::Aggregate)
 		{
-			throw std::domain_error("JSON objet not of Aggregate typed");
+			throw std::domain_error("JSON object not of Aggregate type");
 		}
 		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
 		return(ObjectMap[AttributeName]);
@@ -639,6 +679,10 @@ namespace MBParsing
 	}
 	JSONObject const& JSONObject::GetAttribute(std::string const& AttributeName) const
 	{
+		if (m_Type != JSONObjectType::Aggregate)
+		{
+			throw std::domain_error("JSON object not of aggregae type");
+		}
 		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
 		return(ObjectMap.at(AttributeName));
 	}

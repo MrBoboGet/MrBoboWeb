@@ -915,6 +915,7 @@ namespace MBSockets
 		if (m_ListenerClosed == false)
 		{
 			MBCloseSocket(m_ListenerSocket);
+			m_ListenerClosed = true;
 		}
 	}
 	bool TCPServer::IsConnected()
