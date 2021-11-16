@@ -2056,6 +2056,10 @@ std::string TLSHandler::p_DecryptRecord(std::string const& Data)
 }
 void TLSHandler::SendDataAsRecord(const void* Data, size_t SizeOfData, MBSockets::ConnectSocket* AssociatedSocket)
 {
+	if (!AssociatedSocket->IsValid() || !AssociatedSocket->IsConnected())
+	{
+		return;
+	}
 	std::vector<std::string> RecordsData = std::vector<std::string>(0);
 	size_t Offset = 0;
 	size_t MacLengthOfRecord = 16384;
@@ -2073,6 +2077,10 @@ void TLSHandler::SendDataAsRecord(const void* Data, size_t SizeOfData, MBSockets
 		RecordToSend.Data = RecordsData[i];
 		std::string DataToSend = GetEncryptedRecord(RecordToSend);
 		AssociatedSocket->SendData(DataToSend.data(), DataToSend.size());
+		if (!AssociatedSocket->IsValid() || !AssociatedSocket->IsConnected())
+		{
+			return;
+		}
 		if (!ConnectionParameters.IsHost)
 		{
 			ConnectionParameters.ClientSequenceNumber += 1;

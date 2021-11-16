@@ -1406,6 +1406,10 @@ namespace MrPostOGet
 	void HTTPServerSocket::SendHTTPDocument(HTTPDocument const& DocumentToSend)
 	{
 		//TODO egentligen vill vi väll ha support för flera byta ranges (?) men det innebär att man kommer skicka dem som en multipart form, vilket inte är det vi vill
+		if (!m_UnderlyingSocket->IsConnected() || !m_UnderlyingSocket->IsValid())
+		{
+			return;
+		}
 		if (DocumentToSend.RequestStatus == HTTPRequestStatus::PartialContent)
 		{
 			//enkel range request med specifikt intervall
@@ -1461,7 +1465,7 @@ namespace MrPostOGet
 				}
 			}
 			FileIntervallExtracter DataExtracter(DocumentToSend.DocumentDataFileReference, DocumentInterValls, MaxChunkSize);
-			while (!DataExtracter.IsDone())
+			while (!DataExtracter.IsDone() && m_UnderlyingSocket->IsConnected() && m_UnderlyingSocket->IsValid())
 			{
 				m_UnderlyingSocket->SendData(DataExtracter.GetNextIntervall());
 			}
