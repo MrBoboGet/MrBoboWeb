@@ -816,7 +816,7 @@ private:
 	TLS1_2::TLS1_2HelloClientStruct ParseClientHelloStruct(std::string const& ClientHelloData);
 	std::string GetServerNameFromExtensions(std::vector<TLS1_2::Extension> const& Extensions);
 	void GenerateMasterSecret(std::string const& PremasterSecret);
-	std::vector<TLS1_2::SignatureAndHashAlgoritm> GetSupportedSignatureAlgorithms(std::vector<TLS1_2::Extension> const& Extensions);
+	static std::vector<TLS1_2::SignatureAndHashAlgoritm> GetSupportedSignatureAlgorithms(std::vector<TLS1_2::Extension> const& Extensions);
 	static std::string GenerateSessionId();
 	std::string GetDomainResourcePath(std::string const& DomainName);
 	static std::string RSAES_PKCS1_v1_5_DecryptData(RSADecryptInfo const& DecryptInfo, std::string const& PublicKeyEncryptedData);

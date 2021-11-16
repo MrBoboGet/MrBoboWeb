@@ -1433,7 +1433,19 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketT
 	//förutsätter att vi redan connectat med TCP protokollet
 	ConnectionParameters.IsHost = true;
 	MBError ErrorToReturn(true);
+	if (!SocketToConnect->IsConnected() || !SocketToConnect->IsValid())
+	{
+		ErrorToReturn = false;
+		ErrorToReturn.ErrorMessage = "Underlying socket not connected";
+		return(ErrorToReturn);
+	}
 	std::vector<std::string> ClientHello = GetNextPlaintextRecords(SocketToConnect,1,m_MaxBytesInMemory);
+	if (ClientHello.size() == 0 || ClientHello[0].size() == 0)
+	{
+		ErrorToReturn = false;
+		ErrorToReturn.ErrorMessage = "Zero length client hello";
+		return(ErrorToReturn);
+	}
 	ConnectionParameters.AllHandshakeMessages.push_back(ClientHello[0]);
 	TLS1_2::TLS1_2HelloClientStruct ClientHelloStruct = ParseClientHelloStruct(ClientHello[0]);
 
@@ -1648,6 +1660,10 @@ std::vector<TLS1_2::SignatureAndHashAlgoritm> TLSHandler::GetSupportedSignatureA
 {
 	std::vector<TLS1_2::SignatureAndHashAlgoritm> ReturnValue = {};
 	TLS1_2::Extension SignatureExtension =  TLS1_2::GetExtension(Extensions, TLS1_2::ExtensionTypes::signature_algoritms);
+	if (SignatureExtension.ExtensionData.size() == 0)
+	{
+		return;
+	}
 	TLS1_2::NetWorkDataHandler Parser(&SignatureExtension.ExtensionData[0]);
 	unsigned int ExtensionByteSize = Parser.Extract16();
 	unsigned int ExtractedBytes = 0;
