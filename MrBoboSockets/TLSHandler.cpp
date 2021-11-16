@@ -1662,7 +1662,7 @@ std::vector<TLS1_2::SignatureAndHashAlgoritm> TLSHandler::GetSupportedSignatureA
 	TLS1_2::Extension SignatureExtension =  TLS1_2::GetExtension(Extensions, TLS1_2::ExtensionTypes::signature_algoritms);
 	if (SignatureExtension.ExtensionData.size() == 0)
 	{
-		return;
+		return ReturnValue;
 	}
 	TLS1_2::NetWorkDataHandler Parser(&SignatureExtension.ExtensionData[0]);
 	unsigned int ExtensionByteSize = Parser.Extract16();
