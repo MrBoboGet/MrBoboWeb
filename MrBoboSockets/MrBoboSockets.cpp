@@ -14,6 +14,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <csignal>
+#include <signal.h>
 //#include <stdatomic.h>
 //#include <sys\types.h>
 #endif
@@ -46,7 +47,11 @@ namespace MBSockets
 			return;
 		}
 #else
-		signal(SIGPIPE, SIG_IGN);
+		//signal(SIGPIPE, SIG_IGN);
+		struct sigaction SIGPIPE_Handler;
+		SIGPIPE_Handler.sa_flags = SA_RESTART;
+		SIGPIPE_Handler.sa_handler = SIG_IGN;
+		sigaction(SIGPIPE, &SIGPIPE_Handler, NULL);
 #endif
 		return;
 	}
@@ -897,6 +902,7 @@ namespace MBSockets
 			p_HandleError("accept failed with error: " + p_GetLastError(), true);
 			//MBCloseSocket(ConnectedSocket);
 			m_IsConnected = false;
+			m_Invalid = true;
 		}
 		else
 		{

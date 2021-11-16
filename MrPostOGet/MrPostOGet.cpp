@@ -292,6 +292,7 @@ namespace MrPostOGet
 					m_ActiveConnections[HandleToRemove]->join();
 					m_ActiveConnections.erase(HandleToRemove);
 				}
+				std::cout << "Connection with handle: " << HandleToRemove << " stopped" << std::endl;
 			}
 			std::cout << "Number of active connections: " << m_ActiveConnections.size() << std::endl;
 		}
@@ -665,7 +666,7 @@ namespace MrPostOGet
 				//CurrentActiveThreads.push_back(NewThread);
 				MPGConnectionHandle NewHandle = m_ActiveConnectionsHandler.AddConnection(std::unique_ptr<std::thread>(NewThread));
 				*NewThread = std::move(std::thread(&HTTPServer::m_HandleConnectedSocket, this,std::unique_ptr<HTTPServerSocket>(new HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket>(NewTCPSocket))),NewHandle));
-				//std::cout << NumberOfConnections << std::endl;
+				std::cout << "New connection with Handle: "<<NewHandle << std::endl;
 			}
 		}
 	}

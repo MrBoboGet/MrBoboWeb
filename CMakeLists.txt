@@ -63,6 +63,10 @@ if(MSVC)
     set(CMAKE_STATIC_LINKER_FLAGS_RELEASE "${CMAKE_STATIC_LINKER_FLAGS}")
 endif()
 
+if(UNIX)
+endif()
+
+
 ################################################################################
 # Nuget packages function stub.
 ################################################################################
@@ -154,7 +158,6 @@ set(Header_Files
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/MrPostOGet.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrBoboSockets/TLSHandler.h"
     "SearchEngine/MBSearchEngine.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
     "MrBoboMedia/MBMedia.h"
     ${EXTLIBS_HEADER_FILES}
     #search engine
@@ -202,6 +205,7 @@ set(Source_Files
     "MrBigInt/MrBigInt.cpp"
     ${EXTLIBS_SOURCE_FILES}
     "${CMAKE_CURRENT_SOURCE_DIR}/../MBUtility/MBErrorHandling.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../MBUtility/MBFiles.cpp"
     #"${EXTLIBS_DIR}/SQLite/sqlite3.c"
      #TODO ta bort MBPM direct dependancien
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.cpp"
@@ -230,7 +234,6 @@ set (MBSE_HEADERS
     "MBSearchEngine/MBISaveIndexSpec.h"
     "MBSearchEngine/MBSearchEngineCLIClass.h"
     "MBSearchEngine/MBRecursiveDirectoryIterator.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../MBExternalDependencies/Hash/src/sha1.h;"
 
 )
 set (MBSE_SOURCES
@@ -351,8 +354,12 @@ target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 #target_link_libraries(${PROJECT_NAME} "sqlite3")
 
 #target_sources(${PROJECT_NAME} PUBLIC ${EXTLIBS_SOURCE_FILES})
-
+set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+set(CMAKE_HAVE_THREADS_LIBRARY 1)
+set(CMAKE_USE_WIN32_THREADS_INIT 0)
+set(CMAKE_USE_PTHREADS_INIT 1)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
+#set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
 
