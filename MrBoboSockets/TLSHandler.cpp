@@ -2113,7 +2113,8 @@ void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::ConnectSock
 }
 std::string TLSHandler::GetApplicationData(MBSockets::ConnectSocket* AssociatedSocket,int MaxNumberOfBytes)
 {
-	std::vector<std::string> ApplicationDataRecords = GetNextPlaintextRecords((MBSockets::ConnectSocket*)AssociatedSocket,MaxNumberOfBytes);
+	//tar bara 1 record, eftersom det är omöjlgit för oss att veta hur många som faktiskt finns, eventuellt kanske man sska skicka den uppsparade poolen?
+	std::vector<std::string> ApplicationDataRecords = GetNextPlaintextRecords((MBSockets::ConnectSocket*)AssociatedSocket,1,MaxNumberOfBytes);
 	//nu så bara klistrat vi ihop datan och skickar tillbaka den
 	//OBS! Vi kan inte här se till att all data vi letar efter faktiskt är med, det får vi göra längre i call hierarkin
 	std::string SentApplicationData = "";
@@ -2255,135 +2256,135 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 	}
 	return(ReturnValue);
 }
-std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes)
-{
-	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
-	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
-	//processadata med typ protokoll grejer antar jag
-	while (true)
-	{
-		//max är egentligen 2<<14+2048+5, men varför inte ha lite marginal
-		int MaxEncryptedRecordSize = (2 << 14) + 2048 + 100;
-		if (MaxNumberOfBytes < MaxEncryptedRecordSize)
-		{
-			MaxNumberOfBytes = MaxEncryptedRecordSize;
-		}
-		std::string RawData = RecieveDataState.CurrentRecordPreviousData;
-		int TotalRecievedData = RawData.size();
-		std::string NewData = SocketToConnect->RecieveData(MaxNumberOfBytes-TotalRecievedData);
-		if (NewData == "")
-		{
-			return(ReturnValue);
-		}
-		RawData += NewData;
-		TotalRecievedData = RawData.size();
-		std::vector<std::string> RawDataProtocols = std::vector<std::string>(0);
-		uint64_t OffsetOfProcessedRecords = 0;
-		//när vi vet att datan vi fått är krytperad vill vi innan vi går vidare med rseten av logiken decryptera den
-		//Ny paradigm, vi går igenom vår data, kollar igenom och appendar alla hela records vi hittar, finns det kvar så slutar vi helt enkelt
-		while (true)
-		{
-			while(RawData.size()-OffsetOfProcessedRecords < 5 && TotalRecievedData < MaxNumberOfBytes)
-			{
-				RawData += SocketToConnect->RecieveData(MaxNumberOfBytes-TotalRecievedData);
-				TotalRecievedData = RawData.size();
-			}
-
-			if (TotalRecievedData >= MaxNumberOfBytes && RawData.size()-OffsetOfProcessedRecords < 5)
-			{
-				//avbryts mitt i, sparar nuvarande datan
-				RecieveDataState.CurrentRecordPreviousData = RawData.substr(OffsetOfProcessedRecords);
-				break;
-			}
-
-			TLS1_2::NetWorkDataHandler DataReader(reinterpret_cast<const uint8_t*> (&RawData.c_str()[OffsetOfProcessedRecords]));
-			DataReader.Extract24();
-			uint64_t LengthOfRecord = DataReader.Extract16();
-			while(RawData.size()-OffsetOfProcessedRecords-5 < LengthOfRecord && TotalRecievedData < MaxNumberOfBytes)
-			{
-				RawData += SocketToConnect->RecieveData(MaxNumberOfBytes - TotalRecievedData);
-				TotalRecievedData = RawData.size();
-			}
-
-			if (TotalRecievedData >= MaxNumberOfBytes && RawData.size() - OffsetOfProcessedRecords - 5 < LengthOfRecord)
-			{
-				//avbryts mitt i, sparar nuvarande datan
-				RecieveDataState.CurrentRecordPreviousData = RawData.substr(OffsetOfProcessedRecords);
-				break;
-			}
-
-			RawDataProtocols.push_back(RawData.substr(OffsetOfProcessedRecords,5 + LengthOfRecord));
-			OffsetOfProcessedRecords += (5 + LengthOfRecord);
-			if (OffsetOfProcessedRecords == RawData.size())
-			{
-				//avbröts på ett clean sett, reverta staten av tcp grejen
-				RecieveDataState.CurrentRecordPreviousData = "";
-				break;
-			}
-		}
-		//vi har fått all krypterad data, nu okrypterar vi den
-		if (ConnectionParameters.HandshakeFinished)
-		{
-			for (int i = 0; i < RawDataProtocols.size(); i++)
-			{
-				RawDataProtocols[i] = p_DecryptRecord(RawDataProtocols[i]);
-				//std::string NewRawData = RawData.substr(0, 5);
-				//NewRawData += DecryptBlockcipherRecord(RawData);
-				//RawData = NewRawData;
-			}
-		}
-		//ConnectionParameters.ServerSequenceNumber += RawDataProtocols.size();
-		//Vi ska också ta att och processa datan så vi fpår plaintext
-		//RawDataToTLSPlaintext
-		for (size_t i = 0; i < RawDataProtocols.size(); i++)
-		{
-			std::string RecordPlaintextData = RawDataProtocols[i];
-			if (RecordPlaintextData[0] == TLS1_2::application_data)
-			{
-				//HandleApplicationData
-				//RawData.erase(0, 5);
-
-				return(RawDataProtocols);
-			}
-			else if (RecordPlaintextData[0] == TLS1_2::alert)
-			{
-				uint8_t AlertLevel = RecordPlaintextData[5];
-				uint8_t ErrorMessage = RecordPlaintextData[6];
-				//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
-				std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
-				if (AlertLevel == TLS1_2::fatal)
-				{
-					ReturnValue.push_back("FatalErrorOccured");
-					IsConnected = false;
-					if (ErrorMessage == TLS1_2::close_notify)
-					{
-						SendCloseNotfiy(SocketToConnect);
-					}
-					return(ReturnValue);
-				}
-				else
-				{
-					//HandleNonFatalError();
-					//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
-				}
-			}
-			else if (RecordPlaintextData[0] == TLS1_2::handshake)
-			{
-				return(RawDataProtocols);
-			}
-			else if (RecordPlaintextData[0] == TLS1_2::change_cipher_spec)
-			{
-				return(RawDataProtocols);
-			}
-			else
-			{
-				//Unknown error, något har kajkat en del någonstans
-				assert(false);
-			}
-		}
-	}
-	return(ReturnValue);
-}
+//std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes)
+//{
+//	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
+//	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
+//	//processadata med typ protokoll grejer antar jag
+//	while (true)
+//	{
+//		//max är egentligen 2<<14+2048+5, men varför inte ha lite marginal
+//		int MaxEncryptedRecordSize = (2 << 14) + 2048 + 100;
+//		if (MaxNumberOfBytes < MaxEncryptedRecordSize)
+//		{
+//			MaxNumberOfBytes = MaxEncryptedRecordSize;
+//		}
+//		std::string RawData = RecieveDataState.CurrentRecordPreviousData;
+//		int TotalRecievedData = RawData.size();
+//		std::string NewData = SocketToConnect->RecieveData(MaxNumberOfBytes-TotalRecievedData);
+//		if (NewData == "")
+//		{
+//			return(ReturnValue);
+//		}
+//		RawData += NewData;
+//		TotalRecievedData = RawData.size();
+//		std::vector<std::string> RawDataProtocols = std::vector<std::string>(0);
+//		uint64_t OffsetOfProcessedRecords = 0;
+//		//när vi vet att datan vi fått är krytperad vill vi innan vi går vidare med rseten av logiken decryptera den
+//		//Ny paradigm, vi går igenom vår data, kollar igenom och appendar alla hela records vi hittar, finns det kvar så slutar vi helt enkelt
+//		while (true)
+//		{
+//			while(RawData.size()-OffsetOfProcessedRecords < 5 && TotalRecievedData < MaxNumberOfBytes)
+//			{
+//				RawData += SocketToConnect->RecieveData(MaxNumberOfBytes-TotalRecievedData);
+//				TotalRecievedData = RawData.size();
+//			}
+//
+//			if (TotalRecievedData >= MaxNumberOfBytes && RawData.size()-OffsetOfProcessedRecords < 5)
+//			{
+//				//avbryts mitt i, sparar nuvarande datan
+//				RecieveDataState.CurrentRecordPreviousData = RawData.substr(OffsetOfProcessedRecords);
+//				break;
+//			}
+//
+//			TLS1_2::NetWorkDataHandler DataReader(reinterpret_cast<const uint8_t*> (&RawData.c_str()[OffsetOfProcessedRecords]));
+//			DataReader.Extract24();
+//			uint64_t LengthOfRecord = DataReader.Extract16();
+//			while(RawData.size()-OffsetOfProcessedRecords-5 < LengthOfRecord && TotalRecievedData < MaxNumberOfBytes)
+//			{
+//				RawData += SocketToConnect->RecieveData(MaxNumberOfBytes - TotalRecievedData);
+//				TotalRecievedData = RawData.size();
+//			}
+//
+//			if (TotalRecievedData >= MaxNumberOfBytes && RawData.size() - OffsetOfProcessedRecords - 5 < LengthOfRecord)
+//			{
+//				//avbryts mitt i, sparar nuvarande datan
+//				RecieveDataState.CurrentRecordPreviousData = RawData.substr(OffsetOfProcessedRecords);
+//				break;
+//			}
+//
+//			RawDataProtocols.push_back(RawData.substr(OffsetOfProcessedRecords,5 + LengthOfRecord));
+//			OffsetOfProcessedRecords += (5 + LengthOfRecord);
+//			if (OffsetOfProcessedRecords == RawData.size())
+//			{
+//				//avbröts på ett clean sett, reverta staten av tcp grejen
+//				RecieveDataState.CurrentRecordPreviousData = "";
+//				break;
+//			}
+//		}
+//		//vi har fått all krypterad data, nu okrypterar vi den
+//		if (ConnectionParameters.HandshakeFinished)
+//		{
+//			for (int i = 0; i < RawDataProtocols.size(); i++)
+//			{
+//				RawDataProtocols[i] = p_DecryptRecord(RawDataProtocols[i]);
+//				//std::string NewRawData = RawData.substr(0, 5);
+//				//NewRawData += DecryptBlockcipherRecord(RawData);
+//				//RawData = NewRawData;
+//			}
+//		}
+//		//ConnectionParameters.ServerSequenceNumber += RawDataProtocols.size();
+//		//Vi ska också ta att och processa datan så vi fpår plaintext
+//		//RawDataToTLSPlaintext
+//		for (size_t i = 0; i < RawDataProtocols.size(); i++)
+//		{
+//			std::string RecordPlaintextData = RawDataProtocols[i];
+//			if (RecordPlaintextData[0] == TLS1_2::application_data)
+//			{
+//				//HandleApplicationData
+//				//RawData.erase(0, 5);
+//
+//				return(RawDataProtocols);
+//			}
+//			else if (RecordPlaintextData[0] == TLS1_2::alert)
+//			{
+//				uint8_t AlertLevel = RecordPlaintextData[5];
+//				uint8_t ErrorMessage = RecordPlaintextData[6];
+//				//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
+//				std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
+//				if (AlertLevel == TLS1_2::fatal)
+//				{
+//					ReturnValue.push_back("FatalErrorOccured");
+//					IsConnected = false;
+//					if (ErrorMessage == TLS1_2::close_notify)
+//					{
+//						SendCloseNotfiy(SocketToConnect);
+//					}
+//					return(ReturnValue);
+//				}
+//				else
+//				{
+//					//HandleNonFatalError();
+//					//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
+//				}
+//			}
+//			else if (RecordPlaintextData[0] == TLS1_2::handshake)
+//			{
+//				return(RawDataProtocols);
+//			}
+//			else if (RecordPlaintextData[0] == TLS1_2::change_cipher_spec)
+//			{
+//				return(RawDataProtocols);
+//			}
+//			else
+//			{
+//				//Unknown error, något har kajkat en del någonstans
+//				assert(false);
+//			}
+//		}
+//	}
+//	return(ReturnValue);
+//}
 void TLSHandler::SendCloseNotfiy(MBSockets::ConnectSocket* SocketToUse)
 {
 	//då ska vi också ta skicka att vi stänger av

@@ -884,6 +884,6 @@ public:
 	void SendDataAsRecord(std::string const& Data, MBSockets::ConnectSocket* AssociatedSocket);
 	void SendDataAsRecord(const void* Data, size_t SizeOfData, MBSockets::ConnectSocket* AssociatedSocket);
 	std::string GetApplicationData(MBSockets::ConnectSocket* AssociatedSocket,int MaxNumberOfBytes = 1000000);
-	std::vector<std::string> GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes = 1000000);
+	//std::vector<std::string> GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes = 1000000);
 	~TLSHandler();
 };
