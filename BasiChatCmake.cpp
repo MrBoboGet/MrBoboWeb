@@ -7,7 +7,7 @@
 #include <MrBoboChatt/MrBoboChatt.h>
 #include <MrBoboDatabase/MrBoboDatabase.h>
 #include <MBWebsite/MPGMemeSite.h>
-#include <MrBoboMedia/MBMedia.h>
+//#include <MrBoboMedia/MBMedia.h>
 #include <MBUnicode/MBUnicode.h>
 #include <MBSearchEngine/MBSearchEngine.h>
 #include <time.h>
@@ -59,7 +59,9 @@ int main()
 	//TestSocket.Connect("www.google.com", "443");
 	//TestSocket.EstablishTLSConnection();
 	//std::cout << TestSocket.GetDataFromRequest("GET", "/") << std::endl;
+	std::cout << std::filesystem::current_path() << std::endl;
 
+	MBUnicode::CreateCodepointPropertiesHeader("../../../MBUnicode/");
 
 	//return(0);
 	MBWebsite::MBGWebsiteMain();

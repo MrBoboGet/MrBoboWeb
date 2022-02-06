@@ -157,13 +157,13 @@ set(Header_Files
     "MrPostOGet/MBHTMLParser.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrPostOGet/MrPostOGet.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/MrBoboSockets/TLSHandler.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/MBUnicode/MBUnicode.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/MBUnicode/MBUnicodeDefinitions.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/MBUnicode/CodepointProperties.h"
     "SearchEngine/MBSearchEngine.h"
-    "MrBoboMedia/MBMedia.h"
     ${EXTLIBS_HEADER_FILES}
     #search engine
     "MBSearchEngine/MBSearchEngine.h"
-    "MBUnicode/MBUnicode.h"
-    "MBUnicode/MBUnicodeMacros.h"
     "Crawler/MBCrawler.h"
     "MBDNSHandler/MBDNSHandler.h"
     "MBTorrent/MBBitTorrent.h"
@@ -189,7 +189,6 @@ set(Source_Files
     "MrBoboSockets/TLSHandler.cpp"
     "MrBoboDatabase/MrBoboDatabase.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/MBWebsite/MPGMemeSite.cpp"
-    "MrBoboMedia/MBMedia.cpp"
     "MBSearchEngine/MBSearchEngine.cpp"
     "MBUnicode/MBUnicode.cpp"
     "Crawler/MBCrawler.cpp"
@@ -229,7 +228,6 @@ set (MB_STANDARD_LIBRARY_DIR
 set (MBSE_HEADERS
     "MBSearchEngine/MBSearchEngine.h"
     "MBUnicode/MBUnicode.h"
-    "MBUnicode/MBUnicodeMacros.h"
     "MBUnicode/MBUnicode.h"
     "MBSearchEngine/MBISaveIndexSpec.h"
     "MBSearchEngine/MBSearchEngineCLIClass.h"
@@ -488,15 +486,15 @@ endif()
 # Dependencies
 ################################################################################
 #windows
-set (FFMPEG_LIBS
-    "${EXTLIBS_DIR}/ffmpeg/libavcodec/libavcodec.a"
-    "${EXTLIBS_DIR}/ffmpeg/libavdevice/libavdevice.a"
-    "${EXTLIBS_DIR}/ffmpeg/libavfilter/libavfilter.a"
-    "${EXTLIBS_DIR}/ffmpeg/libavformat/libavformat.a"
-    "${EXTLIBS_DIR}/ffmpeg/libavutil/libavutil.a"
-    "${EXTLIBS_DIR}/ffmpeg/libswresample/libswresample.a"
-    "${EXTLIBS_DIR}/ffmpeg/libswscale/libswscale.a"
-)
+#set (FFMPEG_LIBS
+#    "${EXTLIBS_DIR}/ffmpeg/libavcodec/libavcodec.a"
+#    "${EXTLIBS_DIR}/ffmpeg/libavdevice/libavdevice.a"
+#    "${EXTLIBS_DIR}/ffmpeg/libavfilter/libavfilter.a"
+#    "${EXTLIBS_DIR}/ffmpeg/libavformat/libavformat.a"
+#    "${EXTLIBS_DIR}/ffmpeg/libavutil/libavutil.a"
+#    "${EXTLIBS_DIR}/ffmpeg/libswresample/libswresample.a"
+#    "${EXTLIBS_DIR}/ffmpeg/libswscale/libswscale.a"
+#)
 
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES 
