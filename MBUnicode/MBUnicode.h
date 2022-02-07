@@ -24,7 +24,7 @@ namespace MBUnicode
 		UnicodeString(std::string const& StringToConvert);
 		std::string GetHexRepresentation();
 	};
-
+	std::string ToUTF8String(Codepoint CodepointToConvert);
 	class UnicodeCodepointSegmenter
 	{
 	private:
@@ -65,7 +65,15 @@ namespace MBUnicode
 		{
 			return(m_InternalBuffer.size());
 		}
-		std::string ToString();
+		std::string ToString()
+		{
+			std::string ReturnValue = "";
+			for (size_t i = 0; i < m_InternalBuffer.size(); i++)
+			{
+				ReturnValue += ToUTF8String(m_InternalBuffer[i]);
+			}
+			return(ReturnValue);
+		}
 		void AddCodepoint(Codepoint CodepointToAdd)
 		{
 			m_InternalBuffer.push_back(CodepointToAdd);
@@ -79,6 +87,7 @@ namespace MBUnicode
 		GraphemeBreakProperty m_LastProperty = GraphemeBreakProperty::SOF;
 	public:
 		void InsertCodepoints(const Codepoint* CodepointsToInsert, size_t NumberOfCodepoints);
+		void InsertCodepoint(Codepoint CodepointsToInsert);
 		void Finalize();
 		size_t AvailableClusters();
 		GraphemeCluster ExtractCluster();

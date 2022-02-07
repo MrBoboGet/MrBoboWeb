@@ -9,6 +9,7 @@
 #include <filesystem>
 
 #include "CodepointProperties.h"
+#include <assert.h>
 
 namespace MBUnicode
 {
@@ -127,11 +128,48 @@ namespace MBUnicode
 
 		return(ReturnValue);
 	}
-
+	std::string ToUTF8String(Codepoint CodepointToConvert)
+	{
+		uint8_t ExtraPoints = 0;
+		if (CodepointToConvert < 0x80)
+		{
+			std::string ReturnValue = "";
+			ReturnValue += char(CodepointToConvert);
+			return(ReturnValue);
+		}
+		else if (CodepointToConvert >= 0x80 && CodepointToConvert <= 0x07ff)
+		{
+			ExtraPoints = 1;
+		}
+		else if (CodepointToConvert >= 0x800 && CodepointToConvert <= 0xffff)
+		{
+			ExtraPoints = 2;
+		}
+		else if (CodepointToConvert >= 0x1000 && CodepointToConvert <= 0x10ffff)
+		{
+			ExtraPoints = 3;
+		}
+		else
+		{
+			assert(false);
+		}
+		std::string ReturnValue = std::string(ExtraPoints + 1, 0);
+		ReturnValue[0] = uint8_t(~0) << (7 - ExtraPoints);
+		ReturnValue[0] += uint8_t(CodepointToConvert >> (6 * ExtraPoints)) & uint8_t((~0) >> (ExtraPoints + 2));
+		uint8_t ExtractedBits = 8-(ExtraPoints + 2);
+		uint8_t TotalBits = ExtractedBits + 6 * ExtraPoints;
+		for (size_t i = 0; i < ExtraPoints; i++)
+		{
+			ReturnValue[1 + i] = 0b10000000;
+			ReturnValue[1 + i] += uint8_t(CodepointToConvert >> (TotalBits - ExtractedBits-6))&uint8_t(uint8_t(~0)>>2);
+			ExtractedBits += 6;
+		}
+		return(ReturnValue);
+	}
 	//BEGIN UnicodeCodepointSegmenter::
 	uint8_t UnicodeCodepointSegmenter::p_GetNeededExtraBytes(uint8_t ByteToCheck)
 	{
-		if (ByteToCheck & (1 << 7) == 0)
+		if ((ByteToCheck & (1 << 7)) == 0)
 		{
 			return(0);
 		}
@@ -140,15 +178,15 @@ namespace MBUnicode
 			m_LastError = "To many followup bytes in utf-8 codepoint header";
 			return(-1);
 		}
-		else if (ByteToCheck >= 11110000)
+		else if (ByteToCheck >= 0b11110000)
 		{
 			return(3);
 		}
-		else if (ByteToCheck >= 11100000)
+		else if (ByteToCheck >= 0b11100000)
 		{
 			return(2);
 		}
-		else if (ByteToCheck >= 11000000)
+		else if (ByteToCheck >= 0b11000000)
 		{
 			return(1);
 		}
@@ -282,9 +320,13 @@ namespace MBUnicode
 		{
 			ReturnValue = GraphemeBreakProperty::Extended_Pictographic;
 		}
-		else if (StringToConvert == "RI")
+		else if (StringToConvert == "Regional_Indicator")
 		{
 			ReturnValue = GraphemeBreakProperty::RI;
+		}
+		else if (StringToConvert == "T")
+		{
+			ReturnValue = GraphemeBreakProperty::T;
 		}
 		return(ReturnValue);
 	}
@@ -347,6 +389,10 @@ namespace MBUnicode
 		{
 			ReturnValue = "RI";
 		}
+		else if (PropertyToConvert == GraphemeBreakProperty::T)
+		{
+			ReturnValue = "T";
+		}
 		return(ReturnValue);
 	}
 	std::string CreateGraphemeBreakSpecifiersArray(std::string const& InputFilename)
@@ -358,8 +404,9 @@ namespace MBUnicode
 			std::cout << "input file is not open" << std::endl;
 			return("");
 		}
-		std::string CurrentLine = "static GraphemeBreakPropertySpecifier GraphemeBreakSpecifiers[] = ";
+		ReturnValue = "static GraphemeBreakPropertySpecifier GraphemeBreakSpecifiers[] = ";
 		ReturnValue += "{\n";
+		std::string CurrentLine;
 		std::vector<GraphemeBreakPropertySpecifier> CodePointRanges = {};
 		std::vector<std::string> PropertyNames = {};
 		while (std::getline(InputFile, CurrentLine))
@@ -413,7 +460,7 @@ namespace MBUnicode
 				"," + "GraphemeBreakProperty::" + h_PropertyToString(CodePointRanges[i].Type);
 			ReturnValue += "},\n";
 		}
-		ReturnValue += "}\n";
+		ReturnValue += "};\n";
 		ReturnValue += "constexpr size_t GraphemeBreakSpecifiersCount = sizeof(GraphemeBreakSpecifiers) / sizeof(MBUnicode::GraphemeBreakPropertySpecifier);\n";
 		return(ReturnValue);
 	}
@@ -423,6 +470,7 @@ namespace MBUnicode
 		DataToWrite += CreateGraphemeBreakSpecifiersArray(DataDirectory+"/GraphemeBreakProperty.txt");
 		DataToWrite += "\n};";
 		std::ofstream OutFile = std::ofstream(DataDirectory+"/CodepointProperties.h");
+		OutFile << DataToWrite;
 	}
 	//implementeras inte rätt för flaggor
 	bool h_ShouldBreak(GraphemeBreakProperty LeftProperty, GraphemeBreakProperty RightProperty)
@@ -453,9 +501,14 @@ namespace MBUnicode
 		GraphemeBreakProperty ReturnValue = GraphemeBreakProperty::Null;
 		size_t LowerLimit = 0;
 		size_t HigherLimit = GraphemeBreakSpecifiersCount;
+		size_t PreviousGuess = -1;
 		while (LowerLimit != HigherLimit)
 		{
-			size_t CurrentGuess = LowerLimit + HigherLimit;
+			size_t CurrentGuess = (LowerLimit + HigherLimit)/2;
+			if (PreviousGuess == CurrentGuess)
+			{
+				break;
+			}
 			if (GraphemeBreakSpecifiers[CurrentGuess].Lower >= CodepointToExamine && GraphemeBreakSpecifiers[CurrentGuess].Higher <= CodepointToExamine)
 			{
 				ReturnValue = GraphemeBreakSpecifiers[CurrentGuess].Type;
@@ -468,10 +521,15 @@ namespace MBUnicode
 			{
 				HigherLimit = CurrentGuess;
 			}
+			PreviousGuess = CurrentGuess;
 		}
 		return(ReturnValue);
 	}
 	//BEGIN UnicodeGraphemeClusterSegmenter
+	void GraphemeClusterSegmenter::InsertCodepoint(Codepoint CodepointsToInsert)
+	{
+		InsertCodepoints(&CodepointsToInsert, 1);
+	}
 	void GraphemeClusterSegmenter::InsertCodepoints(const Codepoint* CodepointsToInsert, size_t NumberOfCodepoints)
 	{
 		for (size_t i = 0; i < NumberOfCodepoints; i++)
@@ -482,6 +540,7 @@ namespace MBUnicode
 			{
 				m_DecodedCluster.push_back(std::move(m_CurrentCluster));
 				m_CurrentCluster = GraphemeCluster();
+				m_CurrentCluster.AddCodepoint(CodepointsToInsert[i]);
 			}
 			else
 			{

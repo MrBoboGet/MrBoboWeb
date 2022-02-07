@@ -16,6 +16,7 @@ namespace MBUnicode
 		ZWJ,
 		SOF,
 		EndOfFile,
+		T,
 		SpacingMark,
 		Prepend,
 		Extended_Pictographic,

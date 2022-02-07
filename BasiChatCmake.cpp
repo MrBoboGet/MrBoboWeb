@@ -59,10 +59,34 @@ int main()
 	//TestSocket.Connect("www.google.com", "443");
 	//TestSocket.EstablishTLSConnection();
 	//std::cout << TestSocket.GetDataFromRequest("GET", "/") << std::endl;
-	std::cout << std::filesystem::current_path() << std::endl;
+	//std::cout << std::filesystem::current_path() << std::endl;
+	//
+	//MBUnicode::CreateCodepointPropertiesHeader("../../MBUnicode/");
+	std::string TestLine = "\xc3\xa5\xc3\xb6\xc3\xa4\xc3\xa5\xc3\xb6\xc3\xa4\xc3\xa5";
+	//std::getline(std::cin, TestLine);
+	MBUnicode::UnicodeCodepointSegmenter Segmenter;
+	Segmenter.InsertData(TestLine.data(), TestLine.size());
+	MBUnicode::GraphemeClusterSegmenter ClusterSegmenter;
+	while (Segmenter.AvailableCodepoints() > 0)
+	{
+		ClusterSegmenter.InsertCodepoint(Segmenter.ExtractCodepoint());
+	}
+	ClusterSegmenter.Finalize();
+	std::vector<MBUnicode::GraphemeCluster> ExtractedClusters;
+	std::string StringToPrint;
+	while (ClusterSegmenter.AvailableClusters() > 0)
+	{
+		ExtractedClusters.push_back(ClusterSegmenter.ExtractCluster());
+		StringToPrint += ExtractedClusters.back().ToString();
+	}
+	std::cout << TestLine.size() << std::endl;
+	std::cout << ExtractedClusters.size() << std::endl;
+	std::cout << (TestLine == StringToPrint) << std::endl;
+	std::cout << StringToPrint << std::endl;
+	std::cout << MBUtility::HexEncodeString(TestLine) << std::endl;
+	std::cout << MBUtility::HexEncodeString(StringToPrint) << std::endl;
 
-	MBUnicode::CreateCodepointPropertiesHeader("../../../MBUnicode/");
-
+	exit(0);
 	//return(0);
 	MBWebsite::MBGWebsiteMain();
 	exit(0);
