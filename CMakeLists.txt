@@ -4,13 +4,13 @@ set(CMAKE_SYSTEM_VERSION 10.0 CACHE STRING "" FORCE)
 
 project(BasicChatCmake CXX)
 
-#straight copypastad för att se om jag kunde fixa ett problem med threads på arms
+#straight copypastad fï¿½r att se om jag kunde fixa ett problem med threads pï¿½ arms
 #set(CMAKE_THREAD_LIBS_INIT "-lpthread")
 #3set(CMAKE_HAVE_THREADS_LIBRARY 1)
 #set(CMAKE_USE_WIN32_THREADS_INIT 0)
 #set(CMAKE_USE_PTHREADS_INIT 1)
 ##set(THREADS_PREFER_PTHREAD_FLAG ON)
-#slut på copypastad eventuellt hack
+#slut pï¿½ copypastad eventuellt hack
 
 ################################################################################
 # Set target arch type if empty. Visual studio solution generator provides it.
@@ -178,7 +178,7 @@ set(Header_Files
      #TODO ta bort MBPM direct dependancien
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.h"
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MB_PacketProtocol.h"
-     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBCLI/MBCLI.h"
+     #"${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBCLI/MBCLI.h"
 )
 source_group("Header Files" FILES ${Header_Files})
 
@@ -209,7 +209,7 @@ set(Source_Files
      #TODO ta bort MBPM direct dependancien
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBPacketManager.cpp"
      "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MB_PacketProtocol.cpp"
-     "${CMAKE_CURRENT_SOURCE_DIR}/../MBPacketManager/MBCLI/MBCLI.cpp"
+     "$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/MBCLI/MBCLI.cpp"
 )
 message(${Source_Files})
 source_group("Source Files" FILES ${Source_Files})
@@ -379,7 +379,7 @@ endif()
 ################################################################################
 # Include directories
 ################################################################################
-#testar att ha olika beroende på om det är windows eller inte
+#testar att ha olika beroende pï¿½ om det ï¿½r windows eller inte
 target_include_directories(${PROJECT_NAME} PUBLIC
     #"${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../Program Files %28x86%29/Windows Kits/10/Include;"
     "${EXTLIBS_DIR}/ffmpeg/"
@@ -420,7 +420,7 @@ elseif("${CMAKE_VS_PLATFORM_NAME}" STREQUAL "x86")
         "_UNICODE"
     )
 endif()
-##borde fixa för linux
+##borde fixa fï¿½r linux
 
 ################################################################################
 # Compile and link options

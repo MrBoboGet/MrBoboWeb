@@ -32,9 +32,9 @@ namespace MBUnicode
 		//MBUtility::FIFOBuffer<char> m_ByteFifoBuffer = {};
 		Codepoint m_CurrentCodepoint = 0;
 		uint8_t m_CurrentCodepointNeededBytes = 0;
-		uint8_t p_GetNeededExtraBytes(uint8_t ByteToCheck);
-
 		std::string m_LastError = "";
+
+		uint8_t p_GetNeededExtraBytes(uint8_t ByteToCheck);
 	public:
 		bool IsValid();
 		std::string GetLastError();
@@ -42,6 +42,7 @@ namespace MBUnicode
 		void InsertData(const void* DataToInsert, size_t DataSize);
 		size_t AvailableCodepoints();
 		Codepoint ExtractCodepoint();
+		void Reset();
 	};
 
 	class GraphemeCluster
@@ -57,15 +58,31 @@ namespace MBUnicode
 		{
 			return(!(*this == OtherCluster));
 		}
-	
+		
+		bool operator==(char CharToCompare) const;
+		bool operator!=(char CharToCompare) const;
 
+		bool operator==(GraphemeCluster const& OtherCluster) const;
+		bool operator!=(GraphemeCluster const& OtherCluster) const;
+
+		bool operator==(std::string const& StringToCompare) const;
+		bool operator!=(std::string const& StringToCompare) const;
+
+		GraphemeCluster& operator=(std::string const& StringToConvert);
+		GraphemeCluster& operator=(char CharToConvert);
+
+		GraphemeCluster() {};
+		explicit GraphemeCluster(std::string const& StringToConvert);
+
+		static bool ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset);
+		static bool ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, const void* InputData, size_t InputDataSize,size_t InputOffset);
 		Codepoint& operator[](size_t Index);
 		Codepoint const& operator[](size_t Index) const;
-		size_t size()
+		size_t size() const
 		{
 			return(m_InternalBuffer.size());
 		}
-		std::string ToString()
+		std::string ToString() const
 		{
 			std::string ReturnValue = "";
 			for (size_t i = 0; i < m_InternalBuffer.size(); i++)
@@ -86,11 +103,13 @@ namespace MBUnicode
 		GraphemeCluster m_CurrentCluster;
 		GraphemeBreakProperty m_LastProperty = GraphemeBreakProperty::SOF;
 	public:
+		bool CodepointWouldBreak(Codepoint CodepointToTest) const;
 		void InsertCodepoints(const Codepoint* CodepointsToInsert, size_t NumberOfCodepoints);
 		void InsertCodepoint(Codepoint CodepointsToInsert);
 		void Finalize();
 		size_t AvailableClusters();
 		GraphemeCluster ExtractCluster();
+		void Reset();
 	};
 
 	std::string PathToUTF8(std::filesystem::path const& PathToProcess);

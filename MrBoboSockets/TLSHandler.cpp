@@ -206,7 +206,7 @@ namespace TLS1_2
 		ReturnValue += 1 + sizeof(uint8_t) * StructToProcess.SessionId.size();
 		ReturnValue += 2 + sizeof(CipherSuite) * StructToProcess.CipherSuites.size();
 		ReturnValue += 1 + sizeof(uint8_t) * StructToProcess.CompressionMethods.size();
-		//eftersom varje extension nu sedan kan innahålla varierande mängd data behöver vi loopa igen alla
+		//eftersom varje extension nu sedan kan innahï¿½lla varierande mï¿½ngd data behï¿½ver vi loopa igen alla
 		if (StructToProcess.OptionalExtensions.size() > 0)
 		{
 			ReturnValue += sizeof(uint16_t);
@@ -243,7 +243,7 @@ namespace TLS1_2
 		{
 			ArrayFiller << Data.CompressionMethods[i];
 		}
-		//extensiones säger inte sin längd innan om dem om inte finns
+		//extensiones sï¿½ger inte sin lï¿½ngd innan om dem om inte finns
 		if (Data.OptionalExtensions.size() > 0)
 		{
 			uint16_t LengthOfExtensions = 0;
@@ -368,17 +368,17 @@ namespace TLS1_2
 		uint64_t LengthOfCurrentCertificate = Parser.ExtractLengthOfType();
 		//skippar till signature algorithm fielden
 
-		//först entrar vi tbscertificate fältet
+		//fï¿½rst entrar vi tbscertificate fï¿½ltet
 		Parser.ExtractTagData();
 		Parser.ExtractLengthOfType();
 
-		//eftersom att den har ett default value kollar vi först och främst om den finns, gör den inte det så vet vi att vi skippar rätt grej i alla fall
+		//eftersom att den har ett default value kollar vi fï¿½rst och frï¿½mst om den finns, gï¿½r den inte det sï¿½ vet vi att vi skippar rï¿½tt grej i alla fall
 		ASN1TagValue VersionTag = Parser.ExtractTagData();
 		if (VersionTag.AlternateTagValue == 0)
 		{
-			//det är faktiskt en tag vi extractar och inte serialnumber
+			//det ï¿½r faktiskt en tag vi extractar och inte serialnumber
 
-			//vi skippar helt enkelt typen vi börjar extracta, som vi nu vet är serialnumber
+			//vi skippar helt enkelt typen vi bï¿½rjar extracta, som vi nu vet ï¿½r serialnumber
 			uint64_t LengthOfTypeData = Parser.ExtractLengthOfType();
 			Parser.SetOffset(Parser.GetOffset() + LengthOfTypeData);
 		}
@@ -393,11 +393,11 @@ namespace TLS1_2
 		Parser.SkipToNextField();//Skippar Validity
 		Parser.SkipToNextField();//Skippar issuer
 		Parser.SkipToNextField();//Skippar skippar name
-		//nu vill vi entra subjectpublickeyinfo fältet
+		//nu vill vi entra subjectpublickeyinfo fï¿½ltet
 		ASN1TagValue SubjectPublicKeyInfoTag = Parser.ExtractTagData();
 		uint64_t LengthOfKeyInfo = Parser.ExtractLengthOfType();
 		Parser.SkipToNextField();//Skippar algorithm identifer i subjcet public key info
-		//nu jävlar, nu är vi äntligen i själva RSA keyn som vi vill ha
+		//nu jï¿½vlar, nu ï¿½r vi ï¿½ntligen i sjï¿½lva RSA keyn som vi vill ha
 		ASN1TagValue BitStringTag = Parser.ExtractTagData();
 		uint64_t LenthOfBitString = Parser.ExtractLengthOfType();
 		ReturnValue.ServerKeyData = "";
@@ -405,11 +405,11 @@ namespace TLS1_2
 		{
 			ReturnValue.ServerKeyData += Parser.ExtractByte();
 		}
-		//Relevant om den första certifikaten inte inehåller public keyn
+		//Relevant om den fï¿½rsta certifikaten inte inehï¿½ller public keyn
 		//AbsoluteOffsetToNextCertficate = Offset + Parser.GetOffset() + LengthOfCurrentCertificate;
 		//nu tar vi och ser om vi faktiskt kan ta och hitta lite spicy public key data
 		//Offset = AbsoluteOffsetToNextCertficate;
-		//nu koller vi längden till nästa value
+		//nu koller vi lï¿½ngden till nï¿½sta value
 		return(ReturnValue);
 	}
 	std::string GetRecordString(TLS1_2GenericRecord const& RecordToEncode)
@@ -471,7 +471,7 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 {
 	RSAPublicKey ReturnValue;
 	MrBigInt PublicKeyPrime = 0;
-	//parsa primen från datan, först kollar vi att paddingen är 0
+	//parsa primen frï¿½n datan, fï¿½rst kollar vi att paddingen ï¿½r 0
 	if (BitString[0] != 0)
 	{
 		std::cout << "Fel formatterad public key" << std::endl;
@@ -481,7 +481,7 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 	ASN1Extracter Parser(reinterpret_cast<const uint8_t*>(BitString.c_str()));
 	Parser.ExtractByte();
 	Parser.ExtractTagData();
-	Parser.ExtractLengthOfType();//vi vill skippa den del som bara encodar vår dubbel int typ
+	Parser.ExtractLengthOfType();//vi vill skippa den del som bara encodar vï¿½r dubbel int typ
 	Parser.ExtractTagData();
 	uint64_t LengthOfPrime = Parser.ExtractLengthOfType();
 	if (!(LengthOfPrime == 257 || LengthOfPrime == 513))
@@ -491,7 +491,7 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 	}
 	else
 	{
-		//första är alltid 0
+		//fï¿½rsta ï¿½r alltid 0
 		PublicKeyPrime.SetFromBigEndianArray(&BitString.c_str()[Parser.GetOffset() + 1], LengthOfPrime-1);
 		for (size_t i = 0; i < LengthOfPrime; i++)
 		{
@@ -499,7 +499,7 @@ RSAPublicKey TLSHandler::ExtractRSAPublicKeyFromBitString(std::string& BitString
 		}
 	}
 	//std::cout << PublicKeyPrime.get_str() << std::endl;
-	//nu räknar vi ut exponenten
+	//nu rï¿½knar vi ut exponenten
 	Parser.ExtractTagData();
 	uint64_t LengthOfExponent = Parser.ExtractLengthOfType();
 	MrBigInt Exponent(0);
@@ -544,7 +544,7 @@ std::string TLSHandler::I2OSP(MrBigInt NumberToConvert, uint64_t LengthOfString)
 	}
 	else
 	{
-		//returnar en string som sett att grejen är big endian, vi appendar dem sista grejerna och till slut så reversar vi den
+		//returnar en string som sett att grejen ï¿½r big endian, vi appendar dem sista grejerna och till slut sï¿½ reversar vi den
 		std::string NumberAsString = NumberToConvert.GetBigEndianArray();
 		for (size_t i = 0; i < LengthOfString-NumberAsString.size(); i++)
 		{
@@ -588,7 +588,7 @@ std::string TLSHandler::RSAES_PKCS1_V1_5_ENCRYPT(TLSServerPublickeyInfo& RSAInfo
 }
 void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::ConnectSocket* SocketToConnect)
 {
-	//vi utgår alltid ifrån att det är rsa med specifika algoritmer
+	//vi utgï¿½r alltid ifrï¿½n att det ï¿½r rsa med specifika algoritmer
 	uint16_t RSAPrimeSize = Data.ServerKeyData.size() - 15;
 	uint8_t* DataToSend = static_cast<uint8_t*>(malloc(5 + 4 +2+ RSAPrimeSize));
 	TLS1_2::NetWorkDataHandler ArrayFiller(DataToSend);
@@ -601,7 +601,7 @@ void TLSHandler::SendClientKeyExchange(TLSServerPublickeyInfo& Data,MBSockets::C
 	ArrayFiller << uint16_t(RSAPrimeSize);
 	uint8_t PreMasterSecret[48];
 	FillArrayWithRandomBytes(PreMasterSecret, 48);
-	//OBSS!"!"!"!"!"!!  dem första bytesen är variationen vi ville började att skicka, dvs jag hard codar 3 3
+	//OBSS!"!"!"!"!"!!  dem fï¿½rsta bytesen ï¿½r variationen vi ville bï¿½rjade att skicka, dvs jag hard codar 3 3
 	PreMasterSecret[0] = 3;
 	PreMasterSecret[1] = 3;
 	for (size_t i = 0; i < 48; i++)
@@ -710,7 +710,7 @@ std::string TLSHandler::P_Hash(std::string Secret, std::string Seed,uint64_t Amo
 }
 std::string TLSHandler::PRF(std::string Secret, std::string Label, std::string Seed,uint64_t AmountOfData)
 {
-	//använder alltid sha256
+	//anvï¿½nder alltid sha256
 	MBCrypto::HashObject PreviousHashObject = ConnectionParameters.HashAlgorithm;
 	ConnectionParameters.HashAlgorithm = MBCrypto::HashObject(MBCrypto::HashFunction::SHA256);
 	std::string ReturnValue = P_Hash(Secret, Label + Seed, AmountOfData);
@@ -769,11 +769,11 @@ std::vector<TLS1_2::Extension> TLSHandler::p_GetClientExtensions()
 }
 std::string TLSHandler::GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect)
 {
-	//vi börjar med att skicka ett client hello
+	//vi bï¿½rjar med att skicka ett client hello
 	TLS1_2::TLS1_2HelloClientStruct HelloToSend;
 	HelloToSend.ProtocolVers = { 3,3 };
 	FillArrayWithRandomBytes(HelloToSend.RandomStruct.RandomBytes, 32);
-	//passar även på att fylla våra parameters med våran random data
+	//passar ï¿½ven pï¿½ att fylla vï¿½ra parameters med vï¿½ran random data
 	for (int i = 0; i < 32; i++)
 	{
 		ConnectionParameters.client_random[i] = HelloToSend.RandomStruct.RandomBytes[i];
@@ -783,7 +783,7 @@ std::string TLSHandler::GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* Sock
 	HelloToSend.CipherSuites = p_GetSupportedCipherSuites();
 	HelloToSend.CompressionMethods = { 0 };
 	HelloToSend.OptionalExtensions = p_GetClientExtensions();
-	//nu har vi initialisat allt data vi behöver för hellosend grejen, nu så ska vi skicka detta record till servern
+	//nu har vi initialisat allt data vi behï¿½ver fï¿½r hellosend grejen, nu sï¿½ ska vi skicka detta record till servern
 	TLS1_2::HandShake HandShakeData;
 	HandShakeData.MessageType = TLS1_2::client_hello;
 	int LengthOfHandshakeData = TLS1_2::SizeOfProccessedHelloClientStruct(HelloToSend);
@@ -833,7 +833,7 @@ void TLSHandler::SendChangeCipherMessage(MBSockets::ConnectSocket* SocketToConne
 	}
 	else
 	{
-		//egentligen lite osäker på denna
+		//egentligen lite osï¿½ker pï¿½ denna
 		ConnectionParameters.ServerSequenceNumber = 0;
 	}
 }
@@ -1216,17 +1216,17 @@ TLSServerPublickeyInfo GetServerPublicKey(std::string& ServerCertificateData)
 	uint64_t LengthOfCurrentCertificate = Parser.ExtractLengthOfType();
 	//skippar till signature algorithm fielden
 
-	//först entrar vi tbscertificate fältet
+	//fï¿½rst entrar vi tbscertificate fï¿½ltet
 	Parser.ExtractTagData();
 	Parser.ExtractLengthOfType();
 
-	//eftersom att den har ett default value kollar vi först och främst om den finns, gör den inte det så vet vi att vi skippar rätt grej i alla fall
+	//eftersom att den har ett default value kollar vi fï¿½rst och frï¿½mst om den finns, gï¿½r den inte det sï¿½ vet vi att vi skippar rï¿½tt grej i alla fall
 	ASN1TagValue VersionTag = Parser.ExtractTagData();
 	if (VersionTag.AlternateTagValue == 0)
 	{
-		//det är faktiskt en tag vi extractar och inte serialnumber
+		//det ï¿½r faktiskt en tag vi extractar och inte serialnumber
 
-		//vi skippar helt enkelt typen vi börjar extracta, som vi nu vet är serialnumber
+		//vi skippar helt enkelt typen vi bï¿½rjar extracta, som vi nu vet ï¿½r serialnumber
 		uint64_t LengthOfTypeData = Parser.ExtractLengthOfType();
 		Parser.SetOffset(Parser.GetOffset() + LengthOfTypeData);
 	}
@@ -1241,11 +1241,11 @@ TLSServerPublickeyInfo GetServerPublicKey(std::string& ServerCertificateData)
 	Parser.SkipToNextField();//Skippar Validity
 	Parser.SkipToNextField();//Skippar issuer
 	Parser.SkipToNextField();//Skippar skippar name
-	//nu vill vi entra subjectpublickeyinfo fältet
+	//nu vill vi entra subjectpublickeyinfo fï¿½ltet
 	ASN1TagValue SubjectPublicKeyInfoTag = Parser.ExtractTagData();
 	uint64_t LengthOfKeyInfo = Parser.ExtractLengthOfType();
 	Parser.SkipToNextField();//Skippar algorithm identifer i subjcet public key info
-	//nu jävlar, nu är vi äntligen i själva RSA keyn som vi vill ha
+	//nu jï¿½vlar, nu ï¿½r vi ï¿½ntligen i sjï¿½lva RSA keyn som vi vill ha
 	ASN1TagValue BitStringTag = Parser.ExtractTagData();
 	uint64_t LenthOfBitString = Parser.ExtractLengthOfType();
 	ReturnValue.ServerKeyData = "";
@@ -1253,11 +1253,11 @@ TLSServerPublickeyInfo GetServerPublicKey(std::string& ServerCertificateData)
 	{
 		ReturnValue.ServerKeyData += Parser.ExtractByte();
 	}
-	//Relevant om den första certifikaten inte inehåller public keyn
+	//Relevant om den fï¿½rsta certifikaten inte inehï¿½ller public keyn
 	//AbsoluteOffsetToNextCertficate = Offset + Parser.GetOffset() + LengthOfCurrentCertificate;
 	//nu tar vi och ser om vi faktiskt kan ta och hitta lite spicy public key data
 	//Offset = AbsoluteOffsetToNextCertficate;
-	//nu koller vi längden till nästa value
+	//nu koller vi lï¿½ngden till nï¿½sta value
 	return(ReturnValue);
 }
 void TLSHandler::p_UpdateConnectionParametersAfterServerHello(TLS1_2::SecurityParameters& ConnectionParameters, TLS1_2::TLS1_2ServerHelloStruct const& ServerHelloStruct)
@@ -1323,7 +1323,7 @@ void TLSHandler::p_ECDHECalculatePremasterSecret(TLS1_2::SecurityParameters& Con
 void TLSHandler::p_EstablishPreMasterSecret(TLS1_2::SecurityParameters& ConnectionParams, std::vector<std::string> const& ServerHelloResponse, MBSockets::ConnectSocket* SocketTouse)
 {
 	std::string ServerCertificateMessage = ServerHelloResponse[1];
-	std::string ServerCertificate = ServerCertificateMessage.substr(5 + 4 + 3 + 3/*första trean är eftersom den börjhar med en lengthy byte av alla data, andra är föör längen av första certfiikaten*/);
+	std::string ServerCertificate = ServerCertificateMessage.substr(5 + 4 + 3 + 3/*fï¿½rsta trean ï¿½r eftersom den bï¿½rjhar med en lengthy byte av alla data, andra ï¿½r fï¿½ï¿½r lï¿½ngen av fï¿½rsta certfiikaten*/);
 	TLSServerPublickeyInfo KeyFromCertificate = GetServerPublicKey(ServerCertificate); //keytype agnostic data
 	if (ConnectionParams.CipherSuiteInfo.ExchangeMethod == TLS1_2::KeyExchangeMethod::RSA)
 	{
@@ -1389,7 +1389,7 @@ MBError TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect,
 	ConnectionParameters.IsHost = false;
 	std::vector<std::string> ServerHelloResponseData = p_GetServerHelloResponseRecords(SocketToConnect);
 
-	std::string ServerHelloResponseDataFragment = ServerHelloResponseData[0].substr(5/*längd av record layern*/+4/*längd av handshake grejen innan datan*/);
+	std::string ServerHelloResponseDataFragment = ServerHelloResponseData[0].substr(5/*lï¿½ngd av record layern*/+4/*lï¿½ngd av handshake grejen innan datan*/);
 	TLS1_2::TLS1_2ServerHelloStruct ServerHelloStruct;
 	TLS1_2::ParseServerHelloToStruct(&ServerHelloStruct, ServerHelloResponseDataFragment);
 
@@ -1430,7 +1430,7 @@ MBError TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect,
 }
 MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect)
 {
-	//förutsätter att vi redan connectat med TCP protokollet
+	//fï¿½rutsï¿½tter att vi redan connectat med TCP protokollet
 	ConnectionParameters.IsHost = true;
 	MBError ErrorToReturn(true);
 	if (!SocketToConnect->IsConnected() || !SocketToConnect->IsValid())
@@ -1451,7 +1451,7 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketT
 
 	//ConnectionParameters.CipherSuiteInfo = p_GetCipherSuiteData(ClientHelloStruct.CipherSuites);
 
-	//om clienten skicker ett session id så vill vi ta och använda den sesssion id:n värden
+	//om clienten skicker ett session id sï¿½ vill vi ta och anvï¿½nda den sesssion id:n vï¿½rden
 	if (ClientHelloStruct.SessionId.size() != 0)
 	{
 		std::string SessionID = std::string((char*)ClientHelloStruct.SessionId.data(), ClientHelloStruct.SessionId.size());
@@ -1488,7 +1488,7 @@ MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketT
 		ErrorToReturn = false;
 		return(ErrorToReturn);
 	}
-	//för så tar vi och decrypter premasterkeyn från dens första svar
+	//fï¿½r sï¿½ tar vi och decrypter premasterkeyn frï¿½n dens fï¿½rsta svar
 	//debug grejer
 	//std::cout << HexEncodeString(HMAC("123123", "123123")) << std::endl;
 	ServerHandleKeyExchange(ClientResponse[0]);
@@ -1540,7 +1540,7 @@ RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
 	Parser.ExtractTagData();
 	Parser.ExtractLengthOfType();
 	Parser.SkipToNextField();
-	//nu är vi vid public modolun
+	//nu ï¿½r vi vid public modolun
 	Parser.ExtractTagData();
 	unsigned int LengthOfModolu = Parser.ExtractLengthOfType();
 	ReturnValue.PublicModulu.SetFromBigEndianArray(&KeyBinaryInfo[Parser.GetOffset()], LengthOfModolu);
@@ -1595,7 +1595,7 @@ TLS1_2::TLS1_2HelloClientStruct TLSHandler::ParseClientHelloStruct(std::string c
 {
 	TLS1_2::TLS1_2HelloClientStruct ReturnValue;
 	TLS1_2::NetWorkDataHandler Parser((const uint8_t*)ClientHelloData.c_str());
-	//vi börjar med att ta bort det som är på toppen, dvs record och handshake layer headern,total 5+4 = 9
+	//vi bï¿½rjar med att ta bort det som ï¿½r pï¿½ toppen, dvs record och handshake layer headern,total 5+4 = 9
 	Parser.Extract32();
 	Parser.Extract32();
 	Parser.Extract8();
@@ -1713,7 +1713,7 @@ MBError TLSHandler::ResumeSession(std::string const& SessionID,TLS1_2::TLS1_2Hel
 	ConnectionParameters.HandshakeFinished = false;
 	GenerateKeys();
 	SendChangeCipherMessage(SocketToConnect);
-	//är ju frågan om det ska vara 0 eller 1 recored sent?
+	//ï¿½r ju frï¿½gan om det ska vara 0 eller 1 recored sent?
 	std::string VerifyDataMessage = GenerateVerifyDataMessage();
 	SocketToConnect->SendData(VerifyDataMessage.data(), VerifyDataMessage.size());
 
@@ -1745,7 +1745,7 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 	TLS_RecordGenerator NewRecord;
 	NewRecord.SetHandshakeType(TLS1_2::HandshakeType::server_hello);
 	NewRecord.SetContentType(TLS1_2::ContentType::handshake);
-	//server hellon ska innehålla vilken tls variation vi använder, vilket i vårt fall är 1.2
+	//server hellon ska innehï¿½lla vilken tls variation vi anvï¿½nder, vilket i vï¿½rt fall ï¿½r 1.2
 	NewRecord.AddUINT8(3);
 	NewRecord.AddUINT8(3);
 	//vi generar serverrandom
@@ -1767,7 +1767,7 @@ std::string TLSHandler::GenerateServerHello(TLS1_2::TLS1_2HelloClientStruct cons
 	}
 	ConnectionParameters.SessionId = SessionId;
 	NewRecord.AddOpaqueArray(SessionId,1);
-	//0,0x3c enda cihpersuiten vi stödjer, egentligen ska vi ju ta och välja ut en beroende på etc
+	//0,0x3c enda cihpersuiten vi stï¿½djer, egentligen ska vi ju ta och vï¿½lja ut en beroende pï¿½ etc
 	std::vector<TLS1_2::SignatureAndHashAlgoritm> SupportedAlgorithms = GetSupportedSignatureAlgorithms(ClientHello.OptionalExtensions);
 	//hardcodad af
 	NewRecord.AddUINT8(0);
@@ -1797,7 +1797,7 @@ std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 	{
 		ActualDomainName = DefaultDomain;
 	}
-	//TODO detta är MEGA yikes, vi hardcodar en path som den här ska gå till... Borde kanske ha en socket factory eller att serversockets kräver mer data?
+	//TODO detta ï¿½r MEGA yikes, vi hardcodar en path som den hï¿½r ska gï¿½ till... Borde kanske ha en socket factory eller att serversockets krï¿½ver mer data?
 	std::string ReturnValue = "./MBWebsite/ServerResources/" + ActualDomainName + "/";
 	if (!std::filesystem::exists(ReturnValue))
 	{
@@ -1807,7 +1807,7 @@ std::string TLSHandler::GetDomainResourcePath(std::string const& DomainName)
 }
 std::string TLSHandler::GetDefaultCertificate()
 {
-	//TODO MEGA yikes det här med
+	//TODO MEGA yikes det hï¿½r med
 	return("./MBWebsite/ServerResources/" + DefaultDomain + "/" + "EncryptionResources/SignedCertificateRSA2096.der");
 }
 std::string TLSHandler::GenerateServerCertificateRecord(std::string const& DomainName)
@@ -1870,7 +1870,7 @@ std::string TLSHandler::GetServerNameFromExtensions(std::vector<TLS1_2::Extensio
 }
 std::string TLSHandler::GenerateSessionId()
 {
-	//TODO Fixa så det faktist ger ett session id på ett bra sätt
+	//TODO Fixa sï¿½ det faktist ger ett session id pï¿½ ett bra sï¿½tt
 	std::string NewSessionID = MBRandom::GetRandomBytes(32);
 	std::lock_guard<std::mutex> Lock(CachedSessionsMutex);
 	while (CachedSessions.find(NewSessionID) != CachedSessions.end())
@@ -1943,7 +1943,7 @@ bool TLSHandler::VerifyMac(std::string Hash,TLS1_2::TLS1_2GenericRecord RecordTo
 }
 std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* OutVerification)
 {
-	//beror egentligen på om vi är en server eller client men vi förutsätter att vi är en client
+	//beror egentligen pï¿½ om vi ï¿½r en server eller client men vi fï¿½rutsï¿½tter att vi ï¿½r en client
 	std::string ReturnValue = "";
 	std::string RecordHeader = Data.substr(0, 5);
 	unsigned int HashOutputSize = ConnectionParameters.HashAlgorithm.GetDigestSize();
@@ -1978,7 +1978,7 @@ std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* O
 	RecordHeader[3] = ContentOctets.size() >> 8;
 	RecordHeader[4] = ContentOctets.size() % 256;
 
-	//vi verivierar att macen stämmer
+	//vi verivierar att macen stï¿½mmer
 	TLS1_2::TLS1_2GenericRecord RecordToEncrypt;
 	RecordToEncrypt.Type = TLS1_2::ContentType(RecordHeader[0]);
 	RecordToEncrypt.Protocol = { uint8_t(RecordHeader[1]),uint8_t(RecordHeader[2]) };
@@ -1987,7 +1987,7 @@ std::string TLSHandler::p_Decrypt_AES_CBC_Record(std::string const& Data,bool* O
 	bool VerificationResult = VerifyMac(MACOctets, RecordToEncrypt);
 	assert(VerificationResult);
 	*OutVerification = VerificationResult;
-	//nu vet vi även att vi kan ta och öka record´sen vi fått
+	//nu vet vi ï¿½ven att vi kan ta och ï¿½ka recordï¿½sen vi fï¿½tt
 	ReturnValue = RecordHeader + std::move(RecordToEncrypt.Data);
 	return(ReturnValue);
 }
@@ -2113,10 +2113,10 @@ void TLSHandler::SendDataAsRecord(std::string const& Data,MBSockets::ConnectSock
 }
 std::string TLSHandler::GetApplicationData(MBSockets::ConnectSocket* AssociatedSocket,int MaxNumberOfBytes)
 {
-	//tar bara 1 record, eftersom det är omöjlgit för oss att veta hur många som faktiskt finns, eventuellt kanske man sska skicka den uppsparade poolen?
+	//tar bara 1 record, eftersom det ï¿½r omï¿½jlgit fï¿½r oss att veta hur mï¿½nga som faktiskt finns, eventuellt kanske man sska skicka den uppsparade poolen?
 	std::vector<std::string> ApplicationDataRecords = GetNextPlaintextRecords((MBSockets::ConnectSocket*)AssociatedSocket,1,MaxNumberOfBytes);
-	//nu så bara klistrat vi ihop datan och skickar tillbaka den
-	//OBS! Vi kan inte här se till att all data vi letar efter faktiskt är med, det får vi göra längre i call hierarkin
+	//nu sï¿½ bara klistrat vi ihop datan och skickar tillbaka den
+	//OBS! Vi kan inte hï¿½r se till att all data vi letar efter faktiskt ï¿½r med, det fï¿½r vi gï¿½ra lï¿½ngre i call hierarkin
 	std::string SentApplicationData = "";
 	for (int i = 0; i < ApplicationDataRecords.size(); i++)
 	{
@@ -2147,7 +2147,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 	}
 	if (NewRecordData.size() < 5)
 	{
-		//måste alltid kunna avgöra längden
+		//mï¿½ste alltid kunna avgï¿½ra lï¿½ngden
 		NewRecordData += SocketToConnect->RecieveData(MaxBytesInMemory - NewRecordData.size());
 	}
 	size_t RecievedDataOffset = 0;
@@ -2167,7 +2167,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 			}
 			if (NewRecordData.size() - 5 < CurrentRecordSize)
 			{
-				//socketen har slutat skicka eller något, nu kan vi inte få ett färdigt nytt record
+				//socketen har slutat skicka eller nï¿½got, nu kan vi inte fï¿½ ett fï¿½rdigt nytt record
 				std::cout << "Error in recieving new record: Incomplete data" << std::endl;
 				return("");
 			}
@@ -2195,7 +2195,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 			}
 		}
 	}
-	//pushar alla records som var nya till vår stack av records som vi vill spara
+	//pushar alla records som var nya till vï¿½r stack av records som vi vill spara
 	for (size_t i = 1; i < NewRecords.size(); i++)
 	{
 		RecieveDataState.StoredRecords.push_back(NewRecords[i]);
@@ -2206,7 +2206,7 @@ bool TLSHandler::HandleAlertMessage(MBSockets::ConnectSocket* SocketToConnect,st
 {
 	uint8_t AlertLevel = DecryptedAlertRecord[5];
 	uint8_t ErrorMessage = DecryptedAlertRecord[6];
-	//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
+	//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i nï¿½gon form av fel array
 	std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
 	if (AlertLevel == TLS1_2::fatal)
 	{
@@ -2221,7 +2221,7 @@ bool TLSHandler::HandleAlertMessage(MBSockets::ConnectSocket* SocketToConnect,st
 	else
 	{
 		//HandleNonFatalError();
-		//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
+		//eftersom vi fortfarande, om inte funktionen ï¿½ver sï¿½ger sï¿½, ha kopplingen skickar vi ingen data, och gï¿½r tillbaka till att recieva data
 		return(true);
 	}
 }
@@ -2258,12 +2258,12 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 }
 //std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect,int MaxNumberOfBytes)
 //{
-//	//när vi bara ska etablera en handskakning räcker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan också
+//	//nï¿½r vi bara ska etablera en handskakning rï¿½cker det med att vi bara processar datan naivt, kan ju han en data som rent processar datan innan ocksï¿½
 //	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
 //	//processadata med typ protokoll grejer antar jag
 //	while (true)
 //	{
-//		//max är egentligen 2<<14+2048+5, men varför inte ha lite marginal
+//		//max ï¿½r egentligen 2<<14+2048+5, men varfï¿½r inte ha lite marginal
 //		int MaxEncryptedRecordSize = (2 << 14) + 2048 + 100;
 //		if (MaxNumberOfBytes < MaxEncryptedRecordSize)
 //		{
@@ -2280,8 +2280,8 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //		TotalRecievedData = RawData.size();
 //		std::vector<std::string> RawDataProtocols = std::vector<std::string>(0);
 //		uint64_t OffsetOfProcessedRecords = 0;
-//		//när vi vet att datan vi fått är krytperad vill vi innan vi går vidare med rseten av logiken decryptera den
-//		//Ny paradigm, vi går igenom vår data, kollar igenom och appendar alla hela records vi hittar, finns det kvar så slutar vi helt enkelt
+//		//nï¿½r vi vet att datan vi fï¿½tt ï¿½r krytperad vill vi innan vi gï¿½r vidare med rseten av logiken decryptera den
+//		//Ny paradigm, vi gï¿½r igenom vï¿½r data, kollar igenom och appendar alla hela records vi hittar, finns det kvar sï¿½ slutar vi helt enkelt
 //		while (true)
 //		{
 //			while(RawData.size()-OffsetOfProcessedRecords < 5 && TotalRecievedData < MaxNumberOfBytes)
@@ -2317,12 +2317,12 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //			OffsetOfProcessedRecords += (5 + LengthOfRecord);
 //			if (OffsetOfProcessedRecords == RawData.size())
 //			{
-//				//avbröts på ett clean sett, reverta staten av tcp grejen
+//				//avbrï¿½ts pï¿½ ett clean sett, reverta staten av tcp grejen
 //				RecieveDataState.CurrentRecordPreviousData = "";
 //				break;
 //			}
 //		}
-//		//vi har fått all krypterad data, nu okrypterar vi den
+//		//vi har fï¿½tt all krypterad data, nu okrypterar vi den
 //		if (ConnectionParameters.HandshakeFinished)
 //		{
 //			for (int i = 0; i < RawDataProtocols.size(); i++)
@@ -2334,7 +2334,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //			}
 //		}
 //		//ConnectionParameters.ServerSequenceNumber += RawDataProtocols.size();
-//		//Vi ska också ta att och processa datan så vi fpår plaintext
+//		//Vi ska ocksï¿½ ta att och processa datan sï¿½ vi fpï¿½r plaintext
 //		//RawDataToTLSPlaintext
 //		for (size_t i = 0; i < RawDataProtocols.size(); i++)
 //		{
@@ -2350,7 +2350,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //			{
 //				uint8_t AlertLevel = RecordPlaintextData[5];
 //				uint8_t ErrorMessage = RecordPlaintextData[6];
-//				//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i någon form av fel array
+//				//i detta fall vill vi printa meddelandet, annars kanske vi vill spara det i nï¿½gon form av fel array
 //				std::cout << "Recieved alert message: " << TLS1_2::GetAlertErrorDescription(ErrorMessage) << std::endl;
 //				if (AlertLevel == TLS1_2::fatal)
 //				{
@@ -2365,7 +2365,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //				else
 //				{
 //					//HandleNonFatalError();
-//					//eftersom vi fortfarande, om inte funktionen över säger så, ha kopplingen skickar vi ingen data, och går tillbaka till att recieva data
+//					//eftersom vi fortfarande, om inte funktionen ï¿½ver sï¿½ger sï¿½, ha kopplingen skickar vi ingen data, och gï¿½r tillbaka till att recieva data
 //				}
 //			}
 //			else if (RecordPlaintextData[0] == TLS1_2::handshake)
@@ -2378,7 +2378,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //			}
 //			else
 //			{
-//				//Unknown error, något har kajkat en del någonstans
+//				//Unknown error, nï¿½got har kajkat en del nï¿½gonstans
 //				assert(false);
 //			}
 //		}
@@ -2387,7 +2387,7 @@ std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectS
 //}
 void TLSHandler::SendCloseNotfiy(MBSockets::ConnectSocket* SocketToUse)
 {
-	//då ska vi också ta skicka att vi stänger av
+	//dï¿½ ska vi ocksï¿½ ta skicka att vi stï¿½nger av
 	std::string DataToSend = "";
 	if (ConnectionParameters.HandshakeFinished)
 	{
@@ -2418,12 +2418,12 @@ TLSHandler::~TLSHandler()
 
 }
 
-/*Gammal logik för hur vi gettar protocol
+/*Gammal logik fï¿½r hur vi gettar protocol
 
 		while (true)
 		{
 			TLS1_2::NetWorkDataHandler DataReader(reinterpret_cast<const uint8_t*> (&RawData.c_str()[OffsetOfProcessedRecords]));
-			//vi vill bara komma åt längden
+			//vi vill bara komma ï¿½t lï¿½ngden
 			DataReader.Extract24();
 			uint16_t LengthOfRecord = DataReader.Extract16();
 			if (LengthOfRecord+5+OffsetOfProcessedRecords > RawData.size())
@@ -2432,7 +2432,7 @@ TLSHandler::~TLSHandler()
 				RawData += SocketToConnect->GetNextRequestData();
 			}
 			RawDataProtocols.push_back(RawData.substr(OffsetOfProcessedRecords, 5 + LengthOfRecord));
-			//vi behöver se till att all data kommer med, därför ser vi till att längden av alla records som skickas är längden av datan, annars väntar vi igen på mer data
+			//vi behï¿½ver se till att all data kommer med, dï¿½rfï¿½r ser vi till att lï¿½ngden av alla records som skickas ï¿½r lï¿½ngden av datan, annars vï¿½ntar vi igen pï¿½ mer data
 			if (OffsetOfProcessedRecords+LengthOfRecord+5 < RawData.size())
 			{
 				OffsetOfProcessedRecords += 5 + uint64_t(LengthOfRecord);

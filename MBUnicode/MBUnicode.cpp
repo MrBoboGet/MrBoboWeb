@@ -258,6 +258,10 @@ namespace MBUnicode
 	{
 		return(m_LastError);
 	}
+	void UnicodeCodepointSegmenter::Reset()
+	{
+		*this = UnicodeCodepointSegmenter();
+	}
 	//END UnicodeCodepointSegmenter::
 
 	//helper function
@@ -472,10 +476,11 @@ namespace MBUnicode
 		std::ofstream OutFile = std::ofstream(DataDirectory+"/CodepointProperties.h");
 		OutFile << DataToWrite;
 	}
-	//implementeras inte r�tt f�r flaggor
+	//implementeras inte r�tt f�r flaggor
 	bool h_ShouldBreak(GraphemeBreakProperty LeftProperty, GraphemeBreakProperty RightProperty)
 	{
 		bool ReturnValue = true;
+		//OBS bryter mot grapheme standarden, men tycker personligen det är inte speciellt intuitivt
 		if (LeftProperty == GraphemeBreakProperty::CR && RightProperty == GraphemeBreakProperty::LF)
 		{
 			ReturnValue = false;
@@ -525,10 +530,172 @@ namespace MBUnicode
 		}
 		return(ReturnValue);
 	}
+
+	//BEGIN GraphemeCluster
+	bool GraphemeCluster::operator==(char CharToCompare) const
+	{
+		if (m_InternalBuffer.size() == 0)
+		{
+			return(false);
+		}
+		bool ReturnValue = false;
+		ReturnValue = m_InternalBuffer[0] == CharToCompare && m_InternalBuffer.size() == 1;
+		return(ReturnValue);
+	}
+	bool GraphemeCluster::operator!=(char CharToCompare) const
+	{
+		return(!(*this == CharToCompare));
+	}
+	bool GraphemeCluster::operator==(GraphemeCluster const& OtherCluster) const
+	{
+		bool ReturnValue = true;
+		if (m_InternalBuffer.size() != OtherCluster.m_InternalBuffer.size())
+		{
+			ReturnValue = false;
+		}
+		else
+		{
+			for (size_t i = 0; i < m_InternalBuffer.size(); i++)
+			{
+				if (m_InternalBuffer[i] != OtherCluster.m_InternalBuffer[i])
+				{
+					ReturnValue = false;
+					break;
+				}
+			}
+		}
+
+
+		return(ReturnValue);
+	}
+	bool GraphemeCluster::operator!=(GraphemeCluster const& OtherCluster) const
+	{
+		return(!(*this == OtherCluster));
+	}
+	bool GraphemeCluster::operator==(std::string const& StringToCompare) const
+	{
+		return(ToString() == StringToCompare);
+	}
+	bool GraphemeCluster::operator!=(std::string const& StringToCompare) const
+	{
+		return(!(*this == StringToCompare));
+	}
+	GraphemeCluster& GraphemeCluster::operator=(std::string const& StringToConvert)
+	{
+		bool Result = GraphemeCluster::ParseGraphemeCluster(*this, StringToConvert.data(), StringToConvert.size(), 0, nullptr);
+		if (!Result)
+		{
+			*this = GraphemeCluster();
+		}
+		return(*this);
+	}
+	GraphemeCluster& GraphemeCluster::operator=(char CharToConvert)
+	{
+		m_InternalBuffer.push_back(CharToConvert);
+		return(*this);
+	}
+	GraphemeCluster::GraphemeCluster(std::string const& StringToConvert)
+	{
+		bool Result = ParseGraphemeCluster(*this, StringToConvert.data(), StringToConvert.size(), 0, nullptr);
+		if (!Result)
+		{
+			*this = GraphemeCluster();
+		}
+	}
+	bool GraphemeCluster::ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset)
+	{
+		bool ReturnVale = true;
+		UnicodeCodepointSegmenter CodepointSegmenter;
+		GraphemeClusterSegmenter GraphemeSegmenter;
+		size_t CurrentOffset = InputDataOffset;
+		size_t LastCodepointPosition = InputDataOffset;
+		//TODO innefektiv algorithm som läser alla code points byte för byte, men även det ända sättet att grantera att det blir byte exakt
+		while (GraphemeSegmenter.AvailableClusters() == 0 && CurrentOffset < InputDataSize  && CodepointSegmenter.IsValid())
+		{
+			CodepointSegmenter.InsertData(((const uint8_t*)InputData) + CurrentOffset, 1);
+			if (CodepointSegmenter.AvailableCodepoints() > 0)
+			{
+				Codepoint NewCodepoint = CodepointSegmenter.ExtractCodepoint();
+				if (GraphemeSegmenter.CodepointWouldBreak(NewCodepoint))
+				{
+					GraphemeSegmenter.Finalize();
+					CurrentOffset = LastCodepointPosition;
+					break;
+				}
+				else
+				{
+					GraphemeSegmenter.InsertCodepoint(NewCodepoint);
+				}
+				LastCodepointPosition = CurrentOffset+1;
+			}
+			CurrentOffset += 1;
+		}
+		GraphemeSegmenter.Finalize();
+		if (GraphemeSegmenter.AvailableClusters() == 0 || !CodepointSegmenter.IsValid())
+		{
+			ReturnVale = false;
+		}
+		else
+		{
+			OutCluster = GraphemeSegmenter.ExtractCluster();
+		}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = CurrentOffset;
+		}
+		return(ReturnVale);
+	}
+	bool GraphemeCluster::ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, const void* InputData, size_t InputDataSize,size_t InputOffset)
+	{
+		bool ReturnValue = true;
+		size_t CurrentParseOffset = InputOffset;
+		OutCluster = std::vector<GraphemeCluster>();
+		while (CurrentParseOffset < InputDataSize)
+		{
+			GraphemeCluster NewCluster;
+			ReturnValue = ParseGraphemeCluster(NewCluster, InputData, InputDataSize, CurrentParseOffset, &CurrentParseOffset);
+			if (!ReturnValue)
+			{
+				break;
+			}
+			OutCluster.push_back(std::move(NewCluster));
+		}
+		return(ReturnValue);
+	}
+	Codepoint& GraphemeCluster::operator[](size_t Index)
+	{
+		if (Index >= m_InternalBuffer.size())
+		{
+			throw std::exception();
+		}
+		return(m_InternalBuffer[Index]);
+	}
+	Codepoint const& GraphemeCluster::operator[](size_t Index) const
+	{
+		if (Index >= m_InternalBuffer.size())
+		{
+			throw std::exception();
+		}
+		return(m_InternalBuffer[Index]);
+	}
+
+
+	//END GraphemeCluster
+
 	//BEGIN UnicodeGraphemeClusterSegmenter
 	void GraphemeClusterSegmenter::InsertCodepoint(Codepoint CodepointsToInsert)
 	{
 		InsertCodepoints(&CodepointsToInsert, 1);
+	}
+	bool GraphemeClusterSegmenter::CodepointWouldBreak(Codepoint CodepointToTest) const
+	{
+		if (m_CurrentCluster.size() == 0)
+		{
+			return(false);
+		}
+		GraphemeBreakProperty NewProperty = h_GetCodepointProperty(CodepointToTest);
+		bool ShouldBreak = h_ShouldBreak(m_LastProperty, NewProperty);
+		return(ShouldBreak);
 	}
 	void GraphemeClusterSegmenter::InsertCodepoints(const Codepoint* CodepointsToInsert, size_t NumberOfCodepoints)
 	{
@@ -569,6 +736,10 @@ namespace MBUnicode
 			m_DecodedCluster.pop_front();
 		}
 		return(ReturnValue);
+	}
+	void GraphemeClusterSegmenter::Reset()
+	{
+		*this = GraphemeClusterSegmenter();
 	}
 	//END UnicodeGraphemeClusterSegmenter
 }
