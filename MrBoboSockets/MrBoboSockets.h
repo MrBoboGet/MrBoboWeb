@@ -16,6 +16,9 @@
 #include "TLSHandler.h"
 #include <filesystem>
 #include <cinttypes>
+
+#include <MBUtility/MBInterfaces.h>
+#include <map>
 #if defined(WIN32) || defined(_WIN32)
 typedef uintmax_t MB_OS_Socket;
 #elif defined(__linux__)
@@ -34,6 +37,7 @@ struct FiledataIntervall
 
 namespace MBSockets
 {
+	typedef uint16_t OSPort;
 	void Init();
 	int MBCloseSocket(int SocketToClose);
 	int MBSocketError();
@@ -45,12 +49,6 @@ namespace MBSockets
 	class Socket
 	{
 	protected:
-		//MB_OS_Socket m_UnderlyingHandle;
-		//int m_ErrorResult = 0;
-		//bool m_Invalid = false;
-		//std::string m_LastErrorMessage = "";
-		//std::string p_GetLastError();
-		//void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
 	public:
 		Socket& operator=(Socket const&) = delete;
 		Socket(Socket const&) = delete;
@@ -84,66 +82,18 @@ namespace MBSockets
 	};
 	class ConnectSocket : public Socket
 	{
-	protected:
-		//TLSHandler m_TLSHandler = TLSHandler();
-		//bool m_TLSConnectionEstablished = false;
-		//bool m_IsConnected = false;
-		//size_t _m_ai_addrlen = 0;
-		//sockaddr* _m_addr = nullptr;
 	public:
 
 		ConnectSocket() {};
-		//std::string HostName;
-		//std::string GetIpOfConnectedSocket();
-		//virtual int SendRawData(const void* DataPointer, size_t DataLength);
-		//virtual std::string RecieveRawData(size_t MaxNumberOfBytes = -1);
-
 		virtual bool IsConnected() = 0;
-
 		virtual std::string RecieveData(size_t MaxNumberOfBytes = -1) = 0;
-
 		virtual MBError SendData(const void* DataPointer, size_t DataLength) = 0;
 		virtual MBError SendData(std::string const& DataToSend) = 0;
-
-		//virtual ConnectSocket& operator<<(std::string const& DataToSend) = 0;
-		//virtual ConnectSocket& operator>>(std::string& DataBuffer) = 0;
-
-
-		//TODO blev en oändlig loop där MBPP_HTTPConverter kallade på koden under, som i sin tur kalla dess overriade med data och length...
-		//måste nog egentligen ta och tänka om hur den här inheritance ska funka, eventuellt en medelstor rewrite, för som det ser ut nu kommer man behöva 
-		//overloada massa funktioner för att saker inte ska kajka
-		//virtual MBError EstablishTLSConnection();
 		virtual ~ConnectSocket()
 		{
 
 		};
 	};
-	//class ClientSocket : public ConnectSocket
-	//{
-	//private:
-	//public:
-	//	virtual int Connect();
-	//	//MBError EstablishTLSConnection() override;
-	//	ClientSocket(std::string const& Adress, std::string const& Port);
-	//};
-	//class ServerSocket : public ConnectSocket
-	//{
-	//private:
-	//	MB_OS_Socket m_ListenerSocket;
-	//protected:
-	//	TLSHandler SocketTlsHandler = TLSHandler();
-	//	//bool SecureConnectionEstablished = false;
-	//public:
-	//	//MBError EstablishTLSConnection() override;
-	//	virtual int Bind();
-	//	virtual int Listen();
-	//	virtual int Accept();
-	//
-	//	void TransferConnectedSocket(ServerSocket& OtherSocket);
-	//	ServerSocket();
-	//	ServerSocket(std::string const& Port);
-	//	~ServerSocket();
-	//};
 	class OSSocket
 	{
 	protected:
@@ -152,10 +102,7 @@ namespace MBSockets
 		bool m_Invalid = false;
 		bool m_OSSocketClosed = false;
 		std::string m_LastErrorMessage = "";
-
-
 		void p_Swap(OSSocket& SocketToSwapWith);
-
 		std::string p_GetLastError();
 		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
 		OSSocket();
@@ -240,6 +187,14 @@ namespace MBSockets
 		virtual MBError SendData(const void* DataPointer, size_t DataLength) override;
 		virtual MBError SendData(std::string const& DataToSend) override;
 	};
+
+	struct HTTPRequestResponse
+	{
+		int StatusCode = -1;
+		std::unordered_map<std::string, std::vector<std::string>> Headers = {};
+		int64_t ResponseSize = 0;
+		//bool IsChunked = false;
+	};
 	class HTTPClientSocket
 	{
 	private:
@@ -261,12 +216,15 @@ namespace MBSockets
 		int CurrentRecievedChunkData = 0;
 		size_t ChunkParseOffset = 0;
 
+
 		std::string p_GetHeaderValue(std::string const& Header,std::string const& HeaderContent);
 		void UpdateAndDechunkData(std::string& DataToDechunk, size_t Offset);
 		void ResetRequestRecieveState();
 		int Get(std::string Resource = "");
 		int Head(std::string Resource = "");
 
+		std::vector<std::pair<std::string, std::string>> p_GetDefaultHeaders();
+		void p_SendRequest(std::string const& RequestType,std::string const& ResourceToGet, std::vector<std::pair<std::string, std::string>> const& HeadersToSend);
 		
 	public:
 		//int HTTPSendData(std::string const& DataToSend);
@@ -274,6 +232,7 @@ namespace MBSockets
 		bool DataIsAvailable();
 		MBError EstablishTLSConnection();
 		std::string GetDataFromRequest(const std::string& RequestType, std::string Resource);
+		std::string GetDataFromRequest(const std::string& RequestType, std::string const& Resource,std::vector<std::pair<std::string,std::string>> const& ExtraHeaders);
 		MBError Connect(std::string const& Host, std::string const& Port);
 		HTTPClientSocket() {};
 		HTTPClientSocket(std::string const& URL, std::string const& Port);
@@ -285,7 +244,78 @@ namespace MBSockets
 		~HTTPClientSocket();
 	};
 
+	enum class HTTPRequestType
+	{
+		GET,
+		POST,
+		DELETE,
+		PUT,
+		HEAD,
+		Null,
+	};
+	class HTTPClient : public MBUtility::MBOctetInputStream
+	{
+	private:
+		std::unique_ptr<ConnectSocket> m_SocketToUse = nullptr;
+		HTTPRequestResponse m_CurrentHeaders;
+		bool m_IsChunked = false;
+		bool m_IsConnected = false;
 
+		size_t m_ParseOffset = 0;
+		std::string m_ResponseData = "";
+		uint64_t m_RecievedBodyData = 0;
+
+		std::string m_Host = "";
+
+
+		std::vector<std::pair<std::string, std::string>> p_GetDefaultHeaders();
+		HTTPRequestResponse p_ParseResponseHeaders();
+	public:
+		bool DataIsAvailable();
+		//size_t RetrieveData(void* DataBuffer, size_t BufferSize);
+		bool IsConnected();
+		size_t Read(void* DataBuffer, size_t BufferSize) override;
+		
+		HTTPRequestResponse SendRequest(HTTPRequestType RequestType, std::string const& RequestResource, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders = {});
+		
+		MBError ConnectToHost(std::string const& Host);
+		MBError ConnectToHost(std::string const& Host,OSPort PortToUse);
+
+
+
+	};
+	struct DEBUG_FileInfoStuff
+	{
+		uint64_t StartPosition = 0;
+		size_t BytesToRead = 0;
+		std::string ShaHash = "";
+	};
+	class HTTPFileStream : public MBUtility::MBSearchableInputStream
+	{
+	private:
+		int64_t m_CurrentPosition = 0;
+		uint64_t m_TotalResourceSize = -1;
+		std::string m_Resource = "";
+		std::unique_ptr<HTTPClient> m_SocketToUse = nullptr;
+
+		std::vector<DEBUG_FileInfoStuff>* DEBUG_OutVector = nullptr;
+
+		bool p_IsValid();
+		void p_Reset();
+		//absolut mest naiva implementationen
+	public:
+		HTTPFileStream() {};
+		void SetInputURL(std::string const& URLResource);
+		HTTPFileStream(std::string const& URLResource);
+
+		//DEBUG
+		void DEBUG_SetDebugParameters(std::vector<DEBUG_FileInfoStuff>* OutDebugVector);
+		//
+
+		virtual size_t Read(void* Buffer, size_t BytesToRead) override;
+		virtual uint64_t SetInputPosition(int64_t Offset, int whence) override;
+		virtual uint64_t GetInputPosition() override;
+	};
 
 
 

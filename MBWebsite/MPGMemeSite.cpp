@@ -85,7 +85,7 @@ namespace MBWebsite
 	{
 		MrPostOGet::HTTPDocument ReturnValue;
 		ReturnValue.Type = MBMIME::MIMEType::HTML;
-		//vi måste kolla vilken användare det är
+		//vi mï¿½ste kolla vilken anvï¿½ndare det ï¿½r
 		std::string RepoUser = "";
 		std::string TopLevelDirectoryPath = AssociatedRequest.RequestResource.substr(m_URLPrefix.size());
 		size_t UserEnd = TopLevelDirectoryPath.find('/');
@@ -104,7 +104,7 @@ namespace MBWebsite
 	}
 	void MBDB_Website_GitHandler::p_SetGCIVariables(MrPostOGet::HTTPClientRequest const& RequestToParse)
 	{
-		//ANTAGANDE fungerar bara givet att vi faktiskt servar den här requesten
+		//ANTAGANDE fungerar bara givet att vi faktiskt servar den hï¿½r requesten
 		std::string REQUEST_METHOD = MrPostOGet::HTTPRequestTypeToString(RequestToParse.Type);
 		std::string QUERY_STRING = "";
 		std::string PATH_TRANSLATED = m_TopLevelDirectory + RequestToParse.RequestResource.substr(m_URLPrefix.size()); //
@@ -127,7 +127,7 @@ namespace MBWebsite
 		{
 			MBSystem::SetEnvironmentVariable("CONTENT_TYPE", CONTENT_TYPE);
 		}
-		//borde egentligen bar agöras en gång
+		//borde egentligen bar agï¿½ras en gï¿½ng
 		MBSystem::SetEnvironmentVariable("GIT_HTTP_EXPORT_ALL", "true");
 
 		//DEBUG
@@ -164,14 +164,14 @@ namespace MBWebsite
 	}
 	MrPostOGet::HTTPDocument MBDB_Website_GitHandler::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket* Socket, MrPostOGet::HTTPServer*)
 	{
-		//TODO fixa så att man inte kan skriva och laddad ner samtidigt
+		//TODO fixa sï¿½ att man inte kan skriva och laddad ner samtidigt
 		std::lock_guard<std::mutex> Lock(m_UploadMutex);
 		MrPostOGet::HTTPDocument ReturnValue;
 		if (true)
 		{
 			bool CommandNeedsAuthentication = false;
 			bool RequestHasAuthentication = false;
-			//TODO kolla faktiskt igenom protokollet för att se vilka URL:er som kräver authentication
+			//TODO kolla faktiskt igenom protokollet fï¿½r att se vilka URL:er som krï¿½ver authentication
 			if (Request.SearchParameters.find("service") != Request.SearchParameters.end())
 			{
 				if (Request.SearchParameters.at("service") == "git-receive-pack" && Request.Headers.find("authorization") == Request.Headers.end())
@@ -201,11 +201,11 @@ namespace MBWebsite
 				}
 				if (AuthenticationResult)
 				{
-					//nu vet vi att det vi får är authenticated
+					//nu vet vi att det vi fï¿½r ï¿½r authenticated
 					p_SetGCIVariables(Request);
 					std::string HTTPResponse = "";
 
-					//ANTAGANDE hela bodyn som behövs får plats
+					//ANTAGANDE hela bodyn som behï¿½vs fï¿½r plats
 					assert(Socket->DataIsAvailable() == false);
 					if (Request.Type == MrPostOGet::HTTPRequestType::POST)
 					{
@@ -299,13 +299,13 @@ namespace MBWebsite
 					ComputerDiffTopDirectory = p_GetComputerDiffTopDirectory(UpdatedPacket, ComputerInfo);
 					if (ComputerDiffTopDirectory != "")
 					{
-						//om detta eje stämmer borde vi egenttligen throwa error, kan ju korrumpera directoryn
+						//om detta eje stï¿½mmer borde vi egenttligen throwa error, kan ju korrumpera directoryn
 						PacketTopDirectory = ComputerDiffTopDirectory + "/Data/";
 					}
 				}
 				std::string UploadedChangesDirectory = m_PacketsDirectory + UpdatedPacket + "/MBPM_UploadedChanges/";
 				std::filesystem::recursive_directory_iterator UploadedChangesIterator = std::filesystem::recursive_directory_iterator(UploadedChangesDirectory);
-				//händer oavsett
+				//hï¿½nder oavsett
 				std::set<std::filesystem::path> UploadedFiles = {};
 				for (auto const& Entry : UploadedChangesIterator)
 				{
@@ -414,9 +414,9 @@ namespace MBWebsite
 			MBPM::MBPP_Server ResponseGenerator(m_PacketsDirectory,&m_UploadIncorporator);
 			ResponseGenerator.SetUserAuthenticator(m_UserAuthenticator);
 			GenerationError = ResponseGenerator.InsertClientData(Request.BodyData);
-			//här ska också några checks göras för att se huruvida datan är av typen upload, och därmed kräver verifiering
-			//alternativt så ger vi den en Password verifierare
-			//kan vi anta att en socket alltid är valid samtidigt som den är connectad? i sånna fall kan vi nog skippa dem här redun
+			//hï¿½r ska ocksï¿½ nï¿½gra checks gï¿½ras fï¿½r att se huruvida datan ï¿½r av typen upload, och dï¿½rmed krï¿½ver verifiering
+			//alternativt sï¿½ ger vi den en Password verifierare
+			//kan vi anta att en socket alltid ï¿½r valid samtidigt som den ï¿½r connectad? i sï¿½nna fall kan vi nog skippa dem hï¿½r redun
 			while (!ResponseGenerator.ClientRequestFinished() && Socket->DataIsAvailable() && GenerationError && Socket->IsConnected() && Socket->IsValid())
 			{
 				GenerationError = ResponseGenerator.InsertClientData(Socket->GetNextChunkData());
@@ -438,7 +438,7 @@ namespace MBWebsite
 				}
 				ResponseGenerator.FreeResponseIterator(ResponseIterator);
 				ReturnValue.DataSent = true;
-				//det är nu vi collar huruvida ett packet uppdaterats
+				//det ï¿½r nu vi collar huruvida ett packet uppdaterats
 				//if (ResponseGenerator.PacketUpdated())
 				//{
 				//	p_IncorporatePacketChanges(ResponseGenerator.GetUpdatedPacket(), ResponseGenerator.GetPacketRemovedFiles());
@@ -491,7 +491,7 @@ namespace MBWebsite
 		{
 			m_LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/MBGLoginDatabase", 0);
 		}
-		//läser in mbdb config filen och initaliserar directoryn med rätt
+		//lï¿½ser in mbdb config filen och initaliserar directoryn med rï¿½tt
 		__DBIndexMap = new std::unordered_map<std::string, MBSearchEngine::MBIndex>();
 		m_MBDBResourceFolder = __MBTopResourceFolder + "/MBDBResources/";
 		std::filesystem::directory_iterator IndexIterator(GetResourceFolderPath() + "Indexes");
@@ -541,7 +541,7 @@ namespace MBWebsite
 			ServerPacketPath = ServerPacketPathData;
 		}
 		std::cout << "Server packets path: " << ServerPacketPath << std::endl;
-		m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler(ServerPacketPath, m_BasicPasswordAuthenticator.get())); // ta och ändra
+		m_MPPHandler = std::unique_ptr<MBDB_Website_MBPP_Handler>(new MBDB_Website_MBPP_Handler(ServerPacketPath, m_BasicPasswordAuthenticator.get())); // ta och ï¿½ndra
 
 		//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());
 		//__InternalHandlers = { std::unique_ptr< MBDB_Website_GitHandler>(InternalGitHandler)};
@@ -617,7 +617,7 @@ namespace MBWebsite
 	}
 	void InitDatabase()
 	{
-		//utgår från den foldern som programmet körs i
+		//utgï¿½r frï¿½n den foldern som programmet kï¿½rs i
 	}
 	int MBGWebsiteMain()
 	{
@@ -911,7 +911,7 @@ namespace MBWebsite
 		size_t FirstFormParameterLocation = RequestData.find(Boundary, FirstBoundaryLocation + Boundary.size()) + Boundary.size() + 2;
 		size_t EndOfFirstParameters = RequestData.find("\r\n", FirstFormParameterLocation);
 		std::string FieldParameters = RequestData.substr(FirstFormParameterLocation, EndOfFirstParameters - FirstFormParameterLocation);
-		//hardcodat eftersom vi vet formtatet av formuläret
+		//hardcodat eftersom vi vet formtatet av formulï¿½ret
 		std::vector<std::string> FirstFieldValues = MBUtility::Split(FieldParameters, "; ");
 		std::string FileNameHeader = "filename=\"";
 		std::string FileName = GetResourceFolderPath() + FirstFieldValues[2].substr(FileNameHeader.size(), FirstFieldValues[2].size() - 1 - FileNameHeader.size());
@@ -920,7 +920,7 @@ namespace MBWebsite
 		{
 			NewDocument.DocumentData = "{\"MBDBAPI_Status\":\"FileAlreadyExists\"}";
 			NewDocument.RequestStatus = MrPostOGet::HTTPRequestStatus::Conflict;
-			//TODO close makar inte mycket sense för svaret kommer inte skickas, borde istället finnas sett extra options som är "close after send"
+			//TODO close makar inte mycket sense fï¿½r svaret kommer inte skickas, borde istï¿½llet finnas sett extra options som ï¿½r "close after send"
 			AssociatedConnection->Close();
 			return(NewDocument);
 		}
@@ -994,7 +994,7 @@ namespace MBWebsite
 				}
 				if (IntervallNumbers[1] != "")
 				{
-					NewIntervall.FirstByte = std::stoll(IntervallNumbers[1]);
+					NewIntervall.LastByte = std::stoll(IntervallNumbers[1]);
 				}
 				ByteIntervalls.push_back(NewIntervall);
 			}
@@ -1196,7 +1196,7 @@ namespace MBWebsite
 			for (auto const& Song : PlaylistSongs)
 			{
 				MrPostOGet::HTMLNode NewRow = MrPostOGet::HTMLNode::CreateElement("tr");
-				//en song består av en path till den, samt namn
+				//en song bestï¿½r av en path till den, samt namn
 				auto const& SongColumns = Song.GetArrayData();
 				MrPostOGet::HTMLNode SongColumn = MrPostOGet::HTMLNode::CreateElement("td");
 				SongColumn["style"] = "height: 100%";
@@ -1326,8 +1326,8 @@ namespace MBWebsite
 	{
 		MBError UpdateError(true);
 
-		//Post request med enbart 1 värde, den nya texten
-		//ANTAGANDE all data som skickas är här, blir fel annars
+		//Post request med enbart 1 vï¿½rde, den nya texten
+		//ANTAGANDE all data som skickas ï¿½r hï¿½r, blir fel annars
 		//std::string DataToParse = reqe
 
 		MBMIME::MIMEMultipartDocumentExtractor DocumentExtractor(Request.RawRequestData.data(), Request.RawRequestData.size(), 0);
@@ -1420,7 +1420,7 @@ namespace MBWebsite
 	}
 	bool MBDB_Website::p_Edit_Predicate(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer)
 	{
-		//TODO borde det här helt enkelt vara en del av parsingen istället?
+		//TODO borde det hï¿½r helt enkelt vara en del av parsingen istï¿½llet?
 		std::string NormalizedPath = RequestToHandle.RequestResource;
 		if (NormalizedPath.substr(0, 8) == "/DBEdit/" && NormalizedPath.size() > 8) //vi vill inte deala med att scrolal till dem nu
 		{
@@ -1574,7 +1574,7 @@ namespace MBWebsite
 		//std::string RequestResource = MBSockets::GetReqestResource(RequestData);
 		//std::string TableName = RequestData.substr(RequestResource.find("DBAdd/") + 6);
 		//std::vector < std::string> ExistingTableNames = {};
-		//låter all denna kod köras i javascript, blir det enklaste
+		//lï¿½ter all denna kod kï¿½ras i javascript, blir det enklaste
 		MrPostOGet::HTTPDocument ReturnValue;
 		ReturnValue.Type = MBMIME::MIMEType::HTML;
 		std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
@@ -1650,7 +1650,7 @@ namespace MBWebsite
 	}
 	std::string MBDB_Website::GetTableInfoBody(std::vector<std::string> const& Arguments)
 	{
-		//första argumentet är tablen vi vill ha
+		//fï¿½rsta argumentet ï¿½r tablen vi vill ha
 		if (Arguments.size() == 0)
 		{
 			return("");
@@ -1954,7 +1954,7 @@ namespace MBWebsite
 	}
 	std::string MBDB_Website::DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments)
 	{
-		//ett arguments som är WhereStringen, ghetto aff egetntligen men men,måste vara på en immutable table så vi inte fuckar grejer
+		//ett arguments som ï¿½r WhereStringen, ghetto aff egetntligen men men,mï¿½ste vara pï¿½ en immutable table sï¿½ vi inte fuckar grejer
 		std::string ReturnValue = "";
 		if (Arguments.size() < 2)
 		{
@@ -2099,7 +2099,7 @@ namespace MBWebsite
 				ArchiveFile.close();
 
 				std::ofstream LatestAccess = std::ofstream(MBDBResources + BlippArchives + "LatestAccess", std::ios::out | std::ios::binary);
-				//ANTAGANDE här har personen som acessar redan verifierats vara korrekt
+				//ANTAGANDE hï¿½r har personen som acessar redan verifierats vara korrekt
 				LatestAccess << "";
 				LatestAccess.flush();
 				LatestAccess.close();
@@ -2207,7 +2207,7 @@ namespace MBWebsite
 		{
 			//tar fram api funktionen
 
-			//eftersom det kan vara svårt att parsa argument med godtycklig text har varje argument först hur många bytes argumentent är
+			//eftersom det kan vara svï¿½rt att parsa argument med godtycklig text har varje argument fï¿½rst hur mï¿½nga bytes argumentent ï¿½r
 			size_t FirstSpace = RequestBody.find(" ");
 			std::string APIDirective = DBGeneralAPIGetDirective(RequestBody);
 			std::vector<std::string> APIDirectiveArguments = DBGeneralAPIGetArguments(RequestBody);
@@ -2490,7 +2490,7 @@ namespace MBWebsite
 				MBMIME::MIMEMultipartDocumentExtractor MimeExtractor(RequestData.data(), RequestData.size(), HeaderStart);
 				MimeExtractor.ExtractHeaders();
 				MimeExtractor.ExtractHeaders();
-				//vi vill bara parsa ett visst antal stycken, om dem inte är rätt så bara avbryter vi
+				//vi vill bara parsa ett visst antal stycken, om dem inte ï¿½r rï¿½tt sï¿½ bara avbryter vi
 				std::string FileData = MimeExtractor.ExtractPartData();
 				std::string Timestamp = p_GetTimestamp();
 				if (LatestUserDownload == ConnectionPermissions.AssociatedUser)
@@ -2510,7 +2510,7 @@ namespace MBWebsite
 					ArchiveFile.close();
 
 					std::ofstream LatestAccess = std::ofstream(MBDBResources + "/operationblipp/archives/LatestAccess", std::ios::out | std::ios::binary);
-					//ANTAGANDE här har personen som acessar redan verifierats vara korrekt
+					//ANTAGANDE hï¿½r har personen som acessar redan verifierats vara korrekt
 					LatestAccess << "";
 					LatestAccess.flush();
 					LatestAccess.close();

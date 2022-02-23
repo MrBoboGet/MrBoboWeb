@@ -6,5 +6,5 @@
 		"StaticRelease": "MrBoboSockets_SR",
 		"StaticDebug": "MrBoboSockets_SD"
 	},
-	"Dependancies":["MBCrypto","MrBigInt","MBUtility"],
+	"Dependancies":["MBCrypto","MrBigInt","MBUtility","MBMime"]
 }

@@ -108,35 +108,10 @@ macro(MBPM_ApplyTargetConfiguration TargetToUpdate LinkType BuildType)
 endmacro()
 ##END MBPM_VARIABLES
 set(PROJECT_SOURCES 
-
 	"${CMAKE_CURRENT_SOURCE_DIR}//MPGMemeSite.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/operationblipp.css"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/WebsidanStil.css"
 )
 set(PROJECT_HEADERS 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MPGMemeSite.h"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/404.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/AudioTest.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBAdd.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBEditTemplate.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBLogin.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBSite.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBUpdate.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBUploadFile.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBViewFolder.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DBViewTemplate.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/DirectFileStreamTemplate.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/EmbeddStreamTemplate.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/index.htm"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/index3.htm"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/operationblipp.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/SearchIndex.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/StreamingTest.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/TopMenu.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/UploadFileTest.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/VideoTest.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/VideoTestPlain.html"
-	"${CMAKE_CURRENT_SOURCE_DIR}//ServerResources/mrboboget.se/HTMLResources/YoutoubeTest.html"
 )
 set(COMMON_FILES ${PROJECT_SOURCES} ${PROJECT_HEADERS})
 set(COMMON_DYNAMIC_LIBRARIES 
@@ -154,3 +129,9 @@ add_library(MBWebsite_SR STATIC ${COMMON_FILES})
 MBPM_ApplyTargetConfiguration("MBWebsite_SR" "STATIC" "RELEASE")
 target_compile_features("MBWebsite_SR" PRIVATE cxx_std_17)
 target_link_libraries("MBWebsite_SR" ${COMMON_LIBRARIES})
+
+add_executable("MBWebsite" ${COMMON_FILES} "MBWebsiteMain.cpp")
+MBPM_ApplyTargetConfiguration("MBWebsite" "STATIC" "DEBUG")
+target_compile_features("MBWebsite" PRIVATE cxx_std_17)
+target_link_libraries("MBWebsite" ${COMMON_LIBRARIES})
+MBPM_LinkTargetPacketLibraries("MBWebsite")

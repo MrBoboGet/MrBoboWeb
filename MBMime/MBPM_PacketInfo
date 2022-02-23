@@ -6,5 +6,5 @@
 		"StaticRelease": "MBMime_SR",
 		"StaticDebug": "MBMime_SD"
 	},
-	"Dependancies":["MBUnicode","MBUtility"],
+	"Dependancies":["MBUnicode","MBUtility","MBParsing"]
 }

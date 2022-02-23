@@ -68,11 +68,11 @@ namespace MBMIME
 				ParseOffset += 2;
 				break;
 			}
-			//ANTAGANDE börjar alltid på ett header namn
+			//ANTAGANDE bï¿½rjar alltid pï¿½ ett header namn
 			size_t NextColon = std::find(DataToParse + ParseOffset, DataToParse + DataSize, ':')-DataToParse;
 			if (NextColon == DataSize)
 			{
-				//Ska egentligen vara ett error här
+				//Ska egentligen vara ett error hï¿½r
 				break;
 			}
 			std::string NewHeaderName = MBUnicode::UnicodeStringToLower(std::string(DataToParse + ParseOffset, NextColon - ParseOffset));
@@ -120,7 +120,7 @@ namespace MBMIME
 	std::string MIMEMultipartDocumentExtractor::ExtractPartData(size_t MaxNumberOfBytes)
 	{
 		std::string ReturnValue = "";
-		//ANTAGANDE börjar antingen på en boundary, headers extractade, eller mitt i
+		//ANTAGANDE bï¿½rjar antingen pï¿½ en boundary, headers extractade, eller mitt i
 		std::string StartBoundary = "--" + m_ContentBoundary;
 		if (MBParsing::FindSubstring(m_DocumentData, m_DataSize, StartBoundary.data(), StartBoundary.size(), m_ParseOffset) == m_ParseOffset)
 		{

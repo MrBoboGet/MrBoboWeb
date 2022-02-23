@@ -1,5 +1,6 @@
 ﻿#include "MrBoboSockets.h"
 #include <MBUtility/MBStrings.h>
+#include <MBMime/MBMime.h>
 //operativ system specifika grejer
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 #include <winsock2.h>
@@ -83,51 +84,6 @@ namespace MBSockets
 #endif
 
 
-
-
-	//BEGIN Socket
-//	std::string Socket::p_GetLastError()
-//	{
-//#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-//		return(std::to_string(WSAGetLastError()));
-//#elif __linux__
-//		return(std::string(strerror(errno)));
-//#endif
-//	}
-	//void Socket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
-	//{
-	//	//DEBUG GREJER
-	//	std::cout << ErrorMessage << std::endl;
-	//	m_LastErrorMessage = ErrorMessage;
-	//	if (IsLethal == true)
-	//	{
-	//		m_Invalid = true;
-	//	}
-	//}
-	//bool Socket::IsValid()
-	//{
-	//	return(!m_Invalid);
-	//}
-	//bool Socket::IsConnected()
-	//{
-	//	return(!ConnectionClosed);
-	//}
-	//void Socket::Close()
-	//{
-	//	MBCloseSocket(m_UnderlyingHandle);
-	//	m_Invalid = true;
-	//	m_UnderlyingHandle = MBInvalidSocket;
-	//}
-	//
-	//Socket::Socket()
-	//{
-	//	m_UnderlyingHandle = MBInvalidSocket;
-	//}
-	//Socket::~Socket()
-	//{
-	//	MBCloseSocket(m_UnderlyingHandle);
-	//}
-	//END Socket
 
 	//BEGIN UDPSocket
 	//class UDPSocket : public Socket
@@ -264,312 +220,6 @@ namespace MBSockets
 	}
 	//END UdpSocket
 
-	//BEGIN ConnectSocket	
-	//class ConnectSocket:: : public Socket
-	//ConnectSocket::~ConnectSocket()
-	//{
-	//	delete _m_addr;
-	//}
-	//bool ConnectSocket::IsConnected()
-	//{
-	//	return(m_IsConnected && !m_Invalid);
-	//}
-	//std::string ConnectSocket::GetIpOfConnectedSocket()
-	//{
-	//	return("");
-	//}
-	//int ConnectSocket::SendRawData(const void* DataPointer, size_t DataLength)
-	//{
-	//	size_t TotalDataSent = 0;
-	//	while (TotalDataSent != DataLength)
-	//	{
-	//		m_ErrorResult = send(m_UnderlyingHandle, (const char*)DataPointer, DataLength, 0);
-	//		if (m_ErrorResult == MBSocketError())
-	//		{
-	//			p_HandleError("send failed with error: " + p_GetLastError(), true);
-	//			return(0);
-	//		}
-	//		TotalDataSent += m_ErrorResult;
-	//	}
-	//}
-	//int ConnectSocket::SendData(const void* DataPointer, size_t DataLength)
-	//{
-	//	if (!m_TLSConnectionEstablished)
-	//	{
-	//		try
-	//		{
-	//			SendRawData(DataPointer, DataLength);
-	//		}
-	//		catch (const std::exception&)
-	//		{
-	//			p_HandleError("send failed with unknown error", true);
-	//			return(-1);
-	//		}
-	//	}
-	//	else
-	//	{
-	//		m_TLSHandler.SendDataAsRecord(DataPointer, DataLength,this);
-	//	}
-	//	return(0);
-	//}
-	//int ConnectSocket::SendData(std::string const& DataToSend)
-	//{
-	//	return(SendData(DataToSend.c_str(), DataToSend.size()));
-	//}
-	//std::string ConnectSocket::RecieveRawData(size_t MaxNumberOfBytes)
-	//{
-	//	size_t InitialBufferSize = std::min((size_t)16500, MaxNumberOfBytes);
-	//	char* Buffer = (char*)malloc(InitialBufferSize);
-	//	size_t MaxRecieveSize = InitialBufferSize;
-	//	int LengthOfDataRecieved = 0;
-	//	size_t TotalLengthOfData = 0;
-	//	while ((LengthOfDataRecieved = recv(m_UnderlyingHandle, &Buffer[TotalLengthOfData], MaxRecieveSize, 0)) > 0)
-	//	{
-	//		TotalLengthOfData += LengthOfDataRecieved;
-	//		if (TotalLengthOfData >= MaxNumberOfBytes)
-	//		{
-	//			break;
-	//		}
-	//		if (LengthOfDataRecieved == MaxRecieveSize)
-	//		{
-	//			MaxRecieveSize = InitialBufferSize;
-	//			if (TotalLengthOfData + MaxRecieveSize > MaxNumberOfBytes)
-	//			{
-	//				MaxRecieveSize = MaxNumberOfBytes - TotalLengthOfData;
-	//			}
-	//			Buffer = (char*)realloc(Buffer, TotalLengthOfData + MaxRecieveSize);
-	//			assert(Buffer != nullptr);
-	//		}
-	//		else
-	//		{
-	//			break;
-	//		}
-	//	}
-	//	std::string ReturnValue(Buffer, TotalLengthOfData);
-	//	free(Buffer);
-	//	return(ReturnValue);
-	//}
-	//std::string ConnectSocket::RecieveData(size_t MaxNumberOfBytes)
-	//{
-	//	if (!m_TLSConnectionEstablished)
-	//	{
-	//		return(RecieveRawData(MaxNumberOfBytes));
-	//	}
-	//	else
-	//	{
-	//		return(m_TLSHandler.GetApplicationData(this, MaxNumberOfBytes));
-	//	}
-	//}
-	//ConnectSocket& ConnectSocket::operator<<(std::string const& DataToSend)
-	//{
-	//	SendData(DataToSend);
-	//	return(*this);
-	//}
-	//ConnectSocket& ConnectSocket::operator>>(std::string& DataBuffer)
-	//{
-	//	DataBuffer = RecieveData(-1);
-	//	return(*this);
-	//}
-	//MBError ConnectSocket::EstablishTLSConnection()
-	//{
-	//	return(MBError(false));
-	//}
-	//END ConnectSocket
-
-	//BEGIN ClientSocket
-	//MBError ClientSocket::EstablishTLSConnection()
-	//{
-	//	MBError ReturnValue(false);
-	//	try
-	//	{
-	//		ReturnValue = m_TLSHandler.EstablishTLSConnection(this);
-	//	}
-	//	catch (const std::exception&)
-	//	{
-	//		ReturnValue = false;
-	//		ReturnValue.ErrorMessage = "Unknown error in establishing TLS connection";
-	//	}
-	//	if (!ReturnValue)
-	//	{
-	//		//om det fuckade vill vi reseta vårt tls object
-	//		m_TLSHandler = TLSHandler();
-	//	}
-	//	else
-	//	{
-	//		m_TLSConnectionEstablished = true;
-	//	}
-	//	return(ReturnValue);
-	//}
-	//ClientSocket::ClientSocket(std::string const& Adress, std::string const& Port)
-	//{
-	//	HostName = Adress;
-	//	struct addrinfo* result = NULL, * ptr = NULL, hints;
-	//	memset(&hints, 0, sizeof(hints));
-	//	hints.ai_family = AF_UNSPEC;
-	//	hints.ai_socktype = SOCK_STREAM;
-	//	hints.ai_protocol = IPPROTO_TCP;
-	//
-	//	m_ErrorResult = getaddrinfo(Adress.c_str(), Port.c_str(), &hints, &result);
-	//	if (m_ErrorResult != 0)
-	//	{
-	//		//error grejer, helst v�ra egna ocks�
-	//		p_HandleError("getaddrinfo with adress " + Adress + " failed: " + p_GetLastError(), true);
-	//		//std::cout << Adress << std::endl;
-	//		return;
-	//	}
-	//
-	//	m_UnderlyingHandle = MBInvalidSocket;
-	//	// Attempt to connect to the first address returned by
-	//	// the call to getaddrinfo
-	//	ptr = result;
-	//	// Create a SOCKET for connecting to server
-	//	m_UnderlyingHandle = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-	//	_m_ai_addrlen = ptr->ai_addrlen;
-	//	_m_addr = new sockaddr;
-	//	*_m_addr = *(ptr->ai_addr);
-	//	freeaddrinfo(result);
-	//	if (m_UnderlyingHandle == MBInvalidSocket)
-	//	{
-	//		//egen error hantering
-	//		p_HandleError("Error at socket(): " + p_GetLastError(), true);
-	//		//freeaddrinfo(result);
-	//	}
-	//}
-	//int ClientSocket::Connect()
-	//{
-	//	m_ErrorResult = connect(m_UnderlyingHandle, _m_addr, _m_ai_addrlen);
-	//	if (m_ErrorResult == MBSocketError())
-	//	{
-	//		p_HandleError("Error Att connecta " + p_GetLastError(), false);
-	//	}
-	//	else
-	//	{
-	//		m_IsConnected = true;
-	//	}
-	//	return(0);
-	//}
-	//END ClientSocket
-
-	//BEGIN ServerSocket
-	//MBError ServerSocket::EstablishTLSConnection()
-	//{
-	//	MBError ReturnValue(true);
-	//	try
-	//	{
-	//		ReturnValue = m_TLSHandler.EstablishHostTLSConnection(this);
-	//	}
-	//	catch (const std::exception&)
-	//	{
-	//		ReturnValue = false;
-	//		ReturnValue.ErrorMessage = "Unknown error in establishing host tls connection";
-	//		std::cout << "Unknown error in establishing host tls connection" << std::endl;
-	//	}
-	//	if (!ReturnValue)
-	//	{
-	//		m_TLSHandler = TLSHandler();
-	//	}
-	//	else
-	//	{
-	//		m_TLSConnectionEstablished = true;
-	//	}
-	//	return(ReturnValue);
-	//}
-	//int ServerSocket::Bind()
-	//{
-	//	m_ErrorResult = bind(m_ListenerSocket, _m_addr, _m_ai_addrlen);
-	//	if (m_ErrorResult == MBSocketError()) 
-	//	{
-	//		p_HandleError("bind failed with error: " + p_GetLastError(), false);
-	//	}
-	//	return(0);
-	//}
-	//int ServerSocket::Listen()
-	//{
-	//	m_ErrorResult = listen(m_ListenerSocket, SOMAXCONN);
-	//	if (m_ErrorResult == MBSocketError())
-	//	{
-	//		p_HandleError("listen failed with error: " + p_GetLastError(), false);
-	//		//MBCloseSocket(ConnectedSocket);
-	//	}
-	//	return(0);
-	//}
-	//void ServerSocket::TransferConnectedSocket(ServerSocket& OtherSocket)
-	//{
-	//	OtherSocket.m_UnderlyingHandle = m_UnderlyingHandle;
-	//	m_UnderlyingHandle = MBInvalidSocket;
-	//	OtherSocket.SocketTlsHandler = SocketTlsHandler;
-	//	SocketTlsHandler = TLSHandler();
-	//	OtherSocket.m_IsConnected = m_IsConnected;
-	//}
-	//ServerSocket::ServerSocket() : m_ListenerSocket(MBInvalidSocket)
-	//{
-	//	
-	//}
-	//int ServerSocket::Accept()
-	//{
-	//	m_UnderlyingHandle = accept(m_ListenerSocket, NULL, NULL);
-	//	if (m_UnderlyingHandle == MBInvalidSocket) {
-	//		p_HandleError("accept failed with error: " + p_GetLastError(), true);
-	//		//MBCloseSocket(ConnectedSocket);
-	//		m_IsConnected = false;
-	//	}
-	//	else
-	//	{
-	//		m_IsConnected = true;
-	//	}
-	//	return(0);
-	//}
-	//ServerSocket::ServerSocket(std::string const& Port) : m_ListenerSocket(MBInvalidSocket)
-	//{
-	//	struct addrinfo* result = NULL, * ptr = NULL, hints;
-	//	memset(&hints, 0, sizeof(hints));
-	//
-	//	hints.ai_family = AF_INET;
-	//	hints.ai_socktype = SOCK_STREAM;
-	//	hints.ai_protocol = IPPROTO_TCP;
-	//	hints.ai_flags = AI_PASSIVE;
-	//
-	//	m_ErrorResult = getaddrinfo(NULL, Port.c_str(), &hints, &result);
-	//	if (m_ErrorResult != 0)
-	//	{
-	//		//error grejer, helst v�ra egna ocks�
-	//		p_HandleError("getaddrinfo failed: " + p_GetLastError(), true);
-	//		return;
-	//	}
-	//
-	//	m_ListenerSocket = MBInvalidSocket;
-	//	// Attempt to connect to the first address returned by
-	//	// the call to getaddrinfo
-	//	ptr = result;
-	//	// Create a SOCKET for connecting to server
-	//	m_ListenerSocket = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
-	//	_m_ai_addrlen = ptr->ai_addrlen;
-	//	_m_addr = new sockaddr;
-	//	*_m_addr = *(ptr->ai_addr);
-	//	freeaddrinfo(result);
-	//	if (m_ListenerSocket == MBInvalidSocket)
-	//	{
-	//		//egen error hantering
-	//		p_HandleError("error at socket(): " + p_GetLastError(), true);
-	//		//freeaddrinfo(result);
-	//	}
-	//	else
-	//	{
-	//		//nu fixar vi specifika options, som bbland annat SO_REUSEADRR
-	//		//TODO Detta var copy pastat från stack overflow, men kan det vara så att det faktiskt beror på endianessen av ens dator?
-	//		int Enable = 1;
-	//		m_ErrorResult = setsockopt(m_ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof(int));
-	//		if (m_ErrorResult < 0)
-	//		{
-	//			p_HandleError("Error at socket() when setting SO_REUSEADDR:" + p_GetLastError(), true);
-	//		}
-	//	}
-	//}
-	//ServerSocket::~ServerSocket()
-	//{
-	//	MBCloseSocket(m_ListenerSocket);
-	//}
-	//END ServerSocket
 
 	//BEGIN OSSocket
 	void OSSocket::p_Swap(OSSocket& SocketToSwapWith)
@@ -618,25 +268,9 @@ namespace MBSockets
 		std::string ReturnValue = std::string(BufferSize,0);
 		int LengthOfDataRecieved = 0;
 		LengthOfDataRecieved = recv(m_UnderlyingHandle, ReturnValue.data(), BufferSize, 0);
-		//TODO kolla om det finns ett sätt att få alla bytes "client vill skicka"
-		//while ((LengthOfDataRecieved = recv(m_UnderlyingHandle,Buffer.data(), BufferSize, 0)) > 0)
-		//{
-		//	Buffer.resize(LengthOfDataRecieved);
-		//	ReturnValue += Buffer;
-		//	if (ReturnValue.size() >= MaxNumberOfBytes)
-		//	{
-		//		break;
-		//	}
-		//	else
-		//	{
-		//		BufferSize = std::min((size_t)(MaxNumberOfBytes - ReturnValue.size()), BufferSize);
-		//		Buffer.resize(BufferSize);
-		//	}
-		//}
 		if (LengthOfDataRecieved < 0)
 		{
-			//borde väl kunna vara ett error här?
-			//std::cout << "Recieved negative error code on recv: " + p_GetLastError() << std::endl;
+			ReturnValue.resize(0);
 			p_HandleError("Recieved negative error code on recv: " + p_GetLastError(), true);
 		}
 		else
@@ -1248,6 +882,27 @@ namespace MBSockets
 		m_UnderlyingSocket->SendData(Meddelandet);
 		return(0);
 	}
+	std::vector<std::pair<std::string,std::string>> HTTPClientSocket::p_GetDefaultHeaders()
+	{
+		std::vector<std::pair<std::string, std::string>> ReturnValue = {};
+		ReturnValue.push_back(std::pair<std::string, std::string>("accept-encoding", "identity"));
+		return(ReturnValue);
+	}
+	void HTTPClientSocket::p_SendRequest(std::string const& RequestType, std::string const& ResourceToGet, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders)
+	{
+		std::string StringToSend = RequestType + ResourceToGet + " " + "HTTP/1.1\r\nHost: "+m_RemoteHost+"\r\n";
+		std::vector<std::pair<std::string, std::string>> DefaultHeaders = p_GetDefaultHeaders();
+		for (size_t i = 0; i < DefaultHeaders.size(); i++)
+		{
+			StringToSend += DefaultHeaders[i].first + ": " + DefaultHeaders[i].second + "\r\n";
+		}
+		for (size_t i = 0; i < ExtraHeaders.size(); i++)
+		{
+			StringToSend += ExtraHeaders[i].first + ": " + ExtraHeaders[i].second + "\r\n";
+		}
+		StringToSend += "\r\n";
+		m_UnderlyingSocket->SendData(StringToSend);
+	}
 	std::string HTTPClientSocket::GetDataFromRequest(const std::string& RequestType, std::string Resource)
 	{
 		if (RequestType == "HEAD")
@@ -1258,6 +913,12 @@ namespace MBSockets
 		{
 			Get(Resource);
 		}
+		std::string ReturnValue = HTTPGetData();
+		return(ReturnValue);
+	}
+	std::string HTTPClientSocket::GetDataFromRequest(const std::string& RequestType, std::string const& Resource, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders)
+	{
+		p_SendRequest(RequestType, Resource, ExtraHeaders);
 		std::string ReturnValue = HTTPGetData();
 		return(ReturnValue);
 	}
@@ -1309,4 +970,432 @@ namespace MBSockets
 
 	}
 	//END HTTPConnectSocket
+	
+	//BEGIN HTTPClient
+	std::vector<std::pair<std::string, std::string>> HTTPClient::p_GetDefaultHeaders()
+	{
+		std::vector<std::pair<std::string, std::string>> ReturnValue = {};
+		ReturnValue.push_back(std::pair<std::string, std::string>("accept-encoding", "identity"));
+		return(ReturnValue);
+	}
+	HTTPRequestResponse HTTPClient::p_ParseResponseHeaders()
+	{
+		//parsar allt i ett go
+		HTTPRequestResponse ReturnValue;
+		if (!m_SocketToUse->IsValid() || !m_SocketToUse->IsConnected())
+		{
+			return ReturnValue;
+		}
+		//aningen innfeffektiv, men fungerande i alla fall
+		while (m_ResponseData.find("\r\n\r\n") == m_ResponseData.npos)
+		{
+			m_ResponseData += m_SocketToUse->RecieveData(4096*2);//godtycklig tal
+		}
+		if (m_ResponseData.size() < 8 || m_ResponseData.substr(0, 8) != "HTTP/1.1")
+		{
+			return(ReturnValue);
+		}
+		else
+		{
+			size_t FirstLineEnd = m_ResponseData.find("\r\n");
+			size_t FirstSpace = m_ResponseData.find(" ");
+			size_t SecondSpace = m_ResponseData.find(" ", FirstSpace + 1);
+			if(FirstLineEnd == m_ResponseData.npos || SecondSpace == m_ResponseData.npos || FirstSpace == m_ResponseData.npos)
+			{
+				return(ReturnValue);
+			}
+			if (FirstSpace > FirstLineEnd || SecondSpace > FirstLineEnd)
+			{
+				return(ReturnValue);
+			}
+			std::string StatusCodeString = m_ResponseData.substr(FirstSpace + 1, SecondSpace - (FirstSpace + 1));
+			try
+			{
+				ReturnValue.StatusCode = std::stoi(StatusCodeString);
+			}
+			catch (std::exception const& e)
+			{
+				ReturnValue.StatusCode = -1;
+				return(ReturnValue);
+			}
+			m_ParseOffset = FirstLineEnd + 2;
+		}
+		ReturnValue.Headers = MBMIME::ExtractMIMEHeaders(m_ResponseData, m_ParseOffset, &m_ParseOffset);
+		if (ReturnValue.Headers.find("content-length") != ReturnValue.Headers.end() && ReturnValue.Headers.at("content-length").size() == 1)
+		{
+			try
+			{
+				//TODO är det säkert  att den här alltid är 64 bits?
+				ReturnValue.ResponseSize = std::stoll(ReturnValue.Headers["content-length"].front());
+			}
+			catch (std::exception const& e)
+			{
+				ReturnValue.ResponseSize = -1;
+				return(ReturnValue);
+			}
+		}
+		if (ReturnValue.Headers.find("transfer-encoding") != ReturnValue.Headers.end())
+		{
+			std::vector<std::string> const& HeaderValues = ReturnValue.Headers["transfer-encoding"];
+			for (size_t i = 0; i < HeaderValues.size(); i++)
+			{
+				if (HeaderValues[i] == "chunked")
+				{
+					m_IsChunked = true;
+				}
+			}
+		}
+		m_ResponseData = m_ResponseData.substr(m_ParseOffset);
+		m_ParseOffset = 0;
+		return(ReturnValue);
+	}
+	bool HTTPClient::DataIsAvailable()
+	{
+		if (m_IsChunked)
+		{
+			assert(false);
+		}
+		else
+		{
+			return(m_RecievedBodyData < m_CurrentHeaders.ResponseSize);
+		}
+	}
+	bool HTTPClient::IsConnected()
+	{
+		return(m_IsConnected || (m_SocketToUse->IsConnected() && m_SocketToUse->IsValid()));
+	}
+	size_t HTTPClient::Read(void* DataBuffer, size_t BufferSize)
+	{
+		if (m_IsChunked)
+		{
+			//att implementera B)
+			assert(false);
+		}
+		else
+		{
+			if (!m_SocketToUse->IsValid() || !m_SocketToUse->IsConnected())
+			{
+
+				m_IsConnected = false;
+				return(0);
+			}
+			uint64_t DataToRecieve = std::min(m_CurrentHeaders.ResponseSize - m_RecievedBodyData, uint64_t(BufferSize));
+			//kan alltid vara som max size_t
+			std::string RecievedData = m_ResponseData.substr(m_ParseOffset);
+			m_ResponseData = "";
+			while (RecievedData.size() < DataToRecieve && m_SocketToUse->IsValid() && m_SocketToUse->IsConnected())
+			{
+				size_t PreviousSize = RecievedData.size();
+				RecievedData += m_SocketToUse->RecieveData(DataToRecieve);
+				if (RecievedData.size() == PreviousSize)
+				{	
+					break;
+					m_IsConnected = false;
+				}
+			}
+			if (RecievedData.size() > BufferSize)
+			{
+				m_ResponseData += RecievedData.substr(BufferSize);
+				RecievedData.resize(BufferSize);
+			}
+			std::memcpy(DataBuffer, RecievedData.data(), RecievedData.size());
+			return(RecievedData.size());
+		}
+	}
+
+	HTTPRequestResponse HTTPClient::SendRequest(HTTPRequestType Type, std::string const& RequestResource, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders)
+	{
+		std::string RequestType = "";
+		if (Type == HTTPRequestType::GET)
+		{
+			RequestType = "GET ";
+		}
+		else if (Type == HTTPRequestType::HEAD)
+		{
+			RequestType = "HEAD ";
+		}
+		else
+		{
+			//orkar inte just nu B)))))
+			assert(false);
+		}
+		std::string StringToSend = RequestType + RequestResource + " " + "HTTP/1.1\r\nHost: " + m_Host + "\r\n";
+		std::vector<std::pair<std::string, std::string>> DefaultHeaders = p_GetDefaultHeaders();
+		for (size_t i = 0; i < DefaultHeaders.size(); i++)
+		{
+			StringToSend += DefaultHeaders[i].first + ": " + DefaultHeaders[i].second + "\r\n";
+		}
+		for (size_t i = 0; i < ExtraHeaders.size(); i++)
+		{
+			StringToSend += ExtraHeaders[i].first + ": " + ExtraHeaders[i].second + "\r\n";
+		}
+		StringToSend += "\r\n";
+		m_SocketToUse->SendData(StringToSend);
+
+		//Skicka request
+		m_CurrentHeaders = p_ParseResponseHeaders();
+		return(m_CurrentHeaders);
+	}
+
+	MBError HTTPClient::ConnectToHost(std::string const& Host) 
+	{
+		MBError ReturnValue = true;
+		bool IsHTTPS = false;
+		size_t HostOffset = 0;
+		std::string PortToUse = "80";
+		if (Host.size() >= 8 && Host.substr(0,8) == "https://")
+		{
+			IsHTTPS = true;
+			HostOffset = 8;
+			PortToUse = "443";
+		}
+		else if (Host.size() >= 7 && Host.substr(0,8) == "http://")
+		{
+			HostOffset = 7;
+			PortToUse = "80";
+		}
+		size_t FirstSlashPosition = Host.find('/', HostOffset);
+		if (FirstSlashPosition == Host.npos)
+		{
+			FirstSlashPosition = Host.size();
+		}
+		std::string NewHost = Host.substr(HostOffset, FirstSlashPosition - HostOffset);
+		m_Host = NewHost;
+		if (IsHTTPS)
+		{
+			TCPClient* TCPSocket = new TCPClient(NewHost, PortToUse);
+			TLSConnectSocket* NewSocket = new TLSConnectSocket(std::unique_ptr<ConnectSocket>(TCPSocket));
+			m_SocketToUse = std::unique_ptr<ConnectSocket>(NewSocket);
+			TCPSocket->Connect();
+			if (!TCPSocket->IsConnected())
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TCP connection to host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+			MBError TLSResult = NewSocket->EstablishTLSConnection(false, NewHost);
+			if (!TLSResult)
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TLS Handshake with host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+		}
+		else
+		{
+			TCPClient* TCPSocket = new TCPClient(NewHost, PortToUse);
+			m_SocketToUse = std::unique_ptr<ConnectSocket>(TCPSocket);
+			TCPSocket->Connect();
+			if (!TCPSocket->IsConnected())
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TCP connection to host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+		}
+		return(ReturnValue);
+	}
+	MBError HTTPClient::ConnectToHost(std::string const& Host, OSPort Port)
+	{
+		//kod duplikation, men jag är lat just nu
+		MBError ReturnValue = true;
+		bool IsHTTPS = false;
+		size_t HostOffset = 0;
+		std::string PortToUse = std::to_string(Port);
+		if (Host.size() >= 8 && Host.substr(0,8) == "https://")
+		{
+			IsHTTPS = true;
+			HostOffset = 8;
+		}
+		else if (Host.size() >= 7 && Host.substr(0,8) == "http://")
+		{
+			HostOffset = 7;
+		}
+		size_t FirstSlashPosition = Host.find('/', HostOffset);
+		if (FirstSlashPosition == Host.npos)
+		{
+			FirstSlashPosition = Host.size();
+		}
+		std::string NewHost = Host.substr(HostOffset, FirstSlashPosition - HostOffset);
+		m_Host = NewHost;
+		if (IsHTTPS)
+		{
+			TCPClient* TCPSocket = new TCPClient(NewHost, PortToUse);
+			TLSConnectSocket* NewSocket = new TLSConnectSocket(std::unique_ptr<ConnectSocket>(TCPSocket));
+			m_SocketToUse = std::unique_ptr<ConnectSocket>(NewSocket);
+			TCPSocket->Connect();
+			if (!TCPSocket->IsConnected())
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TCP connection to host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+			MBError TLSResult = NewSocket->EstablishTLSConnection(false, NewHost);
+			if (!TLSResult)
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TLS Handshake with host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+		}
+		else
+		{
+			TCPClient* TCPSocket = new TCPClient(NewHost, PortToUse);
+			m_SocketToUse = std::unique_ptr<ConnectSocket>(TCPSocket);
+			TCPSocket->Connect();
+			if (!TCPSocket->IsConnected())
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TCP connection to host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+		}
+		return(ReturnValue);
+	}
+	//END HTTPClient
+
+	//BEGIN HTTPFileStream
+	bool HTTPFileStream::p_IsValid()
+	{
+		return(m_SocketToUse != nullptr && (m_SocketToUse->IsConnected()));
+	}
+	void HTTPFileStream::p_Reset()
+	{
+		m_SocketToUse = nullptr;
+		m_Resource = "";
+		m_TotalResourceSize = -1;
+		m_CurrentPosition = 0;
+	}
+	void HTTPFileStream::SetInputURL(std::string const& URLResource)
+	{
+		m_SocketToUse = std::unique_ptr<HTTPClient>(new HTTPClient());
+		size_t ResourceSlashPosition = 0;
+		if (URLResource.find("://") != URLResource.npos)
+		{
+			ResourceSlashPosition = URLResource.find('/', URLResource.find("://") +3);
+		}
+		else
+		{
+			ResourceSlashPosition = URLResource.find('/', 0);
+		}
+		if (ResourceSlashPosition == URLResource.npos)
+		{
+			p_Reset();
+			return;
+		}
+		m_Resource = URLResource.substr(ResourceSlashPosition);
+		m_SocketToUse->ConnectToHost(URLResource);
+		//Väldigt taskigt
+		HTTPRequestResponse ResourceHead = m_SocketToUse->SendRequest(HTTPRequestType::GET, m_Resource, { {"Range","bytes=0-100"} });
+		if (ResourceHead.StatusCode == -1)
+		{
+			p_Reset();
+			return;
+		}
+		//bara för att se hur stor hela requesten är
+		char Buffer[1000];
+		m_SocketToUse->Read(Buffer, 1000);
+		//Nu kan vi få den totala sizen
+		if (ResourceHead.Headers.find("content-range") != ResourceHead.Headers.end())
+		{
+			if (ResourceHead.Headers["content-range"].size() > 1)
+			{
+				p_Reset();
+				return;
+			}
+			std::string const& ContentRangeString = ResourceHead.Headers["content-range"].front();
+			size_t FirstSlashPosition = ContentRangeString.find('/');
+			if (FirstSlashPosition == ContentRangeString.npos)
+			{
+				p_Reset();
+				return;
+			}
+			std::string TotalSizeString = ContentRangeString.substr(FirstSlashPosition + 1);
+			try
+			{
+				m_TotalResourceSize = std::stoll(TotalSizeString);
+			}
+			catch(std::exception const& e)
+			{
+				m_TotalResourceSize = -1;
+				p_Reset();
+				return;
+			}
+		}
+		else
+		{
+			p_Reset();
+			return;
+		}
+
+	}
+	HTTPFileStream::HTTPFileStream(std::string const& URLResource)
+	{
+		SetInputURL(URLResource);
+	}
+	void HTTPFileStream::DEBUG_SetDebugParameters(std::vector<DEBUG_FileInfoStuff>* OutDebugVector)
+	{
+		DEBUG_OutVector = OutDebugVector;
+	}
+	size_t HTTPFileStream::Read(void* Buffer, size_t BytesToRead)
+	{
+		if (!p_IsValid())
+		{
+			return(-1);
+		}
+		//Mest naiva implementationen, ingen intern buffering bara ta det som det kommer
+		std::string ByteRequestString = "bytes="+std::to_string(m_CurrentPosition) + "-" + std::to_string(m_CurrentPosition + BytesToRead-1);
+		std::vector<std::pair<std::string, std::string>> ExtraHeaders = { {"Range",std::move(ByteRequestString)} };
+		HTTPRequestResponse Result = m_SocketToUse->SendRequest(HTTPRequestType::GET, m_Resource, ExtraHeaders);
+
+		//std::memcpy(Buffer, Result.data(), std::min(BytesToRead, Result.size()));
+		size_t ReturnValue = m_SocketToUse->Read(Buffer, BytesToRead);
+		if (DEBUG_OutVector != nullptr)
+		{
+			DEBUG_FileInfoStuff NewInfo;
+			NewInfo.StartPosition = m_CurrentPosition;
+			NewInfo.BytesToRead = BytesToRead;
+			NewInfo.ShaHash = MBCrypto::HashData(std::string((char*)Buffer, ReturnValue), MBCrypto::HashFunction::SHA1);
+			DEBUG_OutVector->push_back(std::move(NewInfo));
+		}
+		m_CurrentPosition += ReturnValue;
+		return(ReturnValue);
+	}
+	uint64_t HTTPFileStream::SetInputPosition(int64_t Offset, int whence)
+	{
+		if (!p_IsValid())
+		{
+			return(-1);
+		}
+		if (whence == SEEK_CUR)
+		{
+			m_CurrentPosition += Offset;
+		}
+		else if (whence == SEEK_SET)
+		{
+			m_CurrentPosition = Offset;
+		}
+		else if (whence == SEEK_END)
+		{
+			m_CurrentPosition = m_TotalResourceSize + Offset;
+		}
+		return(m_CurrentPosition);
+
+	}
+	uint64_t HTTPFileStream::GetInputPosition()
+	{
+		if (!p_IsValid())
+		{
+			return(-1);
+		}
+		return(m_CurrentPosition);
+	}
+	//END HTTPFileStream
+
 };

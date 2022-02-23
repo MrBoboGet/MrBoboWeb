@@ -103,7 +103,7 @@ namespace TLS1_2
 	struct Extension
 	{
 		ExtensionTypes ExtensionType = ExtensionTypes::Null;
-		std::vector<uint8_t> ExtensionData = {}; //max 2^16-1 i längd
+		std::vector<uint8_t> ExtensionData = {}; //max 2^16-1 i lï¿½ngd
 	};
 	struct Certificate
 	{
@@ -122,7 +122,7 @@ namespace TLS1_2
 		application_data = 23
 		//ska bara ta en char i uttrymme
 	};
-	enum TLS1_2AlertLevel : uint8_t { warning = 1, fatal = 2/*max en char i längd*/ };
+	enum TLS1_2AlertLevel : uint8_t { warning = 1, fatal = 2/*max en char i lï¿½ngd*/ };
 	enum TLS1_2AlertDescription : uint8_t
 	{
 		close_notify = 0,
@@ -150,7 +150,7 @@ namespace TLS1_2
 		user_canceled = 90,
 		no_renegotiation = 100,
 		unsupported_extension = 110
-		//(255) max en char i längd
+		//(255) max en char i lï¿½ngd
 	};
 	enum HandshakeType : uint8_t {
 		hello_request = 0,
@@ -162,13 +162,13 @@ namespace TLS1_2
 		server_hello_done = 14,
 		certificate_verify = 15,
 		client_key_exchange = 16,
-		finished = 20// (255), max en char i längd
+		finished = 20// (255), max en char i lï¿½ngd
 	};
 	struct HandShake
 	{
 		HandshakeType MessageType;
-		//uint24 data length, får tänka på hur jag ska göra den
-		//sen så inhåller den datan från respektive handshake typ
+		//uint24 data length, fï¿½r tï¿½nka pï¿½ hur jag ska gï¿½ra den
+		//sen sï¿½ inhï¿½ller den datan frï¿½n respektive handshake typ
 	};
 	enum HashAlgorithm : uint8_t
 	{
@@ -193,7 +193,7 @@ namespace TLS1_2
 		HashAlgorithm Hash;
 		SignatureAlgorithm Signature;
 	};
-	enum CompressionMethod { nullCompressionMethod = 0 };//char i längd
+	enum CompressionMethod { nullCompressionMethod = 0 };//char i lï¿½ngd
 	struct SecurityParameters
 	{
 		enum ConnectionEnd { server, client };
@@ -272,7 +272,7 @@ namespace TLS1_2
 		std::vector<uint8_t> SessionId; //max 32 chars
 		CipherSuite CipherSuiteToUse;
 		uint8_t CompressionToUse;
-		std::vector<Extension> OptionalExtensions; //kan tillskillnad från dem andra vara helt tom, max 2^16-1 bytes
+		std::vector<Extension> OptionalExtensions; //kan tillskillnad frï¿½n dem andra vara helt tom, max 2^16-1 bytes
 	};
 	struct TLS1_2ServerCertificate
 	{
@@ -280,7 +280,7 @@ namespace TLS1_2
 	};
 	struct TLS1_2ClientKeyExchangeMessage
 	{
-		//innehåller beror helt och hållet på vilka algoritmer vi använder
+		//innehï¿½ller beror helt och hï¿½llet pï¿½ vilka algoritmer vi anvï¿½nder
 	};
 	struct TLS1_2RSAPremasterSecret
 	{
@@ -290,15 +290,15 @@ namespace TLS1_2
 		  an encrypted premaster secret message.  This structure is a
 		  variant of the ClientKeyExchange message and is not a message in
 		  itself.*/
-		  //sjka tdydligen vara den variation man först föreslog av tls, inte den som blev?
+		  //sjka tdydligen vara den variation man fï¿½rst fï¿½reslog av tls, inte den som blev?
 		uint16_t ClientProtocolVersion;
 		uint8_t RandomBytes[46];
 	};
 	struct FinishedMessage
 	{
-		std::vector<uint8_t> VerifyData; //verifydatalength i längd
+		std::vector<uint8_t> VerifyData; //verifydatalength i lï¿½ngd
 		//verify data = PRF(master_secret, finished_label, Hash(handshake_messages))[0..verify_data_length - 1] ;
-		//får kolla upp exakt i dokumentationen vad det innebär
+		//fï¿½r kolla upp exakt i dokumentationen vad det innebï¿½r
 	};
 	struct TLS1_2PlainText
 	{
@@ -306,7 +306,7 @@ namespace TLS1_2
 		ProtocolVersion Protocol;
 		uint16_t DataLength;
 		std::vector<uint8_t> Data;
-		//får max inehålla 2^14 antal chars
+		//fï¿½r max inehï¿½lla 2^14 antal chars
 	};
 	struct TLS1_2CompressedPlaintext
 	{
@@ -314,7 +314,7 @@ namespace TLS1_2
 		ProtocolVersion Protocol;
 		uint16_t DataLength;
 		std::vector<uint8_t> Data;
-		//datan från en plaintext meddelandfe cryptearad
+		//datan frï¿½n en plaintext meddelandfe cryptearad
 	};
 	struct TLS1_2CipherText
 	{
@@ -331,7 +331,7 @@ namespace TLS1_2
 		std::vector<uint8_t> SessionId = {}; //max 32 chars
 		std::vector<CipherSuite> CipherSuites = {};//minst 2, max 2^16-2 bytes
 		std::vector<uint8_t> CompressionMethods = {}; // max 2^8-1 bytes
-		std::vector<Extension> OptionalExtensions = {}; //kan tillskillnad från dem andra vara helt tom, max 2^16-1 bytes
+		std::vector<Extension> OptionalExtensions = {}; //kan tillskillnad frï¿½n dem andra vara helt tom, max 2^16-1 bytes
 	};
 	class uint24
 	{
@@ -342,7 +342,7 @@ namespace TLS1_2
 		{
 			if (IntToConvert > pow(2, 24) - 1)
 			{
-				//tar bort den största bitten
+				//tar bort den stï¿½rsta bitten
 				IntToConvert = (IntToConvert << 8) >> 8;
 			}
 			UnderlyingInt = IntToConvert;
@@ -358,7 +358,7 @@ namespace TLS1_2
 	};
 	inline 	uint32_t LocalToInternetByteOrder(uint32_t NumberToConvert)
 	{
-		//TODO: Ha en check som avgör om det är litel endian eller inte, så vi kan ändra beroende på 
+		//TODO: Ha en check som avgï¿½r om det ï¿½r litel endian eller inte, sï¿½ vi kan ï¿½ndra beroende pï¿½ 
 		size_t ReturnValue = 0;
 		for (size_t i = 0; i < 4; i++)
 		{
@@ -504,7 +504,7 @@ namespace TLS1_2
 	struct ServerName
 	{
 		ServerNameNameTypes NameType;
-		std::vector<uint8_t> HostName;//beror egebtkugeb på typ, men existerar än så länge bara 1
+		std::vector<uint8_t> HostName;//beror egebtkugeb pï¿½ typ, men existerar ï¿½n sï¿½ lï¿½nge bara 1
 	};
 	struct TLS1_2GenericRecord
 	{
@@ -595,7 +595,7 @@ namespace TLS1_2
 		std::string PemFile(PemFileBuffer.c_str(), ReadCharacters);
 		PemFile = MBUtility::ReplaceAll(PemFile, "\n", "");
 		PemFile = MBUtility::ReplaceAll(PemFile, "\r", "");
-		//nu måste vi konvertera från detta till binär data
+		//nu mï¿½ste vi konvertera frï¿½n detta till binï¿½r data
 		std::string BeginTag = "-----BEGIN RSA PRIVATE KEY-----";
 		std::string EndTag = "-----END RSA PRIVATE KEY-----";
 		std::string Base64Data = PemFile.substr(BeginTag.size(), PemFile.size() - BeginTag.size() - EndTag.size());
@@ -631,7 +631,7 @@ namespace TLS1_2
 	std::string GetRecordString(TLS1_2GenericRecord const& RecordToEncode);
 	std::string GetRecordString(TLS1_2HanshakeMessage const& MessageToEncode);
 }
-//Hashalgoritmer vi behöver
+//Hashalgoritmer vi behï¿½ver
 std::string MBSha256(std::string const& StringToHash);
 //std::string MBSha1(std::string const& StringToHash);
 class TLS_RecordGenerator

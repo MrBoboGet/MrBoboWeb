@@ -32,7 +32,7 @@ int main()
 	MBSockets::Init();
 
 
-	//std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
+	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
 	//MBSystem::SubProcess TestProcess("dir");
 	//while (!TestProcess.Finished())
@@ -86,7 +86,7 @@ int main()
 	std::cout << MBUtility::HexEncodeString(TestLine) << std::endl;
 	std::cout << MBUtility::HexEncodeString(StringToPrint) << std::endl;
 
-	exit(0);
+	//exit(0);
 	//return(0);
 	MBWebsite::MBGWebsiteMain();
 	exit(0);

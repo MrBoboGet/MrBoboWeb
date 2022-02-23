@@ -87,7 +87,7 @@ namespace MBWebsite
 		std::string m_PacketsDirectory = "";
 		MBUtility::MBBasicUserAuthenticator* m_UserAuthenticator = nullptr;
 		MBDB_Website_MBPP_UploadIncorporator m_UploadIncorporator;
-		//TODO fixa separat upload/write mutex så man läsa samtidigt så länge ingen annan försöker ladda upp
+		//TODO fixa separat upload/write mutex sï¿½ man lï¿½sa samtidigt sï¿½ lï¿½nge ingen annan fï¿½rsï¿½ker ladda upp
 		std::mutex m_WriteMutex;
 
 		std::string p_GetComputerDiffTopDirectory(std::string const& PacketName, MBPM::MBPP_ComputerInfo ComputerInfo);

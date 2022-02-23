@@ -499,9 +499,9 @@ endif()
 if(UNIX)
     set(ADDITIONAL_LIBRARY_DEPENDENCIES 
         "stdc++fs"
+        "dl"
         "${EXTLIBS_DIR}/sqlite3/sqlite3.a"
         "${EXTLIBS_DIR}/cryptopp/libcryptopp.a"
-        "dl"
         #"${FFMPEG_LIBS}"
     )
 else()
