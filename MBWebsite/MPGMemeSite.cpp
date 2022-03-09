@@ -30,6 +30,35 @@ namespace MBWebsite
 	//bool m_IsAtomic = false;
 	//std::string m_AtomicValue = "";
 
+
+
+	std::string h_ReadWholeInput(std::unique_ptr<MBUtility::MBSearchableInputStream>& StreamToRead)
+	{
+		std::string ReturnValue;
+		const size_t ChunkReadSize = 4096;//godtycklig
+		std::string ReadBuffer = std::string(ChunkReadSize, 0);
+		while (true)
+		{
+			size_t ReadBytes = StreamToRead->Read(ReadBuffer.data(), ChunkReadSize);
+			if (ReadBytes == -1)
+			{
+				break;
+			}
+			ReadBuffer.resize(ReadBytes);
+			ReturnValue += ReadBuffer;
+			if (ReadBytes != ChunkReadSize)
+			{
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+
+
+
+
+
+
 	//BEGIN MBDB_Website_BaiscPasswordAuthenticator
 	MBDB_Website_BaiscPasswordAuthenticator::MBDB_Website_BaiscPasswordAuthenticator(MBDB_Website* AssociatedServer)
 	{
@@ -479,14 +508,14 @@ namespace MBWebsite
 			}
 		}
 		std::cout << __MBTopResourceFolder << std::endl;
-		if (m_ReadonlyDatabase == nullptr)
-		{
-			m_ReadonlyDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/TestDatabas", 0);
-		}
-		if (WritableDatabase == nullptr)
-		{
-			WritableDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/TestDatabas", 1);
-		}
+		//if (m_ReadonlyDatabase == nullptr)
+		//{
+		//	m_ReadonlyDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/TestDatabas", 0);
+		//}
+		//if (WritableDatabase == nullptr)
+		//{
+		//	WritableDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/TestDatabas", 1);
+		//}
 		if (m_LoginDatabase == nullptr)
 		{
 			m_LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/MBGLoginDatabase", 0);
@@ -505,8 +534,8 @@ namespace MBWebsite
 	}
 	MBDB_Website::~MBDB_Website()
 	{
-		delete m_ReadonlyDatabase;
-		delete WritableDatabase;
+		//delete m_ReadonlyDatabase;
+		//delete WritableDatabase;
 		delete m_LoginDatabase;
 		delete __DBIndexMap;
 	}
@@ -516,7 +545,7 @@ namespace MBWebsite
 		m_InitDatabase();
 		__LegacyRequestHandlers = {
 			{ &MBDB_Website::DBLogin_Predicate,				&MBDB_Website::DBLogin_ResponseGenerator },
-			{ &MBDB_Website::DBSite_Predicate,				&MBDB_Website::DBSite_ResponseGenerator },
+			//{ &MBDB_Website::DBSite_Predicate,				&MBDB_Website::DBSite_ResponseGenerator },
 			{ &MBDB_Website::UploadFile_Predicate,			&MBDB_Website::UploadFile_ResponseGenerator },
 			{ &MBDB_Website::DBGet_Predicate,				&MBDB_Website::DBGet_ResponseGenerator },
 			{ &MBDB_Website::DBView_Predicate,				&MBDB_Website::DBView_ResponseGenerator },
@@ -575,6 +604,23 @@ namespace MBWebsite
 		{
 			return(true);
 		}
+		//
+		{
+			std::string TopDirectory = RequestToHandle.RequestResource.substr(1);
+			if (TopDirectory.size() > 0 && TopDirectory.find('/') != TopDirectory.npos)
+			{
+				TopDirectory = TopDirectory.substr(0, TopDirectory.find('/'));
+			}
+			std::lock_guard<std::mutex> Lock(m_HTTPHandlersMutex);
+			for (auto const& Handlers : m_PluginHTTPHandlers)
+			{
+				if (Handlers.first == TopDirectory)
+				{
+					return(true);
+				}
+			}
+		}
+		
 		return(false);
 	}
 	MrPostOGet::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const& ConnectionState
@@ -736,7 +782,8 @@ namespace MBWebsite
 
 		return(ReturnValue);
 	}
-	bool MBDB_Website::p_StringIsPath(std::string const& StringToCheck)
+	//yikes det var mycket att trassla ut...
+	bool h_StringIsPath(std::string const& StringToCheck)
 	{
 		bool ReturnValue = true;
 		bool ContainsNewline = StringToCheck.find('\n') != StringToCheck.npos;
@@ -747,6 +794,11 @@ namespace MBWebsite
 			ReturnValue = false;
 		}
 		return(ReturnValue);
+	}
+
+	bool MBDB_Website::p_StringIsPath(std::string const& StringToCheck)
+	{
+		return(h_StringIsPath(StringToCheck));
 	}
 	bool MBDB_Website::DBLogin_Predicate(std::string const& RequestData)
 	{
@@ -779,91 +831,91 @@ namespace MBWebsite
 		return(ReturnValue);
 	}
 
-	bool MBDB_Website::DBSite_Predicate(std::string const& RequestData)
-	{
-		std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
-		std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
-		if (Directorys.size() >= 1)
-		{
-			if (Directorys[0] == "DBSite")
-			{
-				return(true);
-			}
-		}
-		return(false);
-	}
+	//bool MBDB_Website::DBSite_Predicate(std::string const& RequestData)
+	//{
+	//	std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
+	//	std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
+	//	if (Directorys.size() >= 1)
+	//	{
+	//		if (Directorys[0] == "DBSite")
+	//		{
+	//			return(true);
+	//		}
+	//	}
+	//	return(false);
+	//}
 
-	MrPostOGet::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
-	{
-		std::string RequestType = MrPostOGet::GetRequestType(RequestData);
-		MrPostOGet::HTTPDocument NewDocument;
-		NewDocument.Type = MBMIME::MIMEType::HTML;
-		NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBSite.html", AssociatedServer->GetResourcePath("mrboboget.se"));
-		std::unordered_map<std::string, std::string> MapKeys = {};
-
-		std::string QuerryString = "";
-		std::string RequestURL = MrPostOGet::GetRequestResource(RequestData);
-		size_t QuerryStringPosition = RequestURL.find("?SQLQuerry=");
-		if (QuerryStringPosition != RequestURL.npos)
-		{
-			QuerryString = RequestURL.substr(QuerryStringPosition + 11);
-		}
-		if (QuerryString == "")
-		{
-			MapKeys = { {"SQLResult",""} };
-		}
-		else
-		{
-			DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
-			if (!ConnectionPermissions.Read)
-			{
-				MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: Require permissions to read</p>"} };
-			}
-			else
-			{
-				std::string SQLCommand = QuerryString;
-				bool CommandSuccesfull = true;
-				MBError SQLError(true);
-				std::vector<MBDB::MBDB_RowData> SQLResult = {};
-				{
-					std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
-					SQLResult = m_ReadonlyDatabase->GetAllRows(SQLCommand, &SQLError);
-					if (!SQLError)
-					{
-						CommandSuccesfull = false;
-					}
-				}
-				if (CommandSuccesfull)
-				{
-					std::string TotalRowData = "";
-					for (size_t i = 0; i < SQLResult.size(); i++)
-					{
-						MrPostOGet::HTMLNode NewRow = MrPostOGet::HTMLNode::CreateElement("tr");
-						for (size_t j = 0; j < SQLResult[0].GetNumberOfColumns(); j++)
-						{
-							MrPostOGet::HTMLNode NewColumn = MrPostOGet::HTMLNode::CreateElement("td");
-							NewColumn["style"] = "height: 100%";
-							std::string ElementData = SQLResult[i].ColumnToString(j);
-							if (p_StringIsPath(ElementData))
-							{
-								ElementData = p_GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"), ConnectionPermissions);
-							}
-							NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
-							NewRow.AppendChild(std::move(NewColumn));
-						}
-						TotalRowData += NewRow.ToString();
-					}
-					MapKeys["SQLResult"] = std::move(TotalRowData);
-				}
-				else
-				{
-					MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: " + SQLError.ErrorMessage + "</p>"} };
-				}
-			}
-		}
-		NewDocument.DocumentData = MrPostOGet::ReplaceMPGVariables(NewDocument.DocumentData, MapKeys);
-		return(NewDocument);
-	}
+	//MrPostOGet::HTTPDocument MBDB_Website::DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
+	//{
+	//	std::string RequestType = MrPostOGet::GetRequestType(RequestData);
+	//	MrPostOGet::HTTPDocument NewDocument;
+	//	NewDocument.Type = MBMIME::MIMEType::HTML;
+	//	NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBSite.html", AssociatedServer->GetResourcePath("mrboboget.se"));
+	//	std::unordered_map<std::string, std::string> MapKeys = {};
+	//
+	//	std::string QuerryString = "";
+	//	std::string RequestURL = MrPostOGet::GetRequestResource(RequestData);
+	//	size_t QuerryStringPosition = RequestURL.find("?SQLQuerry=");
+	//	if (QuerryStringPosition != RequestURL.npos)
+	//	{
+	//		QuerryString = RequestURL.substr(QuerryStringPosition + 11);
+	//	}
+	//	if (QuerryString == "")
+	//	{
+	//		MapKeys = { {"SQLResult",""} };
+	//	}
+	//	else
+	//	{
+	//		DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
+	//		if (!ConnectionPermissions.Read)
+	//		{
+	//			MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: Require permissions to read</p>"} };
+	//		}
+	//		else
+	//		{
+	//			std::string SQLCommand = QuerryString;
+	//			bool CommandSuccesfull = true;
+	//			MBError SQLError(true);
+	//			std::vector<MBDB::MBDB_RowData> SQLResult = {};
+	//			{
+	//				std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+	//				SQLResult = m_ReadonlyDatabase->GetAllRows(SQLCommand, &SQLError);
+	//				if (!SQLError)
+	//				{
+	//					CommandSuccesfull = false;
+	//				}
+	//			}
+	//			if (CommandSuccesfull)
+	//			{
+	//				std::string TotalRowData = "";
+	//				for (size_t i = 0; i < SQLResult.size(); i++)
+	//				{
+	//					MrPostOGet::HTMLNode NewRow = MrPostOGet::HTMLNode::CreateElement("tr");
+	//					for (size_t j = 0; j < SQLResult[0].GetNumberOfColumns(); j++)
+	//					{
+	//						MrPostOGet::HTMLNode NewColumn = MrPostOGet::HTMLNode::CreateElement("td");
+	//						NewColumn["style"] = "height: 100%";
+	//						std::string ElementData = SQLResult[i].ColumnToString(j);
+	//						if (p_StringIsPath(ElementData))
+	//						{
+	//							ElementData = p_GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"), ConnectionPermissions);
+	//						}
+	//						NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
+	//						NewRow.AppendChild(std::move(NewColumn));
+	//					}
+	//					TotalRowData += NewRow.ToString();
+	//				}
+	//				MapKeys["SQLResult"] = std::move(TotalRowData);
+	//			}
+	//			else
+	//			{
+	//				MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: " + SQLError.ErrorMessage + "</p>"} };
+	//			}
+	//		}
+	//	}
+	//	NewDocument.DocumentData = MrPostOGet::ReplaceMPGVariables(NewDocument.DocumentData, MapKeys);
+	//	return(NewDocument);
+	//}
 
 	bool MBDB_Website::UploadFile_Predicate(std::string const& RequestData)
 	{
@@ -1061,8 +1113,11 @@ namespace MBWebsite
 	{
 
 		MBDB::MBDB_Object ReturnValue;
-		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
-		MBError EvaluationResult = ReturnValue.LoadObject(ObjectPath, ValidatedUser, m_ReadonlyDatabase);
+		//std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+		//MBError EvaluationResult = ReturnValue.LoadObject(ObjectPath, ValidatedUser, m_ReadonlyDatabase);
+		PluginReference<MBSite_DBPlugin> DBPlugin = GetPluginReference<MBSite_DBPlugin>(0);
+
+		MBError EvaluationResult = DBPlugin->LoadMBDBObject(0,MBSiteUser(),FileLocationType::DBFile,ObjectPath,ReturnValue);
 		if (OutError != nullptr)
 		{
 			*OutError = std::move(EvaluationResult);
@@ -1097,12 +1152,23 @@ namespace MBWebsite
 				MBDB::MBDB_Object& BannerObject = ObjectToEmbedd.GetAttribute("Banner");
 				if (!BannerObject.IsEvaluated())
 				{
-					std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
-					MBDB::MBDBO_EvaluationInfo EvaluationInfo;
-					EvaluationInfo.AssociatedDatabase = m_ReadonlyDatabase;
-					EvaluationInfo.EvaluatingUser = Permissions.AssociatedUser;
-					EvaluationInfo.ObjectDirectory = MBUnicode::PathToUTF8(std::filesystem::path(GetResourceFolderPath() + MBDBResource).parent_path());
-					BannerObject.Evaluate(EvaluationInfo, &EvaluationError);
+					//std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+					//MBDB::MBDBO_EvaluationInfo EvaluationInfo;
+					//EvaluationInfo.AssociatedDatabase = m_ReadonlyDatabase;
+					//EvaluationInfo.EvaluatingUser = Permissions.AssociatedUser;
+					//EvaluationInfo.ObjectDirectory = MBUnicode::PathToUTF8(std::filesystem::path(GetResourceFolderPath() + MBDBResource).parent_path());
+					//BannerObject.Evaluate(EvaluationInfo, &EvaluationError);
+					//PluginReference<MBSite_DBPlugin> DBPlugin = GetPluginReference<MBSite_DBPlugin>();
+					PluginReference<MBSite_DBPlugin> DBPlugin = GetPluginReference<MBSite_DBPlugin>(0);
+					if (DBPlugin == nullptr)
+					{
+						EvaluationError = false;
+						EvaluationError.ErrorMessage = "Error embedding resource: failed to find required MBSite_DBPlugin plugin";
+					}
+					else
+					{
+						DBPlugin->EvaluateMBDBObject(0, MBSiteUser(), FileLocationType::DBFile, MBDBResource, BannerObject);
+					}
 				}
 				//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">" + p_GetEmbeddedResource(ObjectToEmbedd.GetAttribute("Banner"),HTMLFolder,Permissions) + "</a>"
 				if (EvaluationError)
@@ -1637,32 +1703,32 @@ namespace MBWebsite
 	}
 
 
-	std::string MBDB_Website::GetTableNamesBody(std::vector<std::string> const& Arguments)
-	{
-		std::vector<std::string> TableNames = {};
-		{
-			std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
-			TableNames = m_ReadonlyDatabase->GetAllTableNames();
-		}
-		std::string JSONTableNames = "\"TableNames\":" + MakeJasonArray(TableNames);
-		std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\"," + JSONTableNames + "}";
-		return(JsonResponse);
-	}
-	std::string MBDB_Website::GetTableInfoBody(std::vector<std::string> const& Arguments)
-	{
-		//f�rsta argumentet �r tablen vi vill ha
-		if (Arguments.size() == 0)
-		{
-			return("");
-		}
-		std::vector<MBDB::ColumnInfo> TableInfo = {};
-		{
-			std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
-			TableInfo = m_ReadonlyDatabase->GetColumnInfo(Arguments[0]);
-		}
-		std::string JSONResponse = "{\"MBAPI_Status\":\"ok\",\"TableInfo\":" + MakeJasonArray(TableInfo) + "}";
-		return(JSONResponse);
-	}
+	//std::string MBDB_Website::GetTableNamesBody(std::vector<std::string> const& Arguments)
+	//{
+	//	std::vector<std::string> TableNames = {};
+	//	{
+	//		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+	//		TableNames = m_ReadonlyDatabase->GetAllTableNames();
+	//	}
+	//	std::string JSONTableNames = "\"TableNames\":" + MakeJasonArray(TableNames);
+	//	std::string JsonResponse = "{\"MBDBAPI_Status\":\"ok\"," + JSONTableNames + "}";
+	//	return(JsonResponse);
+	//}
+	//std::string MBDB_Website::GetTableInfoBody(std::vector<std::string> const& Arguments)
+	//{
+	//	//f�rsta argumentet �r tablen vi vill ha
+	//	if (Arguments.size() == 0)
+	//	{
+	//		return("");
+	//	}
+	//	std::vector<MBDB::ColumnInfo> TableInfo = {};
+	//	{
+	//		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+	//		TableInfo = m_ReadonlyDatabase->GetColumnInfo(Arguments[0]);
+	//	}
+	//	std::string JSONResponse = "{\"MBAPI_Status\":\"ok\",\"TableInfo\":" + MakeJasonArray(TableInfo) + "}";
+	//	return(JSONResponse);
+	//}
 	inline long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
 	{
 		long long ReturnValue = 0;
@@ -1677,179 +1743,179 @@ namespace MBWebsite
 		}
 		return(ReturnValue);
 	}
-	std::vector<MBDB::MBDB_RowData> MBDB_Website::EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
-		std::vector<int> ColumnIndex, std::string TableName, MBError* OutError)
-	{
-		std::vector<MBDB::MBDB_RowData> QuerryResult = {};
-		std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
-		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
-
-		std::vector<MBDB::ColumnInfo> TableColumnInfo = WritableDatabase->GetColumnInfo(TableName);
-		for (size_t i = 0; i < ColumnValues.size(); i++)
-		{
-			if (TableColumnInfo[ColumnIndex[i]].ColumnType == MBDB::ColumnSQLType::Int)
-			{
-				MBDB::MaxInt NewInt = StringToInt(ColumnValues[i], OutError);
-				if (!OutError)
-				{
-					break;
-				}
-				*OutError = NewStatement->BindInt(NewInt, i + 1);
-			}
-			else
-			{
-				*OutError = NewStatement->BindString(ColumnValues[i], i + 1);
-				if (!OutError)
-				{
-					break;
-				}
-			}
-		}
-		if (OutError)
-		{
-			QuerryResult = WritableDatabase->GetAllRows(NewStatement, OutError);
-		}
-		NewStatement->FreeData();
-		WritableDatabase->FreeSQLStatement(NewStatement);
-		return(QuerryResult);
-	}
-	std::string MBDB_Website::DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
-	{
-		std::string ReturnValue = "";
-		std::string SQLCommand = "INSERT INTO " + Arguments[0] + "("; //VALUES (";
-		std::vector<std::string> ColumnNames = {};
-		std::vector<std::string> ColumnValues = {};
-		std::vector<int> ColumnIndex = {};
-		MBError DataBaseError(true);
-
-
-		for (size_t i = 1; i < Arguments.size(); i++)
-		{
-			size_t FirstColon = Arguments[i].find_first_of(":");
-			size_t SecondColon = Arguments[i].find(":", FirstColon + 1);
-			size_t NewColumnIndex = -1;
-			NewColumnIndex = StringToInt(Arguments[i].substr(FirstColon + 1, SecondColon - FirstColon), &DataBaseError);
-			if (!DataBaseError)
-			{
-				ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
-				return(ReturnValue);
-			}
-			ColumnNames.push_back(Arguments[i].substr(0, FirstColon));
-			ColumnValues.push_back(Arguments[i].substr(SecondColon + 1));
-			ColumnIndex.push_back(NewColumnIndex);
-			SQLCommand += ColumnNames[i - 1];
-			if (i + 1 < Arguments.size())
-			{
-				SQLCommand += ",";
-			}
-		}
-		SQLCommand += ") VALUES(";
-		for (size_t i = 1; i < Arguments.size(); i++)
-		{
-			SQLCommand += "?";
-			if (i + 1 < Arguments.size())
-			{
-				SQLCommand += ",";
-			}
-		}
-		SQLCommand += ");";
-		std::vector<MBDB::MBDB_RowData> QuerryResult = EvaluateBoundSQLStatement(SQLCommand, ColumnValues, ColumnIndex, Arguments[0], &DataBaseError);
-		if (DataBaseError)
-		{
-			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
-		}
-		else
-		{
-			ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
-		}
-		return(ReturnValue);
-	}
-	std::string MBDB_Website::DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
-	{
-		//UPDATE table_name
-		//SET column1 = value1, column2 = value2, ...
-		//	WHERE condition;
-		std::string ReturnValue = "";
-		std::string SQLCommand = "UPDATE " + Arguments[0] + " SET "; //VALUES (";
-		std::vector<std::string> ColumnNames = {};
-		std::vector<std::string> OldColumnValues = {};
-		std::vector<std::string> NewColumnValues = {};
-		MBError DataBaseError(true);
-
-
-		for (size_t i = 1; i < Arguments.size(); i++)
-		{
-			if ((i % 3) == 1)
-			{
-				ColumnNames.push_back(Arguments[i]);
-			}
-			if ((i % 3) == 2)
-			{
-				OldColumnValues.push_back(Arguments[i]);
-			}
-			if ((i % 3) == 0)
-			{
-				NewColumnValues.push_back(Arguments[i]);
-			}
-		}
-		for (size_t i = 0; i < OldColumnValues.size(); i++)
-		{
-			SQLCommand += ColumnNames[i] + "=?";
-			if (i + 1 < OldColumnValues.size())
-			{
-				SQLCommand += ", ";
-			}
-		}
-		SQLCommand += " WHERE ";
-		for (size_t i = 0; i < ColumnNames.size(); i++)
-		{
-			SQLCommand += "(" + ColumnNames[i] + "=?";
-			if (OldColumnValues[i] == "null")
-			{
-				SQLCommand += " OR " + ColumnNames[i] + " IS NULL";
-			}
-			SQLCommand += ")";
-			if (i + 1 < ColumnNames.size())
-			{
-				SQLCommand += " AND ";
-			}
-		}
-		std::vector<MBDB::MBDB_RowData> QuerryResult = {};
-		{
-			std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
-			MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
-
-			//DEBUG GREJER
-			//MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
-			//std::vector<MBDB::MBDB_RowData> DebugResult = WritableDatabase->GetAllRows(DebugStatement);
-			//auto DebugTuple = DebugResult[0].GetTuple<int, std::string, std::string, std::string, std::string, std::string, std::string>();
-			//std::ofstream DebugFile("./DebugDatabaseData.txt", std::ios::out|std::ios::binary);
-			//std::ofstream DebugInput("./DebugInputData.txt", std::ios::out | std::ios::binary);
-			//DebugFile << std::get<6>(DebugTuple);
-			//DebugInput << Arguments[21];
-
-			std::vector<MBDB::ColumnInfo> ColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
-			std::vector<MBDB::ColumnSQLType> ColumnTypes = {};
-			for (size_t i = 0; i < ColumnInfo.size(); i++)
-			{
-				ColumnTypes.push_back(ColumnInfo[i].ColumnType);
-			}
-			NewStatement->BindValues(NewColumnValues, ColumnTypes, 0);
-			NewStatement->BindValues(OldColumnValues, ColumnTypes, NewColumnValues.size());
-			QuerryResult = WritableDatabase->GetAllRows(NewStatement, &DataBaseError);
-			NewStatement->FreeData();
-			WritableDatabase->FreeSQLStatement(NewStatement);
-		}
-		if (DataBaseError)
-		{
-			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
-		}
-		else
-		{
-			ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
-		}
-		return(ReturnValue);
-	}
+	//std::vector<MBDB::MBDB_RowData> MBDB_Website::EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
+	//	std::vector<int> ColumnIndex, std::string TableName, MBError* OutError)
+	//{
+	//	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+	//	std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
+	//	MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
+	//
+	//	std::vector<MBDB::ColumnInfo> TableColumnInfo = WritableDatabase->GetColumnInfo(TableName);
+	//	for (size_t i = 0; i < ColumnValues.size(); i++)
+	//	{
+	//		if (TableColumnInfo[ColumnIndex[i]].ColumnType == MBDB::ColumnSQLType::Int)
+	//		{
+	//			MBDB::MaxInt NewInt = StringToInt(ColumnValues[i], OutError);
+	//			if (!OutError)
+	//			{
+	//				break;
+	//			}
+	//			*OutError = NewStatement->BindInt(NewInt, i + 1);
+	//		}
+	//		else
+	//		{
+	//			*OutError = NewStatement->BindString(ColumnValues[i], i + 1);
+	//			if (!OutError)
+	//			{
+	//				break;
+	//			}
+	//		}
+	//	}
+	//	if (OutError)
+	//	{
+	//		QuerryResult = WritableDatabase->GetAllRows(NewStatement, OutError);
+	//	}
+	//	NewStatement->FreeData();
+	//	WritableDatabase->FreeSQLStatement(NewStatement);
+	//	return(QuerryResult);
+	//}
+	//std::string MBDB_Website::DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments)
+	//{
+	//	std::string ReturnValue = "";
+	//	std::string SQLCommand = "INSERT INTO " + Arguments[0] + "("; //VALUES (";
+	//	std::vector<std::string> ColumnNames = {};
+	//	std::vector<std::string> ColumnValues = {};
+	//	std::vector<int> ColumnIndex = {};
+	//	MBError DataBaseError(true);
+	//
+	//
+	//	for (size_t i = 1; i < Arguments.size(); i++)
+	//	{
+	//		size_t FirstColon = Arguments[i].find_first_of(":");
+	//		size_t SecondColon = Arguments[i].find(":", FirstColon + 1);
+	//		size_t NewColumnIndex = -1;
+	//		NewColumnIndex = StringToInt(Arguments[i].substr(FirstColon + 1, SecondColon - FirstColon), &DataBaseError);
+	//		if (!DataBaseError)
+	//		{
+	//			ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+	//			return(ReturnValue);
+	//		}
+	//		ColumnNames.push_back(Arguments[i].substr(0, FirstColon));
+	//		ColumnValues.push_back(Arguments[i].substr(SecondColon + 1));
+	//		ColumnIndex.push_back(NewColumnIndex);
+	//		SQLCommand += ColumnNames[i - 1];
+	//		if (i + 1 < Arguments.size())
+	//		{
+	//			SQLCommand += ",";
+	//		}
+	//	}
+	//	SQLCommand += ") VALUES(";
+	//	for (size_t i = 1; i < Arguments.size(); i++)
+	//	{
+	//		SQLCommand += "?";
+	//		if (i + 1 < Arguments.size())
+	//		{
+	//			SQLCommand += ",";
+	//		}
+	//	}
+	//	SQLCommand += ");";
+	//	std::vector<MBDB::MBDB_RowData> QuerryResult = EvaluateBoundSQLStatement(SQLCommand, ColumnValues, ColumnIndex, Arguments[0], &DataBaseError);
+	//	if (DataBaseError)
+	//	{
+	//		ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+	//	}
+	//	else
+	//	{
+	//		ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+	//	}
+	//	return(ReturnValue);
+	//}
+	//std::string MBDB_Website::DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments)
+	//{
+	//	//UPDATE table_name
+	//	//SET column1 = value1, column2 = value2, ...
+	//	//	WHERE condition;
+	//	std::string ReturnValue = "";
+	//	std::string SQLCommand = "UPDATE " + Arguments[0] + " SET "; //VALUES (";
+	//	std::vector<std::string> ColumnNames = {};
+	//	std::vector<std::string> OldColumnValues = {};
+	//	std::vector<std::string> NewColumnValues = {};
+	//	MBError DataBaseError(true);
+	//
+	//
+	//	for (size_t i = 1; i < Arguments.size(); i++)
+	//	{
+	//		if ((i % 3) == 1)
+	//		{
+	//			ColumnNames.push_back(Arguments[i]);
+	//		}
+	//		if ((i % 3) == 2)
+	//		{
+	//			OldColumnValues.push_back(Arguments[i]);
+	//		}
+	//		if ((i % 3) == 0)
+	//		{
+	//			NewColumnValues.push_back(Arguments[i]);
+	//		}
+	//	}
+	//	for (size_t i = 0; i < OldColumnValues.size(); i++)
+	//	{
+	//		SQLCommand += ColumnNames[i] + "=?";
+	//		if (i + 1 < OldColumnValues.size())
+	//		{
+	//			SQLCommand += ", ";
+	//		}
+	//	}
+	//	SQLCommand += " WHERE ";
+	//	for (size_t i = 0; i < ColumnNames.size(); i++)
+	//	{
+	//		SQLCommand += "(" + ColumnNames[i] + "=?";
+	//		if (OldColumnValues[i] == "null")
+	//		{
+	//			SQLCommand += " OR " + ColumnNames[i] + " IS NULL";
+	//		}
+	//		SQLCommand += ")";
+	//		if (i + 1 < ColumnNames.size())
+	//		{
+	//			SQLCommand += " AND ";
+	//		}
+	//	}
+	//	std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+	//	{
+	//		std::lock_guard<std::mutex> Lock(WritableDatabaseMutex);
+	//		MBDB::SQLStatement* NewStatement = WritableDatabase->GetSQLStatement(SQLCommand);
+	//
+	//		//DEBUG GREJER
+	//		//MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
+	//		//std::vector<MBDB::MBDB_RowData> DebugResult = WritableDatabase->GetAllRows(DebugStatement);
+	//		//auto DebugTuple = DebugResult[0].GetTuple<int, std::string, std::string, std::string, std::string, std::string, std::string>();
+	//		//std::ofstream DebugFile("./DebugDatabaseData.txt", std::ios::out|std::ios::binary);
+	//		//std::ofstream DebugInput("./DebugInputData.txt", std::ios::out | std::ios::binary);
+	//		//DebugFile << std::get<6>(DebugTuple);
+	//		//DebugInput << Arguments[21];
+	//
+	//		std::vector<MBDB::ColumnInfo> ColumnInfo = WritableDatabase->GetColumnInfo(Arguments[0]);
+	//		std::vector<MBDB::ColumnSQLType> ColumnTypes = {};
+	//		for (size_t i = 0; i < ColumnInfo.size(); i++)
+	//		{
+	//			ColumnTypes.push_back(ColumnInfo[i].ColumnType);
+	//		}
+	//		NewStatement->BindValues(NewColumnValues, ColumnTypes, 0);
+	//		NewStatement->BindValues(OldColumnValues, ColumnTypes, NewColumnValues.size());
+	//		QuerryResult = WritableDatabase->GetAllRows(NewStatement, &DataBaseError);
+	//		NewStatement->FreeData();
+	//		WritableDatabase->FreeSQLStatement(NewStatement);
+	//	}
+	//	if (DataBaseError)
+	//	{
+	//		ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+	//	}
+	//	else
+	//	{
+	//		ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+	//	}
+	//	return(ReturnValue);
+	//}
 	//DBAPI_GetFolderContents
 	enum class MBDirectoryEntryType
 	{
@@ -1952,28 +2018,28 @@ namespace MBWebsite
 		ReturnValue = "{" + ErrorPart + "," + DirectoryPart + "}";
 		return(ReturnValue);
 	}
-	std::string MBDB_Website::DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments)
-	{
-		//ett arguments som �r WhereStringen, ghetto aff egetntligen men men,m�ste vara p� en immutable table s� vi inte fuckar grejer
-		std::string ReturnValue = "";
-		if (Arguments.size() < 2)
-		{
-			return("{\"MBDBAPI_Status\":\"Invalid number of arguments\"}");
-		}
-		std::vector<MBDB::MBDB_RowData> RowResponse = {};
-		MBError DatabaseError(true);
-		{
-			std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
-			std::string SQlQuerry = "SELECT * FROM " + Arguments[0] + " " + Arguments[1];
-			RowResponse = WritableDatabase->GetAllRows(SQlQuerry, &DatabaseError);
-		}
-		if (!DatabaseError)
-		{
-			return("{\"MBDBAPI_Status\":" + ToJason(DatabaseError.ErrorMessage) + "}");
-		}
-		ReturnValue = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":" + MakeJasonArray(RowResponse) + "}";
-		return(ReturnValue);
-	}
+	//std::string MBDB_Website::DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments)
+	//{
+	//	//ett arguments som �r WhereStringen, ghetto aff egetntligen men men,m�ste vara p� en immutable table s� vi inte fuckar grejer
+	//	std::string ReturnValue = "";
+	//	if (Arguments.size() < 2)
+	//	{
+	//		return("{\"MBDBAPI_Status\":\"Invalid number of arguments\"}");
+	//	}
+	//	std::vector<MBDB::MBDB_RowData> RowResponse = {};
+	//	MBError DatabaseError(true);
+	//	{
+	//		std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+	//		std::string SQlQuerry = "SELECT * FROM " + Arguments[0] + " " + Arguments[1];
+	//		RowResponse = WritableDatabase->GetAllRows(SQlQuerry, &DatabaseError);
+	//	}
+	//	if (!DatabaseError)
+	//	{
+	//		return("{\"MBDBAPI_Status\":" + ToJason(DatabaseError.ErrorMessage) + "}");
+	//	}
+	//	ReturnValue = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":" + MakeJasonArray(RowResponse) + "}";
+	//	return(ReturnValue);
+	//}
 	std::string MBDB_Website::DBAPI_Login(std::vector<std::string> const& Arguments)
 	{
 		if (Arguments.size() != 2)
@@ -2239,7 +2305,7 @@ namespace MBWebsite
 				if (ConnectionPermissions.Upload)
 				{
 					//Funktions prototyp TableNamn + ColumnName:stringcolumm data
-					ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
+					//ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
 				}
 				else
 				{
@@ -2261,7 +2327,7 @@ namespace MBWebsite
 			{
 				if (ConnectionPermissions.Read)
 				{
-					ReturnValue.DocumentData = DBAPI_SearchTableWithWhere(APIDirectiveArguments);
+					//ReturnValue.DocumentData = DBAPI_SearchTableWithWhere(APIDirectiveArguments);
 				}
 				else
 				{
@@ -2272,7 +2338,7 @@ namespace MBWebsite
 			{
 				if (ConnectionPermissions.Upload)
 				{
-					ReturnValue.DocumentData = DBAPI_UpdateTableRow(APIDirectiveArguments);
+					//ReturnValue.DocumentData = DBAPI_UpdateTableRow(APIDirectiveArguments);
 				}
 				else
 				{
@@ -2540,5 +2606,695 @@ namespace MBWebsite
 			}
 		}
 		return(ReturnValue);
+	};
+	std::string MBDB_Website::p_GetGlobalResourceFolder()
+	{
+		std::lock_guard<std::mutex> Lock(m_GlobalResourceFolderMutex);
+		return(m_GlobalResourceFolder);
 	}
+	std::string MBDB_Website::p_GetPluginResourceFolder(PluginID AssociatedPlugin)
+	{
+		std::string ReturnValue;
+		{
+			std::lock_guard<std::mutex> Lock(m_PluginNameMutex);
+			ReturnValue = "./Plugins/" + m_PluginNames[AssociatedPlugin] + "/";
+		}
+		return(ReturnValue);
+	}
+	void MBDB_Website::AddPlugin(std::unique_ptr<MBSitePlugin> PluginToAdd)
+	{
+		PluginID NewID = 0;
+		{
+			std::lock_guard<std::mutex> Lock(m_PluginMapMutex);
+			std::lock_guard<std::mutex> Lock(m_PluginNameMutex);
+			m_CurrentID += 1;
+			NewID = m_CurrentID;
+			m_PluginNames[m_CurrentID] = PluginToAdd->GetPluginName();
+			m_LoadedPlugins[m_CurrentID] = std::move(PluginToAdd);
+		}
+		m_LoadedPlugins[NewID]->OnCreate(NewID);
+	}
+	void MBDB_Website::RegisterMBSiteAPIHandler(PluginID const& AssociatedPlugin, MBSite_APIHandler* NewAPIHandler)
+	{
+		std::lock_guard<std::mutex> Lock(m_APIHandlersMutex);
+		std::vector<std::string> HandledTopDomains = NewAPIHandler->HandledDirectives();
+		for (size_t i = 0; i < HandledTopDomains.size(); i++)
+		{
+			m_PluginAPIHandlers[HandledTopDomains[i]] = NewAPIHandler;
+		}	
+	}
+	void MBDB_Website::RegisterMBSiteHTTPRequestHandler(PluginID const& AssociatedPlugin, MBSite_HTTPHandler* RequestHandler)
+	{
+		std::lock_guard<std::mutex> Lock(m_HTTPHandlersMutex);
+		std::vector<std::string> HandledTopDomains = RequestHandler->HandledTopDirectories();
+		for (size_t i = 0; i < HandledTopDomains.size(); i++)
+		{
+			m_PluginHTTPHandlers[HandledTopDomains[i]] = RequestHandler;
+		}
+	}
+	std::string MBDB_Website::_GetPluginFileAbsolutePath(PluginID const& AssociatedPlugin, std::string const& PluginFilePath)
+	{
+		std::string ReturnValue;
+		std::string PluginResourceFolder = p_GetPluginResourceFolder(AssociatedPlugin);
+		ReturnValue = PluginResourceFolder + "/" + PluginFilePath;
+		return(ReturnValue);
+	}
+	std::string MBDB_Website::LoadFileWithPreProcessing(PluginID AssociatedPlugin, std::string const& Filepath)
+	{
+		std::string ReturnValue;
+		//kommer inte ihåg hur den andra var implemeneterad så för att vara säker B)
+		std::string GlobalResourcePath = p_GetGlobalResourceFolder()+"/";
+		std::string PluginResourceFolder = p_GetPluginResourceFolder(AssociatedPlugin);
+		ReturnValue = MrPostOGet::LoadFileWithPreprocessing(PluginResourceFolder + "/" + Filepath, GlobalResourcePath);
+		return(ReturnValue);
+	}
+	MBError MBDB_Website::ReadFile(PluginID AssociatedPlugin, MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& Filepath, 
+		std::unique_ptr<MBUtility::MBSearchableInputStream>* OutInStream)
+	{
+		MBError ReturnValue = true;
+
+
+		return(ReturnValue);
+	}
+	MBError MBDB_Website::WriteFile(PluginID AssociatedPlugin, MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& Filepath, 
+		std::unique_ptr<MBUtility::MBSearchableOutputStream>* OutOutputStream)
+	{
+		MBError ReturnValue = true;
+
+
+		return(ReturnValue);
+	}
+	MBError MBDB_Website::ListDirectory(PluginID AssociatedPlugin, MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& DirectoryPath, std::vector<FilesystemObjectInfo>* OutInfo)
+	{
+		MBError ReturnValue = true;
+
+
+		return(ReturnValue);
+	}
+
+
+	//BEGIN MBSite_MBEmbedder
+	std::string MBSite_MBEmbedder::GetPluginName() const
+	{
+		return("MBEmbedder");
+	}
+	void MBSite_MBEmbedder::OnCreate(PluginID AssociatedID)
+	{
+
+	}
+	void MBSite_MBEmbedder::OnDestroy()
+	{
+
+	}
+	std::string MBSite_MBEmbedder::p_GetEmbeddedVideo(std::string const& VideoPath)
+	{
+		std::string ReturnValue = "";
+		std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
+		std::unordered_map<std::string, bool> BrowserSupported = { {"mp4",true},{"webm",true},{"ogg", true} };
+		if (BrowserSupported.find(FileExtension) != BrowserSupported.end())
+		{
+			std::unordered_map<std::string, std::string> VariableValues = {};
+			VariableValues["ElementID"] = VideoPath;
+			VariableValues["MediaType"] = "video";
+			VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
+			VariableValues["FileType"] = FileExtension;
+			std::string ReturnValue = MrPostOGet::ReplaceMPGVariables(p_LoadStreamTemplate(), VariableValues);
+		}
+		else
+		{
+			ReturnValue = "<p>Native broswer streaming not Supported</p><br><a href=\"/DB/" + VideoPath + "\">/DB/" + VideoPath + "</a>";
+		}
+		return(ReturnValue);
+	}
+	std::string MBSite_MBEmbedder::p_GetEmbeddedAudio(std::string const& VideoPath)
+	{
+		std::unordered_map<std::string, std::string> VariableValues = {};
+		std::string FileExtension = MrPostOGet::GetFileExtension(VideoPath);
+		VariableValues["ElementID"] = VideoPath;
+		VariableValues["MediaType"] = "audio";
+		VariableValues["PlaylistPath"] = "/DB/" + VideoPath;
+		VariableValues["FileType"] = FileExtension;
+		//std::string ReturnValue = MrPostOGet::LoadFileWithVariables(WebsiteResourcePath + "/DirectFileStreamTemplate.html", VariableValues);
+		std::string ReturnValue = MrPostOGet::ReplaceMPGVariables(p_LoadStreamTemplate(), VariableValues);
+		return(ReturnValue);
+	}
+	std::string MBSite_MBEmbedder::p_GetEmbeddedImage(std::string const& ImagePath)
+	{
+		std::string ReturnValue = "<image src=\"/DB/" + ImagePath + "\" style=\"max-width:100%\"></image>";
+		return(ReturnValue);
+	}
+	std::string MBSite_MBEmbedder::p_GetEmbeddedPDF(std::string const& ImagePath)
+	{
+		return("<iframe src=\"/DB/" + ImagePath + "\" style=\"width: 100%; height: 100%;max-height: 100%; max-width: 100%;\"></iframe>");
+	}
+	std::string MBSite_MBEmbedder::p_LoadStreamTemplate()
+	{
+		std::string ReturnValue;
+		std::unique_ptr<MBUtility::MBSearchableInputStream> InputStream = nullptr;
+		GetSite().ReadFile(m_PluginID, MBSiteUser() , FileLocationType::PluginStaticResource, "/DirectFileStreamTemplate.html", &InputStream);
+		if (InputStream == nullptr)
+		{
+			throw std::runtime_error("Couldnt read required plugin resource: MBEmbed /DirectFileStreamTemplate.html");
+		}
+		ReturnValue = h_ReadWholeInput(InputStream);
+		return(ReturnValue);
+	}
+	std::string MBSite_MBEmbedder::p_GetEmbeddedMBDBObject(std::string const& MBDBResource)
+	{
+		std::string ReturnValue = "";
+		MBError EvaluationError(true);
+		//MBDB::MBDB_Object ObjectToEmbedd = p_LoadMBDBObject(Permissions.AssociatedUser, GetResourceFolderPath() + MBDBResource, &EvaluationError);
+		MBDB::MBDB_Object ObjectToEmbedd;
+		//std::string ObjectFilePath = GetResourceFolderPath() + MBDBResource;
+		//if (std::filesystem::exists(ObjectFilePath))
+		//{
+		//	std::string ObjectData = MrPostOGet::LoadWholeFile(ObjectFilePath);
+		//	ObjectToEmbedd = MBDB::MBDB_Object::ParseObject(ObjectData, 0, nullptr, &EvaluationError);
+		//}
+		std::unique_ptr<MBUtility::MBSearchableInputStream> FileInput = nullptr;
+		//Förutsätter att en godtycklig person kan läsa in en fil
+		EvaluationError = GetSite().ReadFile(m_PluginID, MBSiteUser(), FileLocationType::DBFile, MBDBResource,&FileInput);
+		if (FileInput != nullptr)
+		{
+			std::string ObjectData = h_ReadWholeInput(FileInput);
+			ObjectToEmbedd = MBDB::MBDB_Object::ParseObject(ObjectData, 0, nullptr, &EvaluationError);
+		}
+		else
+		{
+			EvaluationError = false;
+			//EvaluationError.ErrorMessage = "Object does not exist";
+		}
+		MrPostOGet::HTMLNode NodeToEmbedd = MrPostOGet::HTMLNode::CreateElement("a");
+		NodeToEmbedd["href"] = "/DBView/" + MBDBResource;
+
+		if (EvaluationError)
+		{
+			if (ObjectToEmbedd.HasAttribute("Banner"))
+			{
+				MBDB::MBDB_Object& BannerObject = ObjectToEmbedd.GetAttribute("Banner");
+				if (!BannerObject.IsEvaluated())
+				{
+					//int asdasd% = 2;
+					//std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+					//MBDB::MBDBO_EvaluationInfo EvaluationInfo;
+					//EvaluationInfo.AssociatedDatabase = m_ReadonlyDatabase;
+					//EvaluationInfo.EvaluatingUser = "";//lite osäker på om detta ger problem
+					//EvaluationInfo.ObjectDirectory = MBUnicode::PathToUTF8(std::filesystem::path(GetResourceFolderPath() + MBDBResource).parent_path());
+					//BannerObject.Evaluate(EvaluationInfo, &EvaluationError);
+					PluginReference<MBSite_DBPlugin> DBPlugin = GetSite().GetPluginReference<MBSite_DBPlugin>(m_PluginID);
+					if (DBPlugin == nullptr)
+					{
+						EvaluationError = false;
+						EvaluationError.ErrorMessage = "Error embedding resource: failed to find required MBSite_DBPlugin plugin";
+					}
+					else
+					{
+						DBPlugin->EvaluateMBDBObject(m_PluginID, MBSiteUser(), FileLocationType::DBFile, MBDBResource, BannerObject);
+					}
+				}
+				//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">" + p_GetEmbeddedResource(ObjectToEmbedd.GetAttribute("Banner"),HTMLFolder,Permissions) + "</a>"
+				if (EvaluationError)
+				{
+					if (BannerObject.GetType() != MBDB::MBDBO_Type::String)
+					{
+						NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Invalid banner type"));
+					}
+					else
+					{
+						NodeToEmbedd.AppendChild(p_GetEmbeddedImage(BannerObject.GetStringData()));
+					}
+				}
+				else
+				{
+					NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Error embedding resource: " + EvaluationError.ErrorMessage));
+				}
+			}
+			else
+			{
+				//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">" + MBDBResource + "</a>";
+				NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode(MBDBResource));
+			}
+		}
+		else
+		{
+			//ReturnValue = "<a href=\"/DBView/" + MBDBResource + "\">Error embedding resource: " + EvaluationError.ErrorMessage + "</a>";
+			NodeToEmbedd.AppendChild(MrPostOGet::HTMLNode("Error embedding resource: " + EvaluationError.ErrorMessage));
+		}
+		ReturnValue = NodeToEmbedd.ToString();
+		return(ReturnValue);
+	}
+	MrPostOGet::HTMLNode MBSite_MBEmbedder::EmbeddResource(PluginID CallingPlugin,MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& Filepath)
+	{
+		MrPostOGet::HTMLNode NodeToReturn;
+		std::string ReturnValue = "";
+		std::string ResourceExtension = Filepath.substr(Filepath.find_last_of(".") + 1);
+		MBMIME::MediaType ResourceMedia = MBMIME::GetMediaTypeFromExtension(ResourceExtension);
+		bool IsMBDBResource = true;
+
+		std::string ResourceHTTPURL = Filepath;
+		if (IsMBDBResource)
+		{
+			//if (!std::filesystem::exists(GetResourceFolderPath() + MBDBResource))
+			//{
+			//	ReturnValue = "<p>File does not exist<p>";
+			//}
+		}
+		if (ResourceMedia == MBMIME::MediaType::Image)
+		{
+			ReturnValue = p_GetEmbeddedImage(ResourceHTTPURL);
+		}
+		else if (ResourceMedia == MBMIME::MediaType::Video)
+		{
+			ReturnValue = p_GetEmbeddedVideo(ResourceHTTPURL);
+		}
+		else if (ResourceMedia == MBMIME::MediaType::Audio)
+		{
+			ReturnValue = p_GetEmbeddedAudio(ResourceHTTPURL);
+		}
+		else if (ResourceMedia == MBMIME::MediaType::PDF)
+		{
+			ReturnValue = p_GetEmbeddedPDF(ResourceHTTPURL);
+		}
+		else if (ResourceExtension == "mbdbo")
+		{
+			ReturnValue = p_GetEmbeddedMBDBObject(ResourceHTTPURL);
+		}
+		else
+		{
+			ReturnValue = "<p>File in unrecognized format</p><br><a href=\"/DB/" + Filepath + "\">/DB/" + Filepath + "</a>";
+		}
+		return(MrPostOGet::HTMLNode(ReturnValue,0));
+	}
+	//END MBSite_MBEmbedder
+
+	//BEGIN MBSite_DBPlugin
+	std::string MBSite_DBPlugin::GetPluginName() const
+	{
+		return("MBSQL");
+	}
+	bool MBSite_DBPlugin::p_DependanciesLoaded()
+	{
+		return(m_EmbeddPlugin != nullptr);
+	}
+	void MBSite_DBPlugin::p_LoadDependancies()
+	{
+		m_EmbeddPlugin = GetSite().GetPluginReference<MBSite_MBEmbedder>(m_PluginID);
+		if (m_EmbeddPlugin == nullptr)
+		{
+			//mest för debug, vet inte om vi kan garanetar inbyggd dependancy managing
+			throw std::runtime_error("Required dependancy MBEmbedder not present");
+		}
+	}
+	void MBSite_DBPlugin::OnCreate(PluginID AssociatedID)
+	{
+		//läser config
+		m_PluginID = AssociatedID;
+		std::string DatabasePath = GetSite()._GetPluginFileAbsolutePath(m_PluginID, "/TopDatabase");
+		if (DatabasePath != "")
+		{
+			if (m_ReadonlyDatabase == nullptr)
+			{
+				m_ReadonlyDatabase = std::unique_ptr<MBDB::MrBoboDatabase>(new MBDB::MrBoboDatabase(DatabasePath, 0));
+			}
+			if (m_WriteableDatabase == nullptr)
+			{
+				m_WriteableDatabase = std::unique_ptr<MBDB::MrBoboDatabase>( new MBDB::MrBoboDatabase(DatabasePath, 1));
+			}
+		}
+		p_LoadDependancies();
+	}
+	void MBSite_DBPlugin::OnDestroy()
+	{
+		//inget
+	}
+	std::vector<std::string> MBSite_DBPlugin::HandledDirectives() const
+	{
+		std::vector<std::string> ReturnValue = { "GetTableNames","GetTableInfo","" };
+		return(ReturnValue);
+	}
+	MBParsing::JSONObject MBSite_DBPlugin::p_API_GetTableNames(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& ClientRequest, std::string& Status)
+	{
+		MBParsing::JSONObject ReturnValue = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		std::vector<std::string> TableNames;
+		{
+			std::lock_guard<std::mutex> Lock(m_ReadonlyDatabaseMutex);
+			TableNames = m_ReadonlyDatabase->GetAllTableNames();
+		}
+		ReturnValue["TableNames"] = MBParsing::JSONObject(TableNames);
+		return(ReturnValue);
+	}
+	MBParsing::JSONObject MBSite_DBPlugin::p_API_GetTableInfo(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& ClientRequest, std::string& Status)
+	{
+		MBParsing::JSONObject ReturnValue = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		std::string TableName = ClientRequest.GetMapData().at("TableName").GetStringData();
+		std::vector<MBDB::ColumnInfo> ColumnInfo = {};
+		{
+			std::lock_guard<std::mutex> Lock(m_ReadonlyDatabaseMutex);
+			ColumnInfo = m_ReadonlyDatabase->GetColumnInfo(TableName);
+		}
+		std::vector<MBParsing::JSONObject> ColumnJSONObjects = {};
+		for (size_t i = 0; i < ColumnInfo.size(); i++)
+		{
+			ColumnJSONObjects.push_back(ToJason(ColumnInfo[i]));
+		}
+		ReturnValue["ColumnInfo"] = MBParsing::JSONObject(std::move(ColumnJSONObjects));
+		return(ReturnValue);
+	}
+	std::vector<MBDB::MBDB_RowData> MBSite_DBPlugin::p_EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
+		std::vector<int> ColumnIndex, std::string TableName, MBError* OutError)
+	{
+		std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+		std::lock_guard<std::mutex> Lock(m_WriteableDatabaseMutex);
+		MBDB::SQLStatement* NewStatement = m_WriteableDatabase->GetSQLStatement(SQLCommand);
+
+		std::vector<MBDB::ColumnInfo> TableColumnInfo = m_WriteableDatabase->GetColumnInfo(TableName);
+		for (size_t i = 0; i < ColumnValues.size(); i++)
+		{
+			if (TableColumnInfo[ColumnIndex[i]].ColumnType == MBDB::ColumnSQLType::Int)
+			{
+				MBDB::MaxInt NewInt = StringToInt(ColumnValues[i], OutError);
+				if (!OutError)
+				{
+					break;
+				}
+				*OutError = NewStatement->BindInt(NewInt, i + 1);
+			}
+			else
+			{
+				*OutError = NewStatement->BindString(ColumnValues[i], i + 1);
+				if (!OutError)
+				{
+					break;
+				}
+			}
+		}
+		if (OutError)
+		{
+			QuerryResult = m_WriteableDatabase->GetAllRows(NewStatement, OutError);
+		}
+		NewStatement->FreeData();
+		m_WriteableDatabase->FreeSQLStatement(NewStatement);
+		return(QuerryResult);
+	}
+	MBParsing::JSONObject MBSite_DBPlugin::p_API_SearchTableWithWhere(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments, std::string& Status)
+	{
+		std::string ReturnValue = "";
+		if (Arguments.size() < 2)
+		{
+			return("{\"MBDBAPI_Status\":\"Invalid number of arguments\"}");
+		}
+		std::vector<MBDB::MBDB_RowData> RowResponse = {};
+		MBError DatabaseError(true);
+		{
+			std::lock_guard<std::mutex> Lock(m_ReadonlyMutex);
+			std::string SQlQuerry = "SELECT * FROM " + Arguments[0] + " " + Arguments[1];
+			RowResponse = WritableDatabase->GetAllRows(SQlQuerry, &DatabaseError);
+		}
+		if (!DatabaseError)
+		{
+			return("{\"MBDBAPI_Status\":" + ToJason(DatabaseError.ErrorMessage) + "}");
+		}
+		ReturnValue = "{\"MBDBAPI_Status\":\"ok\",\"Rows\":" + MakeJasonArray(RowResponse) + "}";
+		return(ReturnValue);
+	}
+	MBParsing::JSONObject MBSite_DBPlugin::p_API_UpdateTableRow(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments, std::string& Status)
+	{
+		std::string ReturnValue = "";
+		std::string SQLCommand = "UPDATE " + Arguments[0] + " SET "; //VALUES (";
+		std::vector<std::string> ColumnNames = {};
+		std::vector<std::string> OldColumnValues = {};
+		std::vector<std::string> NewColumnValues = {};
+		MBError DataBaseError(true);
+
+
+		for (size_t i = 1; i < Arguments.size(); i++)
+		{
+			if ((i % 3) == 1)
+			{
+				ColumnNames.push_back(Arguments[i]);
+			}
+			if ((i % 3) == 2)
+			{
+				OldColumnValues.push_back(Arguments[i]);
+			}
+			if ((i % 3) == 0)
+			{
+				NewColumnValues.push_back(Arguments[i]);
+			}
+		}
+		for (size_t i = 0; i < OldColumnValues.size(); i++)
+		{
+			SQLCommand += ColumnNames[i] + "=?";
+			if (i + 1 < OldColumnValues.size())
+			{
+				SQLCommand += ", ";
+			}
+		}
+		SQLCommand += " WHERE ";
+		for (size_t i = 0; i < ColumnNames.size(); i++)
+		{
+			SQLCommand += "(" + ColumnNames[i] + "=?";
+			if (OldColumnValues[i] == "null")
+			{
+				SQLCommand += " OR " + ColumnNames[i] + " IS NULL";
+			}
+			SQLCommand += ")";
+			if (i + 1 < ColumnNames.size())
+			{
+				SQLCommand += " AND ";
+			}
+		}
+		std::vector<MBDB::MBDB_RowData> QuerryResult = {};
+		{
+			std::lock_guard<std::mutex> Lock(m_WriteableDatabaseMutex);
+			MBDB::SQLStatement* NewStatement = m_WriteableDatabase->GetSQLStatement(SQLCommand);
+
+			//DEBUG GREJER
+			//MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
+			//std::vector<MBDB::MBDB_RowData> DebugResult = WritableDatabase->GetAllRows(DebugStatement);
+			//auto DebugTuple = DebugResult[0].GetTuple<int, std::string, std::string, std::string, std::string, std::string, std::string>();
+			//std::ofstream DebugFile("./DebugDatabaseData.txt", std::ios::out|std::ios::binary);
+			//std::ofstream DebugInput("./DebugInputData.txt", std::ios::out | std::ios::binary);
+			//DebugFile << std::get<6>(DebugTuple);
+			//DebugInput << Arguments[21];
+
+			std::vector<MBDB::ColumnInfo> ColumnInfo = m_WriteableDatabase->GetColumnInfo(Arguments[0]);
+			std::vector<MBDB::ColumnSQLType> ColumnTypes = {};
+			for (size_t i = 0; i < ColumnInfo.size(); i++)
+			{
+				ColumnTypes.push_back(ColumnInfo[i].ColumnType);
+			}
+			NewStatement->BindValues(NewColumnValues, ColumnTypes, 0);
+			NewStatement->BindValues(OldColumnValues, ColumnTypes, NewColumnValues.size());
+			QuerryResult = m_WriteableDatabase->GetAllRows(NewStatement, &DataBaseError);
+			NewStatement->FreeData();
+			m_WriteableDatabase->FreeSQLStatement(NewStatement);
+		}
+		if (DataBaseError)
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+		}
+		else
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+		}
+		return(ReturnValue);
+	}
+	MBParsing::JSONObject MBSite_DBPlugin::p_API_AddEntryToTable(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments, std::string& Status)
+	{
+		std::string ReturnValue = "";
+		std::string SQLCommand = "INSERT INTO " + Arguments[0] + "("; //VALUES (";
+		std::vector<std::string> ColumnNames = {};
+		std::vector<std::string> ColumnValues = {};
+		std::vector<int> ColumnIndex = {};
+		MBError DataBaseError(true);
+
+
+		for (size_t i = 1; i < Arguments.size(); i++)
+		{
+			size_t FirstColon = Arguments[i].find_first_of(":");
+			size_t SecondColon = Arguments[i].find(":", FirstColon + 1);
+			size_t NewColumnIndex = -1;
+			NewColumnIndex = StringToInt(Arguments[i].substr(FirstColon + 1, SecondColon - FirstColon), &DataBaseError);
+			if (!DataBaseError)
+			{
+				ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+				return(ReturnValue);
+			}
+			ColumnNames.push_back(Arguments[i].substr(0, FirstColon));
+			ColumnValues.push_back(Arguments[i].substr(SecondColon + 1));
+			ColumnIndex.push_back(NewColumnIndex);
+			SQLCommand += ColumnNames[i - 1];
+			if (i + 1 < Arguments.size())
+			{
+				SQLCommand += ",";
+			}
+		}
+		SQLCommand += ") VALUES(";
+		for (size_t i = 1; i < Arguments.size(); i++)
+		{
+			SQLCommand += "?";
+			if (i + 1 < Arguments.size())
+			{
+				SQLCommand += ",";
+			}
+		}
+		SQLCommand += ");";
+		std::vector<MBDB::MBDB_RowData> QuerryResult = p_EvaluateBoundSQLStatement(SQLCommand, ColumnValues, ColumnIndex, Arguments[0], &DataBaseError);
+		if (DataBaseError)
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":\"ok\"}";
+		}
+		else
+		{
+			ReturnValue = "{\"MBDBAPI_Status\":" + ToJason(DataBaseError.ErrorMessage) + "}";
+		}
+		return(ReturnValue);
+	}
+	MBParsing::JSONObject MBSite_DBPlugin::p_API_QueryDatabase(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments, std::string& Status)
+	{
+		MBParsing::JSONObject ReturnValue = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		//
+		return(ReturnValue);
+	}
+	MBSAPI_DirectiveResponse MBSite_DBPlugin::HandleDirective(MBSiteUser const& AssociatedUser,std::string const& DirectiveName,MBParsing::JSONObject const& DirectiveArguments)
+	{
+		MBSAPI_DirectiveResponse ReturnValue;
+		try
+		{
+			ReturnValue.Status = "ok";
+			if (DirectiveName == "GetTableNames")
+			{
+				p_API_GetTableNames(AssociatedUser, DirectiveArguments, ReturnValue.Status);
+			}
+			else if (DirectiveName == "GetTableInfo")
+			{
+				p_API_GetTableInfo(AssociatedUser, DirectiveArguments, ReturnValue.Status);
+			}
+			else if (DirectiveName == "QueryDatabase")
+			{
+				p_API_QueryDatabase(AssociatedUser, DirectiveArguments, ReturnValue.Status);
+			}
+		}
+		catch(std::exception const& e)
+		{
+			//eventuell säkerhets risk om man lekar implemention info, men just nu är det mest för min egen del och för att göra skrivandet enklare
+			ReturnValue.Status ="Uncaught exception when handling directive:"+ std::string(e.what());
+			ReturnValue.DirectiveResponse = MBParsing::JSONObject();
+		}
+	}
+	std::vector<std::string>  MBSite_DBPlugin::HandledTopDirectories() const
+	{
+		std::vector<std::string> ReturnValue = { "DBSite"};
+		return(ReturnValue);	
+	}
+	MrPostOGet::HTTPDocument MBSite_DBPlugin::p_HTTP_DBSite(MBSiteUser const& AssociatedUser, MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPServerSocket* ServerSocket)
+	{
+		MrPostOGet::HTTPDocument NewDocument;
+		NewDocument.Type = MBMIME::MIMEType::HTML;
+		//NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBSite.html", AssociatedServer->GetResourcePath("mrboboget.se"));
+		NewDocument.DocumentData = GetSite().LoadFileWithPreProcessing(m_PluginID, "/DBSite.html");
+		std::unordered_map<std::string, std::string> MapKeys = {};
+
+		std::string QuerryString = Request.SearchParameters.at("SQLQuerry");
+		if (QuerryString == "")
+		{
+			MapKeys = { {"SQLResult",""} };
+		}
+		else
+		{
+			if (!(AssociatedUser.GeneralPermissions() & uint64_t(GeneralPermissions::View)))
+			{
+				MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: Require permissions to read</p>"} };
+			}
+			else
+			{
+				std::string SQLCommand = QuerryString;
+				bool CommandSuccesfull = true;
+				MBError SQLError(true);
+				std::vector<MBDB::MBDB_RowData> SQLResult = {};
+				{
+					std::lock_guard<std::mutex> Lock(m_ReadonlyDatabaseMutex);
+					SQLResult = m_ReadonlyDatabase->GetAllRows(SQLCommand, &SQLError);
+					if (!SQLError)
+					{
+						CommandSuccesfull = false;
+					}
+				}
+				if (CommandSuccesfull)
+				{
+					std::string TotalRowData = "";
+					for (size_t i = 0; i < SQLResult.size(); i++)
+					{
+						MrPostOGet::HTMLNode NewRow = MrPostOGet::HTMLNode::CreateElement("tr");
+						for (size_t j = 0; j < SQLResult[0].GetNumberOfColumns(); j++)
+						{
+							MrPostOGet::HTMLNode NewColumn = MrPostOGet::HTMLNode::CreateElement("td");
+							NewColumn["style"] = "height: 100%";
+							std::string ElementData = SQLResult[i].ColumnToString(j);
+							if (h_StringIsPath(ElementData))
+							{
+								//ElementData = p_GetEmbeddedResource(ElementData, AssociatedServer->GetResourcePath("mrboboget.se"), ConnectionPermissions);
+								ElementData = m_EmbeddPlugin->EmbeddResource(m_PluginID,AssociatedUser, FileLocationType::DBFile, ElementData).ToString();
+							}
+							NewColumn.AppendChild(MrPostOGet::HTMLNode(ElementData));
+							NewRow.AppendChild(std::move(NewColumn));
+						}
+						TotalRowData += NewRow.ToString();
+					}
+					MapKeys["SQLResult"] = std::move(TotalRowData);
+				}
+				else
+				{
+					MapKeys = { {"SQLResult","<p style=\"color:red; text-align:center\" class=\"center\">Error in SQL Querry: " + SQLError.ErrorMessage + "</p>"} };
+				}
+			}
+		}
+		NewDocument.DocumentData = MrPostOGet::ReplaceMPGVariables(NewDocument.DocumentData, MapKeys);
+		return(NewDocument);
+	}
+	MrPostOGet::HTTPDocument MBSite_DBPlugin::p_HTTP_DBAdd(MBSiteUser const& AssociatedUser, MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPServerSocket* ServerSocket)
+	{
+		MrPostOGet::HTTPDocument ReturnValue;
+		return(ReturnValue);
+		ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::OK;
+		ReturnValue.Type = MBMIME::MIMEType::HTML;
+		if ((AssociatedUser.GeneralPermissions() & uint64_t(GeneralPermissions::View)) && (AssociatedUser.GeneralPermissions() & uint64_t(GeneralPermissions::List)))
+		{
+
+		}
+		else
+		{
+			//MrPostOGet::HTMLNode NewNode = MrPostOGet::HTMLNode(;
+			MrPostOGet::HTMLNode ErrorNode = MrPostOGet::HTMLNode::CreateElement("p");
+			ErrorNode["id"] = "ViewDiv";
+			ErrorNode["class"] = "center";
+			ErrorNode["style"] = "color:red; text-align:center";
+		}
+	}
+	MrPostOGet::HTTPDocument MBSite_DBPlugin::p_HTTP_DBUpdate(MBSiteUser const& AssociatedUser, MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPServerSocket* ServerSocket)
+	{
+		MrPostOGet::HTTPDocument ReturnValue;
+		return(ReturnValue);
+	}
+	MrPostOGet::HTTPDocument MBSite_DBPlugin::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MBSiteUser const& AssociatedUser, MrPostOGet::HTTPServerSocket* ServerSocket)
+	{
+		MrPostOGet::HTTPDocument ReturnValue;
+		std::vector<std::string> Directories = MBUtility::Split(Request.RequestResource, "/");
+		std::string TopDirectory = Directories.at(0);
+		if (TopDirectory == "DBSite")
+		{
+			ReturnValue = p_HTTP_DBSite(AssociatedUser, Request, ServerSocket);
+		}
+		else if (TopDirectory == "DBAdd")
+		{
+			ReturnValue = p_HTTP_DBAdd(AssociatedUser, Request, ServerSocket);
+		}
+		else if (TopDirectory == "DBUpdate")
+		{
+			ReturnValue = p_HTTP_DBUpdate(AssociatedUser, Request, ServerSocket);
+		}
+		return(ReturnValue); 
+	}
+	//END MBSite_DBPlugin
 }

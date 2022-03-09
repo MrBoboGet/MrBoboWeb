@@ -332,7 +332,7 @@ namespace MBDB
 	}
 	std::vector<MBDB_RowData> SQLStatement::GetAllRows(sqlite3* DBConnection, MBError* ErrorToReturn = nullptr)
 	{
-		//statementen är fungerande
+		//statementen ï¿½r fungerande
 		std::vector<MBDB_RowData> ReturnValue = {};
 		int StatementValue = 0;
 		if (IsValid())
@@ -435,7 +435,7 @@ namespace MBDB
 	}
 	std::vector<ColumnInfo> MrBoboDatabase::GetColumnInfo(std::string const& TableName)
 	{
-		//just nu är det en SQLITE3 databas så vi använder dess
+		//just nu ï¿½r det en SQLITE3 databas sï¿½ vi anvï¿½nder dess
 		std::vector<ColumnInfo> ReturnValue = {};
 		std::vector<MBDB_RowData> TableInfo =  GetAllRows("SELECT * FROM pragma_table_info('" + TableName + "');");
 		size_t TableInfoSize = TableInfo.size();
@@ -444,10 +444,10 @@ namespace MBDB
 			ColumnInfo NewColumnInfo;
 			NewColumnInfo.ColumnName = TableInfo[i].GetColumnData<std::string>(1);
 			NewColumnInfo.ColumnType = ColumnTypeFromString(TableInfo[i].GetColumnData<std::string>(2));
-			//Detta är prolly fel, relevant om vi komerm behöva använda det
+			//Detta ï¿½r prolly fel, relevant om vi komerm behï¿½va anvï¿½nda det
 			NewColumnInfo.Nullable = (TableInfo[i].GetColumnData<int>(3) == 0);
 			//TODO detta kan enkelt ge undefined behavior om vi har olika datatyper som vi sparar i columntypen och som vi accessar.
-			//borde göra en typedef för vilken integertype jag använder för att spara datan
+			//borde gï¿½ra en typedef fï¿½r vilken integertype jag anvï¿½nder fï¿½r att spara datan
 			NewColumnInfo.PrimaryKeyIndex = TableInfo[i].GetColumnData<int>(5);
 			ReturnValue.push_back(NewColumnInfo);
 		}
@@ -475,7 +475,7 @@ namespace MBDB
 		}
 		else
 		{
-			//statementen är fungerande
+			//statementen ï¿½r fungerande
 			ReturnValue = NewStatement.GetAllRows(UnderlyingConnection, OutError);
 		}
 		NewStatement.FreeData();

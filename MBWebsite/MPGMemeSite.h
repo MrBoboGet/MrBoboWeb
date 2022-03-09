@@ -99,15 +99,252 @@ namespace MBWebsite
 		MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*) override;
 	};
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	//Nya api:t
+	template<typename T>
+	class PluginReference
+	{
+	private:
+		T* m_PrivatePointer = nullptr;
+	public:
+		PluginReference() { };
+		PluginReference(T* NewPointer)
+		{
+			m_PrivatePointer = NewPointer;
+		}
+		bool operator==(T* PointerToCompare) const
+		{
+			return(m_PrivatePointer == PointerToCompare);
+		}
+		bool operator!=(T* PointerToCompare) const
+		{
+			return(!(m_PrivatePointer == PointerToCompare));
+		}
+		T* operator->()
+		{
+			return(m_PrivatePointer);
+		}
+		const T* operator->() const
+		{
+			return(m_PrivatePointer);
+		}
+	};
+
+	enum class GeneralPermissions
+	{
+		View = 1,
+		List = 1<<1,
+		Edit = 1<<2,
+		Upload = 1<<3,
+	};
+	class MBSiteUser
+	{
+	private:
+		std::string m_Username;
+		uint64_t m_GeneralPermissions = 0;
+	public:
+		std::string GetUsername() const;
+		uint64_t GeneralPermissions() const;
+	};
+
+	enum class FilesystemType
+	{
+		File,
+		Directory,
+		Null,
+	};
+	struct FilesystemObjectInfo
+	{
+		//permissions?
+		FilesystemType Type = FilesystemType::Null;
+		std::string Name = "";
+	};
+
+	enum class FileLocationType
+	{
+		DBFile,
+		GlobalStaticResource,
+		PluginStaticResource,
+		PluginFile,
+		Null
+	};
+
+
+	typedef uint64_t PluginID;
+	class MBSitePlugin
+	{
+	private:
+		MBDB_Website* m_AssociatedSite = nullptr;
+	protected:
+		MBDB_Website& GetSite() { return(*m_AssociatedSite); };
+	public:
+		//sker när den skapas, där kan det antas att GetSite fungerar
+		virtual std::string GetPluginName() const = 0;
+		virtual void OnCreate(PluginID AssociatedID) = 0;
+		//Sker när den förstörsz
+		virtual void OnDestroy() = 0;
+		virtual ~MBSitePlugin() = 0;
+	};
+	struct MBSAPI_DirectiveResponse
+	{
+		std::string Status = ""; //OK stör för fungerande, allt annat för error
+		MBParsing::JSONObject DirectiveResponse;
+	};
+	class MBSite_APIHandler
+	{
+	private:
+	public:
+		//uppmuntrar best practice, varje plugin directive är helt oberoende, men kan eventuellt ändra så att den tar in en user och komplett objekt för att avgöra vad den handalr
+		virtual std::vector<std::string> HandledDirectives() const = 0;
+		//Med stora datamängden kanske vi vill returna en input stream...
+		virtual MBSAPI_DirectiveResponse HandleDirective(MBSiteUser const& AssociatedUser,std::string const& DirectiveName,MBParsing::JSONObject const& DirectiveArguments) = 0;
+	};
+	class MBSite_HTTPHandler
+	{
+	private:
+
+	public:
+		virtual std::vector<std::string>  HandledTopDirectories() const = 0;
+		virtual MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const& Request,MBSiteUser const& AssociatedUser, MrPostOGet::HTTPServerSocket* ServerSocket) = 0;
+	};
+
+	//Cirkulär dependancy mellam MBEmbedder och DBPlugin men är helt enkelt how det do be just nu
+	//class MBSite_DBPlugin;
+	class MBSite_MBEmbedder : public MBSitePlugin
+	{
+	private:
+		PluginID m_PluginID;
+
+		std::string p_LoadStreamTemplate();
+
+		std::string p_GetEmbeddedMBDBObject(std::string const& MBDBResource);
+		std::string p_GetEmbeddedVideo(std::string const& VideoPath);
+		std::string p_GetEmbeddedAudio(std::string const& VideoPath);
+		std::string p_GetEmbeddedImage(std::string const& ImagePath);
+		std::string p_GetEmbeddedPDF(std::string const& ImagePath);
+
+	public:
+		virtual std::string GetPluginName() const override;
+		virtual void OnCreate(PluginID AssociatedID) override;
+		virtual void OnDestroy() override;
+
+		MrPostOGet::HTMLNode EmbeddResource(PluginID CallingPlugin,MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& Filepath);
+	};
+
+	class MBSite_DBPlugin : public MBSitePlugin, MBSite_APIHandler, MBSite_HTTPHandler
+	{
+	private:
+		//dependant plugins
+		PluginReference<MBSite_MBEmbedder> m_EmbeddPlugin;
+
+
+
+		PluginID m_PluginID;
+		std::mutex m_ReadonlyDatabaseMutex;
+		std::unique_ptr<MBDB::MrBoboDatabase> m_ReadonlyDatabase = nullptr;
+		std::mutex m_WriteableDatabaseMutex;
+		std::unique_ptr<MBDB::MrBoboDatabase> m_WriteableDatabase = nullptr;
+
+
+		bool p_DependanciesLoaded();
+		void p_LoadDependancies();
+
+		std::vector<MBDB::MBDB_RowData> p_EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
+			std::vector<int> ColumnIndex, std::string TableName, MBError* OutError);
+
+		MBParsing::JSONObject p_API_GetTableNames(MBSiteUser const& AssociatedUser,MBParsing::JSONObject const& ClientRequest,std::string& Status);
+		MBParsing::JSONObject p_API_GetTableInfo(MBSiteUser const& AssociatedUser,MBParsing::JSONObject const& ClientRequest,std::string& Status);
+		MBParsing::JSONObject p_API_QueryDatabase(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments,std::string& Status);
+		MBParsing::JSONObject p_API_SearchTableWithWhere(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments,std::string& Status);
+		MBParsing::JSONObject p_API_UpdateTableRow(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments,std::string& Status);
+		MBParsing::JSONObject p_API_AddEntryToTable(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments,std::string& Status);
+
+		MrPostOGet::HTTPDocument p_HTTP_DBSite(MBSiteUser const& AssociatedUser, MrPostOGet::HTTPClientRequest const& Request,MrPostOGet::HTTPServerSocket* ServerSocket);
+		MrPostOGet::HTTPDocument p_HTTP_DBAdd(MBSiteUser const& AssociatedUser, MrPostOGet::HTTPClientRequest const& Request,MrPostOGet::HTTPServerSocket* ServerSocket);
+		MrPostOGet::HTTPDocument p_HTTP_DBUpdate(MBSiteUser const& AssociatedUser, MrPostOGet::HTTPClientRequest const& Request,MrPostOGet::HTTPServerSocket* ServerSocket);
+	public:
+		virtual std::string GetPluginName() const override;
+		virtual void OnCreate(PluginID AssociatedID) override;
+		virtual void OnDestroy() override;
+		virtual std::vector<std::string> HandledDirectives() const override; 
+		virtual MBSAPI_DirectiveResponse HandleDirective(MBSiteUser const& AssociatedUser,std::string const& DirectiveName, MBParsing::JSONObject const& DirectiveArguments) override;
+		virtual std::vector<std::string>  HandledTopDirectories() const;
+		virtual MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MBSiteUser const& AssociatedUser, MrPostOGet::HTTPServerSocket* ServerSocket) override;
+
+		MBError LoadMBDBObject(PluginID CallingPlugin, MBSiteUser const& AssociatedUser, FileLocationType LocationType, std::string const& ObjectPath,MBDB::MBDB_Object& OutObject);
+		MBError EvaluateMBDBObject(PluginID CallingPlugin, MBSiteUser const& AssociatedUser, FileLocationType LocationType, std::string const& ObjectPath, MBDB::MBDB_Object& OutObject);
+	};
+
+	//class MBSite_DBViewPlugin : public MBSitePlugin, MBSite_APIHandler, MBSite_HTTPHandler
+	//{
+	//private:
+	//public:
+	//	virtual void OnCreate(PluginID AssociatedID) override;
+	//	virtual void OnDestroy() override;
+	//	virtual std::vector<std::string> HandledDirectives() const override;
+	//	virtual MBParsing::JSONObject HandleDirective(MBParsing::JSONObject const& DirectiveObject) override;
+	//	virtual std::vector<std::string>  HandledTopDirectories() const;
+	//	virtual MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MBSiteUser const& AssociatedUser, MrPostOGet::HTTPServerSocket* ServerSocket) override;
+	//};
+	//
+	//class MBSite_DBEditPlugin : public MBSitePlugin, MBSite_APIHandler, MBSite_HTTPHandler
+	//{
+	//private:
+	//	PluginID m_PluginID;
+	//	std::mutex m_ReadonlyDatabaseMutex;
+	//	std::unique_ptr<MBDB::MrBoboDatabase> m_ReadonlyDatabase = nullptr;
+	//	std::mutex m_WriteableDatabaseMutex;
+	//	std::unique_ptr<MBDB::MrBoboDatabase> m_WriteableDatabase = nullptr;
+	//public:
+	//	virtual void OnCreate(PluginID AssociatedID) override;
+	//	virtual void OnDestroy() override;
+	//	virtual std::vector<std::string> HandledDirectives() const override;
+	//	virtual MBParsing::JSONObject HandleDirective(MBParsing::JSONObject const& DirectiveObject) override;
+	//	virtual std::vector<std::string>  HandledTopDirectories() const;
+	//	virtual MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MBSiteUser const& AssociatedUser, MrPostOGet::HTTPServerSocket* ServerSocket) override;
+	//};
+
 	class MBDB_Website : public MrPostOGet::HTTPRequestHandler
 	{
 	private:
 		friend class MBDB_Website_BaiscPasswordAuthenticator;
 
-		std::mutex m_ReadonlyMutex;
-		MBDB::MrBoboDatabase* m_ReadonlyDatabase = nullptr;
-		std::mutex WritableDatabaseMutex;
-		MBDB::MrBoboDatabase* WritableDatabase = nullptr;
+		PluginID m_CurrentID = 0;
+
+		std::mutex m_PluginMapMutex;
+		std::map<PluginID, std::unique_ptr<MBSitePlugin>> m_LoadedPlugins = {};
+		std::mutex m_HTTPHandlersMutex;
+		std::map<std::string, MBSite_HTTPHandler*> m_PluginHTTPHandlers = {};
+		std::mutex m_APIHandlersMutex;
+		std::map<std::string, MBSite_APIHandler*> m_PluginAPIHandlers = {};
+		std::mutex m_PluginNameMutex;
+		std::map<PluginID, std::string> m_PluginNames = {};
+
+
+		//std::mutex m_ReadonlyMutex;
+		//MBDB::MrBoboDatabase* m_ReadonlyDatabase = nullptr;
+		//std::mutex WritableDatabaseMutex;
+		//MBDB::MrBoboDatabase* WritableDatabase = nullptr;
 		std::mutex m_LoginDatabaseMutex;
 		MBDB::MrBoboDatabase* m_LoginDatabase = nullptr;
 		std::mutex __DBIndexMapMutex;
@@ -130,7 +367,6 @@ namespace MBWebsite
 
 		MBDB::MBDB_Object p_LoadMBDBObject(std::string const& ValidatedUser, std::string const& ObjectPath, MBError* OutError);
 
-		std::string p_GetEmbeddedMBDBObject(std::string const& MBDBResource, std::string const& HTMLFolder, DBPermissionsList const& Permissions);
 
 		bool p_ObjectIsMBPlaylist(MBDB::MBDB_Object const& ObjectToCheck);
 		std::string p_ViewMBDBPlaylist(MBDB::MBDB_Object const& EvaluatedObject, std::string const& HTMLFolder, DBPermissionsList const& Permissions);
@@ -139,13 +375,14 @@ namespace MBWebsite
 		std::string p_DBEdit_GetTextfileEditor(std::string const& MBDBResource, std::string const& HTMLFolder, DBPermissionsList const& Permissions);
 		MBError p_DBEdit_Textfile_Update(MrPostOGet::HTTPClientRequest const& Request, std::string const& MBDBResource, DBPermissionsList const& Permissions);
 
+		std::string p_GetEmbeddedMBDBObject(std::string const& MBDBResource, std::string const& HTMLFolder, DBPermissionsList const& Permissions);
 		std::string p_GetEmbeddedVideo(std::string const& VideoPath, std::string const& WebsiteResourcePath);
 		std::string p_GetEmbeddedAudio(std::string const& VideoPath, std::string const& WebsiteResourcePath);
 		std::string p_GetEmbeddedImage(std::string const& ImagePath);
 		std::string p_GetEmbeddedPDF(std::string const& ImagePath);
-
-
 		std::string p_GetEmbeddedResource(std::string const& MBDBResource, std::string const& ResourceFolder, DBPermissionsList const& Permissions);
+
+
 		std::string p_ViewResource(std::string const& MBDBResource, std::string const& ResourceFolder, DBPermissionsList const& Permissions);
 		std::string p_EditResource(std::string const& MBDBResource, std::string const& ResourceFolder, DBPermissionsList const& Permissions);
 
@@ -159,10 +396,11 @@ namespace MBWebsite
 		std::string DBGeneralAPIGetDirective(std::string const& RequestBody);
 		std::vector<std::string> DBGeneralAPIGetArguments(std::string const& RequestBody, MBError* OutError = nullptr);
 
-		std::string DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments);
-		std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments);
+		//std::string DBAPI_UpdateTableRow(std::vector<std::string> const& Arguments);
+		//std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments);
+		//std::string DBAPI_AddEntryToTable(std::vector<std::string> const& Arguments);
+
 		std::string DBAPI_GetFolderContents(std::vector<std::string> const& Arguments);
-		std::string DBAPI_SearchTableWithWhere(std::vector<std::string> const& Arguments);
 		std::string DBAPI_Login(std::vector<std::string> const& Arguments);
 		std::string DBAPI_GetAvailableIndexes(std::vector<std::string> const& Arguments);
 		std::string DBAPI_GetIndexSearchResult(std::vector<std::string> const& Arguments);
@@ -194,8 +432,8 @@ namespace MBWebsite
 		bool p_Edit_Predicate(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer);
 		MrPostOGet::HTTPDocument p_Edit_ResponseGenerator(MrPostOGet::HTTPClientRequest const&, MrPostOGet::HTTPClientConnectionState const&, MrPostOGet::HTTPServerSocket*, MrPostOGet::HTTPServer*);
 
-		bool DBSite_Predicate(std::string const& RequestData);
-		MrPostOGet::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedSocket);
+		//bool DBSite_Predicate(std::string const& RequestData);
+		//MrPostOGet::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedSocket);
 
 		bool UploadFile_Predicate(std::string const& RequestData);
 		MrPostOGet::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);
@@ -224,8 +462,57 @@ namespace MBWebsite
 		bool DBOperationBlipp_Predicate(std::string const& RequestData);
 		MrPostOGet::HTTPDocument DBOperatinBlipp_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);
 
-		~MBDB_Website();
+
+
+		std::mutex m_GlobalResourceFolderMutex;
+		std::string m_GlobalResourceFolder = "";
+		std::string p_GetGlobalResourceFolder();
+		std::string p_GetPluginResourceFolder(PluginID AssociatedPlugin);
+
+
+
+
 	public:
+		~MBDB_Website();
+		//Implicit här att ett plugin bara kan ha en api handler och en request handler
+		void AddPlugin(std::unique_ptr<MBSitePlugin> PluginToAdd);
+
+		void RegisterMBSiteAPIHandler(PluginID const& AssociatedPlugin,MBSite_APIHandler* NewAPIHandler);
+		void RegisterMBSiteHTTPRequestHandler(PluginID const& AssociatedPlugin, MBSite_HTTPHandler* RequestHandler);
+
+		std::string _GetPluginFileAbsolutePath(PluginID const& AssociatedPlugin, std::string const& PluginFilePath);
+
+		//Mest här för legacy anledningar innan jag vet hur api borde ersättas, letar automiskt igenom Plugin resources och GlobalResources
+		//utgår också här att användare inte behövs för att verifieras
+		std::string LoadFileWithPreProcessing(PluginID AssociatedPlugin, std::string const& Filepath);
+
+		MBError ReadFile(PluginID AssociatedPlugin,MBSiteUser const& AssociatedUser,FileLocationType Location, std::string const& Filepath,std::unique_ptr<MBUtility::MBSearchableInputStream>* OutInStream);
+		MBError WriteFile(PluginID AssociatedPlugin,MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& Filepath, 
+			std::unique_ptr<MBUtility::MBSearchableOutputStream>* OutOutputStream);
+		MBError ListDirectory(PluginID AssociatedPlugin,MBSiteUser const& AssociatedUser, FileLocationType Location,std::string const& DirectoryPath, std::vector<FilesystemObjectInfo>* OutInfo);
+		
+		template<typename T>
+		PluginReference<T> GetPluginReference(PluginID const& AssociatedPluginID)
+		{
+			PluginReference<T> ReturnValue = PluginReference<T>(nullptr);
+			{
+				std::lock_guard<std::mutex> Lock(m_PluginMapMutex);
+				for (auto const& Plugin : m_LoadedPlugins)
+				{
+					T* Plugin = dynamic_cast<T*>(Plugin.second.get());
+					if (Plugin != nullptr)
+					{
+						ReturnValue = PluginReference<T>(Plugin);
+						break;
+					}
+				}
+			}
+			return(ReturnValue);
+		}
+
+		//MBError ReadConfig(MBSiteUser const& AssociatedUser, std::string const& ConfigPath, std::ifstream* InputStream);
+
+
 		std::string GetResourceFolderPath();
 		MBDB_Website();
 		bool HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer) override;

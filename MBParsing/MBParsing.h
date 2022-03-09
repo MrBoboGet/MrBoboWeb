@@ -83,6 +83,18 @@ namespace MBParsing
 		JSONObject(std::vector<JSONObject>&& VectorInitializer);
 		JSONObject(std::map<std::string,JSONObject>&& VectorInitializer);
 
+		template<typename T>
+		JSONObject(std::vector<T> Values)
+		{
+			m_Type = JSONObjectType::Array;
+			m_ObjectData = new std::vector<JSONObject>();
+			std::vector<JSONObject>* DataPointer = (std::vector<JSONObject>*)m_ObjectData;
+			for (size_t i = 0; i < Values.size(); i++)
+			{
+				DataPointer->push_back(JSONObject(std::move(Values)));
+			}
+		}
+
 		JSONObject& operator=(JSONObject ObjectToCopy);
 		~JSONObject();
 

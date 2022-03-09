@@ -64,7 +64,7 @@ namespace MBDB
 			assert(IsCorrectType<T>(*CurrentIndex));
 			T NewValue = *((T*)RawColumnData[*CurrentIndex]);
 			*CurrentIndex += 1;
-			//assertar fel om vi gör en felaktig call
+			//assertar fel om vi gï¿½r en felaktig call
 			return std::tuple_cat(std::make_tuple(NewValue), CreateTuple<Z,Args...>(CurrentIndex));
 		}
 	public:

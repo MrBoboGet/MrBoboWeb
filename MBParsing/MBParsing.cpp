@@ -263,7 +263,7 @@ namespace MBParsing
 			}
 			if ((NumberOfBackslashes & 1) != 0)
 			{
-				//ett ojämnt antal \\, vilket innebär att det ska decodas som en "
+				//ett ojï¿½mnt antal \\, vilket innebï¿½r att det ska decodas som en "
 				ReturnValue += std::string(ObjectData + PreviousParseOffset, ParseOffset - PreviousParseOffset - 1) + '"';
 				ParseOffset += 1;
 				continue;
@@ -438,7 +438,7 @@ namespace MBParsing
 				ParseOffset += 1;
 			}
 		}
-		//ANTAGANDE här blir det lite implicit att EOF så att säga är en delimiter
+		//ANTAGANDE hï¿½r blir det lite implicit att EOF sï¿½ att sï¿½ga ï¿½r en delimiter
 		ReturnValue = ParseOffset;
 		if (OutError != nullptr)
 		{

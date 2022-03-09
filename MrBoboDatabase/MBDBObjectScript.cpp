@@ -413,7 +413,7 @@ namespace MBDB
 
 		ReturnValue.m_Type = MBDBO_Type::Array;
 		MBParsing::SkipWhitespace(ObjectData, ParseOffset, &ParseOffset);
-		ParseOffset += 1;//gör så vi är på värdet efter den försat [
+		ParseOffset += 1;//gï¿½r sï¿½ vi ï¿½r pï¿½ vï¿½rdet efter den fï¿½rsat [
 		ReturnValue.m_AtomicData = new MBDB_Object_ArrayType();
 		MBDB_Object_ArrayType& ReturnValue_Arrays = *(MBDB_Object_ArrayType*)ReturnValue.m_AtomicData;
 		while (ParseOffset < DataSize)
@@ -509,7 +509,7 @@ namespace MBDB
 	//	{
 	//		if (std::string(ObjectData+ParseOffset, 13) == "DB_LoadObject")
 	//		{
-	//			ParseOffset += 14; //1 för parantesen
+	//			ParseOffset += 14; //1 fï¿½r parantesen
 	//			ObjectPath = MBParsing::ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
 	//			ParseOffset += 1;
 	//		}
@@ -548,7 +548,7 @@ namespace MBDB
 	//	{
 	//		if (ObjectData.substr(ParseOffset, 13) == "DB_LoadObject")
 	//		{
-	//			ParseOffset += 14; //1 för parantesen
+	//			ParseOffset += 14; //1 fï¿½r parantesen
 	//			ObjectPath = MBParsing::ParseQuotedString(ObjectData, ParseOffset, &ParseOffset, &EvaluationError);
 	//			ParseOffset += 1;
 	//		}
@@ -642,7 +642,7 @@ namespace MBDB
 		}
 		else
 		{
-			//TODO lägg till support för floats
+			//TODO lï¿½gg till support fï¿½r floats
 			ReturnValue.m_Type = MBDBO_Type::Integer;
 			ReturnValue.m_AtomicData = new intmax_t(MBParsing::ParseJSONInteger(ObjectData, ParseOffset, &ParseOffset, &EvaluationError));
 		}
@@ -1133,9 +1133,9 @@ namespace MBDB
 		}
 		else if (std::find(m_NumberChars.begin(), m_NumberChars.end(), StringToEvaluate[0]) != m_NumberChars.end())
 		{
-			//TODO support för floats
+			//TODO support fï¿½r floats
 			NewStatementData->Type = MBDBObjectScript_LiteralType::Integer;
-			//TODO kanske ha lite mer error hantering här
+			//TODO kanske ha lite mer error hantering hï¿½r
 			NewStatementData->IntegerData = std::stoi(StringToEvaluate);
 		}
 		return(ReturnValue);
@@ -1162,7 +1162,7 @@ namespace MBDB
 				{
 					ParseOffset += 1;
 					ParsedStatements.push_back(ParseStatement(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError));
-					//ANTAGANDE ParseStatement slutar inte som vanliga grejer 1 efter den är klar, utan på själva delimiter
+					//ANTAGANDE ParseStatement slutar inte som vanliga grejer 1 efter den ï¿½r klar, utan pï¿½ sjï¿½lva delimiter
 					ParseOffset += 1;
 					continue;
 				}
@@ -1218,7 +1218,7 @@ namespace MBDB
 				}
 				else if (DataToParse[ParseOffset] == '{')
 				{
-					//ANTAGANDE om jag någonsin lägger till support för att if statements osv så kommer det skilj sig genom att parsingen av reserved ordet handlar { själv
+					//ANTAGANDE om jag nï¿½gonsin lï¿½gger till support fï¿½r att if statements osv sï¿½ kommer det skilj sig genom att parsingen av reserved ordet handlar { sjï¿½lv
 					ParseOffset += 1;
 					MBDB_Object UnEvaluatedStatement = MBDB_Object::ParseObject(DataToParse, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
 					MBDBObjectScript_UnEvaluatedObjectStatementData* NewStatementData = new MBDBObjectScript_UnEvaluatedObjectStatementData();
@@ -1292,7 +1292,7 @@ namespace MBDB
 			{
 				std::string Operand = std::string(1,ParsedBinaryOperators.back());
 				ParsedBinaryOperators.pop_back();
-				//ANTAGANDE Kan aldrig komma flera än 1 operand här, annars är något fel
+				//ANTAGANDE Kan aldrig komma flera ï¿½n 1 operand hï¿½r, annars ï¿½r nï¿½got fel
 				MBDBObjectScript_Statement NewStatement;
 				MBDBObjectScript_FunctionStatementData* NewStatementData = new MBDBObjectScript_FunctionStatementData();
 				NewStatementData->FunctionIdentifier = Operand;
@@ -1335,7 +1335,7 @@ namespace MBDB
 		size_t ParseOffset = InOffset;
 		const char* DataToParse = (const char*)Data;
 
-		//ANTAGANDE, funktionen börjar på en (
+		//ANTAGANDE, funktionen bï¿½rjar pï¿½ en (
 		ParseOffset += 1;
 		while (ParseOffset < DataSize)
 		{
@@ -1664,7 +1664,7 @@ namespace MBDB
 		}
 		else if (AddType == MBDBO_Type::Array)
 		{
-			//ANTAGANDE Vi jobbar med pvalues här
+			//ANTAGANDE Vi jobbar med pvalues hï¿½r
 			std::vector<MBDB_Object> NewArray = {};
 			MBDB_Object_ArrayType& LeftArray = LeftOperand.GetArrayData();
 			MBDB_Object_ArrayType& RightArray = RightOperand.GetArrayData();
@@ -1852,8 +1852,8 @@ namespace MBDB
 		MBDB_Object ReturnValue;
 		if (StatementToEvaluate.m_Type == MBDBObjectScript_StatementType::FunctionCall)
 		{
-			//SEMANTIK en function call är något som enbart beror på argumenten och är som en builtin som evalueras här, medans [] definierar en funktion som ska evalueras av objektet
-			//och definieras därmed o MBDB_Object klassen
+			//SEMANTIK en function call ï¿½r nï¿½got som enbart beror pï¿½ argumenten och ï¿½r som en builtin som evalueras hï¿½r, medans [] definierar en funktion som ska evalueras av objektet
+			//och definieras dï¿½rmed o MBDB_Object klassen
 			MBDBObjectScript_FunctionStatementData const& FunctionStatement = *(MBDBObjectScript_FunctionStatementData*)StatementToEvaluate.m_StatementData;
 			if (m_BuiltinFunctions.find(FunctionStatement.FunctionIdentifier) != m_BuiltinFunctions.end())
 			{
