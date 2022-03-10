@@ -14,7 +14,7 @@ namespace MBDB
 		Float,
 		Boolean,
 		Array,
-		AggregateObject,//innebär att listan av attributes
+		AggregateObject,//innebï¿½r att listan av attributes
 		UnevaluatedDatabaseExpression,
 		Null
 	};
@@ -93,10 +93,10 @@ namespace MBDB
 		MBDB_Object(MBDB_Object&& ObjectToMove) noexcept;
 		~MBDB_Object();
 		MBDB_Object& operator=(MBDB_Object RightObject) noexcept;
-		//MBDB_Object& operator=(MBDB_Object&& RightObject) noexcept; //Inte helt säker på om det här pessimiserar koden, men ville garantera att std::vector movar objekten
+		//MBDB_Object& operator=(MBDB_Object&& RightObject) noexcept; //Inte helt sï¿½ker pï¿½ om det hï¿½r pessimiserar koden, men ville garantera att std::vector movar objekten
 
-		MBError LoadObject(std::string const& ObjectFilepath, std::string const& AssociatedUser, MBDB::MrBoboDatabase* AssociatedDatabase); //read är implicit
-		MBError LoadObject(MBDBO_EvaluationInfo& CurrentEvaluationInfo, std::string const& ObjectFilepath); //read är implicit
+		MBError LoadObject(std::string const& ObjectFilepath, std::string const& AssociatedUser, MBDB::MrBoboDatabase* AssociatedDatabase); //read ï¿½r implicit
+		MBError LoadObject(MBDBO_EvaluationInfo& CurrentEvaluationInfo, std::string const& ObjectFilepath); //read ï¿½r implicit
 
 		static MBDB_Object ParseObject(const void* Data, size_t DataSize, size_t InOffset, size_t* OutOffset,MBError* OutError);
 		static MBDB_Object ParseObject(std::string const& DataToParse, size_t InOffset, size_t* OutOffset,MBError* OutError);
@@ -159,7 +159,7 @@ namespace MBDB
 		String,
 		Null
 	};
-	//För lat för att faktiskt ha olika structs men walla liksom
+	//Fï¿½r lat fï¿½r att faktiskt ha olika structs men walla liksom
 	struct MBDBObjectScript_LiteralStatementData
 	{
 		MBDBObjectScript_LiteralType Type = MBDBObjectScript_LiteralType::Null;

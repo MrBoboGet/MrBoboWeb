@@ -42,7 +42,7 @@ private:
 	static bool UnsignedGreaterThan(MrBigInt const& LeftInt, MrBigInt const& RightInt, unsigned int Offset);
 	static bool UnsignedLesserThan(MrBigInt const& LeftInt, MrBigInt const& RightInt, int IndexToStop, int Offset);
 	static UnitType ReciproalUnit32(UnitType UnitToInvert);
-	// förutsätter att ordet är normaliserat, high bit set
+	// fï¿½rutsï¿½tter att ordet ï¿½r normaliserat, high bit set
 	static void UnsignedDivide_AOP(MrBigInt& IntToDivide, MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient);
 	void UnsignedDivide_AOP(MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient) const;
 	void UnsignedDivide_MB(MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient) const;
@@ -90,7 +90,7 @@ public:
 	void SetFromLittleEndianArray(const void* Data, unsigned int NumberOfBytes);
 	void SetFromString(std::string StringToInitializeWith, int Base)
 	{
-		//TODO gör grejer här
+		//TODO gï¿½r grejer hï¿½r
 		assert(false);
 	}
 	std::string GetBigEndianArray();

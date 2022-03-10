@@ -24,7 +24,7 @@ namespace MBSearchEngine
 		}
 		return(ReturnValue);
 	}
-	//deprecated, borde inte användas
+	//deprecated, borde inte anvï¿½ndas
 	//inline std::vector<std::string> TokenizeQuerry(std::string QuerryToParse)
 	//{
 	//	std::vector<std::string> ReturnValue = {};
@@ -32,7 +32,7 @@ namespace MBSearchEngine
 	//	ParseOffset = QuerryToParse.find_first_not_of(' ');
 	//	while (ParseOffset != QuerryToParse.npos && ParseOffset < QuerryToParse.size() && m_ParseStatus)
 	//	{
-	//		//space är en delimiter, men vi vill kunna skriva strings på vanligt sätt med "" som phrase och \ som escape character
+	//		//space ï¿½r en delimiter, men vi vill kunna skriva strings pï¿½ vanligt sï¿½tt med "" som phrase och \ som escape character
 	//		char CurrentCharacter = QuerryToParse[ParseOffset];
 	//		if (CurrentCharacter != '\"')
 	//		{
@@ -62,7 +62,7 @@ namespace MBSearchEngine
 	//					break;
 	//				}
 	//			}
-	//			//vi vill till skilnad från mellanslag ha med quoten i tokenen
+	//			//vi vill till skilnad frï¿½n mellanslag ha med quoten i tokenen
 	//			ReturnValue.push_back(QuerryToParse.substr(ParseOffset, NextQuote - ParseOffset + 1));
 	//			ParseOffset = QuerryToParse.find_first_not_of(' ', NextQuote + 1);
 	//		}

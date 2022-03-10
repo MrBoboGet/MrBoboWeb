@@ -332,7 +332,8 @@ namespace MrPostOGet
 				size_t AttributeBegin = NextEqualSign + 1;
 				size_t AttributeEnd = std::min(URL.find('&', AttributeBegin), URL.size());
 				ReturnValue[AttributeName] = URL.substr(AttributeBegin, AttributeEnd - AttributeBegin);
-
+				//specifikt för search parameters
+				ReturnValue[AttributeName] = MBUtility::ReplaceAll(ReturnValue[AttributeName], "+", " ");
 				ParseOffset = AttributeEnd;
 				if (ParseOffset < URL.size())
 				{
@@ -699,12 +700,25 @@ namespace MrPostOGet
 		size_t NameEnd = MBParsing::GetNextDelimiterPosition(NameDelimiters, Data, DataSize, ParseOffset);
 		std::string AttributeName = std::string(HTMLData + ParseOffset, NameEnd - ParseOffset);
 		ParseOffset = NameEnd;
-		ParseOffset = std::find(HTMLData + ParseOffset, HTMLData + DataSize, '=') - HTMLData;
-		ParseOffset += 1;
 		MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
-		std::string AttributeValue = MBParsing::ParseQuotedString(Data, DataSize, ParseOffset, &ParseOffset, &EvalutionError);
-		ReturnValue = { AttributeName,AttributeValue };
+		if (ParseOffset == DataSize)
+		{
+			return ReturnValue;
+		}
+		if (HTMLData[ParseOffset] == '=')
+		{
+			ParseOffset += 1;
+			MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
+			std::string AttributeValue = MBParsing::ParseQuotedString(Data, DataSize, ParseOffset, &ParseOffset, &EvalutionError);
+			ReturnValue = { AttributeName,AttributeValue };
+		}
+		else
+		{
+			ReturnValue.first = AttributeName;
+			ReturnValue.second = "";
+		}
 		MBParsing::UpdateParseState(ParseOffset, EvalutionError, OutOffset, OutError);
+		//ParseOffset = std::find(HTMLData + ParseOffset, HTMLData + DataSize, '=') - HTMLData;
 		return(ReturnValue);
 	}
 	HTMLNode::HTMLNode(std::string const& RawText)
@@ -745,7 +759,7 @@ namespace MrPostOGet
 		size_t OutOffset = 0;
 		MBError EvaluationError(true);
 		HTMLNode NewNode = ParseNode(HTMLToParse, ParseOffset,&OutOffset,&EvaluationError);
-		if (!EvaluationError)
+		if (EvaluationError)
 		{
 			swap(*this, NewNode);
 		}

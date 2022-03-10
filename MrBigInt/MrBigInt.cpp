@@ -3,7 +3,7 @@
 
 void MrBigInt::ChangeInternalUnitsNumber(size_t NewNumberOfInternalUnits)
 {
-	//om det är mindre bara gör vi inget
+	//om det ï¿½r mindre bara gï¿½r vi inget
 	if (InternalUnits.size() >= NewNumberOfInternalUnits)
 	{
 		return;
@@ -66,7 +66,7 @@ void MrBigInt::AddUnsigned(MrBigInt const& NumberToAdd)
 	}
 	if (Carry == 1)
 	{
-		//fortsätter addera tills carryn inte är 0
+		//fortsï¿½tter addera tills carryn inte ï¿½r 0
 		size_t ThisUnitIndex = RightSize;
 		if (ThisUnitIndex >= InternalUnits.size())
 		{
@@ -93,7 +93,7 @@ void MrBigInt::AddUnsigned(MrBigInt const& NumberToAdd)
 
 void MrBigInt::SubtractUnsigned(MrBigInt const& NumberToSubtract)
 {
-	//förutsätter att vänsterledet alltid är positivt och högerledet negativt
+	//fï¿½rutsï¿½tter att vï¿½nsterledet alltid ï¿½r positivt och hï¿½gerledet negativt
 	size_t MaxComponents = std::max(this->InternalUnits.size(), NumberToSubtract.InternalUnits.size());
 	ChangeInternalUnitsNumber(MaxComponents);
 	UnitType RightSize = NumberToSubtract.InternalUnits.size();
@@ -103,7 +103,7 @@ void MrBigInt::SubtractUnsigned(MrBigInt const& NumberToSubtract)
 	char Carry = 0;
 	for (size_t i = 0; i < MaxComponents; i++)
 	{
-		//först och främst så subtraherar vi med carry, är talet UNIT_MAX sätter vi nya carryn till 1 igen
+		//fï¿½rst och frï¿½mst sï¿½ subtraherar vi med carry, ï¿½r talet UNIT_MAX sï¿½tter vi nya carryn till 1 igen
 		char NewCarry = 0;
 		InternalUnits[i] -= Carry;
 		if (InternalUnits[i] == UNIT_MAX)
@@ -120,7 +120,7 @@ void MrBigInt::SubtractUnsigned(MrBigInt const& NumberToSubtract)
 		//subtraheringen
 		if (i == MaxComponents - 1)
 		{
-			//sista gången, specialfall
+			//sista gï¿½ngen, specialfall
 			if (ThisValue < RightValue)
 			{
 				InternalUnits[i] = RightValue - ThisValue;
@@ -145,7 +145,7 @@ void MrBigInt::SubtractUnsigned(MrBigInt const& NumberToSubtract)
 		}
 		Carry = NewCarry;
 	}
-	//TODO borde man ta bort leading nollor för att göra det aningen mer minnes effektivt och ha färre special fall?
+	//TODO borde man ta bort leading nollor fï¿½r att gï¿½ra det aningen mer minnes effektivt och ha fï¿½rre special fall?
 	Normalize();
 }
 void MrBigInt::NaiveMultiplication(MrBigInt const& LeftInt, MrBigInt const& RightInt, MrBigInt& OutResult)
@@ -161,7 +161,7 @@ void MrBigInt::NaiveMultiplication(MrBigInt const& LeftInt, MrBigInt const& Righ
 
 void MrBigInt::SubtractWithOffset(MrBigInt& LeftInt, MrBigInt const& NumberToSubtract, unsigned int IndexToStop, unsigned int Offset)
 {
-	//förutsätter att vänsterledet alltid är positivt och högerledet negativt
+	//fï¿½rutsï¿½tter att vï¿½nsterledet alltid ï¿½r positivt och hï¿½gerledet negativt
 	IndexToStop = std::min(IndexToStop, (unsigned int)LeftInt.InternalUnits.size());
 	unsigned int MaxComponents = std::max(LeftInt.InternalUnits.size(), NumberToSubtract.InternalUnits.size());
 	LeftInt.ChangeInternalUnitsNumber(MaxComponents);
@@ -171,7 +171,7 @@ void MrBigInt::SubtractWithOffset(MrBigInt& LeftInt, MrBigInt const& NumberToSub
 	char Carry = 0;
 	for (int i = Offset; i < IndexToStop; i++)
 	{
-		//först och främst så subtraherar vi med carry, är talet UNIT_MAX sätter vi nya carryn till 1 igen
+		//fï¿½rst och frï¿½mst sï¿½ subtraherar vi med carry, ï¿½r talet UNIT_MAX sï¿½tter vi nya carryn till 1 igen
 		char NewCarry = 0;
 		LeftInt.InternalUnits[i] -= Carry;
 		if (LeftInt.InternalUnits[i] == UNIT_MAX)
@@ -187,7 +187,7 @@ void MrBigInt::SubtractWithOffset(MrBigInt& LeftInt, MrBigInt const& NumberToSub
 		//subtraheringen
 		if (i == MaxComponents - 1)
 		{
-			//sista gången, specialfall
+			//sista gï¿½ngen, specialfall
 			if (ThisValue < RightValue)
 			{
 				LeftInt.InternalUnits[i] = RightValue - ThisValue;
@@ -212,7 +212,7 @@ void MrBigInt::SubtractWithOffset(MrBigInt& LeftInt, MrBigInt const& NumberToSub
 		}
 		Carry = NewCarry;
 	}
-	//TODO borde man ta bort leading nollor för att göra det aningen mer minnes effektivt och ha färre special fall?
+	//TODO borde man ta bort leading nollor fï¿½r att gï¿½ra det aningen mer minnes effektivt och ha fï¿½rre special fall?
 	LeftInt.Normalize();
 }
 
@@ -252,7 +252,7 @@ void MrBigInt::AddWithOffset(MrBigInt& LeftInt, MrBigInt const& NumberToAdd, int
 	}
 	if (Carry == 1 && IndexToStop == LeftInt.InternalUnits.size())
 	{
-		//fortsätter addera tills carryn inte är 0
+		//fortsï¿½tter addera tills carryn inte ï¿½r 0
 		size_t ThisUnitIndex = RightSize;
 		if (ThisUnitIndex >= LeftInt.InternalUnits.size())
 		{
@@ -280,7 +280,7 @@ void MrBigInt::AddWithOffset(MrBigInt& LeftInt, MrBigInt const& NumberToAdd, int
 bool MrBigInt::UnsignedGreaterThan(MrBigInt const& LeftInt, MrBigInt const& RightInt, unsigned int Offset)
 {
 	unsigned int IndexToStop = Offset + RightInt.InternalUnits.size();
-	//antar att dem är normaliserade, och att uniten till 
+	//antar att dem ï¿½r normaliserade, och att uniten till 
 	if (IndexToStop > LeftInt.InternalUnits.size())
 	{
 		return(false);
@@ -296,7 +296,7 @@ bool MrBigInt::UnsignedGreaterThan(MrBigInt const& LeftInt, MrBigInt const& Righ
 }
 bool MrBigInt::UnsignedLesserThan(MrBigInt const& LeftInt, MrBigInt const& RightInt, int IndexToStop, int Offset)
 {
-	//antar att dem är normaliserade, och att uniten till 
+	//antar att dem ï¿½r normaliserade, och att uniten till 
 	unsigned int LeadingZeros = 0;
 	for (int i = LeftInt.InternalUnits.size() - 1; i >= 1; i--)
 	{
@@ -353,7 +353,7 @@ UnitType MrBigInt::ReciproalUnit32(UnitType UnitToInvert)
 	eTemp += Temp;
 	Temp = v1;
 	Temp *= d31;
-	eTemp -= Temp;//står "umullho" på denna rad
+	eTemp -= Temp;//stï¿½r "umullho" pï¿½ denna rad
 	assert(eTemp.InternalUnits.size() == 1);
 	UnitType e = eTemp.InternalUnits[0];
 	Temp = v1;
@@ -388,11 +388,11 @@ UnitType MrBigInt::ReciproalUnit32(UnitType UnitToInvert)
 
 void MrBigInt::UnsignedDivide_AOP(MrBigInt& IntToDivide, MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient)
 {
-	//inte destruktiv, så vi tar och kopierar dividenten och denna
+	//inte destruktiv, sï¿½ vi tar och kopierar dividenten och denna
 	//MrBigInt ThisCopy(*this);
 	//MrBigInt DividentCopy(Divident);
 	UnitType m = IntToDivide.InternalUnits.size() - Divident.InternalUnits.size();
-	//antar att dem är normaliserade
+	//antar att dem ï¿½r normaliserade
 	if (IntToDivide.InternalUnits.size() < Divident.InternalUnits.size())
 	{
 		std::swap(OutRemainder.InternalUnits, IntToDivide.InternalUnits);
@@ -453,7 +453,7 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt& IntToDivide, MrBigInt const& Dividen
 	for (int j = m; j >= 0; j--)
 	{
 		//assert(ThisCopy.InternalUnits.size() >= this->InternalUnits.size());
-		//räkna ut på något sätt
+		//rï¿½kna ut pï¿½ nï¿½got sï¿½tt
 		//DoubleUnitDivide(u.InternalUnits[j + n], u.InternalUnits[j + n - 1], q, r);
 
 		//DivideInt.InternalUnits[1] = u.InternalUnits[j + n];
@@ -473,7 +473,7 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt& IntToDivide, MrBigInt const& Dividen
 		//if (q == b || Temp2 > Temp)
 		if (q == b || Temp2 > TempR)
 		{
-			//gör grejer
+			//gï¿½r grejer
 			q -= 1;
 			r += v.InternalUnits.back();
 			if (r < b)
@@ -498,11 +498,11 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt& IntToDivide, MrBigInt const& Dividen
 		TempOutQuotient.InternalUnits[j] = q.InternalUnits[0];
 		if (WasNegative == false)
 		{
-			//addback utgår jag ifrån bara resettar den, så vi subtraherar bara om vi vet att den behöva
+			//addback utgï¿½r jag ifrï¿½n bara resettar den, sï¿½ vi subtraherar bara om vi vet att den behï¿½va
 			//MrBigInt UCopy(u);
 			Temp3 = q * v;
 			SubtractWithOffset(u, Temp3, j + n + 1, j);
-			//asserta grejer för debug
+			//asserta grejer fï¿½r debug
 			//MrBigInt DebugResult = UCopy - (Temp << (UNIT_BITS * j));
 			//std::cout << u.GetHexEncodedString() << std::endl;
 			//std::cout << DebugResult.GetHexEncodedString() << std::endl;
@@ -539,11 +539,11 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt& IntToDivide, MrBigInt const& Dividen
 
 void MrBigInt::UnsignedDivide_AOP(MrBigInt const& Divident, MrBigInt& OutRemainder, MrBigInt& OutQuotient) const
 {
-	//inte destruktiv, så vi tar och kopierar dividenten och denna
+	//inte destruktiv, sï¿½ vi tar och kopierar dividenten och denna
 	MrBigInt ThisCopy(*this);
 	//MrBigInt DividentCopy(Divident);
 	UnitType m = ThisCopy.InternalUnits.size() - Divident.InternalUnits.size();
-	//antar att dem är normaliserade
+	//antar att dem ï¿½r normaliserade
 	if (ThisCopy.InternalUnits.size() < Divident.InternalUnits.size())
 	{
 		std::swap(OutRemainder.InternalUnits, ThisCopy.InternalUnits);
@@ -595,7 +595,7 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt const& Divident, MrBigInt& OutRemaind
 	for (int j = m; j >= 0; j--)
 	{
 		//assert(ThisCopy.InternalUnits.size() >= this->InternalUnits.size());
-		//räkna ut på något sätt
+		//rï¿½kna ut pï¿½ nï¿½got sï¿½tt
 		//DoubleUnitDivide(u.InternalUnits[j + n], u.InternalUnits[j + n - 1], q, r);
 
 		//DivideInt.InternalUnits[1] = u.InternalUnits[j + n];
@@ -615,7 +615,7 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt const& Divident, MrBigInt& OutRemaind
 		//if (q == b || Temp2 > Temp)
 		if (q == b || Temp2 > TempR)
 		{
-			//gör grejer
+			//gï¿½r grejer
 			q -= 1;
 			r += v.InternalUnits.back();
 			if (r < b)
@@ -640,11 +640,11 @@ void MrBigInt::UnsignedDivide_AOP(MrBigInt const& Divident, MrBigInt& OutRemaind
 		OutQuotient.InternalUnits[j] = q.InternalUnits[0];
 		if (WasNegative == false)
 		{
-			//addback utgår jag ifrån bara resettar den, så vi subtraherar bara om vi vet att den behöva
+			//addback utgï¿½r jag ifrï¿½n bara resettar den, sï¿½ vi subtraherar bara om vi vet att den behï¿½va
 			//MrBigInt UCopy(u);
 			Temp3 = q * v;
 			SubtractWithOffset(u, Temp3, j + n + 1, j);
-			//asserta grejer för debug
+			//asserta grejer fï¿½r debug
 			//MrBigInt DebugResult = UCopy - (Temp << (UNIT_BITS * j));
 			//std::cout << u.GetHexEncodedString() << std::endl;
 			//std::cout << DebugResult.GetHexEncodedString() << std::endl;
@@ -764,7 +764,7 @@ void MrBigInt::DoubleUnitDivide(UnitType Higher, UnitType Lower, UnitType Diviso
 	{
 		DivisorReciprocal = ReciproalUnit32(Divisor);
 	}
-	//utifall att det inte går på det normaliserade sättet kör vi den andra metoden
+	//utifall att det inte gï¿½r pï¿½ det normaliserade sï¿½ttet kï¿½r vi den andra metoden
 	if (Higher >= Divisor)
 	{
 		UnitType NewHigher;
@@ -828,7 +828,7 @@ void MrBigInt::DoubleUnitDivide(UnitType Higher, UnitType Lower, UnitType Diviso
 	unsigned __int64 HIgherCopy = Higher;
 	unsigned __int64 Modolu;
 	unsigned __int64 HighQuotient = 0;
-	//TODO optimera denna kod, suger röv, men har ingen aning om hur man ska få end 2xUnitype/1xUnitype att ge en 2xUnitType kvot
+	//TODO optimera denna kod, suger rï¿½v, men har ingen aning om hur man ska fï¿½ end 2xUnitype/1xUnitype att ge en 2xUnitType kvot
 	if (Higher >= Divisor)
 	{
 		HighQuotient = _udiv128(0, Higher, Divisor, &Modolu);
@@ -853,7 +853,7 @@ void MrBigInt::SingleLimbDivision(UnitType const* IntToDivideUnits, unsigned int
 	UnitType r = 0;
 	MrBigInt TempResult;
 	UnitType NormalizedDivisor = UNIT_MAX / Divident;
-	//kopierar inten för att kunna normalisera den
+	//kopierar inten fï¿½r att kunna normalisera den
 	MrBigInt IntToDivide;
 	IntToDivide.InternalUnits = std::vector<UnitType>(IntToDivideUnits, IntToDivideUnits + NumberOfUnits);
 	IntToDivide *= NormalizedDivisor;
@@ -950,7 +950,7 @@ void MrBigInt::KaratsubaMultiplication(MrBigInt const& LeftInt, MrBigInt const& 
 	KaratsubaMultiplication(x1, y1, z1);
 	z1 -= z2;
 	z1 -= z0;
-	//räkna resultat
+	//rï¿½kna resultat
 	z2 <<= 2 * m * UNIT_BITS;
 	z1 <<= m * UNIT_BITS;
 	OutResult = MrBigInt(0);
@@ -1065,7 +1065,7 @@ void MrBigInt::LongMultiplication_MB(MrBigInt const& LeftInt, MrBigInt const& Ri
 		RightIntData = &RightIntCopy;
 	}
 	OutResult = MrBigInt(0);
-	//reservar så den har plats med minst båda
+	//reservar sï¿½ den har plats med minst bï¿½da
 	OutResult.InternalUnits.reserve(RightInt.InternalUnits.size() + LeftInt.InternalUnits.size());
 	size_t LastBitshiftIndex = 0;
 	for (size_t i = 0; i < RightSize; i++)
@@ -1133,7 +1133,7 @@ unsigned int MrBigInt::GetBitByIndex(unsigned int Index) const
 
 unsigned int MrBigInt::GetBitLength() const
 {
-	//funktionen antar att talet är normaliserat och inte har leading nollor
+	//funktionen antar att talet ï¿½r normaliserat och inte har leading nollor
 	unsigned int BitLength = InternalUnits.size() * UNIT_BITS;
 	UnitType BackUnit = InternalUnits.back();
 	for (size_t i = 0; i < UNIT_BITS; i++)
@@ -1188,7 +1188,7 @@ void MrBigInt::PowM_SlidinWindow(MrBigInt const& Base, MrBigInt const& Exponent,
 		}
 		else
 		{
-			//kalkylerar längden på bitstringen
+			//kalkylerar lï¿½ngden pï¿½ bitstringen
 			int L = i - K + 1;
 			while ((i - 1 - L) <= K && L < i)
 			{
@@ -1199,7 +1199,7 @@ void MrBigInt::PowM_SlidinWindow(MrBigInt const& Base, MrBigInt const& Exponent,
 				}
 				L += 1;
 			}
-			//räknar ut indexen i GListan som vi vill ha
+			//rï¿½knar ut indexen i GListan som vi vill ha
 			UnitType TempIndex = L;
 			UnitType j = 0;
 			UnitType GListIndex = 0;
@@ -1240,7 +1240,7 @@ void MrBigInt::PowM_SlidinWindow(MrBigInt const& Base, MrBigInt const& Exponent,
 
 void MrBigInt::PowM(MrBigInt const& Base, MrBigInt const& Exponent, MrBigInt const& Mod, MrBigInt& OutResult)
 {
-	//itererar över exponentsens bits
+	//itererar ï¿½ver exponentsens bits
 	MrBigInt::PowM_SlidinWindow(Base, Exponent, Mod, OutResult);
 	return;
 	unsigned int ExponentBitSize = UNIT_BITS * Exponent.InternalUnits.size();
@@ -1408,7 +1408,7 @@ MrBigInt& MrBigInt::operator<<=(unsigned int BitsToShift)
 	//unsigned int OldIntSize = InternalUnits.size();
 	unsigned int OverFlowBytes = 0;
 	unsigned int StartIndexOffset = 0;
-	//kollar huruvida den enskilda biten på slutet av den första kommer overflowa, då behöver vi en till unit
+	//kollar huruvida den enskilda biten pï¿½ slutet av den fï¿½rsta kommer overflowa, dï¿½ behï¿½ver vi en till unit
 	///*
 	OverFlowBytes = InternalUnits.back() >> (UNIT_BITS - SingleBitsToShift);
 	for (size_t i = 0; i < NewZeroUnits; i++)
@@ -1505,7 +1505,7 @@ std::string MrBigInt::GetBigEndianArray()
 
 MrBigInt MrBigInt::operator>>(unsigned int BitsToShift)
 {
-	//TODO gör grejer här
+	//TODO gï¿½r grejer hï¿½r
 	assert(false);
 	return(0);
 }
@@ -1544,7 +1544,7 @@ MrBigInt& MrBigInt::operator*=(const MrBigInt& RightInt)
 
 MrBigInt& MrBigInt::operator/=(MrBigInt const& RightInt)
 {
-	//långsam division, lång division
+	//lï¿½ngsam division, lï¿½ng division
 	MrBigInt Remainder;
 	MrBigInt Quotient;
 	MrBigInt::UnsignedDivide_AOP(*this, RightInt, Remainder, Quotient);
@@ -1568,7 +1568,7 @@ MrBigInt& MrBigInt::operator+=(const MrBigInt& RightInt)
 	}
 	else if (IsNegative && RightInt.IsNegative == false)
 	{
-		//TODO kan optimseras genom att specifia vilket led som är höger och vänster i funktionen
+		//TODO kan optimseras genom att specifia vilket led som ï¿½r hï¿½ger och vï¿½nster i funktionen
 		MrBigInt RightCopy = MrBigInt(RightInt);
 		RightCopy.SubtractUnsigned(*this);
 		std::swap(InternalUnits, RightCopy.InternalUnits);
@@ -1589,7 +1589,7 @@ MrBigInt& MrBigInt::operator-=(MrBigInt const& RightInt)
 	}
 	if (IsNegative && RightInt.IsNegative)
 	{
-		//vänsterlaedet negativt, högleredet negativt, samma sak som -> VL-HL = HL-abs(VL)
+		//vï¿½nsterlaedet negativt, hï¿½gleredet negativt, samma sak som -> VL-HL = HL-abs(VL)
 		MrBigInt RightIntCopy = MrBigInt(RightInt);
 		RightIntCopy.NegateNumber();
 		RightIntCopy.SubtractUnsigned(*this);

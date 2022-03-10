@@ -316,7 +316,7 @@ enum class ASN1PrimitiveTagNumber : uint8_t
     T61String = 20,
     IA5String = 22,
     UTCTime = 23,
-    NonStandardTag = uint8_t(255)>>3//00011111 alla dem sista är ettor
+    NonStandardTag = uint8_t(255)>>3//00011111 alla dem sista ï¿½r ettor
 };
 enum class ASN1TagClass : uint8_t
 {
@@ -368,14 +368,14 @@ public:
             ReturnValue.IsConstructed = true;
         }
         ReturnValue.TagType =static_cast<ASN1PrimitiveTagNumber>(FirstTagByte&(uint8_t(255)>>3));
-        // om tagtypen inte är nonstandard slutar vi här
+        // om tagtypen inte ï¿½r nonstandard slutar vi hï¿½r
         if (ReturnValue.Class == ASN1TagClass::ContextSpecific)
         {
             ReturnValue.AlternateTagValue = uint8_t(ReturnValue.TagType);
         }
         if (ReturnValue.TagType == ASN1PrimitiveTagNumber::NonStandardTag)
         {
-            //vill ej deala med det här just nu, så vi bara assertar false om det händer och blir ledsen
+            //vill ej deala med det hï¿½r just nu, sï¿½ vi bara assertar false om det hï¿½nder och blir ledsen
             assert(false);
         }
         return(ReturnValue);
@@ -385,20 +385,20 @@ public:
         uint64_t ReturnValue = 0;
         uint8_t FirstLengthByte = DataToReadFrom[Offset];
         Offset += 1;
-        //kollar huruvida det är short eller lång form
+        //kollar huruvida det ï¿½r short eller lï¿½ng form
         if (FirstLengthByte>>7 == 0)
         {
-            //short form, resten av bitarna är det som faktiskt avgör värdet
-            ReturnValue = FirstLengthByte;//tar bort den stösrta ibten
+            //short form, resten av bitarna ï¿½r det som faktiskt avgï¿½r vï¿½rdet
+            ReturnValue = FirstLengthByte;//tar bort den stï¿½srta ibten
         }
         else
         {
-            //första bitten avgör hur många bits som följer 
+            //fï¿½rsta bitten avgï¿½r hur mï¿½nga bits som fï¿½ljer 
             uint8_t NumberOfLengthBits = FirstLengthByte - 128;
-            //tar inte i åtanke att den kan overflowa
+            //tar inte i ï¿½tanke att den kan overflowa
             for (int i = NumberOfLengthBits-1; i >= 0; i--)
             {
-                //big endian, så den första biten är den största
+                //big endian, sï¿½ den fï¿½rsta biten ï¿½r den stï¿½rsta
                 ReturnValue += DataToReadFrom[Offset] * pow(2, i * 8);
                 Offset += 1;
             }

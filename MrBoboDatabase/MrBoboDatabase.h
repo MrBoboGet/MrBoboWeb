@@ -4,6 +4,7 @@
 #include <tuple>
 #include <assert.h>
 #include <MBUtility/MBErrorHandling.h>
+#include <stdexcept>
 class sqlite3;
 struct sqlite3_stmt;
 namespace MBDB
@@ -47,6 +48,7 @@ namespace MBDB
 			{
 				return(ColumnValueTypes[Index] == MBDB_ColumnValueTypes::Text || ColumnValueTypes[Index] == MBDB_ColumnValueTypes::Blob);
 			}
+			throw std::runtime_error("Invalid access type");
 		}
 
 

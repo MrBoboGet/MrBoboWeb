@@ -359,7 +359,7 @@ namespace TLS1_2
 	inline 	uint32_t LocalToInternetByteOrder(uint32_t NumberToConvert)
 	{
 		//TODO: Ha en check som avg�r om det �r litel endian eller inte, s� vi kan �ndra beroende p� 
-		size_t ReturnValue = 0;
+		uint32_t ReturnValue = 0;
 		for (size_t i = 0; i < 4; i++)
 		{
 			ReturnValue += ((NumberToConvert >> (24 - i * 8)) % 256) << i * 8;

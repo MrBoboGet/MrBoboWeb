@@ -34,6 +34,7 @@ int main()
 
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
+	std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
 	//MBSystem::SubProcess TestProcess("dir");
 	//while (!TestProcess.Finished())
 	//{

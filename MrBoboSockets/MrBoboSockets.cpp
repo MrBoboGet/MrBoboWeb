@@ -288,7 +288,7 @@ namespace MBSockets
 		m_Invalid = true;
 		if (m_OSSocketClosed == false)
 		{
-			if (m_OSSocketClosed != MBInvalidSocket)
+			if (m_UnderlyingHandle != MBInvalidSocket)
 			{
 				MBCloseSocket(m_UnderlyingHandle);
 			}

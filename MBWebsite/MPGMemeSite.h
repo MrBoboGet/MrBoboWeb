@@ -161,10 +161,16 @@ namespace MBWebsite
 	{
 	private:
 		std::string m_Username;
-		uint64_t m_GeneralPermissions = 0;
+		uint64_t m_GeneralPermissions = uint64_t(GeneralPermissions::View);
 	public:
-		std::string GetUsername() const;
-		uint64_t GeneralPermissions() const;
+		std::string GetUsername() const
+		{
+			return(m_Username);
+		}
+		uint64_t GeneralPermissions() const
+		{
+			return(m_GeneralPermissions);
+		}
 	};
 
 	enum class FilesystemType
@@ -194,6 +200,7 @@ namespace MBWebsite
 	class MBSitePlugin
 	{
 	private:
+		friend class MBDB_Website;
 		MBDB_Website* m_AssociatedSite = nullptr;
 	protected:
 		MBDB_Website& GetSite() { return(*m_AssociatedSite); };
@@ -203,7 +210,10 @@ namespace MBWebsite
 		virtual void OnCreate(PluginID AssociatedID) = 0;
 		//Sker när den förstörsz
 		virtual void OnDestroy() = 0;
-		virtual ~MBSitePlugin() = 0;
+		virtual ~MBSitePlugin()
+		{
+
+		}
 	};
 	struct MBSAPI_DirectiveResponse
 	{
@@ -269,8 +279,12 @@ namespace MBWebsite
 		bool p_DependanciesLoaded();
 		void p_LoadDependancies();
 
-		std::vector<MBDB::MBDB_RowData> p_EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
-			std::vector<int> ColumnIndex, std::string TableName, MBError* OutError);
+		bool p_VerifyTableName(std::string const& TableNameToVerify);
+		//Checkar att kolumnera har både rätt ordning och existerar i tabellen
+		bool p_VerifyColumnName(std::string const& Table, std::vector<std::string> const& ColumnNames);
+
+		//std::vector<MBDB::MBDB_RowData> p_EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
+		//	std::vector<int> ColumnIndex, std::string TableName, MBError* OutError);
 
 		MBParsing::JSONObject p_API_GetTableNames(MBSiteUser const& AssociatedUser,MBParsing::JSONObject const& ClientRequest,std::string& Status);
 		MBParsing::JSONObject p_API_GetTableInfo(MBSiteUser const& AssociatedUser,MBParsing::JSONObject const& ClientRequest,std::string& Status);
@@ -387,10 +401,10 @@ namespace MBWebsite
 		std::string p_EditResource(std::string const& MBDBResource, std::string const& ResourceFolder, DBPermissionsList const& Permissions);
 
 
-		std::vector<MBDB::MBDB_RowData> EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
-			std::vector<int> ColumnIndex, std::string TableName, MBError* OutError);
-		std::string GetTableNamesBody(std::vector<std::string> const& Arguments);
-		std::string GetTableInfoBody(std::vector<std::string> const& Arguments);
+		//std::vector<MBDB::MBDB_RowData> EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
+		//	std::vector<int> ColumnIndex, std::string TableName, MBError* OutError);
+		//std::string GetTableNamesBody(std::vector<std::string> const& Arguments);
+		//std::string GetTableInfoBody(std::vector<std::string> const& Arguments);
 		bool DB_IndexExists(std::string const& IndexToCheck);
 
 		std::string DBGeneralAPIGetDirective(std::string const& RequestBody);
@@ -465,6 +479,7 @@ namespace MBWebsite
 
 
 		std::mutex m_GlobalResourceFolderMutex;
+		std::atomic<bool> m_GlobalResourceFolderLoaded{ false };
 		std::string m_GlobalResourceFolder = "";
 		std::string p_GetGlobalResourceFolder();
 		std::string p_GetPluginResourceFolder(PluginID AssociatedPlugin);
@@ -499,10 +514,10 @@ namespace MBWebsite
 				std::lock_guard<std::mutex> Lock(m_PluginMapMutex);
 				for (auto const& Plugin : m_LoadedPlugins)
 				{
-					T* Plugin = dynamic_cast<T*>(Plugin.second.get());
-					if (Plugin != nullptr)
+					T* PluginPointer = dynamic_cast<T*>(Plugin.second.get());
+					if (PluginPointer != nullptr)
 					{
-						ReturnValue = PluginReference<T>(Plugin);
+						ReturnValue = PluginReference<T>(PluginPointer);
 						break;
 					}
 				}
@@ -512,7 +527,7 @@ namespace MBWebsite
 
 		//MBError ReadConfig(MBSiteUser const& AssociatedUser, std::string const& ConfigPath, std::ifstream* InputStream);
 
-
+		[[deprecated]]
 		std::string GetResourceFolderPath();
 		MBDB_Website();
 		bool HandlesRequest(MrPostOGet::HTTPClientRequest const& RequestToHandle, MrPostOGet::HTTPClientConnectionState const& ConnectionState, MrPostOGet::HTTPServer* AssociatedServer) override;
