@@ -77,11 +77,12 @@ namespace MBParsing
 		//JSONObject(JSONObjectType InitialType);
 		JSONObject(JSONObject&& ObjectToSteal) noexcept;
 		JSONObject(JSONObject const& ObjectToCopy);
-		JSONObject(std::string&& StringInitializer);
+
+		JSONObject(std::string StringInitializer);
 		JSONObject(intmax_t IntegerInitializer);
 		JSONObject(bool BoolInitializer);
-		JSONObject(std::vector<JSONObject>&& VectorInitializer);
-		JSONObject(std::map<std::string,JSONObject>&& VectorInitializer);
+		JSONObject(std::vector<JSONObject> VectorInitializer);
+		JSONObject(std::map<std::string,JSONObject> VectorInitializer);
 
 		template<typename T>
 		JSONObject(std::vector<T> Values)

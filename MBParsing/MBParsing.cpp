@@ -565,10 +565,10 @@ namespace MBParsing
 	//{
 	//	if(initia)
 	//}
-	JSONObject::JSONObject(std::string&& StringInitializer)
+	JSONObject::JSONObject(std::string StringInitializer)
 	{
 		m_Type = JSONObjectType::String;
-		m_ObjectData = new std::string(StringInitializer);
+		m_ObjectData = new std::string(std::move(StringInitializer));
 	}
 	JSONObject::JSONObject(intmax_t IntegerInitializer)
 	{
@@ -580,15 +580,15 @@ namespace MBParsing
 		m_Type = JSONObjectType::Bool;
 		m_ObjectData = new bool(BoolInitializer);
 	}
-	JSONObject::JSONObject(std::vector<JSONObject>&& VectorInitializer)
+	JSONObject::JSONObject(std::vector<JSONObject> VectorInitializer)
 	{
 		m_Type = JSONObjectType::Array;
-		m_ObjectData = new std::vector<JSONObject>(VectorInitializer);
+		m_ObjectData = new std::vector<JSONObject>(std::move(VectorInitializer));
 	}
-	JSONObject::JSONObject(std::map<std::string, JSONObject>&& VectorInitializer)
+	JSONObject::JSONObject(std::map<std::string, JSONObject> VectorInitializer)
 	{
 		m_Type = JSONObjectType::Aggregate;
-		m_ObjectData = new std::map<std::string,JSONObject>(VectorInitializer);
+		m_ObjectData = new std::map<std::string,JSONObject>(std::move(VectorInitializer));
 	}
 
 	JSONObject::~JSONObject()

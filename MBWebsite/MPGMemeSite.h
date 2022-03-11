@@ -160,6 +160,7 @@ namespace MBWebsite
 	class MBSiteUser
 	{
 	private:
+		friend class MBDB_Website;
 		std::string m_Username;
 		uint64_t m_GeneralPermissions = uint64_t(GeneralPermissions::View);
 	public:
@@ -175,8 +176,8 @@ namespace MBWebsite
 
 	enum class FilesystemType
 	{
-		File,
 		Directory,
+		File,
 		Null,
 	};
 	struct FilesystemObjectInfo
@@ -184,6 +185,19 @@ namespace MBWebsite
 		//permissions?
 		FilesystemType Type = FilesystemType::Null;
 		std::string Name = "";
+		bool operator<(FilesystemObjectInfo const& OtherInfo)
+		{
+			bool ReturnValue = false;
+			if (uint64_t(Type) < uint64_t(OtherInfo.Type))
+			{
+				ReturnValue = true;
+			}
+			else
+			{
+				ReturnValue = Name < OtherInfo.Name;
+			}
+			return(ReturnValue);
+		}
 	};
 
 	enum class FileLocationType
@@ -309,6 +323,20 @@ namespace MBWebsite
 		MBError EvaluateMBDBObject(PluginID CallingPlugin, MBSiteUser const& AssociatedUser, FileLocationType LocationType, std::string const& ObjectPath, MBDB::MBDB_Object& OutObject);
 	};
 
+	class MBSite_FilesystemAPIPlugin : public MBSitePlugin, MBSite_APIHandler
+	{
+	private:
+		PluginID m_PluginID;
+
+		MBSAPI_DirectiveResponse p_HandleFileExists(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments);
+		MBSAPI_DirectiveResponse p_HandleGetFolderContents(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments);
+	public:
+		virtual std::string GetPluginName() const override;
+		virtual void OnCreate(PluginID AssociatedID) override;
+		virtual void OnDestroy() override;
+		virtual std::vector<std::string> HandledDirectives() const override;
+		virtual MBSAPI_DirectiveResponse HandleDirective(MBSiteUser const& AssociatedUser, std::string const& DirectiveName, MBParsing::JSONObject const& DirectiveArguments) override;
+	};
 	//class MBSite_DBViewPlugin : public MBSitePlugin, MBSite_APIHandler, MBSite_HTTPHandler
 	//{
 	//private:

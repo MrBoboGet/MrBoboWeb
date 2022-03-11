@@ -2294,182 +2294,71 @@ namespace MBWebsite
 		MrPostOGet::HTTPDocument ReturnValue;
 		std::string Resourcepath = AssociatedServer->GetResourcePath("mrboboget.se");
 		ReturnValue.Type = MBMIME::MIMEType::json;
-		if (RequestType == "POST")
-		{
-			//tar fram api funktionen
 
-			//eftersom det kan vara sv�rt att parsa argument med godtycklig text har varje argument f�rst hur m�nga bytes argumentent �r
-			size_t FirstSpace = RequestBody.find(" ");
-			std::string APIDirective = DBGeneralAPIGetDirective(RequestBody);
-			std::vector<std::string> APIDirectiveArguments = DBGeneralAPIGetArguments(RequestBody);
-			DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
-			if (APIDirective == "GetTableNames")
+		DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(RequestData);
+		MBSiteUser NewUser;
+		NewUser.m_Username = ConnectionPermissions.AssociatedUser;
+		if (ConnectionPermissions.IsNull)
+		{
+			NewUser.m_GeneralPermissions |= (ConnectionPermissions.Read) * uint64_t(GeneralPermissions::View);
+			NewUser.m_GeneralPermissions |= (ConnectionPermissions.Upload) * uint64_t(GeneralPermissions::Upload);
+			NewUser.m_GeneralPermissions |= (ConnectionPermissions.Edit) * uint64_t(GeneralPermissions::Edit);
+
+		}
+		MBError ParseError = true;
+		MBParsing::JSONObject Request = MBParsing::ParseJSONObject(RequestBody, 0, nullptr, &ParseError);
+		MBSAPI_DirectiveResponse Response;
+		Response.DirectiveResponse = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		if (ParseError)
+		{	
+			try 
 			{
-				if (ConnectionPermissions.Read)
+				std::string Directive = Request.GetAttribute("Directive").GetStringData();
+				MBParsing::JSONObject const& DirectiveArguments = Request.GetAttribute("DirectiveArguments");
+				bool RequestResponded = false;
 				{
-					//ReturnValue.DocumentData = GetTableNamesBody(APIDirectiveArguments);
-				}
-				else
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
-				}
-			}
-			else if (APIDirective == "GetTableInfo")
-			{
-				if (ConnectionPermissions.Read)
-				{
-					//ReturnValue.DocumentData = GetTableInfoBody(APIDirectiveArguments);
-				}
-				else
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
-				}
-			}
-			else if (APIDirective == "AddEntryToTable")
-			{
-				if (ConnectionPermissions.Upload)
-				{
-					//Funktions prototyp TableNamn + ColumnName:stringcolumm data
-					//ReturnValue.DocumentData = DBAPI_AddEntryToTable(APIDirectiveArguments);
-				}
-				else
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require Upload permissions\"}";
-				}
-			}
-			else if (APIDirective == "GetFolderContents")
-			{
-				if (ConnectionPermissions.Read)
-				{
-					ReturnValue.DocumentData = DBAPI_GetFolderContents(APIDirectiveArguments);
-				}
-				else
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
-				}
-			}
-			else if (APIDirective == "SearchTableWithWhere")
-			{
-				if (ConnectionPermissions.Read)
-				{
-					//ReturnValue.DocumentData = DBAPI_SearchTableWithWhere(APIDirectiveArguments);
-				}
-				else
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to read\"}";
-				}
-			}
-			else if (APIDirective == "UpdateTableRow")
-			{
-				if (ConnectionPermissions.Upload)
-				{
-					//ReturnValue.DocumentData = DBAPI_UpdateTableRow(APIDirectiveArguments);
-				}
-				else
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to Edit\"}";
-				}
-			}
-			else if (APIDirective == "Login")
-			{
-				ReturnValue.DocumentData = DBAPI_Login(APIDirectiveArguments);
-				std::string StringToCompare = "{\"MBDBAPI_Status\":\"ok\"}";
-				if (ReturnValue.DocumentData.substr(0, StringToCompare.size()) == StringToCompare)
-				{
-					ReturnValue.ExtraHeaders["Set-Cookie"].push_back("DBUsername=" + APIDirectiveArguments[0] + "; Secure; Max-Age=604800; Path=/");
-					ReturnValue.ExtraHeaders["Set-Cookie"].push_back("DBPassword=" + APIDirectiveArguments[1] + "; Secure; Max-Age=604800; Path=/");
-				}
-			}
-			else if (APIDirective == "FileExists")
-			{
-				if (!ConnectionPermissions.Read)
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid Permissions: Require permissions to Read\"}";
-				}
-				else if (APIDirectiveArguments.size() != 1)
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"Invalid function call\"}";
-				}
-				else
-				{
-					std::string NewDocumentData = "{\"MBDBAPI_Status\":\"ok\",";
-					NewDocumentData += "\"FileExists\":" + ToJason(std::filesystem::exists(GetResourceFolderPath() + APIDirectiveArguments[0])) + ",";
-					std::filesystem::path NewFilepath(APIDirectiveArguments[0]);
-					NewFilepath = NewFilepath.parent_path();
-					std::filesystem::path BaseFilepath(GetResourceFolderPath());
-					bool FoldersExists = true;
-					for (auto const& Directory : NewFilepath)
+					std::lock_guard<std::mutex> Lock(m_APIHandlersMutex);
+					if (m_PluginAPIHandlers.find(Directive) != m_PluginAPIHandlers.end())
 					{
-						BaseFilepath += "/";
-						BaseFilepath += Directory;
-						if (!std::filesystem::exists(BaseFilepath))
-						{
-							FoldersExists = false;
-							break;
-						}
+						Response = m_PluginAPIHandlers[Directive]->HandleDirective(NewUser, Directive, DirectiveArguments);
 					}
-					NewDocumentData += "\"DirectoriesExists\":" + ToJason(FoldersExists) + "}";
-					ReturnValue.DocumentData = NewDocumentData;
+					RequestResponded = true;
 				}
-			}
-			else if (APIDirective == "GetAvailableIndexes")
-			{
-				ReturnValue.DocumentData = DBAPI_GetAvailableIndexes(APIDirectiveArguments);
-			}
-			else if (APIDirective == "GetIndexSearchResult")
-			{
-				ReturnValue.DocumentData = DBAPI_GetIndexSearchResult(APIDirectiveArguments);
-			}
-			else if (APIDirective == "GetBlippFile")
-			{
-				//TODO vi borde ha blipp permissions, men just nu antas users vara blippare
-				if (ConnectionPermissions.AssociatedUser == "guest")
+				if (!RequestResponded && Directive == "Login")
 				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
+					//ReturnValue.DocumentData = DBAPI_Login(APIDirectiveArguments);
+					std::string Username = DirectiveArguments.GetAttribute("Username").GetStringData();
+					std::string Password = DirectiveArguments.GetAttribute("Password").GetStringData();
+					if (m_GetUser(Username,Password).size() != 0)
+					{
+						ReturnValue.ExtraHeaders["Set-Cookie"].push_back("DBUsername=" + Username+ "; Secure; Max-Age=604800; Path=/");
+						ReturnValue.ExtraHeaders["Set-Cookie"].push_back("DBPassword=" + Password + "; Secure; Max-Age=604800; Path=/");
+						Response.Status = "ok";
+					}
+					else
+					{
+						Response.Status = "Invalid credentials";
+					}
 				}
-				else
+				else if (!RequestResponded)
 				{
-					ReturnValue.DocumentData = DBAPI_GetBlippFile(APIDirectiveArguments, ConnectionPermissions);
+					Response.Status = "Invalid Directive";
 				}
 			}
-			else if (APIDirective == "UploadBlippFile")
+			catch (std::exception const& Exception)
 			{
-				if (ConnectionPermissions.AssociatedUser == "guest")
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
-				}
-				else
-				{
-					ReturnValue.DocumentData = DBAPI_UploadBlippFile(APIDirectiveArguments, ConnectionPermissions);
-				}
-			}
-			else if (APIDirective == "UnlockBlippFile")
-			{
-				if (ConnectionPermissions.AssociatedUser == "guest")
-				{
-					ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"LoginRequired\"}";
-				}
-				else
-				{
-					ReturnValue.DocumentData = DBAPI_UnlockBlippFile(APIDirectiveArguments, ConnectionPermissions);
-				}
-			}
-			else if(APIDirective == "UploadBlippBugReport")
-			{
-				ReturnValue.DocumentData = DBAPI_UploadBlippBugReport(APIDirectiveArguments, ConnectionPermissions);
-			}
-			else
-			{
-				ReturnValue.DocumentData = "{\"MBDBAPI_Status\":\"UnknownCommand\"}";
-				//ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
+				Response.Status = "Unkown exception";
 			}
 		}
 		else
 		{
-			ReturnValue.Type = MBMIME::MIMEType::HTML;
-			ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(Resourcepath + "404.html", Resourcepath);
+			Response.Status = "Failed to parse request";
 		}
+		MBParsing::JSONObject CompleteResponse = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		CompleteResponse["MBDBAPI_Status"] = Response.Status;
+		CompleteResponse["DirectiveResponse"] = std::move(Response.DirectiveResponse);
 		//std::cout << ReturnValue.DocumentData << std::endl;
+		ReturnValue.DocumentData = CompleteResponse.ToString();
 		return(ReturnValue);
 	}
 	bool MBDB_Website::DBUpdate_Predicate(std::string const& RequestData)
@@ -2698,14 +2587,14 @@ namespace MBWebsite
 		std::unique_ptr<MBUtility::MBSearchableInputStream>* OutInStream)
 	{
 		MBError ReturnValue = true;
-		*OutInStream = nullptr;
-
+		//*OutInStream = nullptr;
+		std::unique_ptr<MBUtility::MBSearchableInputStream> NewStream = nullptr;
 		if (Location == FileLocationType::PluginStaticResource)
 		{
 			std::string PluginFolder = p_GetPluginResourceFolder(AssociatedPlugin);
 			if (std::filesystem::exists(PluginFolder + Filepath))
 			{
-				*OutInStream = std::unique_ptr<MBUtility::MBSearchableInputStream>(new MBUtility::MBFileInputStream(PluginFolder + Filepath));
+				NewStream = std::unique_ptr<MBUtility::MBSearchableInputStream>(new MBUtility::MBFileInputStream(PluginFolder + Filepath));
 			}
 			else
 			{
@@ -2718,7 +2607,7 @@ namespace MBWebsite
 			std::string DBTopDirectory = GetResourceFolderPath();
 			if (std::filesystem::exists(DBTopDirectory + Filepath))
 			{
-				*OutInStream = std::unique_ptr<MBUtility::MBSearchableInputStream>(new MBUtility::MBFileInputStream(DBTopDirectory + Filepath));
+				NewStream = std::unique_ptr<MBUtility::MBSearchableInputStream>(new MBUtility::MBFileInputStream(DBTopDirectory + Filepath));
 			}
 			else
 			{
@@ -2731,7 +2620,7 @@ namespace MBWebsite
 			std::string GlobalResourceFolder = p_GetGlobalResourceFolder();
 			if (std::filesystem::exists(GlobalResourceFolder + Filepath))
 			{
-				*OutInStream = std::unique_ptr<MBUtility::MBSearchableInputStream>(new MBUtility::MBFileInputStream(GlobalResourceFolder + Filepath));
+				NewStream = std::unique_ptr<MBUtility::MBSearchableInputStream>(new MBUtility::MBFileInputStream(GlobalResourceFolder + Filepath));
 			}
 			else
 			{
@@ -2742,27 +2631,78 @@ namespace MBWebsite
 		else
 		{
 			ReturnValue = false;
-			ReturnValue.ErrorMessage = "Invalid FileLicationType";
+			ReturnValue.ErrorMessage = "Invalid FileLocationType";
 		}
-
+		if (OutInStream != nullptr)
+		{
+			*OutInStream = std::move(NewStream);
+		}
 		return(ReturnValue);
 	}
 	MBError MBDB_Website::WriteFile(PluginID AssociatedPlugin, MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& Filepath, 
 		std::unique_ptr<MBUtility::MBSearchableOutputStream>* OutOutputStream)
 	{
 		MBError ReturnValue = false;
-		*OutOutputStream = nullptr;
+	
+
+		if (OutOutputStream != nullptr)
+		{
+			*OutOutputStream = nullptr;
+		}
 		return(ReturnValue);
 	}
 	MBError MBDB_Website::ListDirectory(PluginID AssociatedPlugin, MBSiteUser const& AssociatedUser, FileLocationType Location, std::string const& DirectoryPath, std::vector<FilesystemObjectInfo>* OutInfo)
 	{
 		MBError ReturnValue = true;
+		
 
-		std::lock_guard<std::mutex> Lock(m_PluginMapMutex);
-		for (auto const& Plugin : m_LoadedPlugins)
+		std::vector<FilesystemObjectInfo> NewOutInfo = {};
+		std::string DirectoryToIteratePath = "";
+		if (Location == FileLocationType::DBFile)
 		{
-			//void* Plugin = dynamic_cast<void*>(Plugin.second.get());
-			PluginID Test = Plugin.first;
+			if (AssociatedUser.GeneralPermissions() & uint64_t(GeneralPermissions::List))
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "User needs \"List\" permissions";
+			}
+			else
+			{
+				DirectoryToIteratePath = GetResourceFolderPath() +"/"+ DirectoryPath;
+			}
+		}
+		else if (Location == FileLocationType::PluginStaticResource)
+		{
+			DirectoryToIteratePath = p_GetPluginResourceFolder(AssociatedPlugin) + "/" + DirectoryPath;
+		}
+		else if (Location == FileLocationType::GlobalStaticResource)
+		{
+			DirectoryToIteratePath = p_GetGlobalResourceFolder() + "/" + DirectoryPath;
+		}
+		else
+		{
+			throw std::runtime_error("Invalid location type");
+		}
+		if (DirectoryToIteratePath != "")
+		{
+			std::filesystem::directory_iterator Iterator(DirectoryToIteratePath);
+			for (auto const& Entry : Iterator)
+			{
+				FilesystemObjectInfo NewInfo;
+				NewInfo.Name = MBUnicode::PathToUTF8(Entry.path().filename());
+				if (Entry.is_directory())
+				{
+					NewInfo.Type = FilesystemType::Directory;
+				}
+				else
+				{
+					NewInfo.Type = FilesystemType::File;
+				}
+				NewOutInfo.push_back(std::move(NewInfo));
+			}
+		}
+		if (OutInfo != nullptr)
+		{
+			*OutInfo = std::move(NewOutInfo);
 		}
 		return(ReturnValue);
 	}
@@ -3522,4 +3462,110 @@ namespace MBWebsite
 		return(ReturnValue);
 	}
 	//END MBSite_DBPlugin
+
+	//BEGIN MBSite_FilesystemAPIPlugin
+	std::string MBSite_FilesystemAPIPlugin::GetPluginName() const
+	{
+		return("MBFilesystemAPI");
+	}
+	void MBSite_FilesystemAPIPlugin::OnCreate(PluginID AssociatedID)
+	{
+		m_PluginID = AssociatedID;
+		GetSite().RegisterMBSiteAPIHandler(m_PluginID,this);
+	}
+	void MBSite_FilesystemAPIPlugin::OnDestroy()
+	{
+
+	}
+	MBSAPI_DirectiveResponse MBSite_FilesystemAPIPlugin::p_HandleFileExists(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments)
+	{
+		MBSAPI_DirectiveResponse ReturnValue;
+		ReturnValue.DirectiveResponse = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		std::string const& FilePath = DirectiveArguments.GetAttribute("FilePath").GetStringData();
+		MBError AccessError = GetSite().ReadFile(m_PluginID, AssociatedUser, FileLocationType::DBFile, FilePath, nullptr);
+		if (AccessError)
+		{
+			ReturnValue.DirectiveResponse["FileExists"] = true;
+			ReturnValue.DirectiveResponse["DirectoriesExists"] = true;
+		}
+		else
+		{
+			ReturnValue.DirectiveResponse["FileExists"] = false;
+			//ganska fult och långsamt med it is what it is
+			std::vector<std::string> DirectoriesComponent = MBUtility::Split(FilePath, "/");
+			std::vector<std::string> NonEmptyDirectoryComponents = {};
+			for (auto const& Component : DirectoriesComponent)
+			{
+				if (Component != "")
+				{
+					NonEmptyDirectoryComponents.push_back(Component);
+				}
+			}
+			bool DirectoriesExists = true;
+			std::string CurrentPath = "/";
+			for (int i = 0; i < NonEmptyDirectoryComponents.size()-1; i++)
+			{
+				CurrentPath += NonEmptyDirectoryComponents[i];
+				MBError Result = GetSite().ListDirectory(m_PluginID, AssociatedUser, FileLocationType::DBFile, CurrentPath, nullptr);
+				if (!Result)
+				{
+					DirectoriesExists = false;
+					break;
+				}
+			}
+			ReturnValue.DirectiveResponse["DirectoriesExists"] = DirectoriesExists;
+		}
+		return(ReturnValue);
+	}
+	MBSAPI_DirectiveResponse MBSite_FilesystemAPIPlugin::p_HandleGetFolderContents(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& DirectiveArguments)
+	{
+		MBSAPI_DirectiveResponse ReturnValue;
+		std::vector<FilesystemObjectInfo> ObjectInfo;
+		ReturnValue.DirectiveResponse = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
+		MBError AccessError = GetSite().ListDirectory(m_PluginID, AssociatedUser,FileLocationType::DBFile, DirectiveArguments.GetAttribute("DirectoryName").GetStringData(), &ObjectInfo);
+		if (AccessError)
+		{
+			ReturnValue.Status= "ok";
+			std::vector<MBParsing::JSONObject> DirectoryEntries = {};
+			std::sort(ObjectInfo.begin(),ObjectInfo.end());
+			for (auto const& Entry : ObjectInfo)
+			{
+				MBParsing::JSONObject NewEntry = MBParsing::JSONObject(std::map<std::string,MBParsing::JSONObject>());
+				NewEntry["Name"] = MBParsing::JSONObject(Entry.Name);
+				if (Entry.Type == FilesystemType::Directory)
+				{
+					NewEntry["Type"] = "Directory";
+				}
+				else 
+				{
+					NewEntry["Type"] = "File";
+				}
+			}
+			ReturnValue.DirectiveResponse["DirectoryEntries"] = MBParsing::JSONObject(std::move(DirectoryEntries));
+		}
+		else
+		{
+			ReturnValue.Status = AccessError.ErrorMessage;
+		}
+		return(ReturnValue);
+	}
+	std::vector<std::string> MBSite_FilesystemAPIPlugin::HandledDirectives() const
+	{
+		std::vector<std::string> ReturnValue = { "FileExists","GetFolderContents" };
+		return(ReturnValue);
+	}
+	MBSAPI_DirectiveResponse MBSite_FilesystemAPIPlugin::HandleDirective(MBSiteUser const& AssociatedUser, std::string const& DirectiveName, MBParsing::JSONObject const& DirectiveArguments)
+	{
+		MBSAPI_DirectiveResponse ReturnValue;
+		if (DirectiveName == "FileExists")
+		{
+			ReturnValue = p_HandleFileExists(AssociatedUser,DirectiveArguments);
+		}
+		else if (DirectiveName == "GetFolderContents")
+		{
+			ReturnValue = p_HandleGetFolderContents(AssociatedUser, DirectiveArguments);
+		}
+		return(ReturnValue);
+	}
+	//END MBSite_FilesystemAPIPlugin
 }
