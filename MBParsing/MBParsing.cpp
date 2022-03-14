@@ -307,7 +307,7 @@ namespace MBParsing
 		}
 		try
 		{
-			ReturnValue = std::stoi(std::string(ObjectData +IntBegin, ObjectData+ IntEnd - IntBegin));
+			ReturnValue = std::stoi(std::string(ObjectData +IntBegin, ObjectData+ IntEnd));
 			ParseOffset = IntEnd;
 		}
 		catch (const std::exception&)
@@ -380,9 +380,10 @@ namespace MBParsing
 			char FirstCharacter = Data[ParseOffset];
 			if (FirstCharacter == 't')
 			{
-				if (ParseOffset + 3 < DataSize && std::memcmp(Data+ParseOffset,"true",4))
+				if (ParseOffset + 3 < DataSize && std::memcmp(Data+ParseOffset,"true",4) == 0)
 				{
 					ReturnValue = true;
+					ParseOffset += 4;
 				}
 				else
 				{
@@ -392,9 +393,10 @@ namespace MBParsing
 			}
 			else if (FirstCharacter == 'f')
 			{
-				if (ParseOffset + 4 < DataSize && std::memcmp(Data + ParseOffset, "false", 5))
+				if (ParseOffset + 4 < DataSize && std::memcmp(Data + ParseOffset, "false", 5) == 0)
 				{
 					ReturnValue = false;
+					ParseOffset += 4;
 				}
 				else
 				{
@@ -561,6 +563,10 @@ namespace MBParsing
 	{
 		swap(*this, ObjectToSteal);
 	}
+	JSONObject::JSONObject(const char* StringInitializer)
+	{
+		*this = JSONObject(std::string(StringInitializer));
+	}
 	//JSONObject::JSONObject(JSONObjectType InitialType)
 	//{
 	//	if(initia)
@@ -590,7 +596,40 @@ namespace MBParsing
 		m_Type = JSONObjectType::Aggregate;
 		m_ObjectData = new std::map<std::string,JSONObject>(std::move(VectorInitializer));
 	}
+	JSONObject::JSONObject(JSONObjectType InitialType)
+	{
+		JSONObject ObjectToBecome;
+		if (InitialType == JSONObjectType::Aggregate)
+		{
+			ObjectToBecome = JSONObject(std::map<std::string, JSONObject>());
+		}
+		else if (InitialType == JSONObjectType::Array)
+		{
+			ObjectToBecome = JSONObject(std::vector<JSONObject>());
+		}
+		else if (InitialType == JSONObjectType::Bool)
+		{
+			ObjectToBecome = false;
+		}
+		else if (InitialType == JSONObjectType::Integer)
+		{
+			ObjectToBecome = intmax_t(0);
+		}
+		else if (InitialType == JSONObjectType::String)
+		{
+			ObjectToBecome = "";
+		}
+		else if (InitialType == JSONObjectType::Null)
+		{
 
+		}
+		else
+		{
+			throw std::runtime_error("Invalid json object type");
+		}
+		*this = std::move(ObjectToBecome);
+
+	}
 	JSONObject::~JSONObject()
 	{
 		p_FreeData();
@@ -675,6 +714,10 @@ namespace MBParsing
 	}
 	JSONObject& JSONObject::operator[](std::string const& AttributeName)
 	{
+		if (m_Type != JSONObjectType::Aggregate)
+		{
+			throw std::domain_error("JSON object not of aggregate type");
+		}
 		return(GetAttribute(AttributeName));
 	}
 	JSONObject const& JSONObject::GetAttribute(std::string const& AttributeName) const
@@ -728,7 +771,10 @@ namespace MBParsing
 		{
 			ReturnValue += ToJason(Entry.first)+":"+Entry.second.ToString()+",";
 		}
-		ReturnValue.resize(ReturnValue.size() - 1);
+		if (Data.size() > 0)
+		{
+			ReturnValue.resize(ReturnValue.size() - 1);
+		}
 		ReturnValue += "}";
 		return(ReturnValue);
 	}

@@ -18,6 +18,8 @@
 #include <cinttypes>
 
 #include <MBUtility/MBInterfaces.h>
+#include <MBMime/MBMime.h>
+
 #include <map>
 #if defined(WIN32) || defined(_WIN32)
 typedef uintmax_t MB_OS_Socket;
@@ -253,6 +255,12 @@ namespace MBSockets
 		HEAD,
 		Null,
 	};
+
+	struct HTTPRequestBody
+	{
+		MBMIME::MIMEType DocumentType = MBMIME::MIMEType::Null;
+		std::string DocumentData;
+	};
 	class HTTPClient : public MBUtility::MBOctetInputStream
 	{
 	private:
@@ -277,6 +285,7 @@ namespace MBSockets
 		size_t Read(void* DataBuffer, size_t BufferSize) override;
 		
 		HTTPRequestResponse SendRequest(HTTPRequestType RequestType, std::string const& RequestResource, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders = {});
+		HTTPRequestResponse SendRequest(HTTPRequestType RequestType, std::string const& RequestResource,HTTPRequestBody const& DataToSend, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders = {});
 		
 		MBError ConnectToHost(std::string const& Host);
 		MBError ConnectToHost(std::string const& Host,OSPort PortToUse);

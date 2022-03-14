@@ -7,9 +7,10 @@ async function DBUpdate_Main()
     var TableName = URLPaths[URLPaths.length-1];
     let NewTable = document.createElement("table");
     NewTable.style.width = "100%";
-    let DBDirective = "GetTableNames ";
+    let DBDirective = {Directive: "GetTableNames",DirectiveArguments: {}};
     let TableNamesResponse = await MBDBAPI_SendDirective(DBDirective);
     let ErrorElement = document.getElementById("DBStatus");
+    console.log(TableNamesResponse);
     if(TableNamesResponse.MBDBAPI_Status != "ok")
     {
         ErrorElement.style.color = "red";
@@ -20,9 +21,9 @@ async function DBUpdate_Main()
     {
         //kollar om tablen existerar
         TableExists = false;
-        for(let i = 0; i<TableNamesResponse.TableNames.length;i++)
+        for(let i = 0; i<TableNamesResponse.DirectiveResponse.TableNames.length;i++)
         {
-            if(TableNamesResponse.TableNames[i] == TableName)
+            if(TableNamesResponse.DirectiveResponse.TableNames[i] == TableName)
             {
                 TableExists = true;
                 break;
@@ -36,14 +37,15 @@ async function DBUpdate_Main()
         }
         //tablet existerar
         //NewTable.appendChild(CreateTableRow(TableNamesResponse.TableNames));
-        let TableInfoResponse = await MBDBAPI_SendDirective("GetTableInfo "+MBDBAPI_EncodeArguments([TableName]));  
-        G_DBUpdate_TableInfo = TableInfoResponse;
+        let TableInfoResponse = await MBDBAPI_SendDirective({Directive: "GetTableInfo",DirectiveArguments: {TableName: TableName}});  
+        G_DBUpdate_TableInfo = {TableInfo: TableInfoResponse.DirectiveResponse.ColumnInfo};
+        console.log(TableInfoResponse);
         let ColumnNames = [];
         let ColumnTypes = [];
-        for(let i = 0; i<TableInfoResponse.TableInfo.length;i++)
+        for(let i = 0; i<TableInfoResponse.DirectiveResponse.ColumnInfo.length;i++)
         {
-            ColumnNames.push(TableInfoResponse.TableInfo[i].ColumnName);
-            ColumnTypes.push(TableInfoResponse.TableInfo[i].ColumnType);
+            ColumnNames.push(TableInfoResponse.DirectiveResponse.ColumnInfo[i].ColumnName);
+            ColumnTypes.push(TableInfoResponse.DirectiveResponse.ColumnInfo[i].ColumnType);
         }
         ColumnNames.push("");
         ColumnTypes.push("");
@@ -57,9 +59,9 @@ async function DBUpdate_Main()
     }
     else
     {
-        for(let i = 0; i < TableNamesResponse.TableNames.length;i++)
+        for(let i = 0; i < TableNamesResponse.DirectiveResponse.TableNames.length;i++)
         {
-            let NewTableName = TableNamesResponse.TableNames[i];
+            let NewTableName = TableNamesResponse.DirectiveResponse.TableNames[i];
             NewTable.appendChild(CreateTableRow([`<a href=/DBUpdate/${NewTableName}>${NewTableName}</a>`]));
         }
     }
@@ -77,7 +79,7 @@ async function DBUpdate_SendQuerry(e)
     var TableName = URLPaths[URLPaths.length-1];
     if(e.key == "Enter")
     {
-        let DBDirective = "SearchTableWithWhere "+MBDBAPI_EncodeArguments([TableName,document.getElementById("SearchBox").value])
+        let DBDirective = {Directive: "SearchTableWithWhere",DirectiveArguments: {TableName: TableName,Query: document.getElementById("SearchBox").value}};
         let DBResponse = await MBDBAPI_SendDirective(DBDirective);
         if(DBResponse.MBDBAPI_Status == "ok")
         {
@@ -92,14 +94,14 @@ async function DBUpdate_SendQuerry(e)
             NewTable.id = "UpdateTable";
             let NewDiv = document.createElement("div");
             NewDiv.id = "WhereSearchResult";
-            for(let i = 0; i < DBResponse.Rows.length;i++)
+            for(let i = 0; i < DBResponse.DirectiveResponse.Rows.length;i++)
             {
                 let NewRow = [];
-                for(let j = 0; j<DBResponse.Rows[i].ColumnCount;j++)
+                for(let j = 0; j<DBResponse.DirectiveResponse.Rows[i].ColumnCount;j++)
                 {
-                    if(DBResponse.Rows[i][j.toString()] != null)
+                    if(DBResponse.DirectiveResponse.Rows[i][j.toString()] != null)
                     {
-                        NewRow.push(DBResponse.Rows[i][j.toString()])
+                        NewRow.push(DBResponse.DirectiveResponse.Rows[i][j.toString()])
                     }
                     else
                     {
@@ -137,7 +139,10 @@ function ResizeRow(e)
     var RowCells = RowElement.childNodes;
     for(var i = 0; i < RowCells.length;i++)
     {
-        RowCells[i].childNodes[0].style.height = e.target.style.height;
+        if(RowCells[i].childNodes[0].hasOwnProperty("style"))
+        {
+            RowCells[i].childNodes[0].style.height = e.target.style.height;
+		}
     }
 }
 
@@ -218,10 +223,14 @@ async function DBUpdate_SendUpdate(e)
     let SubmissionFields = InputRow.querySelectorAll("[data-inputfield]");
     var URLPaths = window.location.pathname.split("/");
     var TableName = URLPaths[URLPaths.length-1];
-    let SubmissionValues = [TableName];
     //console.log(SubmissionFields);
     let CurrentSubmissionfieldIndex = 0;
+   
+    let ColumnNames = [];
+    let OldColumnValues = [];
     let NewColumnValues = []; 
+
+
     for(let i = 0;i < G_DBUpdate_TableInfo.TableInfo.length;i++)
     {
         let NewColumnName = G_DBUpdate_TableInfo.TableInfo[i].ColumnName;
@@ -235,17 +244,16 @@ async function DBUpdate_SendUpdate(e)
             }
             CurrentSubmissionfieldIndex+=1;
         }
-        SubmissionValues.push(NewColumnName);
-        SubmissionValues.push(OldValue);
-        SubmissionValues.push(NewValue);
+        ColumnNames.push(NewColumnName);
+        OldColumnValues.push(OldValue);
         NewColumnValues.push(NewValue);
     }
-    var DirectiveString ="UpdateTableRow ";
-    DirectiveString += MBDBAPI_EncodeArguments(SubmissionValues);
     let ResultElement = document.getElementById("DBStatus");
     ResultElement.innerHTML = "sending data..."
     ResultElement.style.color = "orange";
-    let APIResult = await MBDBAPI_SendDirective(DirectiveString);
+    let APIResult = await MBDBAPI_SendDirective({Directive: "UpdateTableRow",
+                                                 DirectiveArguments: 
+                                                 {TableName: TableName,ColumnNames: ColumnNames,OldColumnValues: OldColumnValues,NewColumnValues: NewColumnValues}});
 
     if(APIResult.MBDBAPI_Status == "ok")
     {

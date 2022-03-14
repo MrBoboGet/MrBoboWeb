@@ -227,17 +227,16 @@ namespace MBDB
 	std::string MBDB_RowData::ToJason() const
 	{
 		size_t NumberOfColumns = RawColumnData.size();
-		std::string ReturnValue = "{\"ColumnCount\":"+std::to_string(RawColumnData.size())+",";
+		std::string ReturnValue = "[";
 		for (size_t i = 0; i < NumberOfColumns; i++)
 		{
-			ReturnValue += "\"" + std::to_string(i) + "\"" + ":";
 			ReturnValue += JsonEncodeValue(ColumnValueTypes[i], RawColumnData[i]);
 			if (i+1 < NumberOfColumns)
 			{
 				ReturnValue += ",";
 			}
 		}
-		ReturnValue += "}";
+		ReturnValue += "]";
 		return(ReturnValue);
 	}
 

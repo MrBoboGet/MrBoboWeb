@@ -48,13 +48,13 @@ function MBDBAPI_EncodeArguments(ArgumentStringArray)
   return(ReturnValue);
 }
 
-async function MBDBAPI_SendDirective(DirectiveString)
+async function MBDBAPI_SendDirective(DirectiveData)
 {
   let ReturnValue = {};
   Result =  fetch("/DBGeneralAPI/", 
   {
    method: "POST", 
-   body: DirectiveString,
+   body: JSON.stringify(DirectiveData),
    headers: {
  'Content-Type': 'application/octet-stream'
  // 'Content-Type': 'application/x-www-form-urlencoded',
@@ -68,6 +68,9 @@ async function MBDBAPI_SendDirective(DirectiveString)
   await Result;
   return(ReturnValue)
 }
+
+
+
 function StringIsPath(StringToCheck)
 {
   //console.log("Kommer till path grejen")

@@ -1,24 +1,14 @@
 async function GetTableInfo(TableName)
 {
-    ReturnValue = [];
-    Result =  fetch("/DBGeneralAPI/", 
-    {
-     method: "POST", 
-     body: "GetTableInfo "+TableName.length.toString()+" "+TableName,
-     headers: {
-   'Content-Type': 'text/plain'
-   // 'Content-Type': 'application/x-www-form-urlencoded',
- },
-}).then(res => res.json()).then(Data =>{
-    //console.log(Data);
-    //console.log(Data.TableNames);
-    ReturnValue = Data.TableInfo;
+    let ReturnValue = [];
+    let DirectiveToSend = {Directive: "GetTableInfo",DirectiveArguments:{TableName: TableName}};
+    let Result = await MBDBAPI_SendDirective(DirectiveToSend);
+    console.log(Result);
     console.log(ReturnValue);
-    //console.log(ReturnValue);   
-});
-    FinishedResult = await Result;
-    //console.log("InnanReturn");
-    //console.log(ReturnValue);
+    if(Result.MBDBAPI_Status == "ok")
+    {
+        ReturnValue = Result.DirectiveResponse.ColumnInfo;
+	}
     console.log(ReturnValue);
     return(ReturnValue);
 }
@@ -28,7 +18,7 @@ async function GetAvailableTables()
     Result =  fetch("/DBGeneralAPI/", 
     {
      method: "POST", 
-     body: "GetTableNames",
+     body: "{\"Directive\":\"GetTableNames\",\"DirectiveArguments\":{}}",
      headers: {
    'Content-Type': 'text/plain'
    // 'Content-Type': 'application/x-www-form-urlencoded',
@@ -94,25 +84,25 @@ async function SubmitRow()
     let SubmissionFields = document.querySelectorAll("[data-InputField]");
     var URLPaths = window.location.pathname.split("/");
     var TableName = URLPaths[URLPaths.length-1];
-    let SubmissionValues = [TableName];
+    //let SubmissionValues = [TableName];
     //console.log(SubmissionFields);
+    let DirectiveToSend = {Directive: "AddEntryToTable"};
+    let DirectiveArguments = {TableName: TableName,ColumnNames: [],ColumnValues: []};
     for(let i = 0;i < SubmissionFields.length;i++)
     {
         //console.log(SubmissionFields[i].innerHTML);
         let ColumnIndex = SubmissionFields[i].getAttribute("data-inputcolumnindex");
-        console.log(ColumnIndex);
-        let NewSubbmissionValue = G_CurrentTableColumnNames[ColumnIndex]+":"+ ColumnIndex.toString()+":"+SubmissionFields[i].value;
+        //let NewSubbmissionValue = G_CurrentTableColumnNames[ColumnIndex]+":"+ ColumnIndex.toString()+":"+SubmissionFields[i].value;
         //let NewSubbmissionValue = SubmissionFields[i].value;
-        SubmissionValues.push(NewSubbmissionValue);
+        //SubmissionValues.push(NewSubbmissionValue);
+        DirectiveArguments.ColumnNames.push(G_CurrentTableColumnNames[ColumnIndex]);
+        DirectiveArguments.ColumnValues.push(SubmissionFields[i].value);
     }
-    console.log(SubmissionValues);
-    var DirectiveString ="AddEntryToTable ";
-    DirectiveString += MBDBAPI_EncodeArguments(SubmissionValues);
-    console.log(DirectiveString);
     let ResultElement = document.getElementById("DBADD_Result");
     ResultElement.innerHTML = "sending data..."
     ResultElement.style.color = "orange";
-    let APIResult = await MBDBAPI_SendDirective(DirectiveString);
+    DirectiveToSend.DirectiveArguments = DirectiveArguments;
+    let APIResult = await MBDBAPI_SendDirective(DirectiveToSend);
 
     if(APIResult.MBDBAPI_Status == "ok")
     {
@@ -144,7 +134,7 @@ async function DBAddMain()
         ResultElement.style.color = "red";
         return;
     }
-    var AvailableTables = AvailableTablesResponse.TableNames;
+    var AvailableTables = AvailableTablesResponse.DirectiveResponse.TableNames;
     var URLTableName = window.location.pathname.split("/").pop();
     
     var NameInTable = false;

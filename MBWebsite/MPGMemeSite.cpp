@@ -576,6 +576,7 @@ namespace MBWebsite
 
 		AddPlugin(std::unique_ptr<MBSite_MBEmbedder>(new MBSite_MBEmbedder()));
 		AddPlugin(std::unique_ptr<MBSite_DBPlugin>(new MBSite_DBPlugin()));
+		AddPlugin(std::unique_ptr<MBSitePlugin>(new MBSite_FilesystemAPIPlugin()));
 
 		//MBDB_Website_GitHandler* InternalGitHandler = new MBDB_Website_GitHandler("", m_BasicPasswordAuthenticator.get());
 		//__InternalHandlers = { std::unique_ptr< MBDB_Website_GitHandler>(InternalGitHandler)};
@@ -2311,6 +2312,22 @@ namespace MBWebsite
 		Response.DirectiveResponse = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
 		if (ParseError)
 		{	
+			if (Request.HasAttribute("UserVerification"))
+			{
+				MBParsing::JSONObject const& UserVerification = Request.GetAttribute("UserVerification");
+				std::string VerificationType = UserVerification.GetAttribute("VerificationType").GetStringData();
+				if (VerificationType == "PasswordHash")
+				{
+					std::string const& UserName = UserVerification.GetAttribute("User").GetStringData();
+					std::string const& PasswordHash = UserVerification.GetAttribute("Password").GetStringData();
+					if (m_GetUser(UserName, PasswordHash).size() > 0)
+					{
+						//just nu har alla samma privilegier för enkelhetsn skull, att reada
+						NewUser.m_Username = UserName;
+						NewUser.m_GeneralPermissions = uint64_t(GeneralPermissions::View);
+					}
+				}
+			}
 			try 
 			{
 				std::string Directive = Request.GetAttribute("Directive").GetStringData();
@@ -2321,8 +2338,8 @@ namespace MBWebsite
 					if (m_PluginAPIHandlers.find(Directive) != m_PluginAPIHandlers.end())
 					{
 						Response = m_PluginAPIHandlers[Directive]->HandleDirective(NewUser, Directive, DirectiveArguments);
+						RequestResponded = true;
 					}
-					RequestResponded = true;
 				}
 				if (!RequestResponded && Directive == "Login")
 				{
@@ -2948,6 +2965,32 @@ namespace MBWebsite
 		}
 		return(StoredNames == ColumnNames);
 	}
+	std::vector<int> MBSite_DBPlugin::p_GetColumnIndexes(std::string const& TableName, std::vector<std::string> const& ColumnNames)
+	{
+		std::lock_guard<std::mutex> ReadLock(m_ReadonlyDatabaseMutex);
+		std::vector<MBDB::ColumnInfo> ColumnsInfo = m_ReadonlyDatabase->GetColumnInfo(TableName);
+		std::vector<int> ReturnValue;
+		for (size_t i = 0; i < ColumnNames.size(); i++)
+		{
+			int Index = -1;
+			for (size_t j = 0; j < ColumnsInfo.size(); j++)
+			{
+				//StoredNames.push_back(ColumnsInfo[i].ColumnName);
+				if (ColumnNames[i] == ColumnsInfo[j].ColumnName)
+				{
+					Index = j;
+					break;
+				}
+			}
+			if (Index == -1)
+			{
+				ReturnValue.clear();
+				break;
+			}
+			ReturnValue.push_back(Index);
+		}
+		return(ReturnValue);
+	}
 	void MBSite_DBPlugin::OnCreate(PluginID AssociatedID)
 	{
 		//läser config
@@ -2974,7 +3017,7 @@ namespace MBWebsite
 	}
 	std::vector<std::string> MBSite_DBPlugin::HandledDirectives() const
 	{
-		std::vector<std::string> ReturnValue = { "GetTableNames","GetTableInfo","" };
+		std::vector<std::string> ReturnValue = { "GetTableNames","GetTableInfo","SearchTableWithWhere","AddEntryToTable", "UpdateTableRow","QueryDatabase"};
 		return(ReturnValue);
 	}
 	MBParsing::JSONObject MBSite_DBPlugin::p_API_GetTableNames(MBSiteUser const& AssociatedUser, MBParsing::JSONObject const& ClientRequest, std::string& Status)
@@ -3000,7 +3043,7 @@ namespace MBWebsite
 		std::vector<MBParsing::JSONObject> ColumnJSONObjects = {};
 		for (size_t i = 0; i < ColumnInfo.size(); i++)
 		{
-			ColumnJSONObjects.push_back(ToJason(ColumnInfo[i]));
+			ColumnJSONObjects.push_back(MBParsing::ParseJSONObject(ToJason(ColumnInfo[i]),0,nullptr,nullptr));
 		}
 		ReturnValue["ColumnInfo"] = MBParsing::JSONObject(std::move(ColumnJSONObjects));
 		return(ReturnValue);
@@ -3058,7 +3101,7 @@ namespace MBWebsite
 		MBError DatabaseError(true);
 		{
 			std::lock_guard<std::mutex> Lock(m_ReadonlyDatabaseMutex);
-			std::string SQlQuerry = "SELECT * FROM " + TableName + " " + DirectiveArguments.GetAttribute("Querry").GetStringData();
+			std::string SQlQuerry = "SELECT * FROM " + TableName + " " + DirectiveArguments.GetAttribute("Query").GetStringData();
 			RowResponse = m_ReadonlyDatabase->GetAllRows(SQlQuerry, &DatabaseError);
 		}
 		if (!DatabaseError)
@@ -3096,7 +3139,7 @@ namespace MBWebsite
 		{
 			ColumnNames.push_back(ColumnNameData[i].GetStringData());
 			OldColumnValues.push_back(OldColumnData[i].GetStringData());
-			NewColumnValues.push_back(OldColumnData[i].GetStringData());
+			NewColumnValues.push_back(NewColumnData[i].GetStringData());
 		}
 		bool ColumnsExist = p_VerifyColumnName(TableName, ColumnNames);
 		if (!ColumnsExist)
@@ -3177,7 +3220,6 @@ namespace MBWebsite
 		std::string SQLCommand = "INSERT INTO " + TableName + "("; //VALUES (";
 		std::vector<std::string> ColumnNames = {};
 		std::vector<std::string> ColumnValues = {};
-		std::vector<int> ColumnIndex = {};
 		MBError DataBaseError(true);
 
 		std::vector<MBParsing::JSONObject> const& ColumnNamesData = DirectiveArguments.GetAttribute("ColumnNames").GetArrayData();
@@ -3194,7 +3236,7 @@ namespace MBWebsite
 			ColumnNames.push_back(ColumnNamesData[i].GetStringData());
 			ColumnValues.push_back(ColumnValuesData[i].GetStringData());
 			SQLCommand += ColumnNamesData[i].GetStringData();
-			if (i + 1 < ColumnNames.size())
+			if (i + 1 < ColumnNamesData.size())
 			{
 				SQLCommand += ",";
 			}
@@ -3231,8 +3273,9 @@ namespace MBWebsite
 		}
 		SQLCommand += ");";
 
-		bool ColumnsExist = p_VerifyColumnName(TableName, ColumnNames);
-		if (!ColumnsExist)
+		//bool ColumnsExist = p_VerifyColumnName(TableName, ColumnNames);
+		std::vector<int> ColumnIndexes = p_GetColumnIndexes(TableName, ColumnNames);
+		if (ColumnIndexes.size() != ColumnNames.size())
 		{
 			Status = "Invalid column names";
 			return(ReturnValue);
@@ -3241,16 +3284,12 @@ namespace MBWebsite
 		std::vector<MBDB::ColumnSQLType> ColumnTypes;
 		std::vector<MBDB::ColumnInfo> ColumnInfo;
 		{
-			m_ReadonlyDatabase->GetColumnInfo(TableName);
+			std::lock_guard<std::mutex> ReadLock(m_ReadonlyDatabaseMutex);
+			ColumnInfo = m_ReadonlyDatabase->GetColumnInfo(TableName);
 		}
-		if (ColumnInfo.size() != ColumnValues.size())
+		for (size_t i = 0; i < ColumnIndexes.size(); i++)
 		{
-			Status = "Error evaluating querry";
-			return(ReturnValue);
-		}
-		for (size_t i = 0; i < ColumnInfo.size(); i++)
-		{
-			ColumnTypes.push_back(ColumnInfo[i].ColumnType);
+			ColumnTypes.push_back(ColumnInfo[ColumnIndexes[i]].ColumnType);
 		}
 		MBDB::SQLStatement* StatementToExecute = m_WriteableDatabase->GetSQLStatement(SQLCommand);
 		StatementToExecute->BindValues(ColumnValues, ColumnTypes, 0);
@@ -3272,6 +3311,31 @@ namespace MBWebsite
 	{
 		MBParsing::JSONObject ReturnValue = MBParsing::JSONObject(std::map<std::string, MBParsing::JSONObject>());
 		//
+		std::string Query = DirectiveArguments.GetAttribute("Query").GetStringData();
+		std::vector<MBDB::MBDB_RowData> RowData;
+		MBError DatabaseError = true;
+		{
+			std::lock_guard<std::mutex> ReadLock(m_ReadonlyDatabaseMutex);
+			MBDB::SQLStatement* StatementToExecute = m_ReadonlyDatabase->GetSQLStatement(Query);
+			RowData = m_ReadonlyDatabase->GetAllRows(StatementToExecute, &DatabaseError);
+			m_ReadonlyDatabase->FreeSQLStatement(StatementToExecute);
+		}
+		if (!DatabaseError)
+		{
+			Status = "Error executing query: " + DatabaseError.ErrorMessage;
+		}
+		else
+		{
+			//OBS förutsätter att querryn får plats i minnet
+			Status = "ok";
+			std::vector<MBParsing::JSONObject> Result;
+			for (size_t i = 0; i < RowData.size(); i++)
+			{
+				Result.push_back(MBParsing::ParseJSONObject(ToJason(RowData[i]), 0, nullptr, nullptr));
+			}
+			ReturnValue["QueryResult"] = std::move(Result);
+			ReturnValue["ColumnCount"] = MBParsing::JSONObject(intmax_t(Result.size()));
+		}
 		return(ReturnValue);
 	}
 	MBSAPI_DirectiveResponse MBSite_DBPlugin::HandleDirective(MBSiteUser const& AssociatedUser,std::string const& DirectiveName,MBParsing::JSONObject const& DirectiveArguments)
@@ -3284,9 +3348,21 @@ namespace MBWebsite
 			{
 				ReturnValue.DirectiveResponse = p_API_GetTableNames(AssociatedUser, DirectiveArguments, ReturnValue.Status);
 			}
+			else if (DirectiveName == "AddEntryToTable")
+			{
+				ReturnValue.DirectiveResponse = p_API_AddEntryToTable(AssociatedUser, DirectiveArguments, ReturnValue.Status);
+			}
+			else if (DirectiveName == "SearchTableWithWhere")
+			{
+				ReturnValue.DirectiveResponse = p_API_SearchTableWithWhere(AssociatedUser, DirectiveArguments, ReturnValue.Status);
+			}
 			else if (DirectiveName == "GetTableInfo")
 			{
 				ReturnValue.DirectiveResponse = p_API_GetTableInfo(AssociatedUser, DirectiveArguments, ReturnValue.Status);
+			}
+			else if (DirectiveName == "UpdateTableRow")
+			{
+				ReturnValue.DirectiveResponse = p_API_UpdateTableRow(AssociatedUser, DirectiveArguments, ReturnValue.Status);
 			}
 			else if (DirectiveName == "QueryDatabase")
 			{
@@ -3540,6 +3616,7 @@ namespace MBWebsite
 				{
 					NewEntry["Type"] = "File";
 				}
+				DirectoryEntries.push_back(std::move(NewEntry));
 			}
 			ReturnValue.DirectiveResponse["DirectoryEntries"] = MBParsing::JSONObject(std::move(DirectoryEntries));
 		}

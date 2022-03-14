@@ -18,7 +18,10 @@ async function DBLogin_SendLoginInfo(e)
         console.log(hash);
         let PasswordHash = toHexString(new Uint8Array(hash));
         console.log(PasswordHash);
-        let DBDirective = "Login "+MBDBAPI_EncodeArguments([UsernameField.value,PasswordHash]);
+        //let DBDirective = "Login "+MBDBAPI_EncodeArguments([UsernameField.value,PasswordHash]);
+        let DBDirective = {};
+        DBDirective.Directive = "Login";
+        DBDirective.DirectiveArguments = {Username: UsernameField.value,Password: PasswordHash};
         let DBResponse = await MBDBAPI_SendDirective(DBDirective);
         if(DBResponse.MBDBAPI_Status == "ok")
         {

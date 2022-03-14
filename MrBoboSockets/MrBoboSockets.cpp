@@ -1046,6 +1046,7 @@ namespace MBSockets
 			}
 		}
 		m_ResponseData = m_ResponseData.substr(m_ParseOffset);
+		m_RecievedBodyData += m_ResponseData.size();
 		m_ParseOffset = 0;
 		return(ReturnValue);
 	}
@@ -1057,7 +1058,7 @@ namespace MBSockets
 		}
 		else
 		{
-			return(m_RecievedBodyData < m_CurrentHeaders.ResponseSize);
+			return(m_RecievedBodyData < m_CurrentHeaders.ResponseSize || m_ResponseData.size() > 0);
 		}
 	}
 	bool HTTPClient::IsConnected()
@@ -1079,19 +1080,22 @@ namespace MBSockets
 				m_IsConnected = false;
 				return(0);
 			}
-			uint64_t DataToRecieve = std::min(m_CurrentHeaders.ResponseSize - m_RecievedBodyData, uint64_t(BufferSize));
+			uint64_t RemainingData = std::min(m_CurrentHeaders.ResponseSize - m_RecievedBodyData, uint64_t(BufferSize));
 			//kan alltid vara som max size_t
-			std::string RecievedData = m_ResponseData.substr(m_ParseOffset);
-			m_ResponseData = "";
-			while (RecievedData.size() < DataToRecieve && m_SocketToUse->IsValid() && m_SocketToUse->IsConnected())
+			std::string RecievedData = m_ResponseData.substr(m_ParseOffset,BufferSize);
+			m_ResponseData = m_ResponseData.substr(std::min(BufferSize,m_ResponseData.size()));
+			m_ParseOffset = 0;
+			while (RecievedData.size() < BufferSize &&  RemainingData > 0 && m_SocketToUse->IsValid() && m_SocketToUse->IsConnected())
 			{
 				size_t PreviousSize = RecievedData.size();
-				RecievedData += m_SocketToUse->RecieveData(DataToRecieve);
+				RecievedData += m_SocketToUse->RecieveData(RemainingData);
 				if (RecievedData.size() == PreviousSize)
 				{	
-					break;
 					m_IsConnected = false;
+					break;
 				}
+				m_RecievedBodyData += RecievedData.size() - PreviousSize;
+				RemainingData -= (RecievedData.size() - PreviousSize);
 			}
 			if (RecievedData.size() > BufferSize)
 			{
@@ -1104,6 +1108,11 @@ namespace MBSockets
 	}
 
 	HTTPRequestResponse HTTPClient::SendRequest(HTTPRequestType Type, std::string const& RequestResource, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders)
+	{
+		HTTPRequestBody DataToSend;
+		return(SendRequest(Type, RequestResource, DataToSend, ExtraHeaders));
+	}
+	HTTPRequestResponse HTTPClient::SendRequest(HTTPRequestType Type, std::string const& RequestResource, HTTPRequestBody const& DataToSend, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders)
 	{
 		std::string RequestType = "";
 		if (Type == HTTPRequestType::GET)
@@ -1121,6 +1130,11 @@ namespace MBSockets
 		}
 		std::string StringToSend = RequestType + RequestResource + " " + "HTTP/1.1\r\nHost: " + m_Host + "\r\n";
 		std::vector<std::pair<std::string, std::string>> DefaultHeaders = p_GetDefaultHeaders();
+		if (DataToSend.DocumentData.size() != 0)
+		{
+			DefaultHeaders.push_back({ "Content-Length",std::to_string(DataToSend.DocumentData.size())});
+			DefaultHeaders.push_back({ "Content-Type",MBMIME::GetMIMEStringFromType(DataToSend.DocumentType)});
+		}
 		for (size_t i = 0; i < DefaultHeaders.size(); i++)
 		{
 			StringToSend += DefaultHeaders[i].first + ": " + DefaultHeaders[i].second + "\r\n";
@@ -1130,13 +1144,18 @@ namespace MBSockets
 			StringToSend += ExtraHeaders[i].first + ": " + ExtraHeaders[i].second + "\r\n";
 		}
 		StringToSend += "\r\n";
+
+		if (DataToSend.DocumentData.size() != 0)
+		{
+			StringToSend += DataToSend.DocumentData;
+		}
+
 		m_SocketToUse->SendData(StringToSend);
 
 		//Skicka request
 		m_CurrentHeaders = p_ParseResponseHeaders();
 		return(m_CurrentHeaders);
 	}
-
 	MBError HTTPClient::ConnectToHost(std::string const& Host) 
 	{
 		MBError ReturnValue = true;
@@ -1292,7 +1311,7 @@ namespace MBSockets
 		m_Resource = URLResource.substr(ResourceSlashPosition);
 		m_SocketToUse->ConnectToHost(URLResource);
 		//Väldigt taskigt
-		HTTPRequestResponse ResourceHead = m_SocketToUse->SendRequest(HTTPRequestType::GET, m_Resource, { {"Range","bytes=0-100"} });
+		HTTPRequestResponse ResourceHead = m_SocketToUse->SendRequest(HTTPRequestType::GET, m_Resource, std::vector<std::pair<std::string,std::string>>({ {"Range","bytes=0-100"} }));
 		if (ResourceHead.StatusCode == -1)
 		{
 			p_Reset();

@@ -81,18 +81,21 @@ namespace MBParsing
 		JSONObject(std::string StringInitializer);
 		JSONObject(intmax_t IntegerInitializer);
 		JSONObject(bool BoolInitializer);
+		JSONObject(const char* StringInitializer);
 		JSONObject(std::vector<JSONObject> VectorInitializer);
 		JSONObject(std::map<std::string,JSONObject> VectorInitializer);
 
+		JSONObject(JSONObjectType InitialType);
+
 		template<typename T>
-		JSONObject(std::vector<T> Values)
+		JSONObject(std::vector<T> const& Values)
 		{
 			m_Type = JSONObjectType::Array;
 			m_ObjectData = new std::vector<JSONObject>();
 			std::vector<JSONObject>* DataPointer = (std::vector<JSONObject>*)m_ObjectData;
 			for (size_t i = 0; i < Values.size(); i++)
 			{
-				DataPointer->push_back(JSONObject(std::move(Values)));
+				DataPointer->push_back(JSONObject(Values[i]));
 			}
 		}
 
@@ -298,6 +301,25 @@ namespace MBParsing
 				else if (FirstCharacter == '\"')
 				{
 					ReturnValue = ResultObjectType(ParseQuotedString(Data, DataSize, ParseOffset, &ParseOffset, &EvaluationError));
+				}
+				else if (FirstCharacter == 'n')
+				{
+					if (DataSize - ParseOffset < 4)
+					{
+						EvaluationError = false;
+						EvaluationError.ErrorMessage = "Invalid character literal";
+					}
+					else if (std::memcmp(Data + ParseOffset, "null",4) != 0)
+					{
+						EvaluationError = false;
+						EvaluationError.ErrorMessage = "Invalid character literal";
+					}
+					else
+					{
+						//default constructor == null
+						ReturnValue = ResultObjectType();
+						ParseOffset += 4;
+					}
 				}
 				else
 				{

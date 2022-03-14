@@ -185,17 +185,21 @@ namespace MBWebsite
 		//permissions?
 		FilesystemType Type = FilesystemType::Null;
 		std::string Name = "";
-		bool operator<(FilesystemObjectInfo const& OtherInfo)
+		bool operator<(FilesystemObjectInfo const& OtherInfo) const
 		{
-			bool ReturnValue = false;
-			if (uint64_t(Type) < uint64_t(OtherInfo.Type))
-			{
-				ReturnValue = true;
-			}
-			else
+			bool ReturnValue = (uint64_t(Type) < uint64_t(OtherInfo.Type));
+			if (Type == OtherInfo.Type)
 			{
 				ReturnValue = Name < OtherInfo.Name;
 			}
+			//if (uint64_t(Type) < uint64_t(OtherInfo.Type))
+			//{
+			//	ReturnValue = true;
+			//}
+			//else
+			//{
+			//	ReturnValue = Name < OtherInfo.Name;
+			//}
 			return(ReturnValue);
 		}
 	};
@@ -296,6 +300,8 @@ namespace MBWebsite
 		bool p_VerifyTableName(std::string const& TableNameToVerify);
 		//Checkar att kolumnera har både rätt ordning och existerar i tabellen
 		bool p_VerifyColumnName(std::string const& Table, std::vector<std::string> const& ColumnNames);
+
+		std::vector<int> p_GetColumnIndexes(std::string const& TableName, std::vector<std::string> const& ColumnNames);
 
 		//std::vector<MBDB::MBDB_RowData> p_EvaluateBoundSQLStatement(std::string SQLCommand, std::vector<std::string> const& ColumnValues,
 		//	std::vector<int> ColumnIndex, std::string TableName, MBError* OutError);

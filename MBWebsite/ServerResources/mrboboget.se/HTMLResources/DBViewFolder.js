@@ -19,18 +19,18 @@ async function UpdateFolderTable()
             InRelativePath = true;
         }
     }
-    console.log(FolderToGet);
     FolderToGet = decodeURIComponent(FolderToGet);
-    DirectiveString += MBDBAPI_EncodeArguments([FolderToGet]);
-    let DirectoryEntries = await MBDBAPI_SendDirective(DirectiveString);
-    console.log(DirectoryEntries);
+    let DirectiveToSend = {Directive: "GetFolderContents",DirectiveArguments:{DirectoryName: FolderToGet}};
+    let DirectoryEntries = await MBDBAPI_SendDirective(DirectiveToSend);
     if(DirectoryEntries.MBDBAPI_Status == "ok")
     {
-        for(let i = 0; i<DirectoryEntries.DirectoryEntries.length;i++)
+        console.log(DirectoryEntries);
+        for(let i = 0; i<DirectoryEntries.DirectiveResponse.DirectoryEntries.length;i++)
         {
-            let NewRowValue = "<a href=\""+"/DBView"+DirectoryEntries.DirectoryEntries[i].Path+"\">";
-            NewRowValue+=GetPathStem(DirectoryEntries.DirectoryEntries[i].Path);
-            if(DirectoryEntries.DirectoryEntries[i].Type == "Directory")
+            let CurrentEntry = DirectoryEntries.DirectiveResponse.DirectoryEntries[i];
+            let NewRowValue = "<a href=\""+"/DBView/"+FolderToGet+"/"+CurrentEntry.Name+"\">";
+            NewRowValue+=CurrentEntry.Name;
+            if(CurrentEntry.Type == "Directory")
             {
                 NewRowValue+=" (Directory)";
             }
