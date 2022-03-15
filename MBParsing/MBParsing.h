@@ -2,6 +2,7 @@
 #include <vector>
 #include <MBUtility/MBErrorHandling.h>
 #include <map>
+#include <cstring>
 namespace MBParsing
 {
 	struct LinearParseState
