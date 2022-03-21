@@ -49,7 +49,7 @@ namespace MBParsing
 	
 	
 	std::vector<std::string> TokenizeText(std::string const& TextInput);
-	std::vector<std::string> TokenizeText(MBUtility::MBOctetInputStream* InputStream);
+	//std::vector<std::string> TokenizeText(MBUtility::MBOctetInputStream* InputStream);
 	
 	bool CharIsNumerical(char CharToCheck);
 	bool CharIsAlphabetical(char CharTocheck);
@@ -65,7 +65,7 @@ namespace MBParsing
 			m_ParseOffset = ParseOffset;
 			m_ErrorString = std::move(ErrorString);
 		}
-		size_t GetParseOffset() 
+		size_t GetParseOffset() const
 		{
 			return(m_ParseOffset);
 		};
@@ -88,7 +88,9 @@ namespace MBParsing
 		SyntaxTree() {};
 
 
-		bool IsLiteral();
+		bool IsLiteral() const;
+		std::string const& GetLiteralData() const;
+
 		NameToken GetType() const;
 		int GetChildCount() const;
 		SyntaxTree& operator[](size_t Index);
@@ -142,14 +144,20 @@ namespace MBParsing
 	public:
 		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
 		void AddAlternative(std::unique_ptr<BNFRule> AlternativeToAdd);
+		size_t size() const { return(m_Alternatives.size()); }
 	};
 	class BNFRule_AND : public BNFRule
 	{
 	private:
 		std::vector<std::unique_ptr<BNFRule>> m_RulesToCombine;
 	public:
+		BNFRule_AND(std::vector<std::unique_ptr<BNFRule>> InitialRules)
+		{
+			m_RulesToCombine = std::move(InitialRules);
+		}
 		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const  override;
 		void AddElement(std::unique_ptr<BNFRule> AlternativeToAdd);
+		size_t size() const { return(m_RulesToCombine.size()); }
 	};
 	class BNFRule_Range : public BNFRule
 	{
@@ -208,11 +216,16 @@ namespace MBParsing
 		std::unique_ptr<BNFRule> ParseTerm(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset);
 		std::unique_ptr<BNFRule> ParseExpression(const void* Data,size_t DataSize,size_t ParseOffset,size_t* OutOffset);
 		//std::unique_ptr<BNFRule> ParseRule(std::string const* TokenData, size_t TokenOffset, size_t TokenCount, size_t* OutTokenOffset, MBError* OutError);
+		std::string p_GetName(NameToken TokenToConvert);
+		void PrintTree(SyntaxTree const& TreeToPrint, int CurrentDepth);
 	public:
 		MBError InitializeRules(std::string const& RuleData);
 
 		BNFRule const& operator[](std::string const& RuleName);
 		BNFRule const& operator[](NameToken RuleValue);
+
+		//debug
+		void PrintTree(SyntaxTree const& TreeToPrint);
 
 
 	};

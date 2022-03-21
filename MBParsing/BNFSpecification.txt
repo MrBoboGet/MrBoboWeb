@@ -1,0 +1,6 @@
+identifier = "hej";
+term = identifier | "123";
+BinaryOperator = "+" | "*" | "-";
+expression = term BinaryOperator expression | term;
+statement = expression ";";
+StatementList = statement+;

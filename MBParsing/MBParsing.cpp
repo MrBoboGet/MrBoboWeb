@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <assert.h>
 #include <stdexcept>
+
+#include <regex>
+
+//DEBUG
+#include <iostream>
+
 namespace MBParsing
 {
 	void WriteBigEndianInteger(void* Buffer, uintmax_t IntegerToWrite, char IntegerSize)
@@ -874,7 +880,44 @@ namespace MBParsing
 
 
 
+	std::vector<std::string> TokenizeText(std::string const& TextInput)
+	{
+		std::vector<std::string> ReturnValue;
+		
+		try
+		{
+			//std::regex SplitRegex = std::regex(R"(([:space:]+)(\(|\)|\[|\]|\+|-|\*|[:alpha:]+|"[^"]*"))", std::regex_constants::extended);
+			std::regex SplitRegex = std::regex(R"(([[:space:]]*)|([[:alpha:]]+|;|"[^"]*"|\+|\*|-|/|\(|\)|\[|]|\{|}))", std::regex_constants::extended);
 
+			std::sregex_iterator Iterator = std::sregex_iterator(TextInput.begin(), TextInput.end(), SplitRegex);
+			std::sregex_iterator End;
+			while (Iterator != End)
+			{
+				if ((*Iterator).size() >= 3)
+				{
+					std::string NewString = (*Iterator)[2].str();
+					if (NewString != "")
+					{
+						ReturnValue.push_back(NewString);
+					}
+				}
+				Iterator++;
+			}
+		}
+		catch(std::exception const& e)
+		{
+			std::cout << R"(([:space:]+)(\(|\)|\[|\]|\+|-|\*|[:alpha:]+|"[^"]*"))" << std::endl;
+			std::cout << e.what() << std::endl;
+			exit(0);
+		}
+		//DEBUG
+		for (size_t i = 0; i < ReturnValue.size(); i++)
+		{
+			std::cout << ReturnValue[i]<<" ";
+		}
+		std::cout.flush();
+		return(ReturnValue);
+	}
 
 
 	//BEGIN SyntaxTree
@@ -887,9 +930,13 @@ namespace MBParsing
 	{
 		m_Type = Type;
 	}
-	bool SyntaxTree::IsLiteral()
+	bool SyntaxTree::IsLiteral() const
 	{
 		return(m_LiteralData != "");
+	}
+	std::string const& SyntaxTree::GetLiteralData() const
+	{
+		return(m_LiteralData);
 	}
 	NameToken SyntaxTree::GetType() const
 	{
@@ -976,9 +1023,10 @@ namespace MBParsing
 		bool Result = false;
 		for (size_t i = 0; i < m_Alternatives.size(); i++)
 		{
-			m_Alternatives[i]->Parse(TokenData, TokenCount, TokenOffset, &OutOffset, &Result);
+			SyntaxTree NewResult = m_Alternatives[i]->Parse(TokenData, TokenCount, TokenOffset, &OutOffset, &Result);
 			if (Result)
 			{
+				ReturnValue = std::move(NewResult);
 				break;
 			}
 		}
@@ -1012,6 +1060,7 @@ namespace MBParsing
 				ReturnValue = SyntaxTree();
 				break;
 			}
+			ReturnValue.AddChild(std::move(NewResult));
 		}
 		if (OutError != nullptr)
 		{
@@ -1095,7 +1144,7 @@ namespace MBParsing
 				std::vector<SyntaxTree> NewChilds = Flatten(TreeToFlatten[i]);
 				for (size_t j = 0; j < NewChilds.size(); j++)
 				{
-					ReturnValue.push_back(std::move(NewChilds[i]));
+					ReturnValue.push_back(std::move(NewChilds[j]));
 				}
 			}
 		}
@@ -1143,6 +1192,7 @@ namespace MBParsing
 			throw std::runtime_error("Associated parser not initialised");
 		}
 		SyntaxTree ReturnValue = (*m_AssociatedParser)[m_RuleName].Parse(TokenData, TokenCount, TokenOffset, OutTokenOffset, OutError);
+		return(ReturnValue);
 	}
 	//END BNFRule_RuleReference
 
@@ -1276,7 +1326,8 @@ namespace MBParsing
 			throw ParseException(CurrentParseOffset, "Expression needs atleast one element");
 		}
 		std::unique_ptr<BNFRule_OR> TopOrClause = std::unique_ptr<BNFRule_OR>(new BNFRule_OR());
-		std::unique_ptr<BNFRule_AND> CurrentAndClause = std::unique_ptr<BNFRule_AND>(new BNFRule_AND());
+		//std::unique_ptr<BNFRule_AND> CurrentAndClause = std::unique_ptr<BNFRule_AND>(new BNFRule_AND());
+		std::vector<std::unique_ptr<BNFRule>> CurrentAndClauses;
 		while (CurrentParseOffset < DataSize)
 		{
 			SkipWhitespace(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
@@ -1288,8 +1339,19 @@ namespace MBParsing
 			if (CharData[CurrentParseOffset] == '|')
 			{
 				CurrentParseOffset += 1;
-				TopOrClause->AddAlternative(std::move(CurrentAndClause));
-				CurrentAndClause = std::unique_ptr<BNFRule_AND>(new BNFRule_AND());
+				if (CurrentAndClauses.size() > 1)
+				{
+					TopOrClause->AddAlternative(std::unique_ptr<BNFRule>(new BNFRule_AND(std::move(CurrentAndClauses))));
+				}
+				else if(CurrentAndClauses.size() == 1)
+				{
+					TopOrClause->AddAlternative(std::move(CurrentAndClauses.front()));
+				}
+				else
+				{
+					throw ParseException(CurrentParseOffset, "Atleast one clause needed before |");
+				}
+				CurrentAndClauses.clear();
 				continue;
 			}
 			std::unique_ptr<BNFRule> NewTerm = nullptr;
@@ -1325,7 +1387,38 @@ namespace MBParsing
 					RangeSpecification NewRange = ParseRange(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
 				}
 			}
-			CurrentAndClause->AddElement(std::move(NewTerm));
+			CurrentAndClauses.push_back(std::move(NewTerm));
+		}
+		if (TopOrClause->size() == 0)
+		{
+			if (CurrentAndClauses.size() > 1)
+			{
+				ReturnValue = std::unique_ptr<BNFRule>(new BNFRule_AND(std::move(CurrentAndClauses)));
+			}
+			else if(CurrentAndClauses.size() == 1)
+			{
+				ReturnValue = std::move(CurrentAndClauses.front());
+			}
+			else
+			{
+				throw ParseException(CurrentParseOffset, "No valid expresssions parsed");
+			}
+		}
+		else
+		{
+			if (CurrentAndClauses.size() > 1)
+			{
+				TopOrClause->AddAlternative(std::unique_ptr<BNFRule>(new BNFRule_AND(std::move(CurrentAndClauses))));
+			}
+			else if (CurrentAndClauses.size() == 1)
+			{
+				TopOrClause->AddAlternative(std::move(CurrentAndClauses.front()));
+			}
+			else
+			{
+				throw ParseException(CurrentParseOffset, "No valid expresssions parsed");
+			}
+			ReturnValue = std::move(TopOrClause);
 		}
 		if (OutOffset != nullptr)
 		{
@@ -1351,13 +1444,13 @@ namespace MBParsing
 			throw ParseException(CurrentParseOffset, "expected = after new rule name");
 		}
 		CurrentParseOffset += 1;
+		m_CurrentTokenName += 1;
 		m_NameToRule[RuleName] = m_CurrentTokenName;
 		m_RuleToName[m_CurrentTokenName] = RuleName;
 		//std::unique_ptr<BNFRule_NamedRule> NewRule = std::unique_ptr<BNFRule_NamedRule>(new BNFRule_NamedRule())
 
 		std::unique_ptr<BNFRule> RuleExpression = ParseExpression(Data,DataSize, CurrentParseOffset, &CurrentParseOffset);
 
-		m_CurrentTokenName += 1;
 		std::unique_ptr<BNFRule_NamedRule> NewRule = std::unique_ptr<BNFRule_NamedRule>(new BNFRule_NamedRule(m_CurrentTokenName, std::move(RuleExpression)));
 
 
@@ -1377,6 +1470,34 @@ namespace MBParsing
 		{
 			*OutOffset = CurrentParseOffset;
 		}
+	}
+	std::string p_GetName(NameToken TokenToConvert)
+	{
+		std::string ReturnValue;
+		if(TokenToConvert == NameToken())
+
+		return(ReturnValue);
+	}
+	void BNFParser::PrintTree(SyntaxTree const& TreeToPrint,int CurrentDepth)
+	{
+		std::string Indentation = std::string(CurrentDepth*4, ' ');
+		if (TreeToPrint.IsLiteral())
+		{
+			std::cout << Indentation << "Literal: " << TreeToPrint.GetLiteralData() << std::endl;
+		}
+		else
+		{
+			std::string Name = m_RuleToName[TreeToPrint.GetType()];
+			std::cout<<Indentation << Name << ":" << std::endl;
+			for (size_t i = 0; i < TreeToPrint.GetChildCount(); i++)
+			{
+				PrintTree(TreeToPrint[i], CurrentDepth + 1);
+			}
+		}
+	}
+	void BNFParser::PrintTree(SyntaxTree const& TreeToPrint)
+	{
+		PrintTree(TreeToPrint, 0);
 	}
 	MBError BNFParser::InitializeRules(std::string const& RuleData)
 	{
@@ -1400,7 +1521,7 @@ namespace MBParsing
 		catch (ParseException const& e)
 		{
 			ReturnValue = false;
-			ReturnValue.ErrorMessage = e.what();
+			ReturnValue.ErrorMessage = "Error at offset "+ std::to_string(e.GetParseOffset())+": "+ e.what();
 		}
 
 
