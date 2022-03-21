@@ -3,6 +3,9 @@
 #include <MBUtility/MBErrorHandling.h>
 #include <map>
 #include <cstring>
+
+#include <MBUtility/MBInterfaces.h>
+#include <unordered_map>
 namespace MBParsing
 {
 	struct LinearParseState
@@ -43,6 +46,187 @@ namespace MBParsing
 	uintmax_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 	uintmax_t ParseBigEndianInteger(const void* DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 
+	
+	
+	std::vector<std::string> TokenizeText(std::string const& TextInput);
+	std::vector<std::string> TokenizeText(MBUtility::MBOctetInputStream* InputStream);
+	
+	bool CharIsNumerical(char CharToCheck);
+	bool CharIsAlphabetical(char CharTocheck);
+
+	class ParseException : public std::exception
+	{
+	private:
+		std::string m_ErrorString;
+		size_t m_ParseOffset = 0;
+	public:
+		ParseException(size_t ParseOffset, std::string ErrorString)
+		{
+			m_ParseOffset = ParseOffset;
+			m_ErrorString = std::move(ErrorString);
+		}
+		size_t GetParseOffset() 
+		{
+			return(m_ParseOffset);
+		};
+		virtual const char* what() const noexcept override
+		{
+			return(m_ErrorString.c_str()); 
+		}
+	};
+
+
+	typedef uint32_t NameToken;
+	class SyntaxTree
+	{
+		uint32_t m_Type = 0;//null typen
+		std::vector<SyntaxTree> m_SubComponents = {};
+		std::string m_LiteralData = "";
+	public:
+		SyntaxTree(std::string LiteralString,NameToken Type);
+		SyntaxTree(NameToken Type);
+		SyntaxTree() {};
+
+
+		bool IsLiteral();
+		NameToken GetType() const;
+		int GetChildCount() const;
+		SyntaxTree& operator[](size_t Index);
+		SyntaxTree const& operator[](size_t Index) const;
+
+		void AddChild(SyntaxTree ChildToAdd);
+	};
+
+	enum class ParseSyntaxTypes
+	{
+		ARRAY,
+		NAMED,
+		LITERAL,
+	};
+
+
+	class BNFRule
+	{
+	public:
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount,size_t TokenOffset,size_t* OutTokenOffset,bool* Success) const = 0;
+		virtual ~BNFRule()
+		{
+
+		}
+	};
+
+	//class BNFParser;
+	//class BNFRuleReference
+	//{
+	//	std::unique_ptr<BNFRule> m_LiteralRule = nullptr;
+	//	std::string m_IndirectRule;
+	//	BNFParser* m_AssociatedParser;
+	//public:
+	//	BNFRuleReference(std::unique_ptr<BNFRule> AssociatedRule);
+	//	BNFRuleReference(NameToken AssociatedRule,BNFParser* AssociatedParser);
+	//	BNFRule const* operator->() const;
+	//};
+
+	class BNFRule_Literal : public BNFRule
+	{
+	private:
+		std::string m_LiteralToParse = "";
+	public:
+		BNFRule_Literal(std::string AssociatedLiteral);
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
+	};
+	class BNFRule_OR : public BNFRule
+	{
+	private:
+		std::vector<std::unique_ptr<BNFRule>> m_Alternatives;
+	public:
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
+		void AddAlternative(std::unique_ptr<BNFRule> AlternativeToAdd);
+	};
+	class BNFRule_AND : public BNFRule
+	{
+	private:
+		std::vector<std::unique_ptr<BNFRule>> m_RulesToCombine;
+	public:
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const  override;
+		void AddElement(std::unique_ptr<BNFRule> AlternativeToAdd);
+	};
+	class BNFRule_Range : public BNFRule
+	{
+	private:
+		int m_MinCount = -1;
+		int m_MaxCount = -1;
+		std::unique_ptr<BNFRule> m_UnderylingRule;
+	public:
+		BNFRule_Range(std::unique_ptr<BNFRule> UnderlyingRule, int MinCount, int MaxCount);
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
+	};
+	class BNFRule_NamedRule : public BNFRule
+	{
+	private:
+		static std::vector<SyntaxTree> Flatten(SyntaxTree const& TreeToFlatten);
+		NameToken m_RuleName = 0;
+		std::unique_ptr<BNFRule> m_UnderlyingRule;
+	public:
+		BNFRule_NamedRule(NameToken RuleName, std::unique_ptr<BNFRule> UnderlyingRule);
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
+	};
+	
+	class BNFParser;
+	class BNFRule_RuleReference : public BNFRule
+	{
+	private:
+		NameToken m_RuleName;
+		BNFParser* m_AssociatedParser = nullptr;
+	public:
+		BNFRule_RuleReference(NameToken RuleName, BNFParser* AssociatedParser)
+		{
+			m_RuleName = RuleName;
+			m_AssociatedParser = AssociatedParser;
+		}
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
+	};
+
+	class BNFParser
+	{
+	private:
+		NameToken m_CurrentTokenName = 100;
+		std::unordered_map<NameToken, std::string> m_RuleToName;
+		std::unordered_map<std::string, NameToken> m_NameToRule;
+		std::unordered_map<NameToken, size_t> m_RuleIndexes;
+		std::vector<std::unique_ptr<BNFRule>> m_Rules;
+
+		struct RangeSpecification
+		{
+			int Min = -1;
+			int Max = -1;
+		};
+
+
+		void ParseNamedRule(const void* Data,size_t DataSize,size_t ParseOffset,size_t* OutOffse);
+		RangeSpecification ParseRange(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset);
+		std::unique_ptr<BNFRule> ParseTerm(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset);
+		std::unique_ptr<BNFRule> ParseExpression(const void* Data,size_t DataSize,size_t ParseOffset,size_t* OutOffset);
+		//std::unique_ptr<BNFRule> ParseRule(std::string const* TokenData, size_t TokenOffset, size_t TokenCount, size_t* OutTokenOffset, MBError* OutError);
+	public:
+		MBError InitializeRules(std::string const& RuleData);
+
+		BNFRule const& operator[](std::string const& RuleName);
+		BNFRule const& operator[](NameToken RuleValue);
+
+
+	};
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	typedef uintmax_t JSONIntegerType;
 	typedef double JSONFloatType;
 	class JSONObject;

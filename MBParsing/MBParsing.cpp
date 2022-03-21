@@ -478,6 +478,17 @@ namespace MBParsing
 		return(FindSubstring(StringToSearch.data(), StringToSearch.size(), Substring.data(), Substring.size(), ParseOffset));
 	}
 
+
+	bool CharIsNumerical(char CharToCheck)
+	{
+		return(CharToCheck >= 48 && CharToCheck <= 57);
+	}
+	bool CharIsAlphabetical(char CharTocheck)
+	{
+		return((CharTocheck >= 65 && CharTocheck <= 90) || (CharTocheck >= 97 && CharTocheck <= 122));
+	}
+
+
 	//BEGIN JSONObject
 	void swap(JSONObject& LeftObject, JSONObject& RightObject)
 	{
@@ -860,4 +871,548 @@ namespace MBParsing
 	{
 		return(ParseJSONObject(Data.data(), Data.size(), ParseOffset, OutOffset, OutError));
 	}
+
+
+
+
+
+
+	//BEGIN SyntaxTree
+	SyntaxTree::SyntaxTree(std::string LiteralString, NameToken Type)
+	{
+		m_Type = Type;
+		m_LiteralData = std::move(LiteralString);
+	}
+	SyntaxTree::SyntaxTree(NameToken Type)
+	{
+		m_Type = Type;
+	}
+	bool SyntaxTree::IsLiteral()
+	{
+		return(m_LiteralData != "");
+	}
+	NameToken SyntaxTree::GetType() const
+	{
+		return(m_Type);
+	}
+	int SyntaxTree::GetChildCount() const
+	{
+		return(m_SubComponents.size());
+	}
+	SyntaxTree& SyntaxTree::operator[](size_t Index)
+	{
+		if (Index >= m_SubComponents.size())
+		{
+			throw std::runtime_error("SyntaxTree child index out of range");
+		}
+		return(m_SubComponents[Index]);
+	}
+	SyntaxTree const& SyntaxTree::operator[](size_t Index) const
+	{
+		if (Index >= m_SubComponents.size())
+		{
+			throw std::runtime_error("SyntaxTree child index out of range");
+		}
+		return(m_SubComponents[Index]);
+	}
+	void SyntaxTree::AddChild(SyntaxTree ChildToAdd)
+	{
+		if (IsLiteral())
+		{
+			throw std::runtime_error("Literal node cant have children");
+		}
+		m_SubComponents.push_back(std::move(ChildToAdd));
+	}
+	//END SyntaxTree
+
+
+	//BEGIN BNFRule_Literal
+	BNFRule_Literal::BNFRule_Literal(std::string AssociatedLiteral)
+	{
+		m_LiteralToParse = std::move(AssociatedLiteral);
+	}
+	SyntaxTree BNFRule_Literal::Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const
+	{
+		SyntaxTree ReturnValue;
+		size_t CurrentOffset = TokenOffset;
+		bool Result = true;
+		if (TokenOffset >= TokenCount)
+		{
+			Result = false;
+		}
+		if (Result)
+		{
+			if (TokenData[CurrentOffset] == m_LiteralToParse)
+			{
+				ReturnValue = SyntaxTree(TokenData[CurrentOffset], NameToken(ParseSyntaxTypes::LITERAL));
+				CurrentOffset += 1;
+			}
+			else
+			{
+				Result = false;
+			}
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = Result;
+		}
+		if (OutTokenOffset != nullptr)
+		{
+			*OutTokenOffset = CurrentOffset;
+		}
+		return(ReturnValue);
+	}
+	//END BNFRule_Literal
+
+	//BEGIN BNFRule_OR
+	void BNFRule_OR::AddAlternative(std::unique_ptr<BNFRule> AlternativeToAdd)
+	{
+		m_Alternatives.push_back(std::move(AlternativeToAdd));
+	}
+	SyntaxTree BNFRule_OR::Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const
+	{
+		SyntaxTree ReturnValue;
+		size_t OutOffset = TokenOffset;
+		bool Result = false;
+		for (size_t i = 0; i < m_Alternatives.size(); i++)
+		{
+			m_Alternatives[i]->Parse(TokenData, TokenCount, TokenOffset, &OutOffset, &Result);
+			if (Result)
+			{
+				break;
+			}
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = Result;
+		}
+		if (OutTokenOffset != nullptr && Result)
+		{
+			*OutTokenOffset = OutOffset;
+		}
+		return(ReturnValue);
+	}
+	//END BNFRule_OR
+
+	//BEGIN BNFRule_AND
+	void BNFRule_AND::AddElement(std::unique_ptr<BNFRule> AlternativeToAdd)
+	{
+		m_RulesToCombine.push_back(std::move(AlternativeToAdd));
+	}
+	SyntaxTree BNFRule_AND::Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const
+	{
+		SyntaxTree ReturnValue = SyntaxTree(NameToken(ParseSyntaxTypes::ARRAY));
+		size_t CurrentOffset = TokenOffset;
+		bool Result = false;
+		for (size_t i = 0; i < m_RulesToCombine.size(); i++)
+		{
+			SyntaxTree NewResult = m_RulesToCombine[i]->Parse(TokenData, TokenCount, CurrentOffset, &CurrentOffset, &Result);
+			if (!Result)
+			{
+				ReturnValue = SyntaxTree();
+				break;
+			}
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = Result;
+		}
+		if (OutTokenOffset != nullptr && Result)
+		{
+			*OutTokenOffset = CurrentOffset;
+		}
+		return(ReturnValue);
+	}
+	//END BNFRule_AND
+
+	//BEGIN BNFRule_Range
+	BNFRule_Range::BNFRule_Range(std::unique_ptr<BNFRule> UnderlyingRule, int MinCount, int MaxCount)
+	{
+		m_UnderylingRule = std::move(UnderlyingRule);
+		m_MinCount = MinCount;
+		m_MaxCount = MaxCount;
+	}
+	SyntaxTree BNFRule_Range::Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const
+	{
+		SyntaxTree ReturnValue = SyntaxTree(NameToken(ParseSyntaxTypes::ARRAY));
+		bool Result = false;
+		size_t CurrentOffset = TokenOffset;
+
+		if (m_MinCount == -1)
+		{
+			throw std::runtime_error("Minimum amount of elements has to be specified");
+		}
+		int ParsedElements = 0;
+		bool ParseElementsResult = false;
+		while (true)
+		{
+			if (m_MaxCount != -1 && ParsedElements > m_MaxCount)
+			{
+				break;
+			}
+			SyntaxTree NewElement = m_UnderylingRule->Parse(TokenData, TokenCount, CurrentOffset, &CurrentOffset,&ParseElementsResult);
+			if (!ParseElementsResult)
+			{
+				break;
+			}
+			ReturnValue.AddChild(std::move(NewElement));
+			ParsedElements += 1;
+		}
+		if (ParsedElements < m_MinCount)
+		{
+			Result = false;
+			ReturnValue = SyntaxTree();
+		}
+		else
+		{
+			//vi kan aldrig parsa för många
+			Result = true;
+		}
+		if (OutError != nullptr)
+		{
+			*OutError = Result;
+		}
+		if (OutTokenOffset != nullptr && Result)
+		{
+			*OutTokenOffset = CurrentOffset;
+		}
+		return(ReturnValue);
+	}
+	//END BNFRule_Range
+
+	//BEGIN BNFRule_NamedRule
+	std::vector<SyntaxTree> BNFRule_NamedRule::Flatten(SyntaxTree const& TreeToFlatten)
+	{
+		std::vector<SyntaxTree> ReturnValue;
+		if (TreeToFlatten.GetType() != NameToken(ParseSyntaxTypes::ARRAY))
+		{
+			ReturnValue.push_back(TreeToFlatten);
+		}
+		else
+		{
+			for (size_t i = 0; i < TreeToFlatten.GetChildCount(); i++)
+			{
+				std::vector<SyntaxTree> NewChilds = Flatten(TreeToFlatten[i]);
+				for (size_t j = 0; j < NewChilds.size(); j++)
+				{
+					ReturnValue.push_back(std::move(NewChilds[i]));
+				}
+			}
+		}
+		return(ReturnValue);
+	}
+	BNFRule_NamedRule::BNFRule_NamedRule(NameToken RuleName, std::unique_ptr<BNFRule> UnderlyingRule)
+	{
+		m_RuleName = RuleName;
+		m_UnderlyingRule = std::move(UnderlyingRule);
+	}
+	SyntaxTree BNFRule_NamedRule::Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const
+	{
+		SyntaxTree ReturnValue = SyntaxTree(m_RuleName);
+		bool Result = false;
+		size_t CurrentOffset = TokenOffset;
+
+		SyntaxTree NewElement = m_UnderlyingRule->Parse(TokenData, TokenCount, CurrentOffset, &CurrentOffset, &Result);
+
+		if (Result)
+		{
+			std::vector<SyntaxTree> Children = Flatten(NewElement);
+			for (size_t i = 0; i < Children.size(); i++)
+			{
+				ReturnValue.AddChild(std::move(Children[i]));
+			}
+		}
+
+		if (OutError != nullptr)
+		{
+			*OutError = Result;
+		}
+		if (OutTokenOffset != nullptr && Result)
+		{
+			*OutTokenOffset = CurrentOffset;
+		}
+		return(ReturnValue);
+	}
+	//END BNFRule_NamedRule
+
+	//BEGIN BNFRule_RuleReference
+	SyntaxTree BNFRule_RuleReference::Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const
+	{
+		if (m_AssociatedParser == nullptr)
+		{
+			throw std::runtime_error("Associated parser not initialised");
+		}
+		SyntaxTree ReturnValue = (*m_AssociatedParser)[m_RuleName].Parse(TokenData, TokenCount, TokenOffset, OutTokenOffset, OutError);
+	}
+	//END BNFRule_RuleReference
+
+	const std::vector<char> G_BNFIdentifierDelimiters = { '\n',' ','\t','*',' ','+','{','}','(',')',';'};
+	//BEGIN BNFParser
+	BNFParser::RangeSpecification BNFParser::ParseRange(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset)
+	{
+		RangeSpecification ReturnValue;
+		const char* CharData = (const char*)Data;
+		size_t CurrentParseOffset = ParseOffset;
+
+		if (CurrentParseOffset >= DataSize)
+		{
+			throw ParseException(CurrentParseOffset, "unexpected end of file when parsing range");
+		}
+		if (CharData[CurrentParseOffset] != '{')
+		{
+			throw ParseException(CurrentParseOffset, "invalid begin of range");
+		}
+		size_t RangeBegin = CurrentParseOffset;
+		size_t RangeEnd = CurrentParseOffset;
+		while (RangeEnd < DataSize)
+		{
+			if (CharData[RangeEnd] != '}')
+			{
+				RangeEnd += 1;
+			}
+			else
+			{
+				break;
+			}
+		}
+		if (RangeEnd == DataSize)
+		{
+			throw ParseException(CurrentParseOffset, "end of range not found");
+		}
+		size_t RangeMiddle = RangeBegin + 1;
+		while (RangeMiddle < RangeEnd)
+		{
+			if (CharData[RangeMiddle] != ',')
+			{
+				RangeMiddle += 1;
+			}
+			else
+			{
+				break;
+			}
+		}
+		if (RangeMiddle == RangeEnd)
+		{
+			throw ParseException(CurrentParseOffset, "begin and and of range has to be specified");
+		}
+		std::string FirstRangeSpecifier = std::string(CharData + RangeBegin + 1, RangeMiddle - (RangeBegin + 1));
+		std::string SecondRangeSpecifier = std::string(CharData + RangeMiddle + 1, RangeEnd - (RangeMiddle + 1));
+
+		bool ParseIntegerError = true;
+		std::string ErrorMessage = "";
+		try
+		{
+			ReturnValue.Min = std::stoi(FirstRangeSpecifier);
+			ReturnValue.Max = std::stoi(SecondRangeSpecifier);
+		}
+		catch(std::exception const& e)
+		{
+			ParseIntegerError = false;
+			ErrorMessage = e.what();
+		}
+		if (!ParseIntegerError)
+		{
+			throw ParseException(CurrentParseOffset, "Error parssing range integers: "+ErrorMessage);
+		}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = RangeEnd+1;
+		}
+		return(ReturnValue);
+	}
+	std::unique_ptr<BNFRule> BNFParser::ParseTerm(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset)
+	{
+		std::unique_ptr<BNFRule> ReturnValue;
+		const char* CharData = (const char*)Data;
+		size_t CurrentParseOffset = ParseOffset;
+		
+		if(CurrentParseOffset >= DataSize)
+		{
+			throw ParseException(CurrentParseOffset, "unexpected end of file when parsing term");
+		}
+
+		if (CharData[CurrentParseOffset] == '\"')
+		{
+			MBError ParseResult = true;
+			std::string LiteralData = ParseQuotedString(Data, DataSize, CurrentParseOffset, &CurrentParseOffset, &ParseResult);
+			if (!ParseResult)
+			{
+				throw ParseException(CurrentParseOffset, "Error parsing term: " + ParseResult.ErrorMessage);
+			}
+			ReturnValue = std::unique_ptr<BNFRule>(new BNFRule_Literal(std::move(LiteralData))); 
+		}
+		else if (CharIsAlphabetical(CharData[CurrentParseOffset]))
+		{
+			std::string RuleName = "";
+			while (CurrentParseOffset < DataSize && CharIsAlphabetical(CharData[CurrentParseOffset]))
+			{
+				RuleName += CharData[CurrentParseOffset];
+				CurrentParseOffset += 1;
+			}
+			if (m_NameToRule.find(RuleName) == m_NameToRule.end())
+			{
+				throw ParseException(CurrentParseOffset, "rule term not defined");
+			}
+			ReturnValue = std::unique_ptr<BNFRule>(new BNFRule_RuleReference(m_NameToRule[RuleName],this));
+		}
+		else
+		{
+			throw ParseException(CurrentParseOffset, "Expected literal string or identifier name");
+		}
+
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = CurrentParseOffset;
+		}
+		return(ReturnValue);
+	}
+	std::unique_ptr<BNFRule> BNFParser::ParseExpression(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset)
+	{
+		std::unique_ptr<BNFRule> ReturnValue = nullptr;
+		size_t CurrentParseOffset = ParseOffset;
+		const char* CharData = (const char*)Data;
+		if (CurrentParseOffset >= DataSize)
+		{
+			throw ParseException(CurrentParseOffset, "Expression needs atleast one element");
+		}
+		std::unique_ptr<BNFRule_OR> TopOrClause = std::unique_ptr<BNFRule_OR>(new BNFRule_OR());
+		std::unique_ptr<BNFRule_AND> CurrentAndClause = std::unique_ptr<BNFRule_AND>(new BNFRule_AND());
+		while (CurrentParseOffset < DataSize)
+		{
+			SkipWhitespace(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
+			if (CharData[CurrentParseOffset] == ';' || CharData[CurrentParseOffset] == ')' || CharData[CurrentParseOffset] == ']')
+			{
+				CurrentParseOffset += 1;
+				break;
+			}
+			if (CharData[CurrentParseOffset] == '|')
+			{
+				CurrentParseOffset += 1;
+				TopOrClause->AddAlternative(std::move(CurrentAndClause));
+				CurrentAndClause = std::unique_ptr<BNFRule_AND>(new BNFRule_AND());
+				continue;
+			}
+			std::unique_ptr<BNFRule> NewTerm = nullptr;
+			if (CharData[CurrentParseOffset] == '(')
+			{
+				CurrentParseOffset += 1;
+				NewTerm = ParseExpression(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
+			}
+			else if (CharData[CurrentParseOffset] == '[')
+			{
+				CurrentParseOffset += 1;
+				NewTerm = ParseExpression(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
+				NewTerm = std::unique_ptr<BNFRule_Range>(new BNFRule_Range(std::move(NewTerm), 0, 1));
+			}
+			else
+			{
+				NewTerm = ParseTerm(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
+			}
+			if (CurrentParseOffset < DataSize)
+			{
+				if (CharData[CurrentParseOffset] == '+')
+				{
+					CurrentParseOffset += 1;
+					NewTerm = std::unique_ptr<BNFRule>(new BNFRule_Range(std::move(NewTerm), 1, -1));
+				}
+				else if (CharData[CurrentParseOffset] == '*')
+				{
+					CurrentParseOffset += 1;
+					NewTerm = std::unique_ptr<BNFRule>(new BNFRule_Range(std::move(NewTerm), 0, -1));
+				}
+				else if (CharData[CurrentParseOffset] == '{')
+				{
+					RangeSpecification NewRange = ParseRange(Data, DataSize, CurrentParseOffset, &CurrentParseOffset);
+				}
+			}
+			CurrentAndClause->AddElement(std::move(NewTerm));
+		}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = CurrentParseOffset;
+		}
+		return(ReturnValue);
+	}
+	void BNFParser::ParseNamedRule(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset)
+	{
+		//börjar alltid på namnet 
+		MBError Result = true;
+		size_t CurrentParseOffset = ParseOffset;
+		const char* CharData = (const char*)Data;
+		size_t NameEnd = GetNextDelimiterPosition(G_BNFIdentifierDelimiters, Data, DataSize, CurrentParseOffset, &Result);
+		if (!Result || NameEnd >= DataSize)
+		{
+			throw ParseException(CurrentParseOffset, "unexpected end of identifier");
+		}
+		std::string RuleName = std::string(((const char*)Data) + CurrentParseOffset, NameEnd - CurrentParseOffset);
+		SkipWhitespace(Data, DataSize, NameEnd, &CurrentParseOffset);
+		if (CurrentParseOffset >= DataSize || CharData[CurrentParseOffset] != '=')
+		{
+			throw ParseException(CurrentParseOffset, "expected = after new rule name");
+		}
+		CurrentParseOffset += 1;
+		m_NameToRule[RuleName] = m_CurrentTokenName;
+		m_RuleToName[m_CurrentTokenName] = RuleName;
+		//std::unique_ptr<BNFRule_NamedRule> NewRule = std::unique_ptr<BNFRule_NamedRule>(new BNFRule_NamedRule())
+
+		std::unique_ptr<BNFRule> RuleExpression = ParseExpression(Data,DataSize, CurrentParseOffset, &CurrentParseOffset);
+
+		m_CurrentTokenName += 1;
+		std::unique_ptr<BNFRule_NamedRule> NewRule = std::unique_ptr<BNFRule_NamedRule>(new BNFRule_NamedRule(m_CurrentTokenName, std::move(RuleExpression)));
+
+
+		m_RuleIndexes[m_CurrentTokenName] = m_Rules.size();
+		m_Rules.push_back(std::move(NewRule));
+
+		//std::vector<std::unique_ptr<BNFRule>> CurrentAndTerms;
+		//while (CurrentParseOffset < DataSize)
+		//{
+		//	if (CharData[CurrentParseOffset] == ';')
+		//	{
+		//		break;
+		//	}
+		//	std::unique_ptr<BNFRule> NewRule = ParseExpression()
+		//}
+		if (OutOffset != nullptr)
+		{
+			*OutOffset = CurrentParseOffset;
+		}
+	}
+	MBError BNFParser::InitializeRules(std::string const& RuleData)
+	{
+		MBError ReturnValue = true;
+		size_t CurrentParseOffset = 0;
+		void const* DataToParse = RuleData.data();
+		size_t DataSize = RuleData.size();
+		try
+		{
+			while (CurrentParseOffset < RuleData.size())
+			{
+				SkipWhitespace(DataToParse, DataSize, CurrentParseOffset, &CurrentParseOffset);
+				ParseNamedRule(DataToParse, DataSize, CurrentParseOffset, &CurrentParseOffset);
+				SkipWhitespace(DataToParse, DataSize, CurrentParseOffset, &CurrentParseOffset);
+				if (!ReturnValue)
+				{
+					break;
+				}
+			}
+		}
+		catch (ParseException const& e)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = e.what();
+		}
+
+
+		return(ReturnValue);
+	}
+	BNFRule const& BNFParser::operator[](std::string const& RuleName)
+	{
+		return(*m_Rules.at(m_RuleIndexes.at(m_NameToRule.at(RuleName))));
+	}
+	BNFRule const& BNFParser::operator[](NameToken RuleValue)
+	{
+		return(*m_Rules.at(m_RuleIndexes.at(RuleValue)));
+	}
+	//END BNFParser
 };

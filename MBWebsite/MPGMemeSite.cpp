@@ -2587,7 +2587,12 @@ namespace MBWebsite
 	std::string MBDB_Website::_GetPluginFileAbsolutePath(PluginID const& AssociatedPlugin, std::string const& PluginFilePath)
 	{
 		std::string ReturnValue;
-		std::string PluginResourceFolder = p_GetPluginResourceFolder(AssociatedPlugin);
+		std::string PluginName = "";
+		{
+			std::lock_guard<std::mutex> Lock(m_PluginNameMutex);
+			PluginName = m_PluginNames[AssociatedPlugin];
+		}
+		std::string PluginResourceFolder = GetResourceFolderPath() + "../Plugins/" + PluginName + "/"; //p_GetPluginResourceFolder(AssociatedPlugin);
 		ReturnValue = PluginResourceFolder + PluginFilePath;
 		return(ReturnValue);
 	}

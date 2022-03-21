@@ -2133,9 +2133,9 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 	}
 	if (RecieveDataState.StoredRecords.size() > 0)
 	{
-		std::string StoredRecord = RecieveDataState.StoredRecords.front();
+		std::string StoredRecord = std::move(RecieveDataState.StoredRecords.front());
 		RecieveDataState.StoredRecords.pop_front();
-		return(StoredRecord);
+		return(std::move(StoredRecord));
 	}
 	std::string NewRecordData = "";
 	std::swap(NewRecordData, RecieveDataState.CurrentRecordPreviousData);
@@ -2153,7 +2153,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 	size_t RecievedDataOffset = 0;
 	bool NewRecordExtracted = false;
 	std::vector<std::string> NewRecords = {};
-	while (RecievedDataOffset < NewRecordData.size())
+	while (RecievedDataOffset < NewRecordData.size() && SocketToConnect->IsValid() && SocketToConnect->IsConnected())
 	{
 		if (!NewRecordExtracted)
 		{
@@ -2161,7 +2161,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 			TLS1_2::NetWorkDataHandler LengthExtractor((const uint8_t*)&NewRecordData.c_str()[RecievedDataOffset]);
 			LengthExtractor.SetPosition(LengthExtractor.GetPosition() + 3);
 			int CurrentRecordSize = LengthExtractor.Extract16();
-			if (NewRecordData.size()-5 < CurrentRecordSize)
+			while (NewRecordData.size()-5 < CurrentRecordSize && SocketToConnect->IsValid() && SocketToConnect->IsConnected())
 			{
 				NewRecordData += SocketToConnect->RecieveData(MaxBytesInMemory - NewRecordData.size());
 			}
@@ -2195,12 +2195,17 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 			}
 		}
 	}
+	if (NewRecordData.size() == 0)
+	{
+		//throw std::runtime_error("No message to retrieve");
+		NewRecords.push_back(std::string(""));
+	}
 	//pushar alla records som var nya till v�r stack av records som vi vill spara
 	for (size_t i = 1; i < NewRecords.size(); i++)
 	{
-		RecieveDataState.StoredRecords.push_back(NewRecords[i]);
+		RecieveDataState.StoredRecords.push_back(std::move(NewRecords[i]));
 	}
-	return(NewRecords[0]);
+	return(std::move(NewRecords[0]));
 }
 bool TLSHandler::HandleAlertMessage(MBSockets::ConnectSocket* SocketToConnect,std::string const& DecryptedAlertRecord)
 {

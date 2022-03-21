@@ -35,6 +35,25 @@ int main()
 	std::filesystem::current_path("C:/Users/emanu/Desktop/Program/C++/BasicChatCmake/");
 
 	std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
+
+
+
+	//MBParsing Test
+	std::string BNFTestData = "test = \"hej\";\ntest2 = test|\"hej2\";";
+	MBParsing::BNFParser TestParser;
+	TestParser.InitializeRules(BNFTestData);
+
+
+
+
+
+
+
+
+
+
+
+
 	//MBSystem::SubProcess TestProcess("dir");
 	//while (!TestProcess.Finished())
 	//{

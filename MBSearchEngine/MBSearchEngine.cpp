@@ -26,7 +26,7 @@ namespace MBSearchEngine
 	}
 	SearchToken::SearchToken(std::string const& StringToNormalize)
 	{
-		//här vill vi egentligen converat allt till säg lowercase
+		//hï¿½r vill vi egentligen converat allt till sï¿½g lowercase
 		TokenName = MBUnicode::UnicodeStringToLower(StringToNormalize);
 	}
 	std::vector<SearchToken> SearchToken::TokenizeString(std::string const& DataToTokenize)
@@ -92,7 +92,7 @@ namespace MBSearchEngine
 		if (InitialQuerry.m_IsAtomic)
 		{
 			m_IsAtomic = true;
-			//mer grejer här
+			//mer grejer hï¿½r
 			if (InitialQuerry.m_QuerryString[0] == '\"')
 			{
 				//phrase querry
@@ -154,7 +154,7 @@ namespace MBSearchEngine
 		m_MaxDocID = ObjectToCopy.m_MaxDocID;
 		if (ObjectToCopy.m_LeftOperand != nullptr)
 		{
-			//om en är det är båda det
+			//om en ï¿½r det ï¿½r bï¿½da det
 			m_LeftOperand = new BooleanQuerryIterator(*ObjectToCopy.m_LeftOperand);
 			m_RightOperand = new BooleanQuerryIterator(*ObjectToCopy.m_RightOperand);
 		}
@@ -195,7 +195,7 @@ namespace MBSearchEngine
 		ReturnValue = ReturnValue && (m_MaxDocID == RightIterator.m_MaxDocID);
 		if (m_LeftOperand != nullptr)
 		{
-			//om en äär det är båda det
+			//om en ï¿½ï¿½r det ï¿½r bï¿½da det
 			ReturnValue = ReturnValue && (*m_LeftOperand == *RightIterator.m_LeftOperand);
 			ReturnValue = ReturnValue && (*m_RightOperand == *RightIterator.m_RightOperand);
 		}
@@ -205,7 +205,7 @@ namespace MBSearchEngine
 	{
 		return(!(*this == RightIterator));
 	}
-	//ändrar current value
+	//ï¿½ndrar current value
 	void BooleanQuerryIterator::p_IterateToNextCommonDocument(std::vector<PostingsListIterator>& IteratorToProcess)
 	{
 		size_t IteratorToCompareIndex = 0;
@@ -449,7 +449,7 @@ namespace MBSearchEngine
 		}
 		if(m_IsNegated)
 		{
-			//bara för att vanlig iteration sluta ska vi inte det här
+			//bara fï¿½r att vanlig iteration sluta ska vi inte det hï¿½r
 			if (m_IsFinished)
 			{
 				m_IsFinished = false;
@@ -540,7 +540,7 @@ namespace MBSearchEngine
 				return(ReturnValue);
 			}
 		}
-		//checkar validityn av paranteser, AND och OR kan bara vara på samma djup som sig själva
+		//checkar validityn av paranteser, AND och OR kan bara vara pï¿½ samma djup som sig sjï¿½lva
 		for (size_t i = 0; i < OperatorPositions.size() - 1; i++)
 		{
 			if (OperatorDepth[i] == OperatorDepth[i + 1])
@@ -553,7 +553,7 @@ namespace MBSearchEngine
 				}
 			}
 		}
-		//nu är parsingen i ett valid state och vi kommer då att bryta upp den i sub querrys utifrån operatorn med lägst depth
+		//nu ï¿½r parsingen i ett valid state och vi kommer dï¿½ att bryta upp den i sub querrys utifrï¿½n operatorn med lï¿½gst depth
 		int LowestDetph = 1000000000;
 		size_t LowestDepthOperatorPosition = -1;
 		for (size_t i = 0; i < OperatorPositions.size(); i++)
@@ -597,7 +597,7 @@ namespace MBSearchEngine
 		TopQuerry Querry = GetSubquerries(QuerryToParse);
 		if (!m_ParseStatus)
 		{
-			//error hände, slut med resten
+			//error hï¿½nde, slut med resten
 			return;
 		}
 		m_Negated = Querry.IsNegated;
@@ -733,7 +733,7 @@ namespace MBSearchEngine
 				IteratorToCompareIndex += 1;
 				if (IteratorToCompareIndex == PostinglistIterators.size() - 1)
 				{
-					//alla är samma
+					//alla ï¿½r samma
 					ReturnValue = (*Postinglists[0])[PostinglistIterators[0]].DocumentReference;
 					break;
 				}
@@ -744,7 +744,7 @@ namespace MBSearchEngine
 				if ((*Postinglists[IteratorToCompareIndex])[PostinglistIterators[IteratorToCompareIndex]].DocumentReference <
 					(*Postinglists[IteratorToCompareIndex + 1])[PostinglistIterators[IteratorToCompareIndex + 1]].DocumentReference)
 				{
-					//detta innebär att "dokumentförslaget" inte fungerar och vi går till toppen igen
+					//detta innebï¿½r att "dokumentfï¿½rslaget" inte fungerar och vi gï¿½r till toppen igen
 					PostinglistIterators[0]++;
 					IteratorToCompareIndex = 0;
 				}
@@ -854,10 +854,10 @@ namespace MBSearchEngine
 		}
 		else
 		{
-			//nu kör vi på en basic som kollar om det är en phrase search eller om det är ett ord
+			//nu kï¿½r vi pï¿½ en basic som kollar om det ï¿½r en phrase search eller om det ï¿½r ett ord
 			if (GetNextStringBeginning(m_QuerryString, 0) == -1)
 			{
-				//single word querry, vi slår upp den i dictionaryn, hittar postingen och konstruerar document listan
+				//single word querry, vi slï¿½r upp den i dictionaryn, hittar postingen och konstruerar document listan
 				PostingListID WordPosting = Index.m_TokenDictionary.GetTokenPosting(m_QuerryString);
 				if (WordPosting == -1)
 				{
@@ -915,7 +915,7 @@ namespace MBSearchEngine
 		PostingListID NewListID = GetNumberOfTokens();
 		//m_TokenMapInMemory.push_back(TokenDictionaryEntry(TokenData, NewListID));
 		m_TokenMapInMemory[TokenData] = TokenDictionaryEntry(TokenData, NewListID);
-		//extremt långsamt och ass egentligen, men får tänka ut datastrukturen lite bättre sen
+		//extremt lï¿½ngsamt och ass egentligen, men fï¿½r tï¿½nka ut datastrukturen lite bï¿½ttre sen
 		//std::sort(m_TokenMapInMemory.begin(), m_TokenMapInMemory.end());
 		return(NewListID);
 	}
@@ -1022,7 +1022,7 @@ namespace MBSearchEngine
 	}
 	bool TokenDictionaryIterator::operator==(TokenDictionaryIterator const& RightIterator) const
 	{
-		//kanske borde jämföra huruvida dem är har samma container också, men skitsamma så länge
+		//kanske borde jï¿½mfï¿½ra huruvida dem ï¿½r har samma container ocksï¿½, men skitsamma sï¿½ lï¿½nge
 		//return(m_Offset == RightIterator.m_Offset);
 		return(_InternalIterator == RightIterator._InternalIterator);
 	}
@@ -1097,13 +1097,13 @@ namespace MBSearchEngine
 	//Begin PostingsList
 	void PostingsList::AddPosting(DocID DocumentID, int TokenPosition)
 	{
-		//förutsätter att listan är sorterad
+		//fï¿½rutsï¿½tter att listan ï¿½r sorterad
 		//int DocumentPostingPosition = MBAlgorithms::BinarySearch(m_PostingsInMemory, DocumentID);
 		assert(ASSERTION_LastAddedDocumentID <= DocumentID);
 		ASSERTION_LastAddedDocumentID = DocumentID;
 		if (m_PostingsInMemory.find(DocumentID) == m_PostingsInMemory.end())
 		{
-			//helt pantad algorithm egentligen, vi lägger till en på slutet och sedan sorterar vi, men kräver nog egentligen att man har lite mer eftertanke med hur
+			//helt pantad algorithm egentligen, vi lï¿½gger till en pï¿½ slutet och sedan sorterar vi, men krï¿½ver nog egentligen att man har lite mer eftertanke med hur
 			//man vill att datastrukturen ska se ut
 			Posting NewMember = Posting(DocumentID);
 			NewMember.Update(TokenPosition);
@@ -1122,7 +1122,7 @@ namespace MBSearchEngine
 	int PostingsList::size() const { return(m_PostingsInMemory.size()); };
 	PostingClass const& PostingsList::operator[](PostingListID Index) const
 	{
-		//kommer förändras iomed
+		//kommer fï¿½rï¿½ndras iomed
 		return(m_PostingsInMemory.at(m_SortedDocumentIDs[Index]));
 	}
 	size_t PostingsList::GetDocumentFrequency() const
@@ -1160,7 +1160,7 @@ namespace MBSearchEngine
 	{
 		return(m_PostingsInMemory.find(IDToCheck) != m_PostingsInMemory.end());
 	}
-	//ANTAGANDE postinglistorna tar aldrig bort element utan lägger enbart till, vilket innebär att den senaste filen som innehåller en posting
+	//ANTAGANDE postinglistorna tar aldrig bort element utan lï¿½gger enbart till, vilket innebï¿½r att den senaste filen som innehï¿½ller en posting
 	//har den mest uppdaterade varianten
 	std::shared_ptr<PostingsList> PostingslistHandler::p_GetPostinglist(PostingListID IDToGet)
 	{
@@ -1177,7 +1177,7 @@ namespace MBSearchEngine
 			}
 			else
 			{
-				//Att id:n är mindre än antalet postings innebär att den finns på filen
+				//Att id:n ï¿½r mindre ï¿½n antalet postings innebï¿½r att den finns pï¿½ filen
 				std::shared_ptr<PostingsList> NewPointer;
 				for (int i = m_PostingsOnDisk.size()-1; i >= 0; i--)
 				{
@@ -1253,7 +1253,7 @@ namespace MBSearchEngine
 		}
 		for (size_t i = 0; i < m_NumberOfPostings; i++)
 		{
-			//ANTAGANDE filen i minne är mest uppdaterad, sedan är det senaste filen på disk
+			//ANTAGANDE filen i minne ï¿½r mest uppdaterad, sedan ï¿½r det senaste filen pï¿½ disk
 			NewDataInfo.PostinglistFilePositions[i] = FileToWriteTo.tellp();
 			bool PostingIsWritten = false;
 			if (p_PostingIsInMemory(i))
@@ -1339,7 +1339,7 @@ namespace MBSearchEngine
 			//}
 			m_PostinglistHandler.UpdatePosting(PostinglistToUpdate,DocumentID, i);
 		}
-		//sorterar den på slutet så kanske aningen offektivt för storra arrays
+		//sorterar den pï¿½ slutet sï¿½ kanske aningen offektivt fï¿½r storra arrays
 		return(ReturnValue);
 	}
 	PostingListID MBIndex::p_GetPostingListID(std::string const& TokenToEvaluate)
