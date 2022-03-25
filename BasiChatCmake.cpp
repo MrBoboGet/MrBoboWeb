@@ -56,10 +56,10 @@ int main()
 	MBParsing::SyntaxTree TermTest = TestParser["term"].Parse(Tokens.data(), Tokens.size(),0,nullptr,&SyntaxParseResult);
 	assert(SyntaxParseResult);
 	TestParser.PrintTree(TermTest);
-	MBParsing::SyntaxTree ExpressionTest = TestParser["expression"].Parse(Tokens.data(), Tokens.size(),2,nullptr,&SyntaxParseResult);
+	MBParsing::SyntaxTree ExpressionTest = TestParser["expression"].Parse(Tokens.data(), Tokens.size(),0,nullptr,&SyntaxParseResult);
 	assert(SyntaxParseResult);
 	TestParser.PrintTree(ExpressionTest);
-	MBParsing::SyntaxTree StatementTest = TestParser["statement"].Parse(Tokens.data(), Tokens.size(), 2, nullptr, &SyntaxParseResult);
+	MBParsing::SyntaxTree StatementTest = TestParser["statement"].Parse(Tokens.data(), Tokens.size(), 0, nullptr, &SyntaxParseResult);
 	assert(SyntaxParseResult);
 	TestParser.PrintTree(StatementTest);
 	MBParsing::SyntaxTree StatementListTest = TestParser["StatementList"].Parse(Tokens.data(), Tokens.size(), 0, nullptr, &SyntaxParseResult);

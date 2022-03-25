@@ -6,5 +6,5 @@
 		"StaticRelease": "MBParsing_SR",
 		"StaticDebug": "MBParsing_SD"
 	},
-	"Dependancies":["MBUtility"],
+	"Dependancies":["MBUtility"]
 }

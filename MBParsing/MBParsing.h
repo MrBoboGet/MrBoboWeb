@@ -6,6 +6,8 @@
 
 #include <MBUtility/MBInterfaces.h>
 #include <unordered_map>
+
+#include <regex>
 namespace MBParsing
 {
 	struct LinearParseState
@@ -32,8 +34,13 @@ namespace MBParsing
 
 	void SkipWhitespace(std::string const& DataToParse, size_t InOffset, size_t* OutOffset);
 	void SkipWhitespace(const void* DataToParse, size_t DataLength, size_t InOffset, size_t* OutOffset);
+
 	std::string ParseQuotedString(void const* DataToParse,size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 	std::string ParseQuotedString(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+
+	std::string ParseQuotedString(char QuoteCharacter, void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
+
+	
 	intmax_t ParseJSONInteger(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 	intmax_t ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 	bool ParseJSONBoolean(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
@@ -102,8 +109,7 @@ namespace MBParsing
 	enum class ParseSyntaxTypes
 	{
 		ARRAY,
-		NAMED,
-		LITERAL,
+		LITERAL
 	};
 
 
@@ -135,6 +141,16 @@ namespace MBParsing
 		std::string m_LiteralToParse = "";
 	public:
 		BNFRule_Literal(std::string AssociatedLiteral);
+		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
+	};
+	class BNFRule_Regex : public BNFRule
+	{
+	private:
+		std::regex m_RegexToMatch;
+		bool m_Invalid = false;
+	public:
+		BNFRule_Regex(std::string const& RegexLiteral);
+		bool IsValid() const;
 		virtual SyntaxTree Parse(std::string const* TokenData, size_t TokenCount, size_t TokenOffset, size_t* OutTokenOffset, bool* OutError) const override;
 	};
 	class BNFRule_OR : public BNFRule
@@ -199,8 +215,10 @@ namespace MBParsing
 	{
 	private:
 		NameToken m_CurrentTokenName = 100;
+
 		std::unordered_map<NameToken, std::string> m_RuleToName;
 		std::unordered_map<std::string, NameToken> m_NameToRule;
+
 		std::unordered_map<NameToken, size_t> m_RuleIndexes;
 		std::vector<std::unique_ptr<BNFRule>> m_Rules;
 
@@ -213,12 +231,18 @@ namespace MBParsing
 
 		void ParseNamedRule(const void* Data,size_t DataSize,size_t ParseOffset,size_t* OutOffse);
 		RangeSpecification ParseRange(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset);
+
+		void p_AddRuleName(std::string const& RuleName);
+
 		std::unique_ptr<BNFRule> ParseTerm(const void* Data, size_t DataSize, size_t ParseOffset, size_t* OutOffset);
 		std::unique_ptr<BNFRule> ParseExpression(const void* Data,size_t DataSize,size_t ParseOffset,size_t* OutOffset);
 		//std::unique_ptr<BNFRule> ParseRule(std::string const* TokenData, size_t TokenOffset, size_t TokenCount, size_t* OutTokenOffset, MBError* OutError);
 		std::string p_GetName(NameToken TokenToConvert);
 		void PrintTree(SyntaxTree const& TreeToPrint, int CurrentDepth);
 	public:
+
+		std::string GetRuleName(NameToken Rule);
+
 		MBError InitializeRules(std::string const& RuleData);
 
 		BNFRule const& operator[](std::string const& RuleName);

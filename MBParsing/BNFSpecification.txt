@@ -1,6 +1,11 @@
-identifier = "hej";
-term = identifier | "123";
-BinaryOperator = "+" | "*" | "-";
-expression = term BinaryOperator expression | term;
-statement = expression ";";
+identifier = "([[:alpha:]_]+)[[:alpha:][:digit:]_]*";
+integer = "[[:digit:]]+";
+stringLiteral = "sdgfsdfg"; 
+literal = integer | stringLiteral;
+
+term = identifier | literal | '(' expression ')';
+BinaryOperator = '+' | '*' | '-' | '/' | '%' | '&&' | '||';
+expression = term (BinaryOperator term)*;
+assignment = identifier '=' expression;
+statement = assignment ';' | expression ';';
 StatementList = statement+;
