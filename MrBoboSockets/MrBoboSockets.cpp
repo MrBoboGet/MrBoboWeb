@@ -987,9 +987,13 @@ namespace MBSockets
 			return ReturnValue;
 		}
 		//aningen innfeffektiv, men fungerande i alla fall
-		while (m_ResponseData.find("\r\n\r\n") == m_ResponseData.npos)
+		while (m_ResponseData.find("\r\n\r\n") == m_ResponseData.npos && m_SocketToUse->IsValid() && m_SocketToUse->IsConnected())
 		{
 			m_ResponseData += m_SocketToUse->RecieveData(4096*2);//godtycklig tal
+		}
+		if (m_ResponseData.find("\r\n\r\n") == m_ResponseData.npos)
+		{
+			return(ReturnValue);
 		}
 		if (m_ResponseData.size() < 8 || m_ResponseData.substr(0, 8) != "HTTP/1.1")
 		{
@@ -1046,7 +1050,7 @@ namespace MBSockets
 			}
 		}
 		m_ResponseData = m_ResponseData.substr(m_ParseOffset);
-		m_RecievedBodyData += m_ResponseData.size();
+		m_RecievedBodyData = m_ResponseData.size();
 		m_ParseOffset = 0;
 		return(ReturnValue);
 	}
@@ -1058,7 +1062,7 @@ namespace MBSockets
 		}
 		else
 		{
-			return(m_RecievedBodyData < m_CurrentHeaders.ResponseSize || m_ResponseData.size() > 0);
+			return(m_RecievedBodyData < m_CurrentHeaders.ResponseSize || m_ResponseData.size() > 0 && m_CurrentHeaders.StatusCode != 1 && m_SocketToUse->IsConnected() && m_SocketToUse->IsValid());
 		}
 	}
 	bool HTTPClient::IsConnected()
@@ -1074,7 +1078,7 @@ namespace MBSockets
 		}
 		else
 		{
-			if (!m_SocketToUse->IsValid() || !m_SocketToUse->IsConnected())
+			if (!m_SocketToUse->IsValid() || !m_SocketToUse->IsConnected() || m_CurrentHeaders.StatusCode == -1)
 			{
 
 				m_IsConnected = false;

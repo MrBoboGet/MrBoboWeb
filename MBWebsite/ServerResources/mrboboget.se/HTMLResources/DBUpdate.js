@@ -97,11 +97,11 @@ async function DBUpdate_SendQuerry(e)
             for(let i = 0; i < DBResponse.DirectiveResponse.Rows.length;i++)
             {
                 let NewRow = [];
-                for(let j = 0; j<DBResponse.DirectiveResponse.Rows[i].ColumnCount;j++)
+                for(let j = 0; j<DBResponse.DirectiveResponse.Rows[i].length;j++)
                 {
-                    if(DBResponse.DirectiveResponse.Rows[i][j.toString()] != null)
+                    if(DBResponse.DirectiveResponse.Rows[i][j] != null)
                     {
-                        NewRow.push(DBResponse.DirectiveResponse.Rows[i][j.toString()])
+                        NewRow.push(DBResponse.DirectiveResponse.Rows[i][j])
                     }
                     else
                     {

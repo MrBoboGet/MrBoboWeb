@@ -41,7 +41,7 @@ async function DBUploadFileSubmit(event)
         ResultParagraph.style.color = "red";
         return;
     }
-    let DirectiveToSend = {Directive: "FileExists",FilePath: ServerFilename};
+    let DirectiveToSend = {Directive: "FileExists",DirectiveArguments:{FilePath: ServerFilename}};
     let FileExistsResponse = await MBDBAPI_SendDirective(DirectiveToSend);
     if(FileExistsResponse.MBDBAPI_Status != "ok")
     {

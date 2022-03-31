@@ -940,7 +940,7 @@ namespace MBParsing
 			//std::regex SplitRegex = std::regex(R"(([:space:]+)(\(|\)|\[|\]|\+|-|\*|[:alpha:]+|"[^"]*"))", std::regex_constants::extended);
 			//std::regex SplitRegex = std::regex(R"(([[:space:]]*)|([[:alpha:]][[:alpha:][:digit:]_]*|[[:digit:]]+|"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|\+=|-=|\*=|/=|==|=|\.|,|;|\+|\*|-|/|\(|\)|\[|]|\{|}))", 
 			//	std::regex_constants::extended);
-			std::regex SplitRegex = std::regex(R"(([[:space:]]*)|([[:alpha:]][[:alpha:][:digit:]_]*|[[:digit:]]+|"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|\+=|-=|\*=|/=|==|[].^,<[>{}(;/)+*=-]))", 
+			std::regex SplitRegex = std::regex(R"(([[:space:]]*)|([[:alpha:]][[:alpha:][:digit:]_]*|[[:digit:]]+|"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|>=|<=|\+=|-=|\*=|/=|==|[].^,<[>{}(;/)+*=-]))", 
 				std::regex_constants::extended);
 			std::sregex_iterator Iterator = std::sregex_iterator(TextInput.begin(), TextInput.end(), SplitRegex);
 			std::sregex_iterator End;

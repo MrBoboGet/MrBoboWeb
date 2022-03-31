@@ -3572,6 +3572,7 @@ namespace MBWebsite
 		else
 		{
 			ReturnValue.DirectiveResponse["FileExists"] = false;
+
 			//ganska fult och långsamt med it is what it is
 			std::vector<std::string> DirectoriesComponent = MBUtility::Split(FilePath, "/");
 			std::vector<std::string> NonEmptyDirectoryComponents = {};
