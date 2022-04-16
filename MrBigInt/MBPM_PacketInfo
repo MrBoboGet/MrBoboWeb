@@ -6,5 +6,5 @@
 		"StaticRelease": "MrBigInt_SR",
 		"StaticDebug": "MrBigInt_SD"
 	},
-	"Dependancies":["MBUtility"],
+	"Dependancies":["MBUtility"]
 }

@@ -11,9 +11,16 @@
 
 namespace MBParsing
 {
-	void WriteBigEndianInteger(void* Buffer, uintmax_t IntegerToWrite, char IntegerSize)
+	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize, size_t WriteOffset, size_t* OutWriteOffset)
 	{
-		std::string ReturnValue = "";
+		WriteBigEndianInteger(((uint8_t*) Buffer) + WriteOffset, IntegerToWrite, IntegerSize);
+		if (OutWriteOffset != nullptr)
+		{
+			*OutWriteOffset = WriteOffset + IntegerSize;
+		}
+	}
+	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize)
+	{
 		uint8_t* ByteBuffer = (uint8_t*)Buffer;
 		size_t BufferOffset = 0;
 		for (int i = IntegerSize - 1; i >= 0; i--)
@@ -23,13 +30,13 @@ namespace MBParsing
 		}
 	}
 
-	uintmax_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
+	uint64_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
 	{
 		return(ParseBigEndianInteger(DataToParse.data(), IntegerSize, ParseOffset, OutParseOffset));
 	}
-	uintmax_t ParseBigEndianInteger(const void* Data, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
+	uint64_t ParseBigEndianInteger(const void* Data, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
 	{
-		uintmax_t ReturnValue = 0;
+		uint64_t ReturnValue = 0;
 		const char* DataToParse = (const char*)Data;
 		for (size_t i = 0; i < IntegerSize; i++)
 		{
@@ -42,7 +49,59 @@ namespace MBParsing
 		}
 		return(ReturnValue);
 	}
-
+	void WriteBigEndianIEEE754Float(void* OutBuffer, double FloatToWrite, char FloatSize, size_t WriteOffset, size_t* OutWriteOffset)
+	{
+		if (FloatSize != 4 && FloatSize != 8)
+		{
+			throw std::runtime_error("Invalid float size for IEEE754 float");
+		}
+		//
+		if (FloatSize == 4)
+		{
+			//float NewFloat = FloatToWrite;
+			//std::memcpy(((uint8_t*)OutBuffer) + WriteOffset, &NewFloat, 4);
+			float NewFloat = FloatToWrite;
+			uint32_t IntegerToWrite = *((uint32_t*)&NewFloat);
+			WriteBigEndianInteger(OutBuffer, IntegerToWrite, 4, WriteOffset, nullptr);
+		}
+		else if (FloatSize == 8)
+		{
+			//std::memcpy(((uint8_t*)OutBuffer) + WriteOffset, &FloatToWrite, FloatSize);
+			double NewFloat = FloatToWrite;
+			uint64_t IntegerToWrite = *((uint64_t*)&NewFloat);
+			WriteBigEndianInteger(OutBuffer, IntegerToWrite, 8, WriteOffset, nullptr);
+		}
+		if (OutWriteOffset != nullptr)
+		{
+			*OutWriteOffset = WriteOffset + FloatSize;
+		}
+	}
+	double ParseBigEndianIEEE754Float(const void* DataToParse, char FloatSize, size_t ParseOffset, size_t* OutParseOffset)
+	{
+		//TODO obs obs obs, den här koden är absolut ass och inte portable på något sätt, men orkar inte fixa hur man faktisk ska parsa det nu
+		double ReturnValue = 0;
+		if (FloatSize != 4 && FloatSize != 8)
+		{
+			throw std::runtime_error("Invalid float size for IEEE754 float");
+		}
+		if (FloatSize == 4)
+		{
+			uint32_t RawFloatData = ParseBigEndianInteger(DataToParse, 4, ParseOffset, nullptr);
+			float FloatToParse = *((float*)&RawFloatData);
+			ReturnValue = FloatToParse;
+		}
+		if (FloatSize == 8)
+		{
+			uint64_t RawFloatData = ParseBigEndianInteger(DataToParse, 4, ParseOffset, nullptr);
+			ReturnValue = *((double*)&RawFloatData);
+		}
+		ParseOffset += FloatSize;
+		if (OutParseOffset != nullptr)
+		{
+			*OutParseOffset = ParseOffset;
+		}
+		return(ReturnValue);
+	}
 	unsigned char Base64CharToBinary(unsigned char CharToDecode)
 	{
 		if (CharToDecode >= 65 && CharToDecode <= 90)
@@ -1670,4 +1729,447 @@ namespace MBParsing
 		return(*m_Rules.at(m_RuleIndexes.at(RuleValue)));
 	}
 	//END BNFParser
+
+
+
+
+
+
+
+
+	//BEGIN UBJSON parsing
+	enum class UBJSON_Type : uint8_t
+	{
+		Null = 'Z',
+		NoOp = 'N',
+		True = 'T',
+		False = 'F',
+
+		Int8 = 'i',
+		UInt8 = 'U',
+		Int16 = 'I',
+		Int32 = 'l',
+		Int64 = 'L',
+		Float32 = 'd',
+		Float64 = 'D',
+		HighPrecision = 'H',
+
+		TypeSpecifier = '$',
+		CountSpecifier = '#',
+
+		String = 'S',
+		Char = 'C',
+		ArrayBegin = '[',
+		ArrayEnd = ']',
+		ObjectBegin = '{',
+		ObjectEnd = '}',
+		INVALID,
+	};
+	JSONObject ParseUBJSON_Object(MBUtility::MBOctetInputStream* InputStream, UBJSON_Type* OutType);
+	JSONObject ParseUBJSON_ObjectValue(UBJSON_Type ObjectType,MBUtility::MBOctetInputStream* InputStream);
+	JSONObject ParseUBJSON_ArrayData(MBUtility::MBOctetInputStream* InputStream)
+	{
+		std::vector<JSONObject> ReturnValue;
+		int Count = -1;
+		UBJSON_Type ContainingType = UBJSON_Type::INVALID;
+		intmax_t NumberOfElements = -1;
+		while (true)
+		{
+			UBJSON_Type OutType = UBJSON_Type::INVALID;
+			JSONObject NewValue = ParseUBJSON_Object(InputStream, &OutType);
+			if (OutType == UBJSON_Type::TypeSpecifier)
+			{
+				InputStream->Read(&ContainingType, 1);
+				//måste alltid finns en count om type är specificerad
+				char buf;
+				InputStream->Read(&buf, 1);
+				NumberOfElements = ParseUBJSON_Object(InputStream, nullptr).GetIntegerData();
+
+			}
+			else if (OutType == UBJSON_Type::CountSpecifier)
+			{
+				NumberOfElements = ParseUBJSON_Object(InputStream, nullptr).GetIntegerData();
+			}
+			else if (OutType != UBJSON_Type::ArrayEnd && NumberOfElements == -1)
+			{
+				ReturnValue.push_back(std::move(NewValue));
+			}
+			else if(OutType == UBJSON_Type::ArrayEnd)
+			{
+				break;
+			}
+			if (NumberOfElements != -1)
+			{
+				for (size_t i = 0; i < NumberOfElements; i++)
+				{
+					if (ContainingType == UBJSON_Type::INVALID)
+					{
+						ReturnValue.push_back(ParseUBJSON_Object(InputStream, nullptr));
+					}
+					if (ContainingType == UBJSON_Type::Int8 || ContainingType == UBJSON_Type::Int16 || ContainingType == UBJSON_Type::Int32 || ContainingType == UBJSON_Type::Int64
+						|| ContainingType == UBJSON_Type::UInt8)
+					{
+						size_t ElementSize = 0;
+						if (ContainingType == UBJSON_Type::Int16)
+						{
+							ElementSize = 2;
+						}
+						else if (ContainingType == UBJSON_Type::Int64)
+						{
+							ElementSize = 8;
+						}
+						else if (ContainingType == UBJSON_Type::Int32)
+						{
+							ElementSize = 4;
+						}
+						else if (ContainingType == UBJSON_Type::Int8 || ContainingType == UBJSON_Type::UInt8)
+						{
+							ElementSize = 1;
+						}
+						else
+						{
+							throw std::runtime_error("Invalid integer type");
+						}
+						size_t TotalDataSize = ElementSize * NumberOfElements;
+						std::string TotalData = std::string(TotalDataSize,0);
+						size_t ReadBytes = InputStream->Read(TotalData.data(), TotalDataSize);
+						if (ReadBytes != TotalDataSize)
+						{
+							throw std::runtime_error("Error parsing integer array, insufficent data");
+						}
+						return(TotalData);
+					}
+					else
+					{
+						ReturnValue.push_back(ParseUBJSON_ObjectValue(ContainingType, InputStream));
+					}
+				}
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+	std::map<std::string, JSONObject> ParseUBJSON_AggregateData(MBUtility::MBOctetInputStream* InputStream)
+	{
+		std::map<std::string, JSONObject> ReturnValue;
+		UBJSON_Type ContainingType = UBJSON_Type::INVALID;
+		intmax_t NumberOfElements = -1;
+		while (true)
+		{
+			UBJSON_Type OutType = UBJSON_Type::INVALID;
+			JSONObject NewValue = ParseUBJSON_Object(InputStream, &OutType);
+			if (OutType == UBJSON_Type::TypeSpecifier)
+			{
+				InputStream->Read(&ContainingType, 1);
+				//måste alltid finns en count om type är specificerad
+				char buf;
+				InputStream->Read(&buf, 1);
+				NumberOfElements = ParseUBJSON_Object(InputStream, nullptr).GetIntegerData();
+
+			}
+			else if (OutType == UBJSON_Type::CountSpecifier)
+			{
+				NumberOfElements = ParseUBJSON_Object(InputStream, nullptr).GetIntegerData();
+			}
+			else if (OutType != UBJSON_Type::ObjectEnd && NumberOfElements == -1)
+			{
+				intmax_t NameSize = NewValue.GetIntegerData();
+				std::string StringData = std::string(NameSize, 0);
+				size_t ReadData = InputStream->Read(StringData.data(), NameSize);
+				if (ReadData != NameSize)
+				{
+					throw std::runtime_error("String data missing");
+				}
+				ReturnValue[StringData] = ParseUBJSON_Object(InputStream, nullptr);
+			}
+			else if (OutType == UBJSON_Type::ObjectEnd)
+			{
+				break;
+			}
+			if (NumberOfElements != -1)
+			{
+				for (size_t i = 0; i < NumberOfElements; i++)
+				{
+					std::string StringData = ParseUBJSON_ObjectValue(UBJSON_Type::String, InputStream).GetStringData();
+					if (ContainingType == UBJSON_Type::INVALID)
+					{
+						ReturnValue[StringData] = ParseUBJSON_Object(InputStream, nullptr);
+					}
+					else
+					{
+						ReturnValue[StringData] = ParseUBJSON_ObjectValue(ContainingType, InputStream);
+					}
+				}
+				break;
+			}
+		}
+		return(ReturnValue);
+	}
+	int64_t ParseUBJSON_Integer(MBUtility::MBOctetInputStream* InputStream, uint8_t IntegerSize)
+	{
+		int64_t ReturnValue;
+		std::string IntegerBuffer = std::string(IntegerSize, 0);
+		size_t ReadBytes = InputStream->Read(IntegerBuffer.data(), IntegerSize);
+		if (ReadBytes != IntegerSize)
+		{
+			throw std::runtime_error("Insufficient bytes left in stream to read integer data");
+		}
+		//TODO supporta negativa värden.....
+		ReturnValue = (int64_t) ParseBigEndianInteger(IntegerBuffer.data(), IntegerSize, 0, nullptr);
+		return(ReturnValue);
+	}
+	JSONObject ParseUBJSON_ObjectValue(UBJSON_Type ObjectType, MBUtility::MBOctetInputStream* InputStream)
+	{
+		JSONObject ReturnValue;
+		if (ObjectType == UBJSON_Type::Null)
+		{
+			ReturnValue;
+		}
+		else if (ObjectType == UBJSON_Type::NoOp)
+		{
+			//kinda whack vet inte hur man ska tolka det
+			ReturnValue;
+		}
+		else if (ObjectType == UBJSON_Type::True)
+		{
+			ReturnValue = true;
+		}
+		else if (ObjectType == UBJSON_Type::False)
+		{
+			ReturnValue = false;
+		}
+		else if (ObjectType == UBJSON_Type::Int8)
+		{
+			ReturnValue = ParseUBJSON_Integer(InputStream, 1);
+		}
+		else if (ObjectType == UBJSON_Type::UInt8)
+		{
+			ReturnValue = ParseUBJSON_Integer(InputStream, 1);
+		}
+		else if (ObjectType == UBJSON_Type::Int16)
+		{
+			ReturnValue = ParseUBJSON_Integer(InputStream, 2);
+		}
+		else if (ObjectType == UBJSON_Type::Int32)
+		{
+			ReturnValue = ParseUBJSON_Integer(InputStream, 4);
+		}
+		else if (ObjectType == UBJSON_Type::Char)
+		{
+			uint8_t CharValue = 0;
+			size_t ReadBytes = InputStream->Read(&CharValue, 1);
+			if (ReadBytes < 1 || CharValue > 127)
+			{
+				throw std::runtime_error("Error parsing char character, invalid value or end of data");
+			}
+			ReturnValue = (intmax_t)CharValue;
+		}
+		else if (ObjectType == UBJSON_Type::String)
+		{
+			//TODO inneffektiv metod, men jajaj
+			intmax_t StringLength = ParseUBJSON_Object(InputStream, nullptr).GetIntegerData();
+			std::string StringData = std::string(StringLength, 0);
+			size_t ReadBytes = InputStream->Read(StringData.data(), StringLength);
+			if (ReadBytes != StringLength)
+			{
+				throw std::runtime_error("Missing data when parsing string");
+			}
+			ReturnValue = std::move(StringData);
+		}
+		else if (ObjectType == UBJSON_Type::ArrayBegin)
+		{
+			ReturnValue = ParseUBJSON_ArrayData(InputStream);
+		}
+		else if (ObjectType == UBJSON_Type::ObjectBegin)
+		{
+			ReturnValue = ParseUBJSON_AggregateData(InputStream);
+		}
+		else if (ObjectType == UBJSON_Type::Int64)
+		{
+			ReturnValue = ParseUBJSON_Integer(InputStream, 8);
+		}
+		else if (ObjectType == UBJSON_Type::Float32)
+		{
+			throw std::runtime_error("Parsing of binary float not yet supported");
+		}
+		else if (ObjectType == UBJSON_Type::Float64)
+		{
+			throw std::runtime_error("Parsing of binary float not yet supported");
+		}
+		return(ReturnValue);
+	}
+	JSONObject ParseUBJSON_Object(MBUtility::MBOctetInputStream* InputStream,UBJSON_Type* OutType)
+	{
+		JSONObject ReturnValue;
+		UBJSON_Type ObjectType = UBJSON_Type::INVALID;
+		size_t ReadBytes = InputStream->Read(&ObjectType, 1);
+		if (ReadBytes != 1)
+		{
+			throw std::runtime_error("end of stream reached before end of object");
+		}
+		ReturnValue = ParseUBJSON_ObjectValue(ObjectType, InputStream);
+		if (OutType != nullptr)
+		{
+			*OutType = ObjectType;
+		}
+		return(ReturnValue);
+	}
+
+	JSONObject ParseUBJSON(MBUtility::MBOctetInputStream* InputStream, MBError* OutError)
+	{
+		JSONObject ReturnValue;
+		try
+		{
+			ReturnValue = ParseUBJSON_Object(InputStream,nullptr);
+		}
+		catch (std::exception const& e)
+		{
+			ReturnValue = JSONObject();
+			*OutError = false;
+			OutError->ErrorMessage = e.what();
+		}
+		return(ReturnValue);
+	}
+	void SerialiseUBJSON_Integer(MBUtility::MBOctetOutputStream& OutputStream, uint64_t IntegerToSerialise)
+	{
+		UBJSON_Type TypeToWrite;
+		uint8_t IntegerSize;
+		if (IntegerToSerialise < (1 << 8))
+		{
+			TypeToWrite = UBJSON_Type::UInt8;
+			IntegerSize = 1;
+		}
+		else if (IntegerToSerialise < (1 << 16))
+		{
+			TypeToWrite = UBJSON_Type::Int16;
+			IntegerSize = 2;
+		}
+		else if (IntegerToSerialise < (1ull << 32))
+		{
+			TypeToWrite = UBJSON_Type::Int32;
+			IntegerSize = 4;
+		}
+		else
+		{
+			TypeToWrite = UBJSON_Type::Int64;
+			IntegerSize = 8;
+		}
+		OutputStream.Write(&TypeToWrite, 1);
+		uint8_t DataToWrite[8];
+		WriteBigEndianInteger(DataToWrite, IntegerToSerialise, IntegerSize);
+		OutputStream.Write(DataToWrite, IntegerSize);
+	}
+	void SerialiseUBJSON_Bool(MBUtility::MBOctetOutputStream& OutputStream, bool BooltoSerialise)
+	{
+		UBJSON_Type TypeToWrite;
+		if (BooltoSerialise)
+		{
+			TypeToWrite = UBJSON_Type::True;
+		}
+		else
+		{
+			TypeToWrite = UBJSON_Type::False;
+		}
+		OutputStream.Write(&TypeToWrite, 1);
+	}
+	void SerialiseUBJSON_String(MBUtility::MBOctetOutputStream& OutputStream, std::string const& DataToSerialise)
+	{
+		//TODO obs detta är inte egentligen korrekt och rätt hacky, eftersom jag bara än så länge är intresserad av att läsa slippi filer, där jag implicit parsar in byte arrayer som strings
+		//så kommer jag även serialisera strings till byte arrayer
+		
+		//heuristik för binär data: 0 finns
+		if (DataToSerialise.find(char(0)) != DataToSerialise.npos)
+		{
+			UBJSON_Type BeginType = UBJSON_Type::ArrayBegin;
+			OutputStream.Write(&BeginType, 1);
+			UBJSON_Type TypeSpecifier = UBJSON_Type::TypeSpecifier;
+			UBJSON_Type SpecifiedType = UBJSON_Type::UInt8;
+			OutputStream.Write(&TypeSpecifier, 1);
+			OutputStream.Write(&SpecifiedType, 1);
+			UBJSON_Type CountSpecifier = UBJSON_Type::CountSpecifier;
+			OutputStream.Write(&CountSpecifier, 1);
+			SerialiseUBJSON_Integer(OutputStream, DataToSerialise.size());
+			OutputStream.Write(DataToSerialise.data(), DataToSerialise.size());
+		}
+		else
+		{
+			UBJSON_Type BeginType = UBJSON_Type::String;
+			OutputStream.Write(&BeginType, 1);
+			SerialiseUBJSON_Integer(OutputStream, DataToSerialise.size());
+			OutputStream.Write(DataToSerialise.data(), DataToSerialise.size());
+		}
+
+	}
+	void SerialiseUBJSON_Array(MBUtility::MBOctetOutputStream& OutputStream, std::vector<JSONObject> const& ArrayToSerialise)
+	{
+		UBJSON_Type StartType = UBJSON_Type::ArrayBegin;
+		OutputStream.Write(&StartType, 1);
+		for (size_t i = 0; i < ArrayToSerialise.size(); i++)
+		{
+			SerialiseUBJSON(OutputStream,ArrayToSerialise[i]);
+		}
+		UBJSON_Type EndType = UBJSON_Type::ArrayEnd;
+		OutputStream.Write(&EndType, 1);
+	}
+	void SerialiseUBJSON_Aggregate(MBUtility::MBOctetOutputStream& OutputStream, std::map<std::string,JSONObject> const& AgreggateToSerialise)
+	{
+		UBJSON_Type StartType = UBJSON_Type::ObjectBegin;
+		OutputStream.Write(&StartType, 1);
+		//TODO OBS turbo hack för slippi
+		if (AgreggateToSerialise.find("raw") != AgreggateToSerialise.end()) 
+		{
+			std::string StringToWrite = "raw";
+			SerialiseUBJSON_Integer(OutputStream, StringToWrite.size());
+			OutputStream.Write(StringToWrite.data(), StringToWrite.size());
+			SerialiseUBJSON(OutputStream, AgreggateToSerialise.at("raw"));
+		}
+		for (auto const& Element : AgreggateToSerialise)
+		{
+			std::string const& StringToWrite = Element.first;
+			if (StringToWrite == "raw")
+			{
+				continue;
+			}
+			SerialiseUBJSON_Integer(OutputStream,StringToWrite.size());
+			OutputStream.Write(StringToWrite.data(), StringToWrite.size());
+			SerialiseUBJSON(OutputStream, Element.second);
+		}
+		UBJSON_Type EndType = UBJSON_Type::ObjectEnd;
+		OutputStream.Write(&EndType, 1);
+	}
+	void SerialiseUBJSON_Null(MBUtility::MBOctetOutputStream& OutputStream)
+	{
+		UBJSON_Type TypeToWrite = UBJSON_Type::Null;
+		OutputStream.Write(&TypeToWrite, 1);
+	}
+	void SerialiseUBJSON(MBUtility::MBOctetOutputStream& OutputStream, JSONObject const& ObjectToSerialise)
+	{
+		JSONObjectType CurrentType = ObjectToSerialise.GetType();
+		if (CurrentType == JSONObjectType::Aggregate)
+		{
+			SerialiseUBJSON_Aggregate(OutputStream, ObjectToSerialise.GetMapData());
+		}
+		else if (CurrentType == JSONObjectType::Bool)
+		{
+			SerialiseUBJSON_Bool(OutputStream, ObjectToSerialise.GetBooleanData());
+		}
+		else if (CurrentType == JSONObjectType::Integer)
+		{
+			SerialiseUBJSON_Integer(OutputStream, ObjectToSerialise.GetIntegerData());
+		}
+		else if(CurrentType == JSONObjectType::String)
+		{
+			SerialiseUBJSON_String(OutputStream, ObjectToSerialise.GetStringData());
+		}
+		else if (CurrentType == JSONObjectType::Array)
+		{
+			SerialiseUBJSON_Array(OutputStream, ObjectToSerialise.GetArrayData());
+		}
+		else if (CurrentType == JSONObjectType::Null)
+		{
+			SerialiseUBJSON_Null(OutputStream);
+		}
+		OutputStream.Flush();
+	}
+	//END UBJSON parsing
 };

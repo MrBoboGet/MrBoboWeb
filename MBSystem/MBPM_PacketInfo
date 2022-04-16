@@ -6,5 +6,5 @@
 		"StaticRelease": "MBSystem_SR",
 		"StaticDebug": "MBSystem_SD"
 	},
-	"Dependancies":[],
+	"Dependancies":[]
 }

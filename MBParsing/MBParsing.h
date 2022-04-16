@@ -48,13 +48,17 @@ namespace MBParsing
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse,size_t DataSize, size_t InOffset, MBError* OutError = nullptr);
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, std::string const& DataToParse, size_t InOffset, MBError* OutError = nullptr);
 
-	void WriteBigEndianInteger(void* Buffer, uintmax_t IntegerToWrite, char IntegerSize);
+	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize);
+	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize,size_t WriteOffset,size_t* OutWriteOffset);
 
-	uintmax_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
-	uintmax_t ParseBigEndianInteger(const void* DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 
-	
-	
+
+	uint64_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
+	uint64_t ParseBigEndianInteger(const void* DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
+
+	double ParseBigEndianIEEE754Float(const void* DataToParse, char FloatSize, size_t ParseOffset, size_t* OutParseOffset);
+	void WriteBigEndianIEEE754Float(void* OutBuffer,double FloatToWrite , char FloatSize,size_t WriteOffset, size_t* OutWriteOffset);
+
 	std::vector<std::string> TokenizeText(std::string const& TextInput);
 	//std::vector<std::string> TokenizeText(MBUtility::MBOctetInputStream* InputStream);
 	
@@ -568,4 +572,8 @@ namespace MBParsing
 	};
 	JSONObject ParseJSONObject(const void* DataToParse, size_t DataSize, size_t ParseOffset, size_t* OutOffset,MBError* OutError);
 	JSONObject ParseJSONObject(std::string const& Data, size_t ParseOffset, size_t* OutOffset, MBError* OutError);
+
+
+	JSONObject ParseUBJSON(MBUtility::MBOctetInputStream* InputStream,MBError* OutError);
+	void SerialiseUBJSON(MBUtility::MBOctetOutputStream& OutputStream, JSONObject const& ObjectToSerialise);
 };

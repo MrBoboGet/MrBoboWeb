@@ -6,5 +6,5 @@
 		"StaticRelease": "MBCrypto_SR",
 		"StaticDebug": "MBCrypto_SD"
 	},
-	"Dependancies":["MrBigInt","cryptopp","MBUtility"],
+	"Dependancies":["MrBigInt","cryptopp","MBUtility"]
 }

@@ -2195,7 +2195,7 @@ std::string TLSHandler::GetNextRawProtocol(MBSockets::ConnectSocket* SocketToCon
 			}
 		}
 	}
-	if (NewRecordData.size() == 0)
+	if (NewRecords.size() == 0)
 	{
 		//throw std::runtime_error("No message to retrieve");
 		NewRecords.push_back(std::string(""));
