@@ -9,7 +9,11 @@ namespace MrPostOGet
 	//BEGIN Utility Functions
 	std::string GetRequestType(const std::string& RequestData)
 	{
-		int FirstSpace = RequestData.find(" ");
+		size_t FirstSpace = RequestData.find(" ");
+		if (FirstSpace == RequestData.npos)
+		{
+			throw std::runtime_error("Request type not found in RequestData");
+		}
 		return(RequestData.substr(0, FirstSpace));
 	}
 	std::string GetRequestResource(const std::string& RequestData)
@@ -312,7 +316,7 @@ namespace MrPostOGet
 		{
 			ReturnValue = false;
 		}
-		if (PathToCheck.find("..") != PathToCheck.npos)
+		if (PathToCheck.find("/../") != PathToCheck.npos)
 		{
 			ReturnValue = false;
 		}
@@ -328,12 +332,20 @@ namespace MrPostOGet
 			while (ParseOffset < URL.size())
 			{
 				size_t NextEqualSign = URL.find('=', ParseOffset);
+				if(NextEqualSign == URL.npos)
+				{
+					break;
+				}
 				std::string AttributeName = URL.substr(ParseOffset, NextEqualSign - ParseOffset);
 				size_t AttributeBegin = NextEqualSign + 1;
 				size_t AttributeEnd = std::min(URL.find('&', AttributeBegin), URL.size());
-				ReturnValue[AttributeName] = URL.substr(AttributeBegin, AttributeEnd - AttributeBegin);
+				bool URLDecodeResult = true;
+				ReturnValue[AttributeName] = MBUtility::URLDecodeData(URL.substr(AttributeBegin, AttributeEnd - AttributeBegin),&URLDecodeResult);
+				if (!URLDecodeResult)
+				{
+					throw std::runtime_error("Failed to URL decode SearchParameters");
+				}
 				//specifikt för search parameters
-				ReturnValue[AttributeName] = MBUtility::ReplaceAll(ReturnValue[AttributeName], "+", " ");
 				ParseOffset = AttributeEnd;
 				if (ParseOffset < URL.size())
 				{
@@ -347,9 +359,17 @@ namespace MrPostOGet
 	{
 		size_t FirstSlash = RawData.find('/');
 		size_t SpaceAfter = RawData.find(' ', FirstSlash);
+		if (FirstSlash == RawData.npos || SpaceAfter == RawData.npos)
+		{
+			throw std::runtime_error("Failed decoding client HTTP request");
+		}
 		std::string RawURL = RawData.substr(FirstSlash, SpaceAfter - FirstSlash);
-		bool Error = false;
+		bool Error = true;
 		ClientRequest.RequestResource = MBUtility::URLDecodeData(RawURL,&Error);
+		if (!Error)
+		{
+			throw std::runtime_error("Failed decoding client HTTP client URL");
+		}
 		ClientRequest.SearchParameters = p_ParseSearchParameters(RawURL);
 		size_t HeadersBegin = RawData.find("\r\n") + 2;
 		ClientRequest.Headers = MBMIME::ExtractMIMEHeaders(RawData.data(), HeadersBegin, nullptr);
@@ -373,12 +393,15 @@ namespace MrPostOGet
 		}
 		else
 		{
-			assert(false);
+			throw std::runtime_error("Invalid request type found when decoding HTTP header: " + RequestType);
 		}
 		//ANTAGANDE körs alltid på något som har dess headers skickade
 		size_t BodyStart = RawData.find("\r\n\r\n") + 4;
+		if (BodyStart == RawData.npos)
+		{
+			throw std::runtime_error("End of header not found");
+		}
 		ClientRequest.BodyData = RawData.substr(BodyStart);
-
 
 		ClientRequest.RawRequestData = std::move(RawData);
 	}
@@ -392,6 +415,7 @@ namespace MrPostOGet
 				if (!ConnectError)
 				{
 					std::cout << ConnectError.ErrorMessage << std::endl;
+					throw std::runtime_error("Failed establishing TLS connection");
 				}
 			}
 			std::string RequestData;
@@ -406,6 +430,15 @@ namespace MrPostOGet
 				{
 					break;
 				}
+				//TODO optimize for long headers, quick and easy implementation here
+				while (RequestData.find("\r\n\r\n") == RequestData.npos && (ConnectedClient->IsValid() && ConnectedClient->IsConnected()))
+				{
+					RequestData += ConnectedClient->GetNextChunkData();
+				}
+				if (RequestData.find("\r\n\r\n") == RequestData.npos)
+				{
+					throw std::runtime_error("Invalid HTTP request: end of headers not found");
+				}
 				HTTPClientRequest CurrentRequest;
 				p_ParseHTTPClientRequest(CurrentRequest, RequestData);
 				if (!p_PathIsValid(CurrentRequest.RequestResource))
@@ -414,6 +447,10 @@ namespace MrPostOGet
 					DocumentToSend.RequestStatus = HTTPRequestStatus::NotFound;
 					DocumentToSend.Type = MBMIME::MIMEType::Text;
 					DocumentToSend.DocumentData = "Invalid request path";
+					while ((ConnectedClient->IsValid() && ConnectedClient->IsConnected()) && ConnectedClient->DataIsAvailable())
+					{
+						ConnectedClient->GetNextChunkData();
+					}
 					ConnectedClient->SendHTTPDocument(DocumentToSend);
 					continue;
 				}
@@ -432,6 +469,10 @@ namespace MrPostOGet
 					{
 						//vi ska g�ra grejer med denna data, s� vi tar och skapar stringen som vi sen ska skicka
 						MrPostOGet::HTTPDocument RequestResponse = RequestHandlers[i]->GenerateResponse(CurrentRequest, ConnectionState, ConnectedClient.get(), this);
+						while ((ConnectedClient->IsValid() && ConnectedClient->IsConnected()) && ConnectedClient->DataIsAvailable())
+						{
+							ConnectedClient->GetNextChunkData();
+						}
 						if (RequestResponse.DataSent == false)
 						{
 							ConnectedClient->SendHTTPDocument(RequestResponse);
@@ -445,6 +486,10 @@ namespace MrPostOGet
 					continue;
 				}
 				MrPostOGet::HTTPDocument DocumentToSend = m_DefaultHandler(CurrentRequest, this->GetResourcePath("mrboboget.se"), this);
+				while ((ConnectedClient->IsValid() && ConnectedClient->IsConnected()) && ConnectedClient->DataIsAvailable())
+				{
+					ConnectedClient->GetNextChunkData();
+				}
 				if (DocumentToSend.DataSent == false)
 				{
 					ConnectedClient->SendHTTPDocument(DocumentToSend);

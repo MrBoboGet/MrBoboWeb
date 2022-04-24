@@ -38,12 +38,12 @@ int main()
 	std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
 
 
-	MBUtility::MBFileInputStream TestInputStream("./Game_20200630T190553.slp");
-
-	MBParsing::JSONObject Object = MBParsing::ParseUBJSON(&TestInputStream, nullptr);
-
-	std::cout << Object["metadata"].ToString()<<std::endl;
-	exit(0);
+	//MBUtility::MBFileInputStream TestInputStream("./Game_20200630T190553.slp");
+	//
+	//MBParsing::JSONObject Object = MBParsing::ParseUBJSON(&TestInputStream, nullptr);
+	//
+	//std::cout << Object["metadata"].ToString()<<std::endl;
+	//exit(0);
 
 
 

@@ -26,7 +26,7 @@ namespace MBDB
 		friend void swap(MBDB::MBDB_RowData& Row1, MBDB::MBDB_RowData& Row2);
 		std::vector<MBDB_ColumnValueTypes> ColumnValueTypes = {};
 		std::vector<void*> RawColumnData = {};
-		template<typename T> bool IsCorrectType(int Index)
+		template<typename T> bool IsCorrectType(int Index) const
 		{
 			if (typeid(T) == typeid(float))
 			{
@@ -91,15 +91,19 @@ namespace MBDB
 			return(CreateTuple<Args...>(&CurrentIndex));
 		}
 
-		template<typename T> T GetColumnData(int ColumnIndex)
+		template<typename T> T& GetColumnData(int ColumnIndex)
 		{
 			assert(IsCorrectType<T>(ColumnIndex));
-			T ValueToReturn = *((T*)RawColumnData[ColumnIndex]);
-			return(ValueToReturn);
+			return(*((T*)RawColumnData[ColumnIndex]));
+		}
+		template<typename T> T const& GetColumnData(int ColumnIndex) const
+		{
+			assert(IsCorrectType<T>(ColumnIndex));
+			return(*((T const*)RawColumnData[ColumnIndex]));
 		}
 		MBDB_ColumnValueTypes GetColumnValueType(int ColumnIndex) const;
-		bool ColumnValueIsNull(int ColumnIndex);
-		size_t GetNumberOfColumns() { return(RawColumnData.size()); }
+		bool ColumnValueIsNull(int ColumnIndex) const;
+		size_t GetNumberOfColumns() const{ return(RawColumnData.size()); }
 	};
 	void swap(MBDB::MBDB_RowData& Row1, MBDB::MBDB_RowData& Row2);
 
@@ -163,12 +167,17 @@ namespace MBDB
 		MBError BindValues(std::vector<std::string> const& ValuesToBind, std::vector<ColumnSQLType> const& ValueTypes, int Offset);
 		MBError FreeData();
 	};
+	enum class DBOpenOptions : uint64_t
+	{
+		ReadOnly = 1 << 0,
+		ReadWrite = 1 << 1,
+	};
 	class MrBoboDatabase
 	{
 	private:
 		sqlite3* UnderlyingConnection = nullptr;
 	public:
-		MrBoboDatabase(std::string const& DatabaseFile,unsigned int Options);
+		MrBoboDatabase(std::string const& DatabaseFile,uint64_t	 Options);
 		std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn = nullptr);
 		//std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MrBoboDatabase* StructPointer,MBError* ErrorToReturn = nullptr);
 		std::vector<MBDB_RowData> GetAllRows(SQLStatement*,MBError* ErrorToReturn = nullptr);

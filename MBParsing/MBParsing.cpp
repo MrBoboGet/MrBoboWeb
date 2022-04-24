@@ -654,11 +654,11 @@ namespace MBParsing
 	{
 		if (m_Type == JSONObjectType::Aggregate)
 		{
-			delete ((std::map<std::string,JSONObjectType>*) m_ObjectData);
+			delete ((std::map<std::string,JSONObject>*) m_ObjectData);
 		}
 		else if (m_Type == JSONObjectType::Array)
 		{
-			delete ((std::vector<JSONObjectType>*) m_ObjectData);
+			delete ((std::vector<JSONObject>*) m_ObjectData);
 		}
 		else if (m_Type == JSONObjectType::Integer)
 		{
@@ -847,6 +847,10 @@ namespace MBParsing
 		}
 		return(GetAttribute(AttributeName));
 	}
+	JSONObject const& JSONObject::operator[](std::string const& AttributeName) const
+	{
+		return(GetAttribute(AttributeName));
+	}
 	JSONObject const& JSONObject::GetAttribute(std::string const& AttributeName) const
 	{
 		if (m_Type != JSONObjectType::Aggregate)
@@ -1018,16 +1022,8 @@ namespace MBParsing
 		}
 		catch(std::exception const& e)
 		{
-			std::cout << R"(([[:space:]]*)|([[:alpha:]][[:alpha:][:digit:]_]*|[[:digit:]]+|"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|\+=|-=|\*=|/=|==|[].^<>[{}()+*=-]))" << std::endl;
-			std::cout << e.what() << std::endl;
-			exit(0);
+
 		}
-		//DEBUG
-		for (size_t i = 0; i < ReturnValue.size(); i++)
-		{
-			std::cout << ReturnValue[i]<<" ";
-		}
-		std::cout<<std::endl;
 		return(ReturnValue);
 	}
 

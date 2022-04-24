@@ -335,6 +335,7 @@ namespace MBParsing
 		bool GetBooleanData() const;
 
 		JSONObject& operator[](std::string const& AttributeName);
+		JSONObject const& operator[](std::string const& AttributeName) const;
 
 		std::map<std::string, JSONObject> const& GetMapData() const;
 		std::map<std::string, JSONObject>& GetMapData();

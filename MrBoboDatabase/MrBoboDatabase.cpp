@@ -185,7 +185,7 @@ namespace MBDB
 	{
 		return(ColumnValueTypes[ColumnIndex]);
 	}
-	bool MBDB_RowData::ColumnValueIsNull(int ColumnIndex)
+	bool MBDB_RowData::ColumnValueIsNull(int ColumnIndex) const
 	{
 		return(RawColumnData[ColumnIndex] == nullptr);
 	}
@@ -403,16 +403,17 @@ namespace MBDB
 	{
 		return(StatementToEvaluate->GetAllRows(UnderlyingConnection, ErrorToReturn));
 	}
-	MrBoboDatabase::MrBoboDatabase(std::string const& FilePath,unsigned int Options)
+	MrBoboDatabase::MrBoboDatabase(std::string const& FilePath,uint64_t Options)
 	{
-		int DatabaseOptions = SQLITE_OPEN_FULLMUTEX;
-		if ((Options & 1) == 0)
+		uint64_t DatabaseOptions = SQLITE_OPEN_FULLMUTEX;
+		if (Options & uint64_t(DBOpenOptions::ReadOnly))
 		{
 			DatabaseOptions |= SQLITE_OPEN_READONLY;
 		}
 		else
 		{
 			DatabaseOptions |= SQLITE_OPEN_READWRITE;
+			DatabaseOptions |= SQLITE_OPEN_CREATE;
 		}
 		int ErrorCode = sqlite3_open_v2(FilePath.c_str(), &UnderlyingConnection, DatabaseOptions, nullptr);
 		if (ErrorCode != SQLITE_OK)
