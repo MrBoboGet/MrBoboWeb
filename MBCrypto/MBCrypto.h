@@ -6,6 +6,7 @@
 #include <cryptopp/osrng.h>
 #include <cryptopp/oids.h>
 #include <MBUtility/MBErrorHandling.h>
+#include <MBUtility/MBInterfaces.h>
 namespace MBCrypto
 {
 	enum class HashFunction
@@ -269,6 +270,7 @@ namespace MBCrypto
 		return(ReturnValue);
 	}
 	std::string GetFileHash(std::string const& FileToHashPath,HashFunction HashFunctionToUse);
+	std::string GetHash(MBUtility::MBOctetInputStream* Input,HashFunction HashFunctionToUse);
 	std::string LoadPEMBinaryData(std::string const& KeyPath);
 	RSAPrivateKey RSALoadPEMPrivateKey(std::string const& KeyPath);
 	//HashObject GetHashObject(HashFunction AssociatedFunction);

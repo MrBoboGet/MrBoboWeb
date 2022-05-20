@@ -44,7 +44,7 @@ namespace MBCrypto
 	class i_CryptoPP_BlockCipher_GCM : public Generic_BlockCipher_GCM
 	{
 	private:
-		//TODO bruh bruh bruh har ingen aning om varför det här behövs eller hur det fungerar
+		//TODO bruh bruh bruh har ingen aning om varfï¿½r det hï¿½r behï¿½vs eller hur det fungerar
 		//typename CryptoPP::GCM<T>::Encryption m_CryptoPPEncryptor;
 		//typename CryptoPP::GCM<T>::Decryption m_CryptoPPDecryptor;
 		MBError m_LastError = true;
@@ -453,11 +453,11 @@ namespace MBCrypto
 	}
 	std::string BlockCipher_CBC_Handler::EncryptData(const void* DataToDecrypt, size_t DataSize, const void* WriteKey, size_t WriteKeySize, const void* IV, size_t IVSize, MBError* OutError)
 	{
-		//TODO optimisera så att inte all data kopieras varje gång...
+		//TODO optimisera sï¿½ att inte all data kopieras varje gï¿½ng...
 		if (m_PaddingScheme == CBC_PaddingScheme::TLS1_2)
 		{
 			assert(false);
-			//ANTAGANDE för att inte behöva kopiera all data så utnyttjar vi att MBcrypto gör det ändå, och helt enkelt modifierar den så den blir rätt
+			//ANTAGANDE fï¿½r att inte behï¿½va kopiera all data sï¿½ utnyttjar vi att MBcrypto gï¿½r det ï¿½ndï¿½, och helt enkelt modifierar den sï¿½ den blir rï¿½tt
 			//size_t PaddingNeeded = (m_BlockSize - (DataSize % m_BlockSize))%m_BlockSize;
 			//if (PaddingNeeded == 0)
 			//{
@@ -675,6 +675,23 @@ namespace MBCrypto
 		std::string ReturnValue = HashObjectToUse.Finalize();
 		return(ReturnValue);
 	}
+	std::string GetHash(MBUtility::MBOctetInputStream* Input, HashFunction HashFunctionToUse)
+	{
+		HashObject HashObjectToUse = HashObject(HashFunctionToUse);
+		const size_t ChunkSize = 4096;
+		char Buffer[4096];
+		while (true)
+		{
+			size_t ReadBytes = Input->Read(Buffer, ChunkSize);
+			HashObjectToUse.AddData(Buffer, ReadBytes);
+			if (ReadBytes < ChunkSize)
+			{
+				break;
+			}
+		}
+		std::string ReturnValue = HashObjectToUse.Finalize();
+		return(ReturnValue);
+	}
 	std::string LoadPEMBinaryData(std::string const& KeyPath)
 	{
 		std::string PemFilePath = KeyPath;
@@ -686,7 +703,7 @@ namespace MBCrypto
 		std::string PemFile(PemFileBuffer.c_str(), ReadCharacters);
 		PemFile = MBUtility::ReplaceAll(PemFile, "\n", "");
 		PemFile = MBUtility::ReplaceAll(PemFile, "\r", "");
-		//nu måste vi konvertera från detta till binär data
+		//nu mï¿½ste vi konvertera frï¿½n detta till binï¿½r data
 		size_t DataBegin = PemFile.find("-----", 6) + 5;
 		size_t DataEnd = PemFile.find("-----", DataBegin);
 		std::string Base64Data = PemFile.substr(DataBegin, DataEnd-DataBegin);
@@ -704,7 +721,7 @@ namespace MBCrypto
 	RSAPublicKey ParsePublicKeyDEREncodedData(std::string const& DataToParse)
 	{
 		RSAPublicKey ReturnValue;
-		//parsa primen från datan, först kollar vi att paddingen är 0
+		//parsa primen frï¿½n datan, fï¿½rst kollar vi att paddingen ï¿½r 0
 		if (DataToParse[0] != 0)
 		{
 			std::cout << "Fel formatterad public key" << std::endl;
@@ -714,7 +731,7 @@ namespace MBCrypto
 		ASN1Extracter Parser(reinterpret_cast<const uint8_t*>(DataToParse.c_str()));
 		Parser.ExtractByte();
 		Parser.ExtractTagData();
-		Parser.ExtractLengthOfType();//vi vill skippa den del som bara encodar vår dubbel int typ
+		Parser.ExtractLengthOfType();//vi vill skippa den del som bara encodar vï¿½r dubbel int typ
 		Parser.ExtractTagData();
 		uint64_t LengthOfPrime = Parser.ExtractLengthOfType();
 		if (!(LengthOfPrime == 257 || LengthOfPrime == 513))
@@ -724,7 +741,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			//första är alltid 0
+			//fï¿½rsta ï¿½r alltid 0
 			ReturnValue.BigEndianPublicModolu = DataToParse.substr(Parser.GetOffset() + 1, LengthOfPrime - 1);
 			for (size_t i = 0; i < LengthOfPrime; i++)
 			{
@@ -732,7 +749,7 @@ namespace MBCrypto
 			}
 		}
 		//std::cout << PublicKeyPrime.get_str() << std::endl;
-		//nu räknar vi ut exponenten
+		//nu rï¿½knar vi ut exponenten
 		Parser.ExtractTagData();
 		uint64_t LengthOfExponent = Parser.ExtractLengthOfType();
 		ReturnValue.BigEndianPublicExponent = DataToParse.substr(Parser.GetOffset(), LengthOfExponent);
@@ -746,7 +763,7 @@ namespace MBCrypto
 		Parser.ExtractTagData();
 		Parser.ExtractLengthOfType();
 		Parser.SkipToNextField();
-		//nu är vi vid public modolun
+		//nu ï¿½r vi vid public modolun
 		Parser.ExtractTagData();
 		unsigned int LengthOfModolu = Parser.ExtractLengthOfType();
 		ReturnValue.BigEndianPublicModolu = std::string(&KeyBinaryInfo[Parser.GetOffset()], LengthOfModolu);

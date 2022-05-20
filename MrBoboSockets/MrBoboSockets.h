@@ -189,14 +189,6 @@ namespace MBSockets
 		virtual MBError SendData(const void* DataPointer, size_t DataLength) override;
 		virtual MBError SendData(std::string const& DataToSend) override;
 	};
-
-	struct HTTPRequestResponse
-	{
-		int StatusCode = -1;
-		std::unordered_map<std::string, std::vector<std::string>> Headers = {};
-		int64_t ResponseSize = 0;
-		//bool IsChunked = false;
-	};
 	class HTTPClientSocket
 	{
 	private:
@@ -244,86 +236,6 @@ namespace MBSockets
 		bool IsValid();
 		//overrides
 		~HTTPClientSocket();
-	};
-
-	enum class HTTPRequestType
-	{
-		GET,
-		POST,
-		DELETE,
-		PUT,
-		HEAD,
-		Null,
-	};
-
-	struct HTTPRequestBody
-	{
-		MBMIME::MIMEType DocumentType = MBMIME::MIMEType::Null;
-		std::string DocumentData;
-	};
-	class HTTPClient : public MBUtility::MBOctetInputStream
-	{
-	private:
-		std::unique_ptr<ConnectSocket> m_SocketToUse = nullptr;
-		HTTPRequestResponse m_CurrentHeaders;
-		bool m_IsChunked = false;
-		bool m_IsConnected = false;
-
-		size_t m_ParseOffset = 0;
-		std::string m_ResponseData = "";
-		uint64_t m_RecievedBodyData = 0;
-
-		std::string m_Host = "";
-
-
-		std::vector<std::pair<std::string, std::string>> p_GetDefaultHeaders();
-		HTTPRequestResponse p_ParseResponseHeaders();
-	public:
-		bool DataIsAvailable();
-		//size_t RetrieveData(void* DataBuffer, size_t BufferSize);
-		bool IsConnected();
-		size_t Read(void* DataBuffer, size_t BufferSize) override;
-		
-		HTTPRequestResponse SendRequest(HTTPRequestType RequestType, std::string const& RequestResource, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders = {});
-		HTTPRequestResponse SendRequest(HTTPRequestType RequestType, std::string const& RequestResource,HTTPRequestBody const& DataToSend, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders = {});
-		
-		MBError ConnectToHost(std::string const& Host);
-		MBError ConnectToHost(std::string const& Host,OSPort PortToUse);
-
-
-
-	};
-	struct DEBUG_FileInfoStuff
-	{
-		uint64_t StartPosition = 0;
-		size_t BytesToRead = 0;
-		std::string ShaHash = "";
-	};
-	class HTTPFileStream : public MBUtility::MBSearchableInputStream
-	{
-	private:
-		int64_t m_CurrentPosition = 0;
-		uint64_t m_TotalResourceSize = -1;
-		std::string m_Resource = "";
-		std::unique_ptr<HTTPClient> m_SocketToUse = nullptr;
-
-		std::vector<DEBUG_FileInfoStuff>* DEBUG_OutVector = nullptr;
-
-		bool p_IsValid();
-		void p_Reset();
-		//absolut mest naiva implementationen
-	public:
-		HTTPFileStream() {};
-		void SetInputURL(std::string const& URLResource);
-		HTTPFileStream(std::string const& URLResource);
-
-		//DEBUG
-		void DEBUG_SetDebugParameters(std::vector<DEBUG_FileInfoStuff>* OutDebugVector);
-		//
-
-		virtual size_t Read(void* Buffer, size_t BytesToRead) override;
-		virtual uint64_t SetInputPosition(int64_t Offset, int whence) override;
-		virtual uint64_t GetInputPosition() override;
 	};
 
 

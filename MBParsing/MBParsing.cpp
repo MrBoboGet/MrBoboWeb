@@ -423,7 +423,7 @@ namespace MBParsing
 		}
 		try
 		{
-			ReturnValue = std::stoi(std::string(ObjectData +IntBegin, ObjectData+ IntEnd));
+			ReturnValue = std::stoll(std::string(ObjectData +IntBegin, ObjectData+ IntEnd));
 			ParseOffset = IntEnd;
 		}
 		catch (const std::exception&)
