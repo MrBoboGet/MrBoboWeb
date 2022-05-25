@@ -1158,7 +1158,8 @@ namespace MrPostOGet
 		}
 		std::string ReturnValue = std::string(NumberOfBytesToRead, 0);
 		FileToRead.seekg(FirstByteToReadPosition);
-		FileToRead.read(&ReturnValue[0], NumberOfBytesToRead);
+		uint64_t ReadBytes = FileToRead.read(&ReturnValue[0], NumberOfBytesToRead).gcount();
+		ReturnValue.resize(ReadBytes);
 		TotalDataRead += NumberOfBytesToRead;
 		return(ReturnValue);
 	}
@@ -1182,7 +1183,7 @@ namespace MrPostOGet
 		}
 		else
 		{
-			std::cout << "Data is not available " << std::endl;
+			//std::cout << "Data is not available " << std::endl;
 			return(false);
 		}
 	}
@@ -1424,7 +1425,7 @@ namespace MrPostOGet
 				{
 					if (DocumentToSend.IntervallsToRead[i].FirstByte == -1)
 					{
-						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte;
+						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte+1;
 					}
 					else if (DocumentToSend.IntervallsToRead[i].LastByte == -1)
 					{
@@ -1432,7 +1433,12 @@ namespace MrPostOGet
 					}
 					else
 					{
-						TotalIntervallSize += DocumentToSend.IntervallsToRead[i].LastByte - DocumentToSend.IntervallsToRead[i].FirstByte + 1;
+						uint64_t LastByte = DocumentToSend.IntervallsToRead[i].LastByte;
+						if (LastByte >= FileSize)
+						{
+							LastByte = FileSize - 1;
+						}
+						TotalIntervallSize += LastByte - DocumentToSend.IntervallsToRead[i].FirstByte + 1;
 					}
 				}
 				Request += std::to_string(TotalIntervallSize);
@@ -1493,6 +1499,15 @@ namespace MrPostOGet
 			if (LastByte == -1)
 			{
 				LastByte = FileSize - 1;
+			}
+			if (StartByte >= FileSize)
+			{
+				std::cout<<"MBG debugging 1500"<<std::endl;
+			}
+			if (LastByte >= FileSize)
+			{
+				//std::cout << "MBG debugging 1500" << std::endl;
+				LastByte = FileSize;
 			}
 			std::string ContentRangeHeader = "bytes " + std::to_string(StartByte) + "-" + std::to_string(LastByte) + "/" + std::to_string(FileSize);
 			NewDocument.ExtraHeaders["Content-Range"].push_back(ContentRangeHeader);
