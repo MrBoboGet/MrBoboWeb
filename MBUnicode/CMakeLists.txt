@@ -108,12 +108,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBUnicode_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBUnicode_SD" "STATIC" "DEBUG")
-target_compile_features("MBUnicode_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBUnicode_SD" ${COMMON_LIBRARIES})
-
-add_library(MBUnicode_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBUnicode_SR" "STATIC" "RELEASE")
-target_compile_features("MBUnicode_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBUnicode_SR" ${COMMON_LIBRARIES})
+add_library(MBUnicode STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MBUnicode")
+target_compile_features("MBUnicode" PRIVATE cxx_std_17)

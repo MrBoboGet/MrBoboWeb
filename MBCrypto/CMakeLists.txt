@@ -110,12 +110,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBCrypto_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBCrypto_SD" "STATIC" "DEBUG")
-target_compile_features("MBCrypto_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBCrypto_SD" ${COMMON_LIBRARIES})
-
-add_library(MBCrypto_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBCrypto_SR" "STATIC" "RELEASE")
-target_compile_features("MBCrypto_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBCrypto_SR" ${COMMON_LIBRARIES})
+add_library(MBCrypto STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MBCrypto")
+target_compile_features("MBCrypto" PRIVATE cxx_std_17)

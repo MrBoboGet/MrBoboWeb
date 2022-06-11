@@ -1,0 +1,1 @@
+{"Dependancies":["MrBigInt","cryptopp","MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBCrypto":{"Sources":["/MBCrypto.cpp"],"TargetType":"Library"}}}

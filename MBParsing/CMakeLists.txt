@@ -107,12 +107,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBParsing_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBParsing_SD" "STATIC" "DEBUG")
-target_compile_features("MBParsing_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBParsing_SD" ${COMMON_LIBRARIES})
-
-add_library(MBParsing_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBParsing_SR" "STATIC" "RELEASE")
-target_compile_features("MBParsing_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBParsing_SR" ${COMMON_LIBRARIES})
+add_library(MBParsing STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MBParsing" "STATIC" "DEBUG")
+target_compile_features("MBParsing" PRIVATE cxx_std_17)

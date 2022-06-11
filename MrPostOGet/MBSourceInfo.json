@@ -1,0 +1,1 @@
+{"Dependancies":["MBUtility","MrBoboSockets","MBMime","MBParsing","MBSystem"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrPostOGet":{"Sources":["/MrPostOGet.cpp"],"TargetType":"Library"}}}

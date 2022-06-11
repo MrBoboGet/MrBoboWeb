@@ -107,12 +107,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MrBigInt_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrBigInt_SD" "STATIC" "DEBUG")
-target_compile_features("MrBigInt_SD" PRIVATE cxx_std_17)
-target_link_libraries("MrBigInt_SD" ${COMMON_LIBRARIES})
-
-add_library(MrBigInt_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrBigInt_SR" "STATIC" "RELEASE")
-target_compile_features("MrBigInt_SR" PRIVATE cxx_std_17)
-target_link_libraries("MrBigInt_SR" ${COMMON_LIBRARIES})
+add_library(MrBigInt STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MrBigInt" "STATIC" "DEBUG")
+target_compile_features("MrBigInt" PRIVATE cxx_std_17)

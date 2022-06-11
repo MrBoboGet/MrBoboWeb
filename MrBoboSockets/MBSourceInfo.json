@@ -1,0 +1,1 @@
+{"Dependancies":["MBCrypto","MrBigInt","MBUtility","MBMime"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrBoboSockets":{"Sources":["/MrBoboSockets.cpp","/TLSHandler.cpp"],"TargetType":"Library"}}}

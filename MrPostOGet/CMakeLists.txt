@@ -116,12 +116,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MrPostOGet_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrPostOGet_SD" "STATIC" "DEBUG")
-target_compile_features("MrPostOGet_SD" PRIVATE cxx_std_17)
-target_link_libraries("MrPostOGet_SD" ${COMMON_LIBRARIES})
-
-add_library(MrPostOGet_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrPostOGet_SR" "STATIC" "RELEASE")
-target_compile_features("MrPostOGet_SR" PRIVATE cxx_std_17)
-target_link_libraries("MrPostOGet_SR" ${COMMON_LIBRARIES})
+add_library(MrPostOGet STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MrPostOGet")
+target_compile_features("MrPostOGet" PRIVATE cxx_std_17)

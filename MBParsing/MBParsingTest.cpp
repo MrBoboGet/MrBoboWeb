@@ -1,6 +1,8 @@
 
 #include "MBParsing.h"
+#include <MBUtility/MBFiles.h>
 #include <assert.h>
+#include <iostream>
 namespace MBParsing
 {
 	void Test()

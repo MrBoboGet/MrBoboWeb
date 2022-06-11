@@ -3,93 +3,81 @@ set(PROJECT_NAME "MBSystem")
 ##BEGIN MBPM_VARIABLES
 set(MBPM_DEPENDENCIES 
 )
+set(MBPM_SystemLibraries
+Ws2_32.lib
+Secur32.lib
+Bcrypt.lib
+Mfplat.lib
+opengl32
+Mfuuid.lib
+	Strmiids.lib
+)
+set(MBPM_DependanciesIncludeDirectories
+)
 set(MBPM_TARGET_EXTPACKET_LIBRARIES )
 set(MBPM_TARGET_COMPILE_OPTIONS )
 set(MBPM_TARGET_LINK_OPTIONS )
-#MBPM_Functions#variables MBPM_DEPENDENCIES
-#MBPM_TARGET_EXTPACKET_LIBRARIES
-#MBPM_TARGET_COMPILE_OPTIONS
-#MBPM_TARGET_LINK_OPTIONS
-#Environment variables MBPM_PACKETS_INSTALL_DIRECTORY
-macro(MBPM_UpdateLibraries TargetToUpdate LinkType BuildType)
-	set(MBPM_TARGET_EXTPACKET_LIBRARIES "")
+#MBPM_Functions
+set(MB_BUILD_TYPE "Debug") #Abstraction around CMAKE_BUILD_TYPE potentially being empty
+set(MBPM_EXTPACKETS_BUILD_DIRECTORIES )
+set(MBPM_EXTPACKETS_LIBRARIES)
+macro(MBPM_UpdateLibraries)
+	set(MBPM_EXTPACKETS_LIBRARIES "")
+	set(MBPM_EXTPACKETS_BUILD_DIRECTORIES "")
 	foreach(PACKET IN LISTS MBPM_DEPENDENCIES)
 		set(NewLibraryName "")
-		set(NewLibraryToAdd "$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/${PACKET}/MBPM_Builds/")
-		if(${LinkType} STREQUAL "STATIC")
-			set(NewLibraryName "${PACKET}_S")
-		elseif(${LinkType} STREQUAL "DYNAMIC")
-			set(NewLibraryName "${PACKET}_D")
+		set(PacketName ${PACKET})
+		set(LibraryName ${PACKET})
+		if(${PACKET} MATCHES "#")
+			string(REPLACE "#" ";" PACKET_PART_LIST ${PACKET})
+			list(GET PACKET_PART_LIST 0 PacketName)
+			list(GET PACKET_PART_LIST 1 LibraryName)
 		endif()
-		if(${BuildType} STREQUAL "DEBUG")
-			set(NewLibraryName "${NewLibraryName}D")
-		elseif(${BuildType} STREQUAL "RELEASE")
-			set(NewLibraryName "${NewLibraryName}R")
-		endif()
-		if(UNIX)
-			set(NewLibraryName "lib${NewLibraryName}.")
-			if(${LinkType} STREQUAL "STATIC")
-				set(NewLibraryName "${NewLibraryName}a")
-			else()
-				set(NewLibraryName "${NewLibraryName}so")
-			endif()
-		else()
-			if(${LinkType} STREQUAL "STATIC")
-				set(NewLibraryName "${NewLibraryName}.lib")
-			else()
-				set(NewLibraryName "${NewLibraryName}.dll")				
-			endif()
-		endif()
-		set(NewLibraryToAdd "${NewLibraryToAdd}${NewLibraryName}")
-		list(APPEND MBPM_TARGET_EXTPACKET_LIBRARIES ${NewLibraryToAdd})
+		set(NewLibraryDirectory "$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/${PacketName}/MBPM_Builds/${MB_BUILD_TYPE}/")
+		list(APPEND MBPM_EXTPACKETS_LIBRARIES ${LibraryName})
+		list(APPEND MBPM_EXTPACKETS_BUILD_DIRECTORIES ${NewLibraryDirectory})
 	endforeach()
 endmacro()
-
-macro(MBPM_UpdateTargetVariables TargetToUpdate LinkType BuildType)
-	MBPM_UpdateLibraries(${TargetToUpdate} ${LinkType} ${BuildType})
+set(MBPM_VariablesUpdated "FALSE")
+macro(MBPM_UpdateVariables)
+	if(${MBPM_VariablesUpdated} STREQUAL "FALSE")
+		if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "" AND DEFINED CMAKE_BUILD_TYPE)
+			set(MB_BUILD_TYPE ${CMAKE_BUILD_TYPE})
+		endif()
+		MBPM_UpdateLibraries()
+	endif()	
+	set(MBPM_VariablesUpdated "TRUE")
 endmacro()
 
 macro(MBPM_UpdateOutput TargetToUpdate)
+	set(BuildDirectorySuffix ${MB_BUILD_TYPE})
 	set_target_properties(${TargetToUpdate} 
 	PROPERTIES 
-	ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/"
-	LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/"
-	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/"
+	ARCHIVE_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/${BuildDirectorySuffix}/>
+	LIBRARY_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/${BuildDirectorySuffix}/>
+	RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_CURRENT_SOURCE_DIR}/MBPM_Builds/${BuildDirectorySuffix}/>
 	)
-	#set_target_properties(${TargetToUpdate} PROPERTIES PREFIX "")
-	#set_target_properties(${TargetToUpdate} PROPERTIES SUFFIX "")
-	set_target_properties(${TargetToUpdate} PROPERTIES OUTPUT_NAME ${TargetToUpdate})
-endmacro()
-
-macro(MBPM_SetTargetCompileOptions TargetToUpdate LinkType BuildType)
-	if(UNIX)
-
-	else()
-		if(${BuildType} STREQUAL "DEBUG" AND ${LinkType} STREQUAL "STATIC")
-			target_compile_options(${TargetToUpdate} PRIVATE /MTd)
-		else()
-			target_compile_options(${TargetToUpdate} PRIVATE /MT)
-		endif()
-	endif()
 endmacro()
 
 macro(MBPM_LinkTargetPacketLibraries Target)
-	target_link_libraries(${Target} ${MBPM_TARGET_EXTPACKET_LIBRARIES})
+	target_link_directories(${Target} PRIVATE ${MBPM_EXTPACKETS_BUILD_DIRECTORIES})
+	target_link_libraries(${Target} ${MBPM_EXTPACKETS_LIBRARIES})
+	target_link_libraries(${Target} ${MBPM_SystemLibraries})
 endmacro()
 
 macro(MBPM_SetTargetIncludeDirectories Target)
 	target_include_directories(${Target} PUBLIC 
 	"${CMAKE_CURRENT_SOURCE_DIR}/"
 	"$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/"
-	"$ENV{MBPM_PACKETS_INSTALL_DIRECTORY}/MBUtility/"
 	)
+	target_include_directories(${Target} PUBLIC ${MBPM_DependanciesIncludeDirectories})
 endmacro()
 
-macro(MBPM_ApplyTargetConfiguration TargetToUpdate LinkType BuildType)
-	MBPM_UpdateTargetVariables(${TargetToUpdate} ${LinkType} ${BuildType})
+macro(MBPM_ApplyConfiguration TargetToUpdate)
+	MBPM_UpdateVariables()
 	MBPM_UpdateOutput(${TargetToUpdate})
-	MBPM_SetTargetCompileOptions(${TargetToUpdate} ${LinkType} ${BuildType})
 	MBPM_SetTargetIncludeDirectories(${TargetToUpdate})
+	MBPM_LinkTargetPacketLibraries(${TargetToUpdate})
 endmacro()
 ##END MBPM_VARIABLES
 set(PROJECT_SOURCES 
@@ -106,12 +94,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBSystem_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBSystem_SD" "STATIC" "DEBUG")
-target_compile_features("MBSystem_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBSystem_SD" ${COMMON_LIBRARIES})
-
-add_library(MBSystem_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBSystem_SR" "STATIC" "RELEASE")
-target_compile_features("MBSystem_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBSystem_SR" ${COMMON_LIBRARIES})
+add_library(MBSystem STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MBSystem" "STATIC" "DEBUG")
+target_compile_features("MBSystem" PRIVATE cxx_std_17)

@@ -1,0 +1,1 @@
+{"Dependancies":["MBUnicode","MBUtility","MBParsing"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBMime":{"Sources":["/MBMime.cpp"],"TargetType":"Library"}}}

@@ -110,12 +110,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MrBoboDatabase_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrBoboDatabase_SD" "STATIC" "DEBUG")
-target_compile_features("MrBoboDatabase_SD" PRIVATE cxx_std_17)
-target_link_libraries("MrBoboDatabase_SD" ${COMMON_LIBRARIES})
-
-add_library(MrBoboDatabase_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrBoboDatabase_SR" "STATIC" "RELEASE")
-target_compile_features("MrBoboDatabase_SR" PRIVATE cxx_std_17)
-target_link_libraries("MrBoboDatabase_SR" ${COMMON_LIBRARIES})
+add_library(MrBoboDatabase STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MrBoboDatabase")
+target_compile_features("MrBoboDatabase" PRIVATE cxx_std_17)

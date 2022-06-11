@@ -111,12 +111,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MrBoboSockets_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrBoboSockets_SD" "STATIC" "DEBUG")
-target_compile_features("MrBoboSockets_SD" PRIVATE cxx_std_17)
-target_link_libraries("MrBoboSockets_SD" ${COMMON_LIBRARIES})
-
-add_library(MrBoboSockets_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MrBoboSockets_SR" "STATIC" "RELEASE")
-target_compile_features("MrBoboSockets_SR" PRIVATE cxx_std_17)
-target_link_libraries("MrBoboSockets_SR" ${COMMON_LIBRARIES})
+add_library(MrBoboSockets STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MrBoboSockets" "STATIC" "DEBUG")
+target_compile_features("MrBoboSockets" PRIVATE cxx_std_17)

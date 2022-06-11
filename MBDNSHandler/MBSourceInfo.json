@@ -1,0 +1,1 @@
+{"Dependancies":["MrBoboSockets","MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBDNSHandler":{"Sources":["/MBDNSHandler.cpp"],"TargetType":"Library"}}}

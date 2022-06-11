@@ -1,0 +1,1 @@
+{"Dependancies":["MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrBigInt":{"Sources":["/MrBigInt.cpp"],"TargetType":"Library"}}}

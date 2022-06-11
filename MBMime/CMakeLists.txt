@@ -108,12 +108,6 @@ set(COMMON_STATIC_LIBRARIES
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
 
-add_library(MBMime_SD STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBMime_SD" "STATIC" "DEBUG")
-target_compile_features("MBMime_SD" PRIVATE cxx_std_17)
-target_link_libraries("MBMime_SD" ${COMMON_LIBRARIES})
-
-add_library(MBMime_SR STATIC ${COMMON_FILES})
-MBPM_ApplyTargetConfiguration("MBMime_SR" "STATIC" "RELEASE")
-target_compile_features("MBMime_SR" PRIVATE cxx_std_17)
-target_link_libraries("MBMime_SR" ${COMMON_LIBRARIES})
+add_library(MBMime STATIC ${COMMON_FILES})
+MBPM_ApplyConfiguration("MBMime")
+target_compile_features("MBMime" PRIVATE cxx_std_17)
