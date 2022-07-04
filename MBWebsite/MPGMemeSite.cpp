@@ -1046,13 +1046,19 @@ namespace MBWebsite
 		std::string DatabaseResourcePath = GetResourceFolderPath();
 		std::string URLResource = MrPostOGet::GetRequestResource(RequestData);
 		std::string DatabaseResourceToGet = URLResource.substr(URLResource.find_first_of("DB/") + 3);
-		if (!std::filesystem::exists(DatabaseResourcePath + DatabaseResourceToGet))
+		bool AbsoluteExists = std::filesystem::exists(DatabaseResourcePath + DatabaseResourceToGet);
+		bool IndexExists = std::filesystem::exists(DatabaseResourcePath + DatabaseResourceToGet + "/index.html");
+		if (!AbsoluteExists && !IndexExists)
 		{
 			MrPostOGet::HTTPDocument Invalid;
 			Invalid.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
 			Invalid.Type = MBMIME::MIMEType::HTML;
 			Invalid.DocumentData = "File not found";
 			return(Invalid);
+		}
+		if (std::filesystem::is_directory(DatabaseResourcePath + DatabaseResourceToGet) && IndexExists)
+		{
+			DatabaseResourceToGet += "/index.html";
 		}
 		std::string RangeData = MrPostOGet::GetHeaderValue("Range", RequestData);
 		std::string IntervallsData = RangeData.substr(RangeData.find_first_of("=") + 1);
@@ -1077,8 +1083,6 @@ namespace MBWebsite
 				ByteIntervalls.push_back(NewIntervall);
 			}
 		}
-
-
 		MrPostOGet::HTTPDocument ReturnValue = AssociatedServer->GetResource(DatabaseResourcePath + DatabaseResourceToGet, ByteIntervalls);
 		return(ReturnValue);
 	}

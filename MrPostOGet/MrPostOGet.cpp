@@ -532,7 +532,7 @@ namespace MrPostOGet
 				if (Request.RequestResource == "/")
 				{
 					ReturnValue.Type = MBMIME::MIMEType::HTML;
-					ReturnValue.DocumentData = LoadFileWithPreprocessing(ResourcePath + "index.htm", ResourcePath);
+					ReturnValue.DocumentData = LoadFileWithPreprocessing(ResourcePath + "index.html", ResourcePath);
 				}
 				else
 				{
@@ -564,6 +564,10 @@ namespace MrPostOGet
 						}
 					}
 				}
+			}
+			else if (std::filesystem::exists(ActualResourcePath / "index.html") && std::filesystem::is_regular_file(ActualResourcePath / "index.html"))
+			{
+				ReturnValue = AssociatedServer->GetResource(ResourceToGet + "/index.html");
 			}
 			else
 			{
@@ -1284,10 +1288,10 @@ namespace MrPostOGet
 		size_t HeaderLength = 0;
 		size_t MaxDataInMemory = 1650000 * 2;
 		size_t TotalRecievedData = 0;
-		while (true)
+		while (m_UnderlyingSocket->IsConnected())
 		{
 			NewData = m_UnderlyingSocket->RecieveData(MaxDataInMemory - TotalRecievedData);
-			if (!this->IsValid())
+			if (m_UnderlyingSocket->IsConnected())
 			{
 				//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
 				CurrentContentLength = 0;
