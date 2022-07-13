@@ -45,6 +45,7 @@ namespace MBParsing
 	intmax_t ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 	bool ParseJSONBoolean(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr);
 
+    size_t GetNextDelimiterPosition(const char* BeginDelimiters,const char* EndDelimiters,const void* DataToParse,size_t DataSize,size_t InOffset);
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse,size_t DataSize, size_t InOffset, MBError* OutError = nullptr);
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, std::string const& DataToParse, size_t InOffset, MBError* OutError = nullptr);
 

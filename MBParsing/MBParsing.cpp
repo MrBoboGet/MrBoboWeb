@@ -529,6 +529,34 @@ namespace MBParsing
 		UpdateParseState(ParseOffset, ParseError, OutOffset, OutError);
 		return(ReturnValue);
 	}
+    size_t GetNextDelimiterPosition(const char* BeginDelimiters,const char* EndDelimiters,const void* DataToParse,size_t DataSize,size_t InOffset)
+    {
+		size_t ParseOffset = InOffset;
+		const char* Data = (const char*)DataToParse;
+		while (ParseOffset < DataSize)
+		{
+			bool IsDelimiter = false;
+			for (size_t i = 0; i < EndDelimiters - BeginDelimiters; i++)
+			{
+				if (Data[ParseOffset] == BeginDelimiters[i])
+				{
+					IsDelimiter = true;
+					break;
+				}
+			}
+			if (IsDelimiter)
+			{
+				break;
+			}
+			else
+			{
+				ParseOffset += 1;
+			}
+		}
+		//ASSUMPTION EOF is an implicit delimiter
+		return(ParseOffset);
+       
+    }
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse, size_t DataSize, size_t InOffset, MBError* OutError)
 	{
 		size_t ReturnValue = -1;
