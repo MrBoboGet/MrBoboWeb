@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 #include <vector>
 #include <MBUtility/MBErrorHandling.h>
 #include <map>
@@ -49,11 +50,12 @@ namespace MBParsing
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, const void* DataToParse,size_t DataSize, size_t InOffset, MBError* OutError = nullptr);
 	size_t GetNextDelimiterPosition(std::vector<char> const& Delimiters, std::string const& DataToParse, size_t InOffset, MBError* OutError = nullptr);
 
+    void WriteBigEndianInteger(MBUtility::MBOctetOutputStream& OutStream,uint64_t IntegerToWrite,char IntegerSize);
 	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize);
 	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize,size_t WriteOffset,size_t* OutWriteOffset);
 
 
-
+    uint64_t ParseBigEndianInteger(MBUtility::MBOctetInputStream& InStream,unsigned char IntegerSize);
 	uint64_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 	uint64_t ParseBigEndianInteger(const void* DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 
@@ -299,6 +301,10 @@ namespace MBParsing
 		std::string p_ToString_Array() const;
 		std::string p_ToString_Aggregate() const;
 		std::string p_ToString_Atomic() const;
+
+		std::string p_ToPrettyString_Array(int IndentLevel) const;
+		std::string p_ToPrettyString_Aggregate(int IndentLevel) const;
+
 	public:
 		JSONObject() {};
 		//JSONObject(JSONObjectType InitialType);
@@ -347,6 +353,7 @@ namespace MBParsing
 		JSONObject& GetAttribute(std::string const& AttributeName);
 		JSONObject const& GetAttribute(std::string const& AttributeName) const;
 		std::string ToString() const;
+		std::string ToPrettyString() const;
 	};
 	//en rule
 	//RuleObject.Matches(void const* DataToparse,size_t DataSize);

@@ -112,7 +112,7 @@ namespace MBSystem
 	{				
 		return(SendData(DataToSend.data(), DataToSend.size()));
 	}
-	size_t UniDirectionalSubProcess::RecieveDataToBuffer(void* Buffer, size_t MaxBytesToRead) 
+	size_t UniDirectionalSubProcess::Read(void* Buffer, size_t MaxBytesToRead) 
 	{
 		size_t ReadBytes = 0;
 #ifdef _WIN32
@@ -137,7 +137,7 @@ namespace MBSystem
 	std::string UniDirectionalSubProcess::RecieveData(size_t MaxBytesToRead)
 	{
 		std::string ReturnValue = std::string(MaxBytesToRead, 0);
-		size_t ReadBytes = RecieveDataToBuffer(ReturnValue.data(), MaxBytesToRead);
+		size_t ReadBytes = Read(ReturnValue.data(), MaxBytesToRead);
 		ReturnValue.resize(ReadBytes);
 		return(ReturnValue);
 	}

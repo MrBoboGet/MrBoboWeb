@@ -1,12 +1,15 @@
 ﻿#include "MrBoboSockets.h"
 #include <MBUtility/MBStrings.h>
 #include <MBMime/MBMime.h>
+#include <filesystem>
+//#include <MBUtility/MBErrorHandling.h>
 //operativ system specifika grejer
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 //linux
 #elif __linux__
+#include <execinfo.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -38,6 +41,22 @@ uint64_t MBGetFileSize(std::string const& PathToCheck)
 
 namespace MBSockets
 {
+#ifdef __linux__
+
+    void handler(int sig) 
+	{
+		void *array[10];
+		size_t size;
+
+		// get void*'s for all entries on the stack
+		size = backtrace(array, 10);
+
+		// print out all the frames to stderr
+		fprintf(stderr, "Error: signal %d:\n", sig);
+		backtrace_symbols_fd(array, size, STDERR_FILENO);
+		exit(1);
+	}
+#endif
 	void Init()
 	{
 #if defined(WIN32) || defined(_WIN32)
@@ -53,6 +72,7 @@ namespace MBSockets
 		SIGPIPE_Handler.sa_flags = SA_RESTART;
 		SIGPIPE_Handler.sa_handler = SIG_IGN;
 		sigaction(SIGPIPE, &SIGPIPE_Handler, NULL);
+		signal(SIGSEGV,handler);
 #endif
 		return;
 	}
@@ -253,7 +273,7 @@ namespace MBSockets
 		size_t TotalDataSent = 0;
 		while (TotalDataSent != DataSize)
 		{
-			m_ErrorResult = send(m_UnderlyingHandle, (const char*)DataToSend, DataSize, 0);
+			m_ErrorResult = send(m_UnderlyingHandle, ((const char*)DataToSend)+TotalDataSent, DataSize-TotalDataSent, 0);
 			if (m_ErrorResult == MBSocketError())
 			{
 				p_HandleError("send failed with error: " + p_GetLastError(), true);
@@ -278,7 +298,7 @@ namespace MBSockets
 			ReturnValue.resize(LengthOfDataRecieved);
 			if (LengthOfDataRecieved == 0)
 			{
-				//connection closar, gör inget på den här nivån
+                m_Invalid = true;
 			}
 		}
 		return(ReturnValue);

@@ -2232,7 +2232,7 @@ bool TLSHandler::HandleAlertMessage(MBSockets::ConnectSocket* SocketToConnect,st
 }
 std::vector<std::string> TLSHandler::GetNextPlaintextRecords(MBSockets::ConnectSocket* SocketToConnect, int NumberOfRecordsToGet, int MaxBytesInMemory)
 {
-	std::vector<std::string> ReturnValue = std::vector<std::string>(0);
+	std::vector<std::string> ReturnValue;
 	int NumberOfRecievedRecords = 0;
 	while (NumberOfRecievedRecords < NumberOfRecordsToGet || NumberOfRecordsToGet == -1)
 	{

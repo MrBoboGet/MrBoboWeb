@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <MBUtility/MBInterfaces.h>
 namespace MBSystem
 {
 	enum class SystemErrorCode
@@ -17,7 +18,7 @@ namespace MBSystem
 
 	struct MBProcessHandle;
 	void MBProcessHandleDeleter(MBProcessHandle* HandleToDelete);
-	class UniDirectionalSubProcess
+	class UniDirectionalSubProcess : public MBUtility::MBOctetInputStream
 	{
 	private:
 		SystemErrorCode m_LastError = SystemErrorCode::Null;
@@ -33,7 +34,7 @@ namespace MBSystem
 		UniDirectionalSubProcess(std::string const& CommandToExecute,bool Read);
 		SystemErrorCode SendData(const void* Data, size_t DataSize);
 		SystemErrorCode SendData(std::string const& DataToSend);
-		size_t RecieveDataToBuffer(void* Buffer, size_t MaxBytesToRead);
+		size_t Read(void* Buffer, size_t MaxBytesToRead);
 		std::string RecieveData(size_t MaxBytesToRead = 2048);
 		bool Finished();
 		SystemErrorCode GetLastError();

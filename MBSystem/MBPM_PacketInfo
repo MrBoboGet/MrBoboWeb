@@ -1,10 +1,5 @@
 {
 	"PacketName":"MBSystem",
 	"Attributes":["Embeddable"],
-	"OutputConfigurations":["StaticDebug","StaticRelease"],
-	"OutputTargetNames": {
-		"StaticRelease": "MBSystem_SR",
-		"StaticDebug": "MBSystem_SD"
-	},
-	"Dependancies":[]
+	"Dependancies":["MBUtility"]
 }

@@ -557,11 +557,11 @@ namespace TLS1_2
 		unsigned int Offset = 0;
 		while (Offset < Base64DataSize)
 		{
-			unsigned int NewBytes = 0;
+			uint32_t NewBytes = 0;
 			char CharactersProcessed = 0;
 			for (size_t i = 0; i < 4; i++)
 			{
-				NewBytes += Base64CharToBinary(Base64Data[Offset]) << (18 - 6 * i);
+				NewBytes +=  uint32_t(Base64CharToBinary(Base64Data[Offset])) << (18 - 6 * i);
 				Offset += 1;
 				CharactersProcessed += 1;
 				if (Offset == Base64DataSize)

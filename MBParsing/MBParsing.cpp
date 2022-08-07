@@ -1,4 +1,5 @@
 #include "MBParsing.h"
+#include "MBUtility/MBInterfaces.h"
 #include <cstring>
 #include <algorithm>
 #include <assert.h>
@@ -8,6 +9,7 @@
 
 //DEBUG
 #include <iostream>
+#include <stdint.h>
 
 namespace MBParsing
 {
@@ -19,6 +21,14 @@ namespace MBParsing
 			*OutWriteOffset = WriteOffset + IntegerSize;
 		}
 	}
+    void WriteBigEndianInteger(MBUtility::MBOctetOutputStream& OutStream,uint64_t IntegerToWrite,char IntegerSize)
+    {
+        unsigned char Buffer[32];
+        assert(IntegerSize < 32 && "WriteBigEndianInteger supports only integers from size 0-8");
+        WriteBigEndianInteger(Buffer,IntegerToWrite,IntegerSize,0,nullptr);
+        size_t WrittenBytes = OutStream.Write(Buffer,IntegerSize);
+
+    }
 	void WriteBigEndianInteger(void* Buffer, uint64_t IntegerToWrite, char IntegerSize)
 	{
 		uint8_t* ByteBuffer = (uint8_t*)Buffer;
@@ -30,6 +40,15 @@ namespace MBParsing
 		}
 	}
 
+    uint64_t ParseBigEndianInteger(MBUtility::MBOctetInputStream& InStream,unsigned char IntegerSize)
+    {
+        uint64_t ReturnValue = 0;
+        unsigned char Buffer[32]; 
+        assert(IntegerSize <= 8 && "ParseBigEndianInteger can only parse integers of size 0-8");
+        InStream.Read(Buffer,IntegerSize);
+        ReturnValue = ParseBigEndianInteger(Buffer,IntegerSize,0,nullptr);
+        return(ReturnValue); 
+    }
 	uint64_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset)
 	{
 		return(ParseBigEndianInteger(DataToParse.data(), IntegerSize, ParseOffset, OutParseOffset));
@@ -903,6 +922,24 @@ namespace MBParsing
 		{
 			ReturnValue = p_ToString_Atomic();
 		}
+		return(ReturnValue);
+	}
+	std::string JSONObject::p_ToPrettyString_Array(int IndentLevel) const
+	{
+		std::string ReturnValue;
+
+		return(ReturnValue);
+	}
+	std::string JSONObject::p_ToPrettyString_Aggregate(int IndentLevel) const
+	{
+		std::string ReturnValue;
+
+		return(ReturnValue);
+	}
+	std::string JSONObject::ToPrettyString() const
+	{
+		std::string ReturnValue;
+
 		return(ReturnValue);
 	}
 	std::string JSONObject::p_ToString_Array() const
