@@ -927,19 +927,77 @@ namespace MBParsing
 	std::string JSONObject::p_ToPrettyString_Array(int IndentLevel) const
 	{
 		std::string ReturnValue;
-
+        ReturnValue += std::string(m_IndentSpaceWidth*IndentLevel,' ');
+        ReturnValue += "[\n";
+        auto const& ArrayData = GetArrayData();
+        for(JSONObject const& Element : ArrayData)
+        {
+            ReturnValue += Element.p_ToPrettyString(IndentLevel+1);
+            ReturnValue += ",\n";
+        }
+        if(ArrayData.size() > 0)
+        {
+            ReturnValue.resize(ReturnValue.size()-2);  
+        } 
+        ReturnValue += '\n';
+        ReturnValue += std::string(m_IndentSpaceWidth*IndentLevel,' ');
+        ReturnValue += ']'; 
 		return(ReturnValue);
 	}
+    std::string JSONObject::p_ToPrettyString(int IndentLevel) const
+    {
+		std::string ReturnValue;
+        if(m_Type == JSONObjectType::Aggregate)
+        {
+            ReturnValue = p_ToPrettyString_Aggregate(IndentLevel);
+        }
+        else if(m_Type == JSONObjectType::Array)
+        {
+            ReturnValue = p_ToPrettyString_Array(IndentLevel);   
+        }
+        else
+        {
+            //atomic
+            ReturnValue = std::string(m_IndentSpaceWidth*IndentLevel,' ');
+            ReturnValue += ToString();       
+        }
+        return(ReturnValue);
+    }
 	std::string JSONObject::p_ToPrettyString_Aggregate(int IndentLevel) const
 	{
 		std::string ReturnValue;
-
+        ReturnValue += std::string(m_IndentSpaceWidth*IndentLevel,' ');
+        ReturnValue += "{\n";
+        auto const& MapData = GetMapData(); 
+        for(auto const& Element : MapData)
+        {
+            ReturnValue += std::string(m_IndentSpaceWidth*(IndentLevel+1),' ');
+            ReturnValue += '"';
+            ReturnValue += Element.first;
+            ReturnValue += "\": ";
+			if (Element.second.GetType() == JSONObjectType::Aggregate || Element.second.GetType() == JSONObjectType::Array)
+			{
+				ReturnValue += "\n";
+				ReturnValue += Element.second.p_ToPrettyString(IndentLevel+1);
+			}
+			else
+			{
+				ReturnValue += Element.second.ToString();
+			}
+            ReturnValue += ",\n";
+        }
+        if(MapData.size() > 0)
+        {
+            ReturnValue.resize(ReturnValue.size()-2);
+        }
+        ReturnValue += '\n';
+        ReturnValue += std::string(m_IndentSpaceWidth*IndentLevel,' ');
+        ReturnValue += '}';
 		return(ReturnValue);
 	}
 	std::string JSONObject::ToPrettyString() const
 	{
-		std::string ReturnValue;
-
+		std::string ReturnValue = p_ToPrettyString(0); 
 		return(ReturnValue);
 	}
 	std::string JSONObject::p_ToString_Array() const

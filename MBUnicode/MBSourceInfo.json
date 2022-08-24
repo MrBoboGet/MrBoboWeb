@@ -1,1 +1,24 @@
-{"Dependancies":["MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBUnicode":{"Sources":["/MBUnicode.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language":     "C++",
+    "Standard":     "C++17",
+    "Targets": 
+    {
+        "MBUnicode": 
+        {
+            "OutputName":             "MBUnicode",
+            "Sources": 
+            [
+                "/MBUnicode.cpp"
+            ],
+            "TargetType":             "Library"
+        }
+    }
+}

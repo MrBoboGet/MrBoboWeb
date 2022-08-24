@@ -540,6 +540,10 @@ namespace MBCrypto
 
 
 	//BEGIN ElipticCurve
+    void i_Delete_DL_GroupParameters_EC_ECP(void* ThingToDelete)
+    {
+        delete (CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>*)ThingToDelete;
+    }
 	ElipticCurvePoint DecodeECP_ANS1x92Encoding(std::string const& ANS1x92EncodedPoint)
 	{
 		ElipticCurvePoint ReturnValue;
@@ -548,23 +552,25 @@ namespace MBCrypto
 		ReturnValue.BigEndianYCoordinate = ANS1x92EncodedPoint.substr(1 + CoordinateSize, CoordinateSize);
 		return(ReturnValue);
 	}
-	ElipticCurve::ElipticCurve(NamedElipticCurve CurveParameters)
+	ElipticCurve::ElipticCurve(NamedElipticCurve CurveParameters) : m_Group(new CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>(),i_Delete_DL_GroupParameters_EC_ECP)
 	{
 		if (CurveParameters == NamedElipticCurve::secp256r1)
 		{
-			m_Group.Initialize(CryptoPP::ASN1::secp256r1());
+            CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>& Group = *static_cast<CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>*>(m_Group.get());
+			Group.Initialize(CryptoPP::ASN1::secp256r1());
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid named curve");
 		}
 	}
 	ECDHEPrivatePublicKeyPair ElipticCurve::GetPrivatePublicKeypair()
 	{
 		ECDHEPrivatePublicKeyPair ReturnValue;
 		CryptoPP::AutoSeededRandomPool prng;
-		CryptoPP::Integer PrivateKey(prng, CryptoPP::Integer::One(), m_Group.GetMaxExponent());
-		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element PublicPoint = m_Group.ExponentiateBase(PrivateKey);
+        CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>& Group = *static_cast<CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>*>(m_Group.get());
+        CryptoPP::Integer PrivateKey(prng, CryptoPP::Integer::One(), Group.GetMaxExponent());
+		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element PublicPoint = Group.ExponentiateBase(PrivateKey);
 		ReturnValue.PrivateInteger = h_CryptoPPToString(PrivateKey);
 		ReturnValue.PublicPoint.BigEndianXCoordinate = h_CryptoPPToString(PublicPoint.x);
 		ReturnValue.PublicPoint.BigEndianYCoordinate = h_CryptoPPToString(PublicPoint.y);
@@ -575,21 +581,23 @@ namespace MBCrypto
 		CryptoPP::Integer XCoordinate = h_CryptoPPFromBigEndianArray(PublicPoint.BigEndianXCoordinate);
 		CryptoPP::Integer YCoordinate = h_CryptoPPFromBigEndianArray(PublicPoint.BigEndianYCoordinate);
 		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element PointToUse(XCoordinate,YCoordinate);
-		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element ResultPoint = m_Group.GetCurve().Multiply(h_CryptoPPFromBigEndianArray(PrivateInteger), PointToUse);
+        CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>& Group = *static_cast<CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>*>(m_Group.get());
+        CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>::Element ResultPoint = Group.GetCurve().Multiply(h_CryptoPPFromBigEndianArray(PrivateInteger), PointToUse);
 		//DEBUG TEST
-		std::string ReturnValue = h_CryptoPPToString(ResultPoint.x);
-		CryptoPP::ECDH<CryptoPP::ECP>::Domain dhA(CryptoPP::ASN1::secp256r1());
-		std::string DEBUG_TestValue = std::string(ReturnValue.size(), 0);
-		dhA.Agree((CryptoPP::byte*)DEBUG_TestValue.data(),(CryptoPP::byte*) PrivateInteger.data(),(CryptoPP::byte*) EncodeECP_ANS1x92Encoding(PublicPoint).data(), true);
-		std::string ReturnValue2 = h_CryptoPPToString(m_Group.ExponentiateElement(PointToUse, h_CryptoPPFromBigEndianArray(PrivateInteger)).x);
-		assert(DEBUG_TestValue == ReturnValue);
-		assert(ReturnValue == ReturnValue2);
+		//std::string ReturnValue = h_CryptoPPToString(ResultPoint.x);
+		//CryptoPP::ECDH<CryptoPP::ECP>::Domain dhA(CryptoPP::ASN1::secp256r1());
+		//std::string DEBUG_TestValue = std::string(ReturnValue.size(), 0);
+		//dhA.Agree((CryptoPP::byte*)DEBUG_TestValue.data(),(CryptoPP::byte*) PrivateInteger.data(),(CryptoPP::byte*) EncodeECP_ANS1x92Encoding(PublicPoint).data(), true);
+		//std::string ReturnValue2 = h_CryptoPPToString(m_Group.ExponentiateElement(PointToUse, h_CryptoPPFromBigEndianArray(PrivateInteger)).x);
+		//assert(DEBUG_TestValue == ReturnValue);
+		//assert(ReturnValue == ReturnValue2);
 		return(h_CryptoPPToString(ResultPoint.x));
 	}
 	std::string ElipticCurve::EncodeECP_ANS1x92Encoding(ElipticCurvePoint const& PointToEncode)
 	{
 		std::string ReturnValue = "\x04";
-		size_t CoordinateByteLength =  m_Group.GetCurve().GetField().MaxElementByteLength();
+        CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>& Group = *static_cast<CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP>*>(m_Group.get());
+        size_t CoordinateByteLength =  Group.GetCurve().GetField().MaxElementByteLength();
 		ReturnValue += I2OSP(PointToEncode.BigEndianXCoordinate, CoordinateByteLength);
 		ReturnValue += I2OSP(PointToEncode.BigEndianYCoordinate, CoordinateByteLength);
 		return(ReturnValue);
@@ -603,8 +611,7 @@ namespace MBCrypto
 		//std::cout << MaxValueOfInteger.GetString() << std::endl;
 		if (BigEndianArray.size() > ResultLength)
 		{
-			assert(false);
-			return("ERROR");
+            throw std::runtime_error("Error in I20SP: BigEndianArray bigger than result length");
 		}
 		else
 		{
@@ -613,9 +620,9 @@ namespace MBCrypto
 				ReturnValue += char(0);
 			}
 			ReturnValue += BigEndianArray;
-			return(ReturnValue);
 		}
-	}
+        return(ReturnValue);
+    }
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData)
 	{
 		MrBigInt ReturnValueTest(0);
@@ -637,7 +644,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid hash function in: only SHA256 supported");
 		}
 		std::string ReturnValue = "";
 		ReturnValue += (char)0;

@@ -298,12 +298,15 @@ namespace MBParsing
 		JSONObjectType m_Type = JSONObjectType::Null;
 		void* m_ObjectData = nullptr;
 
+        static constexpr int m_IndentSpaceWidth = 4;
+
 		std::string p_ToString_Array() const;
 		std::string p_ToString_Aggregate() const;
 		std::string p_ToString_Atomic() const;
 
 		std::string p_ToPrettyString_Array(int IndentLevel) const;
 		std::string p_ToPrettyString_Aggregate(int IndentLevel) const;
+		std::string p_ToPrettyString(int IndentLevel) const;
 
 	public:
 		JSONObject() {};

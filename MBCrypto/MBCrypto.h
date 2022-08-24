@@ -204,8 +204,10 @@ namespace MBCrypto
 	class ElipticCurve
 	{
 	private:
-		CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP> m_Group;
+		//CryptoPP::DL_GroupParameters_EC<CryptoPP::ECP> m_Group;
+        std::unique_ptr<void,void (*)(void*)> m_Group;
 	public:
+        ElipticCurve(ElipticCurve const& Copy) = delete; 
 		ElipticCurve(NamedElipticCurve);
 		ECDHEPrivatePublicKeyPair GetPrivatePublicKeypair();
 		std::string CalculateSharedKey(ElipticCurvePoint const& PublicPoint, std::string const& PrivateInteger);

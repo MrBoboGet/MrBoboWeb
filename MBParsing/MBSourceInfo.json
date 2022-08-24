@@ -1,1 +1,25 @@
-{"Dependancies":["MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBParsing":{"Sources":["/MBParsing.cpp","/MBParsingTest.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language":     "C++",
+    "Standard":     "C++17",
+    "Targets": 
+    {
+        "MBParsing": 
+        {
+            "OutputName":             "MBParsing",
+            "Sources": 
+            [
+                "/MBParsing.cpp",
+                "/MBParsingTest.cpp"
+            ],
+            "TargetType":             "Library"
+        }
+    }
+}

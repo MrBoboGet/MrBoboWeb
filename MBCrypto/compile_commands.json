@@ -1,0 +1,1 @@
+[{"arguments":["clang++","--include-directory=./","-std=c++17","--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY/","-c","MBCrypto.cpp"],"directory":"C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBCrypto\\","file":"MBCrypto.cpp"}]

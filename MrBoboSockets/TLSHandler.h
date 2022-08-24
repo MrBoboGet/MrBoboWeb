@@ -549,6 +549,7 @@ namespace TLS1_2
 			return(63);
 		}
 		assert(false);
+        return(0);
 	}
 	inline std::string Base64ToBinary(std::string const& Base64Data)
 	{
