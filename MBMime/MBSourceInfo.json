@@ -1,1 +1,26 @@
-{"Dependancies":["MBUnicode","MBUtility","MBParsing"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBMime":{"Sources":["/MBMime.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUnicode",
+        "MBParsing",
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MBMime": 
+        {
+            "OutputName": "MBMime",
+            "Sources": 
+            [
+                "/MBMime.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

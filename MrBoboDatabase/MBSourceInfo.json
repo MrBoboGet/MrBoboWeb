@@ -1,1 +1,26 @@
-{"Dependancies":["MBUtility","sqlite3"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrBoboDatabase":{"Sources":["/MBDBObjectScript.cpp","/MrBoboDatabase.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility",
+        "sqlite3"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MrBoboDatabase": 
+        {
+            "OutputName": "MrBoboDatabase",
+            "Sources": 
+            [
+                "/MBDBObjectScript.cpp",
+                "/MrBoboDatabase.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

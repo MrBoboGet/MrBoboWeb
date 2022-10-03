@@ -1,1 +1,42 @@
-{"Dependancies":["MBUtility","MrPostOGet","MrBoboDatabase","MBSearchEngine","MBUnicode","MBMime","MBSystem","MBPacketManager"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBWebsite":{"Sources":["/MBWebsiteMain.cpp","/MPGMemeSite.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility",
+        "MrPostOGet",
+        "MrBoboDatabase",
+        "MBSearchEngine",
+        "MBUnicode",
+        "MBMime",
+        "MBSystem",
+        "MBPacketManager"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "Lib": 
+        {
+            "OutputName": "MBWebsite",
+            "Sources": 
+            [
+                "/MBWebsiteMain.cpp"
+            ],
+            "TargetType": "Library"
+        },
+        "MBWebsite": 
+        {
+            "OutputName": "MBWebsite",
+            "Sources": 
+            [
+                "/MBWebsiteMain.cpp",
+                "/MPGMemeSite.cpp"
+            ],
+            "TargetType": "Executable"
+        }
+
+    }
+}

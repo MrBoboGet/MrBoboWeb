@@ -1,1 +1,26 @@
-{"Dependancies":["MrBigInt","cryptopp","MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBCrypto":{"OutputName":"MBCrypto","Sources":["/MBCrypto.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MrBigInt",
+        "cryptopp",
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MBCrypto": 
+        {
+            "OutputName": "MBCrypto",
+            "Sources": 
+            [
+                "/MBCrypto.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

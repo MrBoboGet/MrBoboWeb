@@ -3,6 +3,7 @@
 #include <cstring>
 #include <algorithm>
 #include <assert.h>
+#include <filesystem>
 #include <stdexcept>
 
 #include <regex>
@@ -1099,6 +1100,43 @@ namespace MBParsing
 	}
 
 
+    JSONObject ParseJSONObject(std::filesystem::path const& FilePath,MBError* OutError)
+    {
+        JSONObject ReturnValue;
+        std::string TotalFileData;
+        if(!std::filesystem::exists(FilePath))
+        {
+            *OutError = false;
+            OutError->ErrorMessage = "filepath doesn't exist";
+            return(ReturnValue);
+        }
+        if(!std::filesystem::is_regular_file(FilePath))
+        {
+            *OutError = false;
+            OutError->ErrorMessage = "filepath isn't a file";
+            return(ReturnValue);
+        }
+        std::ifstream FileInput(FilePath.c_str(),std::ios::in);
+        if(FileInput.is_open() == false)
+        {
+            *OutError = false;
+            OutError->ErrorMessage = "filepath isn't a file";
+            return(ReturnValue);
+        }
+        while(true)
+        {
+            constexpr size_t ReadChunkSize = 4096;
+            char Buffer[ReadChunkSize];
+            size_t ReadBytes = FileInput.read(Buffer,ReadChunkSize).gcount();
+            TotalFileData.insert(TotalFileData.begin(),Buffer,Buffer+ReadBytes);
+            if(ReadBytes < ReadChunkSize)
+            {
+                break;   
+            }
+        }
+        ReturnValue = ParseJSONObject(TotalFileData,0,nullptr,OutError);
+        return(ReturnValue);
+    }
 	JSONObject ParseJSONObject(const void* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
 		JSONLikeParser<JSONObject> JsonParser;

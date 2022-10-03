@@ -1,1 +1,31 @@
-{"Dependancies":["MBCrypto","MrBigInt","MBUtility","MBMime"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrBoboSockets":{"Sources":["/MrBoboSockets.cpp","/TLSHandler.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBMime",
+        "MBCrypto",
+        "MrBigInt",
+        "MBUnicode",
+        "MBParsing",
+        "cryptopp",
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MrBoboSockets": 
+        {
+            "OutputName": "MrBoboSockets",
+            "Sources": 
+            [
+                "/MrBoboSockets.cpp",
+                "/TLSHandler.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

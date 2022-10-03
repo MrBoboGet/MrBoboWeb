@@ -1,3 +1,4 @@
+#include "MrPostOGet/MrPostOGet.h"
 #define NOMINMAX
 #include "MPGMemeSite.h"
 #include <MBSearchEngine/MBSearchEngine.h>
@@ -638,6 +639,7 @@ namespace MBWebsite
 	MrPostOGet::HTTPDocument MBDB_Website::GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MrPostOGet::HTTPClientConnectionState const& ConnectionState
 		, MrPostOGet::HTTPServerSocket* Connection, MrPostOGet::HTTPServer* Server)
 	{
+        MrPostOGet::HTTPDocument ReturnValue;
 		LegacyRequestHandler* HandlersData = __HandlersData.load();
 		for (size_t i = 0; i < __NumberOfHandlers.load(); i++)
 		{
@@ -678,7 +680,7 @@ namespace MBWebsite
 		{
 			return(MBSiteHTTPHandlerToUse->GenerateResponse(Request, MBSiteUser(), Connection));
 		}
-		assert(false);
+        return(ReturnValue);
 	}
 
 	std::string MBDB_Website::GetResourceFolderPath()
@@ -1586,6 +1588,13 @@ namespace MBWebsite
 		std::string DBResourcesPath = GetResourceFolderPath();
 		std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 		std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
+        DBPermissionsList Permissions = m_GetConnectionPermissions(RequestData);
+        if(Permissions.AssociatedUser == "")
+        {
+            ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
+            ReturnValue.DocumentData = "<html><body>File not found</body></html>";
+            return(ReturnValue);
+        }
 		if (!std::filesystem::exists(DBResourcesPath + DBResource))
 		{
 			MrPostOGet::HTTPDocument Invalid;

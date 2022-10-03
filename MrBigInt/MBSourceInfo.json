@@ -1,1 +1,24 @@
-{"Dependancies":["MBUtility"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrBigInt":{"Sources":["/MrBigInt.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MrBigInt": 
+        {
+            "OutputName": "MrBigInt",
+            "Sources": 
+            [
+                "/MrBigInt.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

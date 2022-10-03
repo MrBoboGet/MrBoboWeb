@@ -1,1 +1,28 @@
-{"Dependancies":["MBUtility","MrBoboSockets","MBMime","MBParsing","MBSystem"],"ExtraIncludes":[],"Language":"C++","Targets":{"MrPostOGet":{"Sources":["/MrPostOGet.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility",
+        "MrBoboSockets",
+        "MBMime",
+        "MBParsing",
+        "MBSystem"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MrPostOGet": 
+        {
+            "OutputName": "MrPostOGet",
+            "Sources": 
+            [
+                "/MrPostOGet.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

@@ -14,6 +14,8 @@
 #include <cryptopp/gcm.h>
 #include <cryptopp/cbcmac.h>
 #include <cryptopp/md5.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/osrng.h>
 
 //DEBUG GREJER
 #include <MBUtility/MBStrings.h>
@@ -93,7 +95,11 @@ namespace MBCrypto
 					//  opportunity to check the data's integrity
 					bool b = false;
 					b = df.GetLastResult();
-					assert(true == b);
+					//assert(true == b);
+                    if(!b)
+                    {
+                        throw std::runtime_error("Error decrypting data");
+                    }
 					VerificationResult = b;
 
 					df.SetRetrievalChannel(CryptoPP::DEFAULT_CHANNEL);
@@ -267,7 +273,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid hash function");
 		}
 	}
 	HashObject::HashObject(HashObject const& ObjectToCopy)
@@ -343,7 +349,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid hash function");
 		}
 	}
 	void HashObject::Restart()
@@ -360,7 +366,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid hash function");
 		}
 	}
 	std::string HashObject::Finalize()
@@ -380,7 +386,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid hash function");
 		}
 		return(ReturnValue);
 	}
@@ -407,12 +413,14 @@ namespace MBCrypto
 		{
 			m_LastError = false;
 			m_LastError.ErrorMessage = "Invalid block cipher";
-			assert(false);
 		}
 	}
 	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher_CBC_Handler&& HandlerToSteal) noexcept
 	{
-		std::swap(*this, HandlerToSteal);
+		 m_InternalImplementation = std::move(HandlerToSteal.m_InternalImplementation);
+		m_LastError = HandlerToSteal.m_LastError;
+		m_PaddingScheme = HandlerToSteal.m_PaddingScheme;
+		m_BlockSize = HandlerToSteal.m_BlockSize;
 	}
 	BlockCipher_CBC_Handler::BlockCipher_CBC_Handler(BlockCipher_CBC_Handler const& HandlerToCopy)
 	{
@@ -447,7 +455,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid padding scheme");
 		}
 		return(ReturnValue);
 	}
@@ -456,7 +464,7 @@ namespace MBCrypto
 		//TODO optimisera s� att inte all data kopieras varje g�ng...
 		if (m_PaddingScheme == CBC_PaddingScheme::TLS1_2)
 		{
-			assert(false);
+            throw std::runtime_error("Invalid CBC padding scheme");
 			//ANTAGANDE f�r att inte beh�va kopiera all data s� utnyttjar vi att MBcrypto g�r det �nd�, och helt enkelt modifierar den s� den blir r�tt
 			//size_t PaddingNeeded = (m_BlockSize - (DataSize % m_BlockSize))%m_BlockSize;
 			//if (PaddingNeeded == 0)
@@ -474,7 +482,7 @@ namespace MBCrypto
 		}
 		else
 		{
-			assert(false);
+            throw std::runtime_error("Invalid CBC padding scheme");
 		}
 		std::string ReturnValue = m_InternalImplementation->EncryptData(DataToDecrypt, DataSize, WriteKey, WriteKeySize, IV, IVSize, OutError);
 		return(ReturnValue);
@@ -499,7 +507,6 @@ namespace MBCrypto
 		{
 			m_LastError = false;
 			m_LastError.ErrorMessage = "Invalid block cipher";
-			assert(false);
 		}
 	}
 	BlockCipher_GCM_Handler::BlockCipher_GCM_Handler(BlockCipher_GCM_Handler&& HandlerToSteal) noexcept
@@ -731,8 +738,7 @@ namespace MBCrypto
 		//parsa primen fr�n datan, f�rst kollar vi att paddingen �r 0
 		if (DataToParse[0] != 0)
 		{
-			std::cout << "Fel formatterad public key" << std::endl;
-			assert(false);
+            throw std::runtime_error("Wrongly formatted DER RSAPublicKey");
 			return ReturnValue;
 		}
 		ASN1Extracter Parser(reinterpret_cast<const uint8_t*>(DataToParse.c_str()));
@@ -743,8 +749,7 @@ namespace MBCrypto
 		uint64_t LengthOfPrime = Parser.ExtractLengthOfType();
 		if (!(LengthOfPrime == 257 || LengthOfPrime == 513))
 		{
-			std::cout << "Prime is wrongly formatted :(" << std::endl;
-			assert(false);
+            throw std::runtime_error("Wrongly formatted DER RSAPublicKey");
 		}
 		else
 		{
@@ -807,6 +812,7 @@ namespace MBCrypto
 	}
 	std::string HashData(std::string const& DataToHash, HashFunction FunctionToUse)
 	{
+        std::string ReturnValue;
 		if (FunctionToUse == HashFunction::SHA256)
 		{
 			CryptoPP::SHA256 Hasher;
@@ -831,5 +837,6 @@ namespace MBCrypto
 			Hasher.Final(digest);
 			return(std::string((char*)digest, CryptoPP::MD5::DIGESTSIZE));
 		}
+        return(ReturnValue);
 	}
 }

@@ -1,1 +1,24 @@
-{"Dependancies":[],"ExtraIncludes":[],"Language":"C++","Targets":{"MBSystem":{"Sources":["/MBSystem.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MBSystem": 
+        {
+            "OutputName": "MBSystem",
+            "Sources": 
+            [
+                "/MBSystem.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}

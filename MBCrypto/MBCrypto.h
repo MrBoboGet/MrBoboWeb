@@ -1,10 +1,10 @@
 #pragma once
 #include <string>
 #include <MrBigInt/MrBigInt.h>
-#include <cryptopp/eccrypto.h>
-#include <cryptopp/integer.h>
-#include <cryptopp/osrng.h>
-#include <cryptopp/oids.h>
+//#include <cryptopp/eccrypto.h>
+//#include <cryptopp/integer.h>
+//#include <cryptopp/osrng.h>
+//#include <cryptopp/oids.h>
 #include <MBUtility/MBErrorHandling.h>
 #include <MBUtility/MBInterfaces.h>
 namespace MBCrypto
@@ -215,6 +215,7 @@ namespace MBCrypto
 	};
 	inline unsigned char Base64CharToBinary(unsigned char CharToDecode)
 	{
+        unsigned char ReturnValue = 0;
 		if (CharToDecode >= 65 && CharToDecode <= 90)
 		{
 			return(CharToDecode - 65);
@@ -235,7 +236,7 @@ namespace MBCrypto
 		{
 			return(63);
 		}
-		assert(false);
+        return(ReturnValue);
 	}
 	inline std::string Base64ToBinary(std::string const& Base64Data)
 	{

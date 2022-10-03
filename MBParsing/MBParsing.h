@@ -582,6 +582,7 @@ namespace MBParsing
 			return(ReturnValue);
 		}
 	};
+    JSONObject ParseJSONObject(std::filesystem::path const& FilePath,MBError* OutError);
 	JSONObject ParseJSONObject(const void* DataToParse, size_t DataSize, size_t ParseOffset, size_t* OutOffset,MBError* OutError);
 	JSONObject ParseJSONObject(std::string const& Data, size_t ParseOffset, size_t* OutOffset, MBError* OutError);
 

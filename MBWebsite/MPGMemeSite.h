@@ -322,7 +322,7 @@ namespace MBWebsite
 		virtual void OnDestroy() override;
 		virtual std::vector<std::string> HandledDirectives() const override; 
 		virtual MBSAPI_DirectiveResponse HandleDirective(MBSiteUser const& AssociatedUser,std::string const& DirectiveName, MBParsing::JSONObject const& DirectiveArguments) override;
-		virtual std::vector<std::string>  HandledTopDirectories() const;
+		virtual std::vector<std::string>  HandledTopDirectories() const override;
 		virtual MrPostOGet::HTTPDocument GenerateResponse(MrPostOGet::HTTPClientRequest const& Request, MBSiteUser const& AssociatedUser, MrPostOGet::HTTPServerSocket* ServerSocket) override;
 
 		MBError LoadMBDBObject(PluginID CallingPlugin, MBSiteUser const& AssociatedUser, FileLocationType LocationType, std::string const& ObjectPath,MBDB::MBDB_Object& OutObject);
