@@ -16,6 +16,11 @@ namespace MBSystem
 	SystemErrorCode SetEnvironmentVariable(std::string const& VariableName, std::string const& VariableValue);
 	std::string GetEnvironmentVariable(std::string const& VariableName, SystemErrorCode* OutError = nullptr);
 
+    
+    
+    std::filesystem::path GetUserHomeDirectory();
+
+    
 	struct MBProcessHandle;
 	void MBProcessHandleDeleter(MBProcessHandle* HandleToDelete);
 	class UniDirectionalSubProcess : public MBUtility::MBOctetInputStream

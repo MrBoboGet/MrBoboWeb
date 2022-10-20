@@ -519,7 +519,7 @@ namespace MBWebsite
 		//}
 		if (m_LoginDatabase == nullptr)
 		{
-			m_LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/MBGLoginDatabase", 0);
+			m_LoginDatabase = new MBDB::MrBoboDatabase(__MBTopResourceFolder + "/MBGLoginDatabase", MBDB::DBOpenOptions::ReadOnly);
 		}
 		//l�ser in mbdb config filen och initaliserar directoryn med r�tt
 		__DBIndexMap = new std::unordered_map<std::string, MBSearchEngine::MBIndex>();
@@ -701,6 +701,8 @@ namespace MBWebsite
 		MBSockets::Init();
 
 		MrPostOGet::HTTPServer TestServer("./MBWebsite/ServerResources/mrboboget.se/HTMLResources/", 443);
+		//MrPostOGet::HTTPServer TestServer("./MBWebsite/ServerResources/mrboboget.se/HTMLResources/", 1337);
+		//TestServer.UseTLS(false);
 		//MrPostOGet::HTTPServer TestServer("", 443);
 		TestServer.LoadDomainResourcePaths("MPGDomainResourcePaths.txt");
 		//TestServer.UseTLS(false);
@@ -3018,11 +3020,11 @@ namespace MBWebsite
 		{
 			if (m_ReadonlyDatabase == nullptr)
 			{
-				m_ReadonlyDatabase = std::unique_ptr<MBDB::MrBoboDatabase>(new MBDB::MrBoboDatabase(DatabasePath, 0));
+				m_ReadonlyDatabase = std::unique_ptr<MBDB::MrBoboDatabase>(new MBDB::MrBoboDatabase(DatabasePath, MBDB::DBOpenOptions::ReadOnly));
 			}
 			if (m_WriteableDatabase == nullptr)
 			{
-				m_WriteableDatabase = std::unique_ptr<MBDB::MrBoboDatabase>( new MBDB::MrBoboDatabase(DatabasePath, 1));
+				m_WriteableDatabase = std::unique_ptr<MBDB::MrBoboDatabase>( new MBDB::MrBoboDatabase(DatabasePath, MBDB::DBOpenOptions::ReadWrite));
 			}
 		}
 		GetSite().RegisterMBSiteAPIHandler(m_PluginID,this);

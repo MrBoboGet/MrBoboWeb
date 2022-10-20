@@ -638,11 +638,11 @@ namespace MBSockets
 		}
 		if (!IsHost)
 		{
-			m_TLSHandler.EstablishTLSConnection(m_UnderlyingSocket.get(),HostName);
+			ReturnValue = m_TLSHandler.EstablishTLSConnection(m_UnderlyingSocket.get(),HostName);
 		}
 		else
 		{
-			m_TLSHandler.EstablishHostTLSConnection(m_UnderlyingSocket.get());
+			ReturnValue = m_TLSHandler.EstablishHostTLSConnection(m_UnderlyingSocket.get());
 		}
 		return(ReturnValue);
 	}

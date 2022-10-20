@@ -169,15 +169,15 @@ namespace MBDB
 	};
 	enum class DBOpenOptions : uint64_t
 	{
-		ReadOnly = 1 << 0,
-		ReadWrite = 1 << 1,
+		ReadOnly = 1 << 1,
+		ReadWrite = 1 << 2,
 	};
 	class MrBoboDatabase
 	{
 	private:
 		sqlite3* UnderlyingConnection = nullptr;
 	public:
-		MrBoboDatabase(std::string const& DatabaseFile,uint64_t	 Options);
+		MrBoboDatabase(std::string const& DatabaseFile,DBOpenOptions Options);
 		std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn = nullptr);
 		//std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MrBoboDatabase* StructPointer,MBError* ErrorToReturn = nullptr);
 		std::vector<MBDB_RowData> GetAllRows(SQLStatement*,MBError* ErrorToReturn = nullptr);

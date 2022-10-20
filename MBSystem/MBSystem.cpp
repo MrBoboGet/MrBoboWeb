@@ -1,6 +1,6 @@
 #include "MBSystem.h"
-
-#ifdef _WIN32
+#include <MBUtility/MBCompileDefinitions.h>
+#ifdef MBWindows
 #include<cstdlib>
 #include <stdio.h>
 #else // 
@@ -8,6 +8,24 @@
 #endif
 namespace MBSystem
 {
+    std::filesystem::path GetUserHomeDirectory()
+    {
+        std::filesystem::path ReturnValue; 
+#ifdef MBWindows
+        ReturnValue = std::getenv("USERPROFILE");
+#elif defined(MBPosix)
+        //https://linux.die.net/man/3/getpwuid
+        //Apperently reading HOME is prefered to using the posix API,
+        //I'm not entirely convinced as environemntal variables feels flimsy,
+        const char* HomeString = std::getenv("HOME");
+        if(HomeString == nullptr)
+        {
+            throw std::runtime_error("Can't determine home directory for user: HOME environment variable doesn't exist");   
+        }
+        ReturnValue = HomeString;
+#endif
+        return(ReturnValue);
+    }
 	SystemErrorCode TranslateErrorCode(uint64_t ErrorCodeToTranslate)
 	{
 		SystemErrorCode ReturnValue = SystemErrorCode::OK;
@@ -21,10 +39,12 @@ namespace MBSystem
 		std::string VariableName = std::string((const char*)VariableNameData, VariableNameSize);
 		std::string VariableValue = std::string((const char*)VariableValueData, VariableValueSize);
 
-#ifdef _WIN32
+#ifdef MBWindows
 		errno_t ErrorCode = _putenv_s(VariableName.data(), VariableValue.data());
-#else // 
+#elif defined(MBPosix)
 		int ErrorCode = setenv(VariableName.data(), VariableValue.data(), true);
+#else 
+        static_assert(false,"Only windows and posix systems supported");
 #endif
 		return(ReturnValue);
 	}
@@ -55,11 +75,7 @@ namespace MBSystem
 	//BEGIN SubProcess
 	struct MBProcessHandle
 	{
-#ifdef _WIN32
 		FILE* OSHandle = nullptr;
-#else // 
-		FILE* OSHandle = nullptr;
-#endif
 	};
 	UniDirectionalSubProcess::UniDirectionalSubProcess()
 	{
@@ -77,7 +93,7 @@ namespace MBSystem
 	UniDirectionalSubProcess::UniDirectionalSubProcess(std::string const& CommandToExecute,bool Read)
 	{
 		m_AssociatedHandler = std::unique_ptr<MBProcessHandle>(new MBProcessHandle());
-#ifdef _WIN32
+#ifdef MBWindows
 		if (Read)
 		{
 			m_AssociatedHandler->OSHandle = _popen(CommandToExecute.data(), "rb");
@@ -86,7 +102,7 @@ namespace MBSystem
 		{
 			m_AssociatedHandler->OSHandle = _popen(CommandToExecute.data(), "wb");
 		}
-#else // 
+#elif defined(MBPosix) 
 		if (Read)
 		{
 			m_AssociatedHandler->OSHandle = popen(CommandToExecute.data(), "r");
@@ -95,14 +111,16 @@ namespace MBSystem
 		{
 			m_AssociatedHandler->OSHandle = popen(CommandToExecute.data(), "w");
 		}
+#else 
+        static_assert(false,"Only windows and posix supported");
 #endif
 	}
 	SystemErrorCode UniDirectionalSubProcess::SendData(const void* Data, size_t DataSize)
 	{
-#ifdef _WIN32
+#ifdef MBWindows
 		int ErrorCode = fwrite(Data, 1, DataSize, m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
-#else // 
+#elif defined(MBPosix) // 
 		int ErrorCode = fwrite(Data, 1, DataSize, m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
 #endif
@@ -115,13 +133,13 @@ namespace MBSystem
 	size_t UniDirectionalSubProcess::Read(void* Buffer, size_t MaxBytesToRead) 
 	{
 		size_t ReadBytes = 0;
-#ifdef _WIN32
+#ifdef MBWindows
 		ReadBytes = fread(Buffer, 1, MaxBytesToRead, m_AssociatedHandler->OSHandle);
 		if (ReadBytes != MaxBytesToRead)
 		{
 			m_IsValid = false;
 		}
-#else // 
+#elif defined(MBPosix)
 		ReadBytes = fread(Buffer, 1, MaxBytesToRead, m_AssociatedHandler->OSHandle);
 		if (ReadBytes != MaxBytesToRead)
 		{
@@ -156,10 +174,10 @@ namespace MBSystem
 
 	void UniDirectionalSubProcess::flush()
 	{
-#ifdef _WIN32
+#ifdef MBWindows
 		int ErrorCode = fflush(m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
-#else // 
+#elif defined(MBPosix) // 
 		int ErrorCode = fflush(m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
 #endif
@@ -170,10 +188,10 @@ namespace MBSystem
 		{
 			return;
 		}
-#ifdef _WIN32
+#ifdef MBWindows
 		int ErrorCode = _pclose(m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
-#else // 
+#elif defined(MBPosix)
 		int ErrorCode = pclose(m_AssociatedHandler->OSHandle);
 		m_LastError = TranslateErrorCode(ErrorCode);
 #endif

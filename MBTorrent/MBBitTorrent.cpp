@@ -148,18 +148,18 @@ namespace MBTorrent
 		}
 		else if (MessageType == BitTorrent_MessageType::cancel)
 		{
-			// inte helt säker på vad som ska hända här
+			// inte helt sï¿½ker pï¿½ vad som ska hï¿½nda hï¿½r
 		}
 		else if (MessageType == BitTorrent_MessageType::bitfield)
 		{
-			//inte helt säker på vad som ska hända här
+			//inte helt sï¿½ker pï¿½ vad som ska hï¿½nda hï¿½r
 			std::vector<bool> MessageBits = h_BitmapToBoolVector(MessageToHandle.data() + 5, MessageToHandle.size() - 5);
 			std::lock_guard<std::mutex> Lock(m_InternalsMutex);
 			m_PeerState.OwnedPieces = MessageBits;
 		}
 		else if (MessageType == BitTorrent_MessageType::have)
 		{
-			//inte helt säker på vad som ska hända här
+			//inte helt sï¿½ker pï¿½ vad som ska hï¿½nda hï¿½r
 			size_t HavePiece = ParseBigEndianInteger(MessageToHandle.data(), 4, 5, nullptr);
 			std::lock_guard<std::mutex> Lock(m_InternalsMutex);
 			if (m_PeerState.OwnedPieces.size() < HavePiece+1)
@@ -516,7 +516,7 @@ namespace MBTorrent
 		}
 		else
 		{
-			//måste vara en string 
+			//mï¿½ste vara en string 
 			size_t ColonPosition = DataToParse.find(':', ParseOffset);
 			ReturnValue = DataToParse.substr(ParseOffset, ColonPosition - ParseOffset + 1);
 			ReturnValue += h_ParseBencodedString(DataToParse, ParseOffset, &ParseOffset);
@@ -609,7 +609,7 @@ namespace MBTorrent
 			while (FileListData[FileListParseOffset] != 'e')
 			{
 				BitTorrent_FileInfo NewFileInfo;
-				FileListParseOffset += 1;//dictionary börjar med d
+				FileListParseOffset += 1;//dictionary bï¿½rjar med d
 				h_ParseBencodedString(FileListData, FileListParseOffset, &FileListParseOffset);
 				NewFileInfo.FileSize = h_ParseBencodedInteger(FileListData, FileListParseOffset, &FileListParseOffset);
 				h_ParseBencodedString(FileListData, FileListParseOffset, &FileListParseOffset);
@@ -620,7 +620,7 @@ namespace MBTorrent
 				}
 				FileListParseOffset += 1;
 				ReturnValue.Files.push_back(NewFileInfo);
-				FileListParseOffset += 1;//slutar på ett e
+				FileListParseOffset += 1;//slutar pï¿½ ett e
 				ReturnValue.FileLength += NewFileInfo.FileSize;
 			}
 		}
@@ -686,7 +686,7 @@ namespace MBTorrent
 		}
 		else
 		{
-			//det är en compact string istället
+			//det ï¿½r en compact string istï¿½llet
 			std::string TotalPeerData = h_ParseBencodedString(PeerData,0,nullptr);
 			size_t NumberOfPeers = TotalPeerData.size() / 6;
 			for (size_t i = 0; i < NumberOfPeers; i++)
@@ -870,8 +870,8 @@ namespace MBTorrent
 		for (size_t i = 0; i < AssignedPieces.size(); i++)
 		{
 			std::vector<SavePieceDataInfo> PieceSaveInfo;
-			//ANTAGANDE vi vet att längden av stringen i indatan repensterar hur långt på piecen den parsat
-			//ANTAGANDE den assignade piecen vi får in är alltid lika med vårt nuvarande state
+			//ANTAGANDE vi vet att lï¿½ngden av stringen i indatan repensterar hur lï¿½ngt pï¿½ piecen den parsat
+			//ANTAGANDE den assignade piecen vi fï¿½r in ï¿½r alltid lika med vï¿½rt nuvarande state
 			{
 				std::lock_guard<std::mutex> Lock(m_InternalsMutex);
 				size_t CurrentPieceIndex = AssignedPieces[i].PieceIndex;
@@ -936,7 +936,7 @@ namespace MBTorrent
 	void MBBitTorrentHandler::StartDownload()
 	{
 		p_UpdateTrackerResponse();
-		//ska väl egentligen skapa flera kopplingar men nu hard codar vi
+		//ska vï¿½l egentligen skapa flera kopplingar men nu hard codar vi
 		//m_PeerConnections.push_back(std::unique_ptr<MBBitTorrentPeerConnection>(new MBBitTorrentPeerConnection(this)));
 		//m_PeerConnections.back()->InitiateConnection("158.140.162.224","59520");
 		m_PeerConnections.push_back(std::unique_ptr<MBBitTorrentPeerConnection>(new MBBitTorrentPeerConnection(this)));

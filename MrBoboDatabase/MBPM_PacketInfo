@@ -6,5 +6,5 @@
 		"StaticRelease": "MrBoboDatabase_SR",
 		"StaticDebug": "MrBoboDatabase_SD"
 	},
-	"Dependancies":["MBUtility","sqlite3"],
+	"Dependancies":["MBUtility","sqlite3"]
 }

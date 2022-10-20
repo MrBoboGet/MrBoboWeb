@@ -1291,7 +1291,7 @@ namespace MrPostOGet
 		while (m_UnderlyingSocket->IsConnected())
 		{
 			NewData = m_UnderlyingSocket->RecieveData(MaxDataInMemory - TotalRecievedData);
-			if (m_UnderlyingSocket->IsConnected())
+			if (!m_UnderlyingSocket->IsConnected())
 			{
 				//något är fel, returna det vi fick och resetta, socketen kan inte användas mer
 				CurrentContentLength = 0;

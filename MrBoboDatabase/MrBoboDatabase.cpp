@@ -403,10 +403,10 @@ namespace MBDB
 	{
 		return(StatementToEvaluate->GetAllRows(UnderlyingConnection, ErrorToReturn));
 	}
-	MrBoboDatabase::MrBoboDatabase(std::string const& FilePath,uint64_t Options)
+	MrBoboDatabase::MrBoboDatabase(std::string const& FilePath,DBOpenOptions Options)
 	{
 		uint64_t DatabaseOptions = SQLITE_OPEN_FULLMUTEX;
-		if (Options & uint64_t(DBOpenOptions::ReadOnly))
+		if (uint64_t(Options) & uint64_t(DBOpenOptions::ReadOnly))
 		{
 			DatabaseOptions |= SQLITE_OPEN_READONLY;
 		}

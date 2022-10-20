@@ -1,1 +1,26 @@
-{"Dependancies":["MBUtility","MrPostOGet"],"ExtraIncludes":[],"Language":"C++","Targets":{"MBSearchEngine":{"Sources":["/MBSearchEngine.cpp","/MBSearchEngineCLIClass.cpp","/MBSearchEngineCLIMain.cpp"],"TargetType":"Library"}}}
+{
+    "Dependancies": 
+    [
+        "MBUtility",
+        "MrPostOGet"
+    ],
+    "ExtraIncludes": 
+    [
+
+    ],
+    "Language": "C++",
+    "Standard": "C++17",
+    "Targets": 
+    {
+        "MBSearchEngine": 
+        {
+            "OutputName": "MBSearchEngine",
+            "Sources": 
+            [
+                "/MBSearchEngine.cpp",
+                "/MBSearchEngineCLIClass.cpp"
+            ],
+            "TargetType": "Library"
+        }
+    }
+}
