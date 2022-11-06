@@ -49,6 +49,8 @@ namespace MBUnicode
 	{
 	private:
 		std::vector<Codepoint> m_InternalBuffer = {};
+
+        bool p_CompareUTF8String(const char* UTF8String,size_t Size);
 	public:
 		bool operator==(GraphemeCluster const& OtherCluster)
 		{
@@ -68,6 +70,10 @@ namespace MBUnicode
 		bool operator==(std::string const& StringToCompare) const;
 		bool operator!=(std::string const& StringToCompare) const;
 
+		bool operator==(const char* StringToCompare) const;
+		bool operator!=(const char* StringToCompare) const;
+
+        //TODO sus, assumes the string is a valid grapheme cluster
 		GraphemeCluster& operator=(std::string const& StringToConvert);
 		GraphemeCluster& operator=(char CharToConvert);
 
@@ -76,12 +82,10 @@ namespace MBUnicode
 
 		static bool ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset);
 		static bool ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, const void* InputData, size_t InputDataSize,size_t InputOffset);
-		Codepoint& operator[](size_t Index);
-		Codepoint const& operator[](size_t Index) const;
-		size_t size() const
-		{
-			return(m_InternalBuffer.size());
-		}
+        
+        bool IsASCIIControl() const;
+        bool IsEmpty() const;
+        
 		std::string ToString() const
 		{
 			std::string ReturnValue = "";

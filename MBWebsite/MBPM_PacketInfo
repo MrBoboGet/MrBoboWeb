@@ -1,10 +1,5 @@
 {
 	"PacketName":"MBWebsite",
-	"Attributes":["Embeddable"],
-	"OutputConfigurations":["StaticDebug","StaticRelease"],
-	"OutputTargetNames": {
-		"StaticRelease": "MBWebsite_SR",
-		"StaticDebug": "MBWebsite_SD"
-	},
-	"Dependancies":["MBUtility","MrPostOGet","MrBoboDatabase","MBSearchEngine","MBUnicode","MBMime","MBSystem","MBPacketManager"],
+	"Attributes":[],
+	"Dependancies":["MBUtility","MrPostOGet","MrBoboDatabase","MBSearchEngine","MBUnicode","MBMime","MBSystem","MBPacketManager"]
 }
