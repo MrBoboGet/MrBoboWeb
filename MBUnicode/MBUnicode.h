@@ -7,6 +7,7 @@
 #include "MBUnicodeDefinitions.h"
 
 #include <MBUtility/MBFIFOBuffer.h>
+#include <MBUtility/MBVector.h>
 
 namespace MBUnicode
 {
@@ -48,9 +49,9 @@ namespace MBUnicode
 	class GraphemeCluster
 	{
 	private:
-		std::vector<Codepoint> m_InternalBuffer = {};
+        MBUtility::MBVector<char,4> m_InternalBuffer = {};
 
-        bool p_CompareUTF8String(const char* UTF8String,size_t Size);
+        bool p_CompareUTF8String(const char* UTF8String,size_t Size) const;
 	public:
 		bool operator==(GraphemeCluster const& OtherCluster)
 		{
@@ -89,15 +90,16 @@ namespace MBUnicode
 		std::string ToString() const
 		{
 			std::string ReturnValue = "";
-			for (size_t i = 0; i < m_InternalBuffer.size(); i++)
-			{
-				ReturnValue += ToUTF8String(m_InternalBuffer[i]);
-			}
+            ReturnValue.insert(ReturnValue.begin(),m_InternalBuffer.data(),m_InternalBuffer.data()+m_InternalBuffer.size());
 			return(ReturnValue);
 		}
 		void AddCodepoint(Codepoint CodepointToAdd)
 		{
-			m_InternalBuffer.push_back(CodepointToAdd);
+            std::string NewString = ToUTF8String(CodepointToAdd);
+            for(size_t i = 0; i < NewString.size();i++)
+            {
+                m_InternalBuffer.push_back(NewString[i]);   
+            }
 		}
 	};
 	class GraphemeClusterSegmenter

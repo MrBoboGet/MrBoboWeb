@@ -169,6 +169,7 @@ namespace MBUnicode
 	//BEGIN UnicodeCodepointSegmenter::
 	uint8_t UnicodeCodepointSegmenter::p_GetNeededExtraBytes(uint8_t ByteToCheck)
 	{
+        uint8_t ReturnValue = 0;
 		if ((ByteToCheck & (1 << 7)) == 0)
 		{
 			return(0);
@@ -190,6 +191,7 @@ namespace MBUnicode
 		{
 			return(1);
 		}
+        return(ReturnValue);
 	}
 	void UnicodeCodepointSegmenter::InsertData(const void* DataToInsert, size_t DataSize)
 	{
@@ -534,12 +536,12 @@ namespace MBUnicode
 	//BEGIN GraphemeCluster
 	bool GraphemeCluster::operator==(char CharToCompare) const
 	{
-		if (m_InternalBuffer.size() == 0)
+		if (m_InternalBuffer.size() != 1)
 		{
 			return(false);
 		}
 		bool ReturnValue = false;
-		ReturnValue = m_InternalBuffer[0] == CharToCompare && m_InternalBuffer.size() == 1;
+		ReturnValue = m_InternalBuffer[0] == CharToCompare;
 		return(ReturnValue);
 	}
 	bool GraphemeCluster::operator!=(char CharToCompare) const
@@ -548,25 +550,7 @@ namespace MBUnicode
 	}
 	bool GraphemeCluster::operator==(GraphemeCluster const& OtherCluster) const
 	{
-		bool ReturnValue = true;
-		if (m_InternalBuffer.size() != OtherCluster.m_InternalBuffer.size())
-		{
-			ReturnValue = false;
-		}
-		else
-		{
-			for (size_t i = 0; i < m_InternalBuffer.size(); i++)
-			{
-				if (m_InternalBuffer[i] != OtherCluster.m_InternalBuffer[i])
-				{
-					ReturnValue = false;
-					break;
-				}
-			}
-		}
-
-
-		return(ReturnValue);
+		return(m_InternalBuffer == OtherCluster.m_InternalBuffer);
 	}
 	bool GraphemeCluster::operator!=(GraphemeCluster const& OtherCluster) const
 	{
@@ -574,13 +558,32 @@ namespace MBUnicode
 	}
 	bool GraphemeCluster::operator==(std::string const& StringToCompare) const
 	{
-		return(ToString() == StringToCompare);
+        return(p_CompareUTF8String(StringToCompare.data(),StringToCompare.size()));
 	}
 	bool GraphemeCluster::operator!=(std::string const& StringToCompare) const
 	{
 		return(!(*this == StringToCompare));
 	}
-	GraphemeCluster& GraphemeCluster::operator=(std::string const& StringToConvert)
+    bool GraphemeCluster::operator==(const char* StringToCompare) const
+    {
+        size_t StringSize = std::strlen(StringToCompare); 
+        return(p_CompareUTF8String(StringToCompare,StringSize));
+    }
+    bool GraphemeCluster::operator!=(const char* StringToCompare) const
+    {
+        return(!(*this == StringToCompare));    
+    }
+    bool GraphemeCluster::p_CompareUTF8String(const char* UTF8String,size_t Size) const
+    {
+        if(Size != m_InternalBuffer.size())
+        {
+            return(false);   
+        }
+        bool ReturnValue = true; 
+        ReturnValue = std::memcmp(UTF8String,m_InternalBuffer.data(),m_InternalBuffer.size()) == 0;
+        return(ReturnValue);
+    }
+    GraphemeCluster& GraphemeCluster::operator=(std::string const& StringToConvert)
 	{
 		bool Result = GraphemeCluster::ParseGraphemeCluster(*this, StringToConvert.data(), StringToConvert.size(), 0, nullptr);
 		if (!Result)
@@ -602,7 +605,15 @@ namespace MBUnicode
 			*this = GraphemeCluster();
 		}
 	}
-	bool GraphemeCluster::ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset)
+    bool GraphemeCluster::IsASCIIControl() const
+    {
+        return(m_InternalBuffer.size() > 0 && m_InternalBuffer[0] < 32);    
+    }
+    bool GraphemeCluster::IsEmpty() const
+    {
+        return(m_InternalBuffer.size() == 0);
+    }
+    bool GraphemeCluster::ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset)
 	{
 		bool ReturnVale = true;
 		UnicodeCodepointSegmenter CodepointSegmenter;
@@ -662,23 +673,6 @@ namespace MBUnicode
 		}
 		return(ReturnValue);
 	}
-	Codepoint& GraphemeCluster::operator[](size_t Index)
-	{
-		if (Index >= m_InternalBuffer.size())
-		{
-			throw std::exception();
-		}
-		return(m_InternalBuffer[Index]);
-	}
-	Codepoint const& GraphemeCluster::operator[](size_t Index) const
-	{
-		if (Index >= m_InternalBuffer.size())
-		{
-			throw std::exception();
-		}
-		return(m_InternalBuffer[Index]);
-	}
-
 
 	//END GraphemeCluster
 
@@ -689,7 +683,7 @@ namespace MBUnicode
 	}
 	bool GraphemeClusterSegmenter::CodepointWouldBreak(Codepoint CodepointToTest) const
 	{
-		if (m_CurrentCluster.size() == 0)
+		if (m_CurrentCluster.IsEmpty())
 		{
 			return(false);
 		}
@@ -703,7 +697,7 @@ namespace MBUnicode
 		{
 			GraphemeBreakProperty NewProperty = h_GetCodepointProperty(CodepointsToInsert[i]);
 			bool ShouldBreak = h_ShouldBreak(m_LastProperty, NewProperty);
-			if (ShouldBreak && m_CurrentCluster != GraphemeCluster())
+			if (ShouldBreak && !m_CurrentCluster.IsEmpty())
 			{
 				m_DecodedCluster.push_back(std::move(m_CurrentCluster));
 				m_CurrentCluster = GraphemeCluster();
@@ -718,7 +712,7 @@ namespace MBUnicode
 	}
 	void GraphemeClusterSegmenter::Finalize()
 	{
-		if (m_CurrentCluster != GraphemeCluster())
+		if (!m_CurrentCluster.IsEmpty())
 		{
 			m_DecodedCluster.push_back(m_CurrentCluster);
 		}

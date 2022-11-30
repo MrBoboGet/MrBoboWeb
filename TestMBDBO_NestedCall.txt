@@ -1,4 +1,0 @@
-{
-    "Resource":"TestMBDBO.mbdbo",
-    "NestedArray":["Hej","Hej2","Hej3"],
-}

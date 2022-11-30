@@ -1,7 +1,0 @@
-{
-  "RegularField":1337,
-   "AnotherField":"Hello",
-   "FunctionField":DBLoadObject(DBLoadObject("TestMBDBO_NestedCall.txt").Resource).firstName+" Cena";,
-   "UnevaluatedTestField":DBLoadObject(DBLoadObject("TestMBDBO_NestedCall.txt").Resource).NestedArray+{["Annan Array1","Annay array 2","Annan array 3"]}[1,2];,
-   "SQLTestField":DBGetColumns(DBExecuteQuerry("SELECT * FROM MUSIC;"),0,2,4);
-}
