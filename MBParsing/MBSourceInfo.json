@@ -7,19 +7,30 @@
     [
 
     ],
-    "Language":     "C++",
-    "Standard":     "C++17",
+    "Language":"C++",
+    "Standard":"C++17",
     "Targets": 
     {
         "MBParsing": 
         {
-            "OutputName":             "MBParsing",
+            "OutputName":"MBParsing",
             "Sources": 
             [
                 "/MBParsing.cpp",
                 "/MBParsingTest.cpp"
             ],
-            "TargetType":             "Library"
+            "TargetType":"Library"
+        },
+        "BNFTest": 
+        {
+            "OutputName":"BNFTest",
+            "Sources": 
+            [
+                "/MBParsing.cpp",
+                "/MBCC.cpp",
+                "/MBParsing_MBBNFTest.cpp"
+            ],
+            "TargetType":"Executable"
         }
     }
 }
