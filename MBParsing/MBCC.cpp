@@ -4,6 +4,41 @@
 #include <iostream>
 namespace MBParsing
 {
+    //BEGIN StructMemberVariable
+    
+    std::string& StructMemberVariable::GetName()
+    {
+        return(std::visit([&](MemberVariable& x) -> std::string& 
+            {
+                return(x.Name);      
+            }, m_Content));
+    }
+    std::string& StructMemberVariable::GetDefaultValue()
+    {
+        return(std::visit([&](MemberVariable& x) -> std::string& 
+            {
+                return(x.DefaultValue);      
+            }, m_Content));
+    }
+    std::string const& StructMemberVariable::GetName() const
+    {
+        return(std::visit([&](MemberVariable const& x) -> std::string const& 
+            {
+                return(x.Name);      
+            }, m_Content));
+    }
+    std::string const& StructMemberVariable::GetDefaultValue() const
+    {
+        return(std::visit([&](MemberVariable const& x) -> std::string const& 
+            {
+                return(x.DefaultValue);      
+            }, m_Content));
+    }
+    void StructMemberVariable::Accept(MemberVariableVisitor& Visitor)
+    {
+        
+    }
+    //END StructMemberVariable
     class MBCCParseError : public std::exception
     {
     public:
@@ -73,6 +108,88 @@ namespace MBParsing
         ReturnValue.RegexDefinition = RegexString;
         return(ReturnValue);
     }
+    StructMemberVariable MBCCDefinitions::p_ParseMemberVariable(const char* Data,size_t DataSize,size_t InParseOffset,size_t* OutParseOffset)
+    {
+        StructMemberVariable ReturnValue;
+        size_t ParseOffset = InParseOffset;
+        SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        if(ParseOffset >= DataSize)
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: end of file before member variable definition or end of struct",ParseOffset);   
+        }
+        if(Data[ParseOffset] == '{')
+        {
+            ParseOffset+=1;    
+            size_t TypeEnd = std::find(Data+ParseOffset,Data+DataSize,'}')-Data;
+            if(TypeEnd >= ParseOffset)
+            {
+                throw MBCCParseError("Syntactic error parsing MBCC definitions: Raw member type requries } delimiting the end of the type name",ParseOffset);   
+            }
+            StructMemberVariable_Raw RawMemberVariable;
+            RawMemberVariable.RawMemberType =  std::string(Data+ParseOffset,Data+TypeEnd);
+            ParseOffset = TypeEnd+1;
+            ReturnValue = StructMemberVariable(ReturnValue);
+        }
+        else
+        {
+            std::string StructType = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset); 
+            SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+            if(ParseOffset >= DataSize)
+            {
+                throw MBCCParseError("Syntactic error parsing MBCC definitions: member variable needs delimiting ;",ParseOffset);
+            }
+            if(StructType == "List")
+            {
+                if(Data[ParseOffset] != '<')
+                {
+                    throw MBCCParseError("Syntactic error parsing MBCC definitions: builtin type List requires tempalte argument",ParseOffset);
+                }
+                std::string TemplateType = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);
+                SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+                if(ParseOffset >= DataSize || Data[ParseOffset] != '>')
+                {
+                    throw MBCCParseError("Syntactic error parsing MBCC definitions: builtin type List requires delimiting > for template argument",ParseOffset);
+                }
+                ParseOffset += 1;
+            }
+            else
+            {
+                StructMemberVariable_Struct MemberType;
+                MemberType.StructType = StructType;
+                ReturnValue = StructMemberVariable(MemberType);
+            }
+        }
+        SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        std::string MemberVariableName = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);
+        ReturnValue.GetName() = MemberVariableName;
+        SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        if(ParseOffset >= DataSize)
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: member variable needs delimiting ;",ParseOffset);   
+        }
+        if(Data[ParseOffset] == ';')
+        {
+            ParseOffset+=1;   
+        }
+        else if(Data[ParseOffset] == '=')
+        {
+            ParseOffset +=1;
+            //A little bit of a hack, but doesnt require the parsing of any particular data
+            size_t ValueEnd = std::find(Data+ParseOffset,Data+DataSize,'}')-Data;
+            if(ValueEnd >= DataSize)
+            {
+                throw MBCCParseError("Syntactic error parsing MBCC definitions: member variable needs delimiting ; for default value",ParseOffset);   
+            }
+            ReturnValue.GetDefaultValue() = std::string(Data+ParseOffset,Data+ValueEnd);
+            ParseOffset = ValueEnd+1; 
+        }
+        else
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: member variable needs delimiting ;",ParseOffset);   
+        }
+        *OutParseOffset = ParseOffset;
+        return(ReturnValue);
+    }
     StructDefinition MBCCDefinitions::p_ParseStruct(const char* Data,size_t DataSize,size_t InParseOffset,size_t* OutParseOffset)
     {
         StructDefinition ReturnValue;
@@ -83,10 +200,28 @@ namespace MBParsing
         {
             ParseOffset+=1;
             ReturnValue.ParentStruct = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);
+            SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
         }
-          
-
-
+        if(ParseOffset >= DataSize || Data[ParseOffset] != '{')
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: struct needs delimiting { for start of member variables",ParseOffset);   
+        }
+        ParseOffset+=1;
+        SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        bool EndDelimiterFound = false;
+        while(ParseOffset < DataSize)
+        {
+            if(Data[ParseOffset] == '}')
+            {
+                EndDelimiterFound = true;
+                ParseOffset+=1;
+                break;
+            }      
+        }
+        if(!EndDelimiterFound)
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: struct needs delimiting } for end of member variables",ParseOffset);   
+        }
         return(ReturnValue); 
     }
     std::pair<std::string,std::string> MBCCDefinitions::p_ParseDef(const char* Data,size_t DataSize,size_t InParseOffset,size_t* OutParseOffset)

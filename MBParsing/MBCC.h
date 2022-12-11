@@ -4,6 +4,7 @@
 #include <MBUtility/MBErrorHandling.h>
 #include <MBUtility/MBInterfaces.h>
 #include <utility>
+#include <variant>
 namespace MBParsing
 {
     class MemberVariable
@@ -12,17 +13,17 @@ namespace MBParsing
         std::string Name; 
         std::string DefaultValue;
     };
-    class StructMemberVariable_List
+    class StructMemberVariable_List : public MemberVariable
     {
     public:
         std::string ListType;
     };
-    class StructMemberVariable_Raw
+    class StructMemberVariable_Raw : public MemberVariable
     {
     public:
-        std::string RawMemberName;
+        std::string RawMemberType;
     };
-    class StructMemberVariable_Struct
+    class StructMemberVariable_Struct : public MemberVariable
     {
     public:
         std::string StructType;
@@ -30,9 +31,25 @@ namespace MBParsing
     class MemberVariableVisitor;
     class StructMemberVariable
     {
-    
+        std::variant<StructMemberVariable_Raw,StructMemberVariable_List,StructMemberVariable_Struct> 
+            m_Content;
     public:
+        StructMemberVariable() = default;
+        StructMemberVariable(StructMemberVariable_List ListMemberVariable);
+        StructMemberVariable(StructMemberVariable_Raw RawMemberVariable);
+        StructMemberVariable(StructMemberVariable_Struct StructMemberVariable);
+        std::string& GetName();
+        std::string& GetDefaultValue();
+        std::string const& GetName() const;
+        std::string const& GetDefaultValue() const;
         void Accept(MemberVariableVisitor& Visitor);
+    };
+    class MemberVariableVisitor
+    {
+    public:
+        void Visit(StructMemberVariable_Raw const& Raw){};
+        void Visit(StructMemberVariable_List const& List){};
+        void Visit(StructMemberVariable_Struct const& Struct){};
     };
     struct StructDefinition
     {
@@ -77,6 +94,7 @@ namespace MBParsing
         static std::string p_ParseIdentifier(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
         static Terminal p_ParseTerminal(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
         static std::pair<std::string,std::string> p_ParseDef(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
+        static StructMemberVariable p_ParseMemberVariable(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
         static StructDefinition p_ParseStruct(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
         static std::vector<ParseRule> p_ParseParseRules(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
     public:
