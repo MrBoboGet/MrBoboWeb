@@ -28,6 +28,8 @@ namespace MBParsing
     public:
         std::string StructType;
     };
+    //The more I use this class the more I realise that using the variant directly is most likely more than
+    //enough
     class MemberVariableVisitor;
     class StructMemberVariable
     {
@@ -42,6 +44,21 @@ namespace MBParsing
         std::string& GetDefaultValue();
         std::string const& GetName() const;
         std::string const& GetDefaultValue() const;
+        template<typename T>
+        bool IsType() const
+        {
+            return(std::holds_alternative<T>(m_Content));    
+        }
+        template<typename T>
+        T& GetType()
+        {
+            return(std::get<T>(m_Content)); 
+        }
+        template<typename T>
+        T const& GetType() const
+        {
+            return(std::get<T>(m_Content)); 
+        }
         void Accept(MemberVariableVisitor& Visitor);
     };
     class MemberVariableVisitor
@@ -60,6 +77,7 @@ namespace MBParsing
     typedef int RuleIndex;
     //-1 reserved for the empty word / end of file
     typedef int TerminalIndex;
+    typedef int NonTerminalIndex;
     typedef int ParseIndex;
     typedef int StructIndex;
     struct RuleComponent
@@ -69,6 +87,7 @@ namespace MBParsing
         //-1 means that Max is unbounded
         int Max = 1;
         std::string AssignedMember;
+        std::string ReferencedRule;
         //can either be a RuleIndex, or a TerminalIndex depending
         ParseIndex ComponentIndex = 0;
     };
@@ -80,6 +99,11 @@ namespace MBParsing
     {
         std::string Name;        
         std::string RegexDefinition;        
+    };
+    struct NonTerminal
+    {
+        std::string Name;    
+        std::vector<ParseRule> Rules;
     };
     struct Token
     {
@@ -99,10 +123,9 @@ namespace MBParsing
         static std::vector<ParseRule> p_ParseParseRules(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
     public:
         std::vector<Terminal> Terminals;
-        std::vector<ParseRule> ParseRules;
+        std::vector<NonTerminal> NonTerminals;
         std::vector<StructDefinition> Structs;
-        std::unordered_map<std::string,std::vector<ParseIndex>> NonTerminals;
-        std::unordered_map<std::string,StructIndex> NonTerminalToStruct;
+        std::unordered_map<std::string,TerminalIndex> NameToNonTerminal;
         std::unordered_map<std::string,TerminalIndex> NameToTerminal;
         std::unordered_map<std::string,StructIndex> NameToStruct;
 

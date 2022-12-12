@@ -73,15 +73,18 @@ namespace MBParsing
         size_t StringBegin = ParseOffset;
         while(ParseOffset < DataSize)
         {
-            if(Data[ParseOffset] == ' ' || Data[ParseOffset] == '\t' || Data[ParseOffset] == '\n' || Data[ParseOffset] == '='
-             || Data[ParseOffset] == '{' ||  Data[ParseOffset] == '}' ||  Data[ParseOffset] == '(' || Data[ParseOffset] == ')'
-             || Data[ParseOffset] == ';' || Data[ParseOffset] == '<' || Data[ParseOffset] == '>')
+            if(!((Data[ParseOffset] >= 65 && Data[ParseOffset] <= 90) || (Data[ParseOffset] >= 97 && Data[ParseOffset] <= 122)
+                        || Data[ParseOffset] == '_' || (Data[ParseOffset] >= 48 && Data[ParseOffset] <= 57)))
             {
                 break; 
             }   
             ParseOffset++;
         }
         ReturnValue = std::string(Data+StringBegin,Data+ParseOffset);
+        if(ReturnValue == "")
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: empty identifiers are not allowed",ParseOffset);
+        }
         *OutParseOffset = ParseOffset;
         return(ReturnValue);
     }
@@ -143,7 +146,7 @@ namespace MBParsing
             StructMemberVariable_Raw RawMemberVariable;
             RawMemberVariable.RawMemberType =  std::string(Data+ParseOffset,Data+TypeEnd);
             ParseOffset = TypeEnd+1;
-            ReturnValue = StructMemberVariable(ReturnValue);
+            ReturnValue = StructMemberVariable(RawMemberVariable);
         }
         else
         {
@@ -160,13 +163,15 @@ namespace MBParsing
                     throw MBCCParseError("Syntactic error parsing MBCC definitions: builtin type List requires tempalte argument",ParseOffset);
                 }
                 ParseOffset +=1;
-                std::string TemplateType = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);
+                StructMemberVariable_List List;
+                List.ListType = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);
                 SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
                 if(ParseOffset >= DataSize || Data[ParseOffset] != '>')
                 {
                     throw MBCCParseError("Syntactic error parsing MBCC definitions: builtin type List requires delimiting > for template argument",ParseOffset);
                 }
                 ParseOffset += 1;
+                ReturnValue = StructMemberVariable(List);
             }
             else
             {
@@ -282,10 +287,86 @@ struct Hej1 : Hej2
         ReturnValue.second = StructName;
         return(ReturnValue);
     }
-    std::vector<ParseRule> MBCCDefinitions::p_ParseParseRules(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset)
+    std::vector<ParseRule> MBCCDefinitions::p_ParseParseRules(const char* Data,size_t DataSize,size_t InParseOffset,size_t* OutParseOffset)
     {
         std::vector<ParseRule> ReturnValue;
-        
+        size_t ParseOffset = InParseOffset;
+        SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        if(ParseOffset >= DataSize || Data[ParseOffset] != '=')
+        {
+            throw MBCCParseError("Syntactic error parsing MBCC definitions: rule needs delimiting = for name and content",ParseOffset);
+        }
+        ParseOffset +=1;
+        SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        ParseRule CurrentRule;
+        while(ParseOffset < DataSize)
+        {
+            //does allow for empty rules, s
+            if(Data[ParseOffset] == '|')
+            {
+                if(CurrentRule.Components.size() == 0)
+                {
+                    throw MBCCParseError("Syntactic error parsing MBCC definitions: emtpy rule is not allowed, | without corresponding components",ParseOffset);
+                }
+                ReturnValue.push_back(std::move(CurrentRule));          
+                CurrentRule = ParseRule();
+                ParseOffset+=1;
+                SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+                continue;
+            }
+            else if(Data[ParseOffset] == ';')
+            {
+                ParseOffset+=1;
+                break;
+            }
+            RuleComponent NewComponent;
+            std::string RuleName = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);    
+            std::cout<<"RuleName "<<RuleName<<std::endl;
+            SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+            std::cout<<"NextByte "<<Data[ParseOffset]<<std::endl;
+            if(ParseOffset >= DataSize)
+            {
+                throw MBCCParseError("Syntactic error parsing MBCC definitions: missing ; in rule definition",ParseOffset);
+            }
+            if(Data[ParseOffset] == '=')
+            {
+                //member assignment    
+                ParseOffset += 1;
+                NewComponent.AssignedMember = RuleName;
+                RuleName = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);
+                SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+                if(ParseOffset >= DataSize)
+                {
+                    throw MBCCParseError("Syntactic error parsing MBCC definitions: missing ; in rule definition",ParseOffset);
+                }
+            }
+            if(Data[ParseOffset] == '+')
+            {
+                NewComponent.Min = 1;    
+                NewComponent.Max = -1;    
+                ParseOffset++;
+            }
+            else if(Data[ParseOffset] == '?')
+            {
+                NewComponent.Min = 0;
+                NewComponent.Max = 1;
+                ParseOffset++;
+            }
+            else if(Data[ParseOffset] == '*')
+            {
+                NewComponent.Min = 0;
+                NewComponent.Max = -1;
+                ParseOffset++;
+            }
+            NewComponent.ReferencedRule = RuleName;
+            CurrentRule.Components.push_back(NewComponent);
+            SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
+        }
+        if(CurrentRule.Components.size() != 0)
+        {
+            ReturnValue.push_back(std::move(CurrentRule));   
+        }
+        *OutParseOffset = ParseOffset;
         return(ReturnValue);
     }
     MBCCDefinitions MBCCDefinitions::ParseDefinitions(const char* Data,size_t DataSize,size_t InOffset)
@@ -305,9 +386,13 @@ struct Hej1 : Hej2
             else if(CurrentIdentifier == "term")
             {
                 Terminal NewTerminal = p_ParseTerminal(Data,DataSize,ParseOffset,&ParseOffset);
-                if(ReturnValue.NameToStruct.find(NewTerminal.Name) != ReturnValue.NameToStruct.end())
+                if(ReturnValue.NameToTerminal.find(NewTerminal.Name) != ReturnValue.NameToTerminal.end())
                 {
                     throw std::runtime_error("Semantic error parsing MBCC definitions: duplicate definition for terminal \""+NewTerminal.Name+"\"");
+                }
+                if(ReturnValue.NameToNonTerminal.find(NewTerminal.Name) != ReturnValue.NameToNonTerminal.end())
+                {
+                    throw std::runtime_error("Semantic error parsing MBCC definitions: attempting to define terminal with the same name as a nonterminal named \""+NewTerminal.Name+"\"");
                 }
                 size_t TerminalIndex = ReturnValue.Terminals.size();
                 ReturnValue.NameToTerminal[NewTerminal.Name] = TerminalIndex;
@@ -325,19 +410,30 @@ struct Hej1 : Hej2
                 ReturnValue.NameToStruct[NewStruct.Name] = StructIndex;
                 ReturnValue.Structs.push_back(std::move(NewStruct));
             }
-            //else
-            //{
-            //    assert(false);
-            //    std::vector<ParseRule> NewRules = p_ParseParseRules(Data,DataSize,ParseOffset,&ParseOffset);
-            //    size_t CurrentIndex = ReturnValue.ParseRules.size();
-            //    auto& RuleVector = ReturnValue.ParseRules;
-            //    RuleVector.insert(RuleVector.end(),std::make_move_iterator(NewRules.begin()),std::make_move_iterator(NewRules.end()));
-            //    std::vector<RuleIndex>& RuleNameVector = ReturnValue.NonTerminals[CurrentIdentifier];
-            //    for(int i = 0; i < NewRules.size();i++)
-            //    {
-            //        RuleNameVector.push_back(CurrentIndex+i);    
-            //    }
-            //}
+            else
+            {
+                std::vector<ParseRule> NewRules = p_ParseParseRules(Data,DataSize,ParseOffset,&ParseOffset);
+                NonTerminal NewTerminal;
+                NewTerminal.Rules = std::move(NewRules);
+                NewTerminal.Name = CurrentIdentifier;
+                auto NonTermIt = ReturnValue.NameToNonTerminal.find(NewTerminal.Name); 
+                if(NonTermIt != ReturnValue.NameToNonTerminal.end())
+                {
+                    NonTerminal& AssociatedNonTerminal = ReturnValue.NonTerminals[NonTermIt->second];
+                    AssociatedNonTerminal.Rules.insert(AssociatedNonTerminal.Rules.end(),std::make_move_iterator(NewTerminal.Rules.begin()),
+                            std::make_move_iterator(NewTerminal.Rules.end()));
+                }
+                else
+                {
+                    if(ReturnValue.NameToTerminal.find(NewTerminal.Name) != ReturnValue.NameToTerminal.end())
+                    {
+                        throw std::runtime_error("Semantic error parsing MBCC definitions: attempting to define non-terminal with the same name as a terminal named \""+NewTerminal.Name+"\"");
+                    }
+                    size_t CurrentIndex = ReturnValue.NonTerminals.size();
+                    ReturnValue.NameToNonTerminal[NewTerminal.Name] = CurrentIndex;
+                    ReturnValue.NonTerminals.push_back(std::move(NewTerminal));
+                }
+            }
             MBParsing::SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
         }
         for(auto const& Def : UnresolvedDefs)
@@ -350,7 +446,7 @@ struct Hej1 : Hej2
             //{
             //    throw std::runtime_error("Semantic error parsing MBCC definitions: def referencing undefined struct \""+Def.second+"\"");    
             //}
-            ReturnValue.NonTerminalToStruct[Def.first] = ReturnValue.NameToStruct[Def.second];
+            ReturnValue.NameToStruct[Def.first] = ReturnValue.NameToStruct[Def.second];
         }
         return(ReturnValue);
     }
