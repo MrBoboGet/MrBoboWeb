@@ -28,18 +28,30 @@ namespace MBParsing
     public:
         std::string StructType;
     };
+    class StructMemberVariable_Int : public MemberVariable
+    {
+    public:
+        int Value;
+    };
+    class StructMemberVariable_String : public MemberVariable
+    {
+    public:
+        std::string Value;
+    };
     //The more I use this class the more I realise that using the variant directly is most likely more than
     //enough
     class MemberVariableVisitor;
     class StructMemberVariable
     {
-        std::variant<StructMemberVariable_Raw,StructMemberVariable_List,StructMemberVariable_Struct> 
+        std::variant<StructMemberVariable_Raw,StructMemberVariable_List,StructMemberVariable_Struct,StructMemberVariable_Int,StructMemberVariable_String> 
             m_Content;
     public:
         StructMemberVariable() = default;
         StructMemberVariable(StructMemberVariable_List ListMemberVariable);
         StructMemberVariable(StructMemberVariable_Raw RawMemberVariable);
         StructMemberVariable(StructMemberVariable_Struct StructMemberVariable);
+        StructMemberVariable(StructMemberVariable_Int RawMemberVariable);
+        StructMemberVariable(StructMemberVariable_String StructMemberVariable);
         std::string& GetName();
         std::string& GetDefaultValue();
         std::string const& GetName() const;
@@ -67,12 +79,17 @@ namespace MBParsing
         void Visit(StructMemberVariable_Raw const& Raw){};
         void Visit(StructMemberVariable_List const& List){};
         void Visit(StructMemberVariable_Struct const& Struct){};
+        void Visit(StructMemberVariable_Int const& Int){};
+        void Visit(StructMemberVariable_String const& String){};
     };
     struct StructDefinition
     {
         std::string Name; 
         std::string ParentStruct;
         std::vector<StructMemberVariable> MemberVariables;
+        bool HasMember(std::string const& MemberToCheck) const;
+        StructMemberVariable const& GetMember(std::string const& MemberName) const;
+        StructMemberVariable& GetMember(std::string const& MemberName);
     };
     typedef int RuleIndex;
     //-1 reserved for the empty word / end of file
@@ -113,6 +130,8 @@ namespace MBParsing
     class MBCCDefinitions
     {
     private:
+        void p_VerifyStructs();
+        void p_VerifyRules();
         void p_UpdateReferencesAndVerify();
 
         static std::string p_ParseIdentifier(const char* Data,size_t DataSize,size_t ParseOffset,size_t* OutParseOffset);
@@ -127,6 +146,7 @@ namespace MBParsing
         std::vector<StructDefinition> Structs;
         std::unordered_map<std::string,TerminalIndex> NameToNonTerminal;
         std::unordered_map<std::string,TerminalIndex> NameToTerminal;
+        std::unordered_map<std::string,StructIndex> NonTerminalToStruct;
         std::unordered_map<std::string,StructIndex> NameToStruct;
 
         static MBCCDefinitions ParseDefinitions(const char* Data,size_t DataSize,size_t ParseOffset);

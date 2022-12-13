@@ -7,17 +7,27 @@ namespace MBParsing
     //BEGIN StructMemberVariable
     
     StructMemberVariable::StructMemberVariable(StructMemberVariable_List ListMemberVariable)
-        : m_Content(ListMemberVariable)
+        : m_Content(std::move(ListMemberVariable))
     {
            
     }
     StructMemberVariable::StructMemberVariable(StructMemberVariable_Raw RawMemberVariable)
-        : m_Content(RawMemberVariable)
+        : m_Content(std::move(RawMemberVariable))
     {
            
     }
     StructMemberVariable::StructMemberVariable(StructMemberVariable_Struct StructMemberVariable)
-        : m_Content(StructMemberVariable)
+        : m_Content(std::move(StructMemberVariable))
+    {
+           
+    }
+    StructMemberVariable::StructMemberVariable(StructMemberVariable_Int RawMemberVariable)
+        : m_Content(std::move(RawMemberVariable))
+    {
+           
+    }
+    StructMemberVariable::StructMemberVariable(StructMemberVariable_String StructMemberVariable)
+        : m_Content(std::move(StructMemberVariable))
     {
            
     }
@@ -54,6 +64,42 @@ namespace MBParsing
         
     }
     //END StructMemberVariable
+
+    //BEGIN StructDefinition
+    bool StructDefinition::HasMember(std::string const& MemberToCheck) const
+    {
+        for(auto const& Member : MemberVariables)
+        {
+            if(Member.GetName() == MemberToCheck)
+            {
+                return(true);  
+            } 
+        }       
+        return(false);
+    }
+    StructMemberVariable const& StructDefinition::GetMember(std::string const& MemberName) const
+    {
+        for(auto const& Member : MemberVariables)
+        {
+            if(Member.GetName() == MemberName)
+            {
+                return(Member);
+            } 
+        }       
+        throw std::runtime_error("no member exists with name "+MemberName);
+    }
+    StructMemberVariable& StructDefinition::GetMember(std::string const& MemberName)
+    {
+        for(auto& Member : MemberVariables)
+        {
+            if(Member.GetName() == MemberName)
+            {
+                return(Member);  
+            } 
+        }       
+        throw std::runtime_error("no member exists with name "+MemberName);
+    }
+    //END StructDefinition
     class MBCCParseError : public std::exception
     {
     public:
@@ -321,9 +367,7 @@ struct Hej1 : Hej2
             }
             RuleComponent NewComponent;
             std::string RuleName = p_ParseIdentifier(Data,DataSize,ParseOffset,&ParseOffset);    
-            std::cout<<"RuleName "<<RuleName<<std::endl;
             SkipWhitespace(Data,DataSize,ParseOffset,&ParseOffset);
-            std::cout<<"NextByte "<<Data[ParseOffset]<<std::endl;
             if(ParseOffset >= DataSize)
             {
                 throw MBCCParseError("Syntactic error parsing MBCC definitions: missing ; in rule definition",ParseOffset);
@@ -368,6 +412,193 @@ struct Hej1 : Hej2
         }
         *OutParseOffset = ParseOffset;
         return(ReturnValue);
+    }
+    bool h_TypeIsBuiltin(std::string const& TypeToVerify)
+    {
+        return(TypeToVerify == "String" || TypeToVerify == "Int");
+    }
+    void MBCCDefinitions::p_VerifyStructs()
+    {
+        for(auto& Struct : Structs)
+        {
+            //Verify that the parent struct actually exists    
+            if(Struct.ParentStruct != "" && NameToStruct.find(Struct.Name) == NameToStruct.find(Struct.Name))
+            {
+                throw std::runtime_error("Semantic error parsing MBCC definitions: struct named \""+Struct.Name+"\" is the child of a non existing struct named \""+Struct.ParentStruct+"\"");
+            } 
+            for(auto& MemberVariable : Struct.MemberVariables)
+            {
+                if(MemberVariable.IsType<StructMemberVariable_List>())
+                {
+                    if(NameToStruct.find(MemberVariable.GetType<StructMemberVariable_List>().ListType) == NameToStruct.end())
+                    {
+                        throw std::runtime_error("Semantic error parsing MBCC definitions: List template value in struct \""+Struct.Name+ "\"references unknowns struct named \""+
+                                MemberVariable.GetType<StructMemberVariable_List>().ListType+"\"");
+                    }
+                }
+                else if(MemberVariable.IsType<StructMemberVariable_Struct>())
+                {
+                    StructMemberVariable_Struct& StructMember = MemberVariable.GetType<StructMemberVariable_Struct>();
+                    if(h_TypeIsBuiltin(MemberVariable.GetType<StructMemberVariable_Struct>().StructType))
+                    {
+                        if(StructMember.StructType == "Int")
+                        {
+                            StructMemberVariable_Int NewMember;
+                            NewMember.Name = MemberVariable.GetName();
+                            NewMember.DefaultValue = MemberVariable.GetDefaultValue();
+                            try
+                            {
+                                NewMember.Value = std::stoi(NewMember.DefaultValue);
+                            }
+                            catch(std::exception const& e)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: Int member variable not a valid integer");
+                            }
+                            MemberVariable = StructMemberVariable(NewMember);
+                        }
+                        else if(StructMember.StructType == "String")
+                        {
+                            StructMemberVariable_String NewMember;
+                            NewMember.Value = MemberVariable.GetDefaultValue();
+                            NewMember.DefaultValue = MemberVariable.GetDefaultValue();
+                            NewMember.Name = MemberVariable.GetName();
+                            MemberVariable = StructMemberVariable(NewMember);
+                               
+                        }
+                    }
+                    else if(NameToStruct.find(MemberVariable.GetType<StructMemberVariable_Struct>().StructType) == NameToStruct.end())
+                    {
+                        throw std::runtime_error("Semantic error parsing MBCC definitions: member variable in struct \""+Struct.Name+"\" refernces unknowns struct named \""+
+                                MemberVariable.GetType<StructMemberVariable_Struct>().StructType+"\"");
+                    }
+                }
+            }
+        }
+    }
+    void MBCCDefinitions::p_VerifyRules()
+    {
+        for(auto& NonTerminal : NonTerminals)
+        {
+            auto StructIt = NonTerminalToStruct.find(NonTerminal.Name);
+            StructDefinition* AssociatedStruct = nullptr;
+            if(StructIt != NonTerminalToStruct.end())
+            {
+                AssociatedStruct = &Structs[StructIt->second];
+            }
+            for(auto& Rule : NonTerminal.Rules)
+            {
+                for(auto& Component : Rule.Components)
+                {
+                    if(auto TermIt = NameToTerminal.find(Component.ReferencedRule); TermIt != NameToTerminal.end())
+                    {
+                        Component.IsTerminal = true;
+                        Component.ComponentIndex = TermIt->second;
+                    }   
+                    else if(auto NonTermIt = NameToNonTerminal.find(Component.ReferencedRule); NonTermIt != NameToNonTerminal.end())
+                    {
+                        Component.IsTerminal = false;
+                        Component.ComponentIndex = NonTermIt->second;              
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                "rule referencing unkown terminal/non-terminal named"
+                                " \""+Component.ReferencedRule+"\"");
+                    }
+                    if(AssociatedStruct != nullptr)
+                    {
+                        if(Component.AssignedMember == "")
+                        {
+                            continue;   
+                        }
+                        if(!AssociatedStruct->HasMember(Component.AssignedMember))
+                        {
+                            throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                    "rule \""+NonTerminal.Name+"\" referencing non existing member \""+Component.AssignedMember+"\" "
+                                    "of struct \""+AssociatedStruct->Name+"\"");
+                        }
+                        //Check type of assigned member
+                        StructMemberVariable const& AssociatedMember = AssociatedStruct->GetMember(Component.AssignedMember); 
+                        if(AssociatedMember.IsType<StructMemberVariable_Struct>())
+                        {
+                            StructMemberVariable_Struct const& StructMember = AssociatedMember.GetType<StructMemberVariable_Struct>();  
+                            if(Component.IsTerminal)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                        "error in member assignment for non-terminal \""+NonTerminal.Name+"\": "
+                                        "error assigning terminal \""+Component.ReferencedRule+"\" to member \""+StructMember.Name+
+                                        "\": can only assign non-terminals to non builtin types");
+                            }
+                            //Struct have already been verified
+                            //structmember uses 
+                            if(NameToStruct[StructMember.StructType] != Component.ComponentIndex)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                        "error in member assignment for non-terminal \""+NonTerminal.Name+"\": "
+                                        "error assigning non-terminal \""+Component.ReferencedRule+"\" to member \""+AssociatedMember.GetName()+"\": "+
+                                        " member is of type "+Structs[NameToStruct[StructMember.StructType]].Name +" "
+                                        "and non-terminal is of type "+Structs[Component.ComponentIndex].Name);
+                            }
+                        }
+                        else if(AssociatedMember.IsType<StructMemberVariable_List>())
+                        {
+                            StructMemberVariable_List const& ListMember = AssociatedMember.GetType<StructMemberVariable_List>();  
+                            if(Component.IsTerminal)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                        "error in member assignment for non-terminal \""+NonTerminal.Name+"\": "
+                                        "error assigning terminal \""+Component.ReferencedRule+"\" to member \""+ListMember.Name+
+                                        "\": can only assign non-terminals to non builtin types");
+                            }
+                            //Struct have already been verified
+                            //structmember uses 
+                            if(NameToStruct[ListMember.ListType] != Component.ComponentIndex)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                        "error in member assignment for non-terminal \""+NonTerminal.Name+"\": "
+                                        "error assigning non-terminal \""+Component.ReferencedRule+"\" to member \""+AssociatedMember.GetName()+"\": "+
+                                        " member is of type "+Structs[NameToStruct[ListMember.ListType]].Name +" "
+                                        "and non-terminal is of type "+Structs[Component.ComponentIndex].Name);
+                            }
+                        }
+                        else if(AssociatedMember.IsType<StructMemberVariable_Int>())
+                        {
+                            if(Component.IsTerminal == false)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                        "error with member assignment in non-terminal \""+NonTerminal.Name+"\": "
+                                        "only a terminal can be assigned to builtin scalar types");
+                            }     
+                        }
+                        else if(AssociatedMember.IsType<StructMemberVariable_String>())
+                        {
+                            if(Component.IsTerminal == false)
+                            {
+                                throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                        "error with member assignment in non-terminal \""+NonTerminal.Name+"\": "
+                                        "only a terminal can be assigned to builtin scalar types");
+                            }     
+                        }
+                    }
+                    else
+                    {
+                        if(Component.AssignedMember != "")
+                        {
+                            throw std::runtime_error("Semantic error parsing MBCC definitions: "
+                                    "non-terminal \""+NonTerminal.Name+"\" assigning to member \""+Component.AssignedMember+"\" "
+                                    "but doesn't have any linked struct");
+                        }
+                    }
+                } 
+            }
+        } 
+    }
+    //Parse def already verifies that all links between struct and non-terminal/terminal is true
+    //here we only have to verify wheter or not the parse rules and structures abide by the semantics
+    void MBCCDefinitions::p_UpdateReferencesAndVerify()
+    {
+        p_VerifyStructs();
+        p_VerifyRules();
     }
     MBCCDefinitions MBCCDefinitions::ParseDefinitions(const char* Data,size_t DataSize,size_t InOffset)
     {
@@ -438,16 +669,17 @@ struct Hej1 : Hej2
         }
         for(auto const& Def : UnresolvedDefs)
         {
-            //if(ReturnValue.NameToTerminal.find(Def.first) == ReturnValue.NameToTerminal.end())
-            //{
-            //    throw std::runtime_error("Semantic error parsing MBCC definitions: def referencing undefined rule \""+Def.first+"\"");    
-            //}
-            //if(ReturnValue.NameToStruct.find(Def.second) == ReturnValue.NameToStruct.end())
-            //{
-            //    throw std::runtime_error("Semantic error parsing MBCC definitions: def referencing undefined struct \""+Def.second+"\"");    
-            //}
-            ReturnValue.NameToStruct[Def.first] = ReturnValue.NameToStruct[Def.second];
+            if(ReturnValue.NameToNonTerminal.find(Def.first) == ReturnValue.NameToNonTerminal.end())
+            {
+                throw std::runtime_error("Semantic error parsing MBCC definitions: def referencing undefined rule \""+Def.first+"\"");    
+            }
+            if(ReturnValue.NameToStruct.find(Def.second) == ReturnValue.NameToStruct.end())
+            {
+                throw std::runtime_error("Semantic error parsing MBCC definitions: def referencing undefined struct \""+Def.second+"\"");    
+            }
+            ReturnValue.NonTerminalToStruct[Def.first] = ReturnValue.NameToStruct[Def.second];
         }
+        ReturnValue.p_UpdateReferencesAndVerify();
         return(ReturnValue);
     }
     int h_OffsetToLine(const char* Data,size_t ParseOffset)
