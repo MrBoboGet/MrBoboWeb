@@ -712,4 +712,131 @@ struct Hej1 : Hej2
         }
         return(ReturnValue);
     }
+    //END MBCCDefinitions
+    
+
+    //BEGIN LLParserGenerator
+    std::vector<bool> LLParserGenerator::p_RetrieveENonTerminals(MBCCDefinitions const& Grammar)
+    {
+        std::vector<bool> ReturnValue = std::vector<bool>(Grammar.NonTerminals.size(),false);
+        //Transitive closure algorithm, naive implementation
+        while(true)
+        {
+            bool HasChanged = false;    
+            for(int i = 0; i < Grammar.NonTerminals.size();i++)
+            {
+                if(ReturnValue[i])
+                {
+                    continue;   
+                }
+                auto const& NonTerminal = Grammar.NonTerminals[i];   
+                for(auto const& Rule : NonTerminal.Rules)
+                {
+                    bool IsENonTerminal = true;
+                    for(auto const& Component : Rule.Components)
+                    {
+                        if(Component.IsTerminal)
+                        {
+                            break;   
+                        }
+                        if(Component.Min != 0 && !ReturnValue[Component.ComponentIndex])
+                        {
+                            IsENonTerminal = false;
+                            break;
+                        }
+                    }  
+                    if(IsENonTerminal)
+                    {
+                        HasChanged = true;
+                        ReturnValue[i] = true;
+                        break;
+                    }
+                }
+            }
+            if(!HasChanged)
+            {
+                break;
+            }
+        }
+        return ReturnValue;         
+    }
+    //Maybe kinda slow, should do a proper ordo analysis of the algorithm
+    void p_VerifyNonTerminalLeftRecursive(NonTerminalIndex CurrentIndex,std::vector<bool>& VisitedTerminals,std::vector<bool> const& ERules,MBCCDefinitions const& Grammar)
+    {
+        if(VisitedTerminals[CurrentIndex] == true)
+        {
+            throw std::runtime_error("Error creating LL parser for grammar: NonTerminal \""+Grammar.NonTerminals[CurrentIndex].Name+ "\" is left recursive");    
+        }
+        VisitedTerminals[CurrentIndex] = true;
+        for(auto const& Rule : Grammar.NonTerminals[CurrentIndex].Rules)
+        {
+            for(auto const& Component : Rule.Components)
+            {
+                if(Component.IsTerminal)
+                {
+                    return;
+                }
+                p_VerifyNonTerminalLeftRecursive(CurrentIndex,VisitedTerminals,ERules,Grammar);
+                if(!(Component.Min == 0 || ERules[Component.ComponentIndex]))
+                {
+                    break; 
+                }
+            }  
+        }
+    }
+    void LLParserGenerator::p_VerifyNotLeftRecursive(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules)
+    {
+        for(int i = 0; i <  Grammar.NonTerminals.size();i++)
+        {
+            std::vector<bool> VisitedTerminals = std::vector<bool>(i,false);
+            p_VerifyNonTerminalLeftRecursive(i,VisitedTerminals,ERules,Grammar);
+        }    
+    }
+    MBMath::MBDynamicMatrix<bool> LLParserGenerator::p_ConstructNonTermFollow(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules)
+    {
+        MBMath::MBDynamicMatrix<bool> ReturnValue(Grammar.NonTerminals.size(),Grammar.NonTerminals.size());
+        //Transative closure algorithm: TODO optimize
+        for(int i = 0; i < Grammar.NonTerminals.size();i++)
+        {
+            auto const& NonTerminal = Grammar.NonTerminals[i];    
+            for(auto const& Rule : NonTerminal.Rules)
+            {
+                for(auto const& Component : NonTerminal.Rules)
+                {
+                     
+                }   
+            }
+        }  
+
+        return ReturnValue;
+    }
+    BoolTensor::BoolTensor(int i,int j,int k)
+    {
+        m_Data = std::vector<bool>(i * j * k,false);        
+        m_J = j;
+        m_K = k;
+    }
+    void BoolTensor::SetValue(int i,int j,int k)
+    {
+        m_Data[i*(m_J*m_K) + (j*m_K)+k] = true;
+    }
+    bool BoolTensor::GetValue(int i, int j, int k) const
+    {
+        return(m_Data[i*(m_J*m_K) + (j*m_K)+k]);
+    }
+    BoolTensor LLParserGenerator::p_ConstructFIRST(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules,int k)
+    {
+        BoolTensor ReturnValue(Grammar.NonTerminals.size(),k,Grammar.Terminals.size());
+         
+        return ReturnValue;      
+    }
+    void LLParserGenerator::p_WriteDefinitions(MBCCDefinitions const& Grammar,std::vector<TerminalStringMap> const& ParseTable,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut, int k)
+    {
+           
+    }
+    void LLParserGenerator::WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k)
+    {
+        
+    } 
+    //END LLParserGenerator
 }

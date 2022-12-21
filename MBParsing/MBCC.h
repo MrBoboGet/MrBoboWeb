@@ -5,6 +5,8 @@
 #include <MBUtility/MBInterfaces.h>
 #include <utility>
 #include <variant>
+
+#include <MBUtility/MBMatrix.h>
 namespace MBParsing
 {
     class MemberVariable
@@ -144,7 +146,7 @@ namespace MBParsing
         std::vector<Terminal> Terminals;
         std::vector<NonTerminal> NonTerminals;
         std::vector<StructDefinition> Structs;
-        std::unordered_map<std::string,TerminalIndex> NameToNonTerminal;
+        std::unordered_map<std::string,NonTerminalIndex> NameToNonTerminal;
         std::unordered_map<std::string,TerminalIndex> NameToTerminal;
         std::unordered_map<std::string,StructIndex> NonTerminalToStruct;
         std::unordered_map<std::string,StructIndex> NameToStruct;
@@ -152,11 +154,41 @@ namespace MBParsing
         static MBCCDefinitions ParseDefinitions(const char* Data,size_t DataSize,size_t ParseOffset);
         static MBCCDefinitions ParseDefinitions(const char* Data,size_t DataSize,size_t ParseOffset,std::string& OutError);
     };
-    
+    //Missing entry can be deduced by the bool being false
+    class TerminalStringMap
+    {
+    private:
+    public:
+        TerminalStringMap(int k);
+        bool& operator[](std::vector<TerminalIndex> const& Key);
+        bool const& operator[](std::vector<TerminalIndex> const& Key) const;
+    };
+    class BoolTensor
+    {
+    private:
+        std::vector<bool> m_Data;
+        int m_J = 0;
+        int m_K = 0;
+    public:
+        BoolTensor(int i,int j,int k);
+        void SetValue(int i,int j,int k );
+        bool GetValue(int i, int j, int k) const;
+    };
     class LLParserGenerator
     {
+        static std::vector<bool> p_RetrieveENonTerminals(MBCCDefinitions const& Grammar);
+        static void p_VerifyNotLeftRecursive(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules);
+        //Non Terminal X Non Terminal Size
+        //Based on "LL LK requries k > 1, and in turn on the Linear-approx-LL(k) algorithm. If I understand the 
+        //algoritm correctly however, so might it be a bit of an pessimisation, as NonTermFollow of a NonTerminal 
+        //Is actually dependant on the specific rule being processed
+        static MBMath::MBDynamicMatrix<bool> p_ConstructNonTermFollow(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules);
+        //Non Terminal x K x Terminal 
+        static BoolTensor p_ConstructFIRST(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules,int k);
+        //TerminalIndex = -1 sentinel for empty rule, +1 for empty, +2 for EOF
+        void p_WriteDefinitions(MBCCDefinitions const& Grammar,std::vector<TerminalStringMap> const& ParseTable,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut, int k);
     public:
-        void WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut);
+        void WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k = 1);
     };
       
 }
