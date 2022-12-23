@@ -2,6 +2,7 @@
 #include "MBParsing.h"
 #include <assert.h>
 #include <iostream>
+#include <regex>
 namespace MBParsing
 {
     //BEGIN StructMemberVariable
@@ -714,7 +715,169 @@ struct Hej1 : Hej2
     }
     //END MBCCDefinitions
     
+    //BEGIN GLA
+    GLA::GLA(MBCCDefinitions const& Grammar,int k)
+    {
+        size_t TotalNodeSize = 2*Grammar.NonTerminals.size();
+        m_NonTerminalCount = Grammar.NonTerminals.size();
+        m_TerminalCount = Grammar.Terminals.size();
+        for(auto const& NonTerminal : Grammar.NonTerminals)
+        {
+            for(auto const& Rule : NonTerminal.Rules)
+            {
+                TotalNodeSize += Rule.Components.size()+1;
+            }   
+        }
+        m_Nodes = std::vector<GLANode>(TotalNodeSize,GLANode(k));
+        //m_ProductionBegin = std::vector<NodeIndex>(Grammar.NonTerminals.size());
+        int RuleOffset = Grammar.NonTerminals.size()*2;
+        for(NonTerminalIndex i = 0; i < Grammar.NonTerminals.size();i++)
+        {
+            auto const& NonTerminal = Grammar.NonTerminals[i];
+            for(auto const& Rule : NonTerminal.Rules)
+            {
+                m_Nodes[i].Edges.push_back(GLAEdge(-1,RuleOffset));
+                for(auto const& Component : Rule.Components)
+                {
+                    if(Component.IsTerminal)
+                    {
+                        m_Nodes[RuleOffset].Edges.push_back(GLAEdge(Component.ComponentIndex,RuleOffset+1));
+                    }
+                    else
+                    {
+                        //Position to start of non terminal
+                        m_Nodes[RuleOffset].Edges.push_back(GLAEdge(-1,i));
+                        //Terminal to position in parsing state
+                        m_Nodes[Grammar.NonTerminals.size()+Component.ComponentIndex].Edges.push_back(GLAEdge(-1,RuleOffset+1));
 
+                        //TODO think about wheter this kind of cycle might affect the ability for the algorithm to do it's thing...
+                        //TODO think about wheter or not duplicate edges should be handled in a better way
+                        //TODO The article uses LOOk instead of FIRST and FOLLOW, so the case of when a Non terminal contains 
+                        //fewer than K symbols in First might make it require a different step for the case of A*, it might
+                        //be needed to be treated as a different terminal altogether
+
+                        if(Component.Max == -1)
+                        {
+                            m_Nodes[Grammar.NonTerminals.size()+Component.ComponentIndex].Edges.push_back(GLAEdge(-1,Component.ComponentIndex));
+                        }
+                    }
+                    RuleOffset++;
+                }
+                m_Nodes[RuleOffset].Edges.push_back(GLAEdge(-1,Grammar.NonTerminals.size()+i));
+                RuleOffset++;
+            }
+        }
+    }
+    void h_Combine(std::vector<bool>& lhs,std::vector<bool>& rhs)
+    {
+        for(int i = 0; i < lhs.size();i++)
+        {
+            lhs[i] = lhs[i] || rhs[i];  
+        } 
+    }
+    //NOTE exponential time implementation
+    std::vector<bool> GLA::p_LOOK(GLANode& Node,int k)
+    {
+        std::vector<bool> ReturnValue = std::vector<bool>(m_TerminalCount);
+        if(k == -1)
+        {
+            return(ReturnValue);   
+        }
+        if(Node.Visiting[k])
+        {
+            return(ReturnValue);   
+        }
+        Node.Visiting[k] = true;
+        for(auto const& Edge : Node.Edges)
+        {
+            if(Edge.ConnectionTerminal != -1)
+            {
+                if(k == 0)
+                {
+                    ReturnValue[Edge.ConnectionTerminal] = true;
+                }   
+                else
+                {
+                    std::vector<bool> SubValues = p_LOOK(m_Nodes[Edge.Connection],k-1);
+                    h_Combine(ReturnValue,SubValues);
+                }
+            }
+            else
+            {
+                std::vector<bool> SubValues = p_LOOK(m_Nodes[Edge.Connection],k);   
+                h_Combine(ReturnValue,SubValues);
+            }
+        }
+        Node.Visiting[k] = false;
+        return(ReturnValue);
+    }
+    MBMath::MBDynamicMatrix<bool> GLA::LOOK(NonTerminalIndex NonTerminal,int ProductionIndex,int k)
+    {
+        MBMath::MBDynamicMatrix<bool> ReturnValue(m_TerminalCount,k);
+        auto& Node = m_Nodes[m_Nodes[NonTerminal].Edges[ProductionIndex].Connection];
+        for(int i = 0; i < k;i++)
+        {
+            MBMath::MBDynamicMatrix<bool> Visited(k,m_Nodes.size());
+            std::vector<bool> CurrentLook = p_LOOK(Node,i);
+            for(int j = 0; j < m_TerminalCount;j++)
+            {
+                ReturnValue(j,i) = CurrentLook[j];
+            }
+        }
+        return(ReturnValue);
+    }
+    //MBMath::MBDynamicMatrix<bool> GLA::FIRST(NonTerminalIndex NonTerminal,int k)
+    //{
+    //    MBMath::MBDynamicMatrix<bool> ReturnValue;
+
+    //    return(ReturnValue);
+    //}
+    //END GLA
+
+    Token Tokenizer::p_ExtractToken()
+    {
+        Token ReturnValue;
+        if(m_ParseOffset == m_TextData.size())
+        {
+            return(ReturnValue);
+        }
+        std::pmr::smatch Match;
+        for(TerminalIndex i = 0; i < m_TerminalRegexes.size();i++)
+        {
+            if(std::regex_search(m_TextData.begin()+m_ParseOffset,m_TextData.end(),Match,m_TerminalRegexes[i]))
+            {
+                   
+            }
+        }     
+        return(ReturnValue);
+    }
+    Tokenizer::Tokenizer(std::string Text,std::vector<Terminal> const& Terminals)
+    {
+        m_TextData = Text;
+        for(auto const& Terminal : Terminals)
+        {
+            m_TerminalRegexes.push_back(std::regex(Terminal.RegexDefinition));
+        }
+    }
+    void Tokenizer::ConsumeToken()
+    {
+        if(m_StoredTokens.size() > 0)
+        {
+            m_StoredTokens.pop_front();
+        }    
+        else
+        {
+            p_ExtractToken();
+        }
+    }
+    Token const& Tokenizer::Peek(int Depth)
+    {
+        while(m_StoredTokens.size() <= Depth)
+        {
+            m_StoredTokens.push_back(p_ExtractToken()); 
+        }
+        return(m_StoredTokens[Depth]);
+    }
     //BEGIN LLParserGenerator
     std::vector<bool> LLParserGenerator::p_RetrieveENonTerminals(MBCCDefinitions const& Grammar)
     {
@@ -788,27 +951,9 @@ struct Hej1 : Hej2
     {
         for(int i = 0; i <  Grammar.NonTerminals.size();i++)
         {
-            std::vector<bool> VisitedTerminals = std::vector<bool>(i,false);
+            std::vector<bool> VisitedTerminals = std::vector<bool>(Grammar.NonTerminals.size(),false);
             p_VerifyNonTerminalLeftRecursive(i,VisitedTerminals,ERules,Grammar);
         }    
-    }
-    MBMath::MBDynamicMatrix<bool> LLParserGenerator::p_ConstructNonTermFollow(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules)
-    {
-        MBMath::MBDynamicMatrix<bool> ReturnValue(Grammar.NonTerminals.size(),Grammar.NonTerminals.size());
-        //Transative closure algorithm: TODO optimize
-        for(int i = 0; i < Grammar.NonTerminals.size();i++)
-        {
-            auto const& NonTerminal = Grammar.NonTerminals[i];    
-            for(auto const& Rule : NonTerminal.Rules)
-            {
-                for(auto const& Component : NonTerminal.Rules)
-                {
-                     
-                }   
-            }
-        }  
-
-        return ReturnValue;
     }
     BoolTensor::BoolTensor(int i,int j,int k)
     {
@@ -824,19 +969,97 @@ struct Hej1 : Hej2
     {
         return(m_Data[i*(m_J*m_K) + (j*m_K)+k]);
     }
-    BoolTensor LLParserGenerator::p_ConstructFIRST(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules,int k)
+    bool h_Disjunct(MBMath::MBDynamicMatrix<bool> const& lhs,MBMath::MBDynamicMatrix<bool> const& rhs)
     {
-        BoolTensor ReturnValue(Grammar.NonTerminals.size(),k,Grammar.Terminals.size());
-         
-        return ReturnValue;      
+        bool ReturnValue = false;
+        assert(lhs.NumberOfColumns() == rhs.NumberOfColumns() && lhs.NumberOfRows() == rhs.NumberOfRows());
+        for(int k = 0; k < lhs.NumberOfColumns();k++)
+        {
+            bool IsDisjunct = true;
+            for(int j = 0; j < lhs.NumberOfRows();j++)
+            {
+                if(lhs(j,k) && rhs(j,k))
+                {
+                    IsDisjunct = false;    
+                    break;
+                }
+            }
+            if(IsDisjunct)
+            {
+                ReturnValue = true;   
+                break;
+            }
+        }
+        return(ReturnValue);
+    }
+    bool h_RulesAreDisjunct(std::vector<MBMath::MBDynamicMatrix<bool>> const& ProductionsToVerify)
+    {
+        bool ReturnValue = true;          
+        for(int i = 0; i < ProductionsToVerify.size();i++)
+        {
+            for(int j = i+1; j < ProductionsToVerify.size();j++)
+            {
+                if(!h_Disjunct(ProductionsToVerify[i],ProductionsToVerify[j]))
+                {
+                    ReturnValue = false;   
+                    break;
+                }
+            }    
+        }
+        return(ReturnValue);
+    }
+    void h_PrintProduction(NonTerminal const& NonTerm,std::vector<MBMath::MBDynamicMatrix<bool>> const& Productions,MBCCDefinitions const& Grammar)
+    {
+        std::cout<<"NonTerminal lookahead: "<<NonTerm.Name<<std::endl;
+        for(auto const& LookaheadInfo : Productions)
+        {
+            std::cout<<"Production 1:"<<std::endl;
+            for(int i = 0; i < LookaheadInfo.NumberOfColumns();i++)
+            {
+                std::cout<<"Level "<<std::to_string(i+1)<<":"<<std::endl;
+                for(int j = 0; j < LookaheadInfo.NumberOfRows();j++)
+                {
+                    if(LookaheadInfo(j,i))
+                    {
+                        std::cout<<Grammar.Terminals[j].Name<<" ";   
+                    }
+                }    
+                std::cout << std::endl;
+            }
+            std::cout<<std::endl;
+        }
     }
     void LLParserGenerator::p_WriteDefinitions(MBCCDefinitions const& Grammar,std::vector<TerminalStringMap> const& ParseTable,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut, int k)
     {
-           
     }
-    void LLParserGenerator::WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k)
+    void LLParserGenerator::WriteLLParser(MBCCDefinitions const& Grammar,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k)
     {
-        
+        std::vector<bool> ERules = p_RetrieveENonTerminals(Grammar); 
+        p_VerifyNotLeftRecursive(Grammar,ERules);
+        GLA GrammarGLA(Grammar,k);
+        NonTerminalIndex NonTermIndex = 0;
+        std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> TotalProductions;
+            for(auto const& NonTerminal : Grammar.NonTerminals)
+        {
+            std::vector<MBMath::MBDynamicMatrix<bool>> Productions = std::vector<MBMath::MBDynamicMatrix<bool>>(NonTerminal.Rules.size());
+            for(int i = 0; i < NonTerminal.Rules.size();i++)
+            {
+                Productions[i] = GrammarGLA.LOOK(NonTermIndex,i,k);
+            }
+            h_PrintProduction(NonTerminal,Productions,Grammar);
+            if(!h_RulesAreDisjunct(Productions))
+            {
+                throw std::runtime_error("Error creating linear-approximate-LL("+std::to_string(k)+") parser for grammar: Rule \""+NonTerminal.Name+"\" is non deterministic");
+            }
+            TotalProductions.push_back(std::move(Productions));
+            NonTermIndex++;
+        }
+        p_WriteParser(Grammar,TotalProductions,HeaderOut,SourceOut);
     } 
-    //END LLParserGenerator
+    void LLParserGenerator::p_WriteParser(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
+        MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut)
+    {
+         
+    }
+//END LLParserGenerator
 }

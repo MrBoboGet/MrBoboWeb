@@ -5,6 +5,8 @@
 #include <MBUtility/MBInterfaces.h>
 #include <utility>
 #include <variant>
+#include <regex>
+#include <deque>
 
 #include <MBUtility/MBMatrix.h>
 namespace MBParsing
@@ -126,7 +128,7 @@ namespace MBParsing
     };
     struct Token
     {
-        TerminalIndex Type;
+        TerminalIndex Type = -1;
         std::string Value;    
     };
     class MBCCDefinitions
@@ -174,6 +176,63 @@ namespace MBParsing
         void SetValue(int i,int j,int k );
         bool GetValue(int i, int j, int k) const;
     };
+    class GLA
+    {
+    private:
+        typedef int NodeIndex;
+        struct GLAEdge
+        {
+            GLAEdge() = default;
+            GLAEdge(TerminalIndex TerminalIndex,NodeIndex ConnectionIndex)
+            {
+                ConnectionTerminal = TerminalIndex;   
+                Connection = ConnectionIndex;
+            }
+            //-1 means that it's and E connection
+            TerminalIndex ConnectionTerminal = -1;
+            NodeIndex Connection = -1;
+        };
+        struct GLANode
+        {
+            GLANode(int k)
+            {
+                Visiting = std::vector<bool>(k);    
+            }
+            std::vector<bool> Visiting;
+            std::vector<GLAEdge> Edges;
+        };
+        //The first size(NonTerm) is the Initial nodes, the following size(NonTerm) are the accepting nodes, and then 
+        //the following are internal connections
+        //Maybe replace with MBVector if the size of the GLA edges i relativly bounded?
+        std::vector<GLANode> m_Nodes;
+        NonTerminalIndex m_NonTerminalCount = 0;
+        TerminalIndex m_TerminalCount = 0;
+        //std::vector<NodeIndex> m_ProductionBegin;
+
+        std::vector<bool> p_LOOK(GLANode& Edge,int k);
+    public:
+        GLA(MBCCDefinitions const& Grammar,int k);
+        //TODO optimize, currently exponential time algorithm
+        MBMath::MBDynamicMatrix<bool> LOOK(NonTerminalIndex NonTerminal,int ProductionIndex,int k);
+        //Used for A* components
+        //MBMath::MBDynamicMatrix<bool> FIRST(NonTerminalIndex NonTerminal,int k);
+        //BoolTensor CalculateFIRST();
+        //BoolTensor CalculateFOLLOW();
+    };
+    class Tokenizer
+    {
+    private:      
+        //Easy interfac, memeory map everything   
+        size_t m_ParseOffset = 0;
+        std::string m_TextData;
+        std::vector<std::regex> m_TerminalRegexes;
+        std::deque<Token> m_StoredTokens;
+        Token p_ExtractToken();
+    public:
+        Tokenizer(std::string Text,std::vector<Terminal> const& Terminals);
+        void ConsumeToken();
+        Token const& Peek(int Depth = 0);
+    };
     class LLParserGenerator
     {
         static std::vector<bool> p_RetrieveENonTerminals(MBCCDefinitions const& Grammar);
@@ -182,13 +241,14 @@ namespace MBParsing
         //Based on "LL LK requries k > 1, and in turn on the Linear-approx-LL(k) algorithm. If I understand the 
         //algoritm correctly however, so might it be a bit of an pessimisation, as NonTermFollow of a NonTerminal 
         //Is actually dependant on the specific rule being processed
-        static MBMath::MBDynamicMatrix<bool> p_ConstructNonTermFollow(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules);
         //Non Terminal x K x Terminal 
-        static BoolTensor p_ConstructFIRST(MBCCDefinitions const& Grammar,std::vector<bool> const& ERules,int k);
         //TerminalIndex = -1 sentinel for empty rule, +1 for empty, +2 for EOF
         void p_WriteDefinitions(MBCCDefinitions const& Grammar,std::vector<TerminalStringMap> const& ParseTable,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut, int k);
+        void p_WriteParser(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
+                MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut);
+        void p_WriteSource(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
+                MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut);
     public:
-        void WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k = 1);
+        void WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k = 2);
     };
-      
 }
