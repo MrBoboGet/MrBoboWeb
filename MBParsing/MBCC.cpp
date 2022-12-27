@@ -480,11 +480,10 @@ struct Hej1 : Hej2
     {
         for(auto& NonTerminal : NonTerminals)
         {
-            auto StructIt = NonTerminalToStruct.find(NonTerminal.Name);
             StructDefinition* AssociatedStruct = nullptr;
-            if(StructIt != NonTerminalToStruct.end())
+            if(NonTerminal.AssociatedStruct != -1)
             {
-                AssociatedStruct = &Structs[StructIt->second];
+                AssociatedStruct = &Structs[NonTerminal.AssociatedStruct];
             }
             for(auto& Rule : NonTerminal.Rules)
             {
@@ -598,6 +597,10 @@ struct Hej1 : Hej2
     //here we only have to verify wheter or not the parse rules and structures abide by the semantics
     void MBCCDefinitions::p_UpdateReferencesAndVerify()
     {
+        if(NonTerminals.size())
+        {
+            throw std::runtime_error("Semantic error parsing MBCC definitions: cannot construct a parser without any nonterminals");
+        }
         p_VerifyStructs();
         p_VerifyRules();
     }
@@ -678,7 +681,7 @@ struct Hej1 : Hej2
             {
                 throw std::runtime_error("Semantic error parsing MBCC definitions: def referencing undefined struct \""+Def.second+"\"");    
             }
-            ReturnValue.NonTerminalToStruct[Def.first] = ReturnValue.NameToStruct[Def.second];
+            ReturnValue.NonTerminals[ReturnValue.NameToNonTerminal[Def.first]].AssociatedStruct = ReturnValue.NameToStruct[Def.second];
         }
         ReturnValue.p_UpdateReferencesAndVerify();
         return(ReturnValue);
@@ -834,26 +837,41 @@ struct Hej1 : Hej2
     //}
     //END GLA
 
-    Token Tokenizer::p_ExtractToken()
+    Token Tokenizer::p_ExtractToken() 
     {
         Token ReturnValue;
         if(m_ParseOffset == m_TextData.size())
         {
             return(ReturnValue);
         }
-        std::pmr::smatch Match;
+        std::smatch Match;
+        std::string const& TextRef = m_TextData;
         for(TerminalIndex i = 0; i < m_TerminalRegexes.size();i++)
         {
-            if(std::regex_search(m_TextData.begin()+m_ParseOffset,m_TextData.end(),Match,m_TerminalRegexes[i]))
+            std::string const& TextRef = m_TextData;
+            if(std::regex_search(TextRef.begin(),TextRef.end(),Match,m_TerminalRegexes[i]),std::regex_constants::match_continuous)
             {
-                   
+                assert(Match.size() == 1);        
+                ReturnValue.Value = Match[0].str();
+                ReturnValue.Type = i;
+                m_ParseOffset += ReturnValue.Value.size();
+                break;
             }
         }     
+        if(ReturnValue.Type == -1)
+        {
+            throw std::runtime_error("Invalid character sequence: no terminal matching input at byte offset "+std::to_string(m_ParseOffset));   
+        }
+        if(std::regex_search(TextRef.begin()+m_ParseOffset,TextRef.end(),Match,m_Skip))
+        {
+            assert(Match.size() == 1);        
+            m_ParseOffset += Match[0].length();    
+        }
         return(ReturnValue);
     }
-    Tokenizer::Tokenizer(std::string Text,std::vector<Terminal> const& Terminals)
+    Tokenizer::Tokenizer(std::string Text,std::vector<Terminal> const& Terminals,std::string const& SkipRegex)
     {
-        m_TextData = Text;
+        m_TextData = std::move(Text);
         for(auto const& Terminal : Terminals)
         {
             m_TerminalRegexes.push_back(std::regex(Terminal.RegexDefinition));
@@ -1059,7 +1077,242 @@ struct Hej1 : Hej2
     void LLParserGenerator::p_WriteParser(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
         MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut)
     {
-         
+        p_WriteHeader(Grammar,HeaderOut);
+        p_WriteSource(Grammar,ProductionsLOOk,HeaderOut,SourceOut); 
+    }
+    void LLParserGenerator::p_WriteHeader(MBCCDefinitions const& Grammar, MBUtility::MBOctetOutputStream& HeaderOut)
+    {
+        HeaderOut << "#include <MBParsing/MBCC.h>\n"; 
+    }
+    void LLParserGenerator::p_WriteSource(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
+        MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut)
+    {
+        p_WriteLOOKTable(ProductionsLOOk, SourceOut);
+        //MBUtility::WriteData(SourceOut,"#include <MBParsing/MBCC.h>\n");
+        //Order we write C/C++/C# implementations dont matter, we can just write them directly
+        for(NonTerminalIndex i = 0; i < Grammar.NonTerminals.size();i++)
+        {
+            p_WriteNonTerminalFunction(Grammar,i,SourceOut);     
+            for(int j = 0; j < Grammar.NonTerminals[i].Rules.size();j++)
+            {
+                p_WriteNonTerminalProduction(Grammar,i,j,"Parse"+Grammar.NonTerminals[i].Name+"_"+std::to_string(i),SourceOut); 
+            }
+        }       
+    }
+    std::string h_ColumnToBoolArray(MBMath::MBDynamicMatrix<bool> const& Matrix, int k)
+    {
+        std::string ReturnValue = "{";       
+        for(int i = 0; i < Matrix.NumberOfRows();i++)
+        {
+            if(Matrix(i,k))
+            {
+                ReturnValue += "true";
+            }   
+            else
+            {
+                ReturnValue += "false";   
+            }
+            ReturnValue += ",";
+        } 
+        ReturnValue += "}";
+        return(ReturnValue);
+    }
+    MBMath::MBDynamicMatrix<bool> h_CombineProductions(std::vector<MBMath::MBDynamicMatrix<bool>> const& MatrixesToCombine)
+    {
+        MBMath::MBDynamicMatrix<bool> ReturnValue = MBMath::MBDynamicMatrix<bool>(MatrixesToCombine[0]);
+        for(size_t i = 1; i < MatrixesToCombine.size();i++)
+        {
+            MBMath::MBDynamicMatrix<bool> const& CurrentMatrix = MatrixesToCombine[i];
+            for(int Row = 0; i < CurrentMatrix.NumberOfRows();Row++)
+            {
+                for(int Column = 0; i < CurrentMatrix.NumberOfRows();Column++)
+                {
+                    ReturnValue(Row,Column) = ReturnValue(Row,Column) || CurrentMatrix(Row,Column); 
+                }    
+            }
+        }
+        return(ReturnValue);
+    }
+    void LLParserGenerator::p_WriteLOOKTable(std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,MBUtility::MBOctetOutputStream& SourceOut)
+    {
+
+        //Assumes that zero non terminals is invalid
+        m_ProductionPredicates.reserve(ProductionsLOOk.size());
+        //for each non terminal, for each production, for each k for each terminal
+        //the k+1 production is the combined productions, representing the whole non terminal
+        int LOOKDepth = ProductionsLOOk[0][0].NumberOfColumns();
+        SourceOut << "const bool LOOKTable[][][][] = {";
+        std::vector<MBMath::MBDynamicMatrix<bool>> NonTerminalCombinedProductions;
+        for(auto const& NonTerminalProductions : ProductionsLOOk)
+        {
+            SourceOut << "{"; 
+            for(auto const& Production : NonTerminalProductions)
+            {
+                SourceOut << "{";
+                for(int k = 0; k < Production.NumberOfColumns();k++)
+                {
+                    SourceOut << h_ColumnToBoolArray(Production,k);
+                    SourceOut << ",";
+                }
+                SourceOut << "},";
+            } 
+            auto CombinedProductions = h_CombineProductions(NonTerminalProductions);
+            SourceOut << "{";
+            for(int k = 0; k < CombinedProductions.NumberOfColumns();k++)
+            {
+                SourceOut << h_ColumnToBoolArray(CombinedProductions,k);
+                SourceOut << ",";
+            }
+            NonTerminalCombinedProductions.push_back(std::move(CombinedProductions));
+            SourceOut << "},";
+
+            SourceOut << "},"; 
+        }  
+        SourceOut <<"};\n";
+        for(int i = 0; i < ProductionsLOOk.size();i++)
+        {
+            auto const& CurrentProduction = ProductionsLOOk[i];
+            std::vector<std::string> NewEntry = std::vector<std::string>(CurrentProduction.size()+1);
+            std::string CombinedString = "LOOKTable["+std::to_string(i)+"]["+std::to_string(CurrentProduction.size()-1)+"[0][Tokenizer.Peek().Type]";
+            for(int k = 1; k < LOOKDepth;k++)
+            {
+                CombinedString +=  "&& LOOKTable["+std::to_string(i)+"]["+std::to_string(CurrentProduction.size())+"["+std::to_string(k)+"][Tokenizer.Peek("+std::to_string(k)+").Type]";
+            }
+            NewEntry.push_back(CombinedString);
+            for(int j = 0; j < CurrentProduction.size();j++)
+            {
+                std::string NewString = "LOOKTable["+std::to_string(i)+"]["+std::to_string(j)+"[0][Tokenizer.Peek().Type]";
+                for(int k = 1; k < LOOKDepth;k++)
+                {
+                    NewString +=  "&& LOOKTable["+std::to_string(i)+"]["+std::to_string(j)+"["+std::to_string(k)+"][Tokenizer.Peek("+std::to_string(k)+").Type]";
+                }
+                NewEntry.push_back(NewString);
+            }
+            m_ProductionPredicates.push_back(std::move(NewEntry));
+        }
+    }
+    std::string const& LLParserGenerator::p_GetLOOKPredicate(NonTerminalIndex AssociatedNonTerminal,int Production)
+    {
+        if(Production == -1)
+        {
+            return(m_ProductionPredicates[AssociatedNonTerminal][Production]);
+        } 
+        return(m_ProductionPredicates[AssociatedNonTerminal][Production+1]);
+    }
+    void LLParserGenerator::p_WriteNonTerminalFunction(MBCCDefinitions const& Grammar,NonTerminalIndex NonTermIndex, MBUtility::MBOctetOutputStream& SourceOut)
+    {
+        std::string ReturnValueType = "void";
+        StructDefinition const* AssoicatedStruct = nullptr;
+        NonTerminal const& AssociatedNonTerminal = Grammar.NonTerminals[NonTermIndex];
+        if(AssociatedNonTerminal.AssociatedStruct != -1)
+        {
+            AssoicatedStruct = &Grammar.Structs[AssociatedNonTerminal.AssociatedStruct];    
+        }
+        if(AssoicatedStruct != nullptr)
+        {
+            ReturnValueType = AssoicatedStruct->Name;
+        }
+        MBUtility::WriteData(SourceOut,ReturnValueType+" Parse"+AssociatedNonTerminal.Name+"(MBParsing::Tokenizer& Tokenizer)\n{\n");
+        for(int i = 0; i < AssociatedNonTerminal.Rules.size();i++)
+        {
+            if(i != 0)
+            {
+                MBUtility::WriteData(SourceOut,"else ");   
+            }
+            if(i != AssociatedNonTerminal.Rules.size()-1)
+            {
+                MBUtility::WriteData(SourceOut,"if "); 
+            }
+            MBUtility::WriteData(SourceOut,"("+p_GetLOOKPredicate(NonTermIndex,i)+")\n{\n");    
+            if(AssoicatedStruct != nullptr)
+            {
+                MBUtility::WriteData(SourceOut,"ReturnValue = ");    
+            }
+            MBUtility::WriteData(SourceOut,"Parse"+AssociatedNonTerminal.Name+"_"+std::to_string(i)+"(Tokenizer);\n}\n");
+        }
+        if(AssoicatedStruct != nullptr)
+        {
+            MBUtility::WriteData(SourceOut,"return(ReturnValue);\n");
+        }
+        MBUtility::WriteData(SourceOut,"}\n");
+    }
+    void LLParserGenerator::p_WriteNonTerminalProduction(MBCCDefinitions const& Grammar,NonTerminalIndex NonTermIndex,int ProductionIndex,std::string const& FunctionName,MBUtility::MBOctetOutputStream& SourceOut)
+    {
+        std::string ReturnValueType = "void";
+        StructDefinition const* AssoicatedStruct = nullptr;
+        NonTerminal const& AssociatedNonTerminal = Grammar.NonTerminals[NonTermIndex];
+        ParseRule const& Production = AssociatedNonTerminal.Rules[ProductionIndex];
+        if(AssociatedNonTerminal.AssociatedStruct != -1)
+        {
+            AssoicatedStruct = &Grammar.Structs[AssociatedNonTerminal.AssociatedStruct];    
+        }
+        if(AssoicatedStruct != nullptr)
+        {
+            ReturnValueType = AssoicatedStruct->Name;
+        }
+        MBUtility::WriteData(SourceOut,ReturnValueType+" "+FunctionName+"(MBParsing::Tokenizer& Tokenizer)\n{\n");
+        if(AssociatedNonTerminal.AssociatedStruct != -1)
+        {
+            MBUtility::WriteData(SourceOut,AssoicatedStruct->Name + " ReturnValue;\n");
+        }
+        for(auto const& Component : Production.Components)
+        {
+            if(Component.IsTerminal)
+            {
+                MBUtility::WriteData(SourceOut,"if(Tokenizer.Peek().Type != "+std::to_string(Component.ComponentIndex)+")\n{throw std::runtime_error(\"Error parsing "+AssociatedNonTerminal.Name+": expected "+Grammar.NonTerminals[Component.ComponentIndex].Name
+                        +")\n}\nTokenizer.ConsumeToken();\n");
+                if(Component.AssignedMember != "")
+                {
+                    MBUtility::WriteData(SourceOut,"ReturnValue."+Component.AssignedMember+"= ");
+                    StructMemberVariable const& Member = AssoicatedStruct->GetMember(Component.AssignedMember);
+                    if(Member.IsType<StructMemberVariable_String>())
+                    {
+                        MBUtility::WriteData(SourceOut,"Tokenizer.Peek().Value;\n");
+                    }
+                    else if(Member.IsType<StructMemberVariable_Int>())
+                    {
+                        MBUtility::WriteData(SourceOut,"std::stoi(Tokenizer.Peek().Value);\n");
+                    }
+                } 
+                MBUtility::WriteData(SourceOut,"Tokenizer.ConsumeToken();\n");
+            } 
+            else
+            {
+                if(Component.Min == 1 && Component.Max == 1)
+                {
+                    if(Component.AssignedMember != "")
+                    {
+                        MBUtility::WriteData(SourceOut,"ReturnValue."+Component.AssignedMember+"= "); 
+                    }
+                    MBUtility::WriteData(SourceOut,"Parse"+Grammar.NonTerminals[Component.ComponentIndex].Name+"(Tokenizer);\n");
+                } 
+                else if(Component.Min == 0 && Component.Max == -1)
+                {
+                    MBUtility::WriteData(SourceOut,"if("+p_GetLOOKPredicate(NonTermIndex,ProductionIndex)+")\n{");
+                    if(Component.AssignedMember != "")
+                    {
+                        MBUtility::WriteData(SourceOut,"ReturnValue."+Component.AssignedMember+"= "); 
+                    }
+                    MBUtility::WriteData(SourceOut,"Parse"+Grammar.NonTerminals[Component.ComponentIndex].Name+"(Tokenizer);\n");
+                    MBUtility::WriteData(SourceOut,"}\n");
+                }
+                else if(Component.Min == 0 && Component.Max == 1)
+                {
+                    MBUtility::WriteData(SourceOut,"if("+p_GetLOOKPredicate(NonTermIndex,ProductionIndex)+")\n{");
+                    if(Component.AssignedMember != "")
+                    {
+                        MBUtility::WriteData(SourceOut,"ReturnValue."+Component.AssignedMember+".push_back("); 
+                    }
+                    MBUtility::WriteData(SourceOut,"Parse"+Grammar.NonTerminals[Component.ComponentIndex].Name+"(Tokenizer));\n");
+                    MBUtility::WriteData(SourceOut,"}\n");
+                }
+                else
+                {
+                    assert(false && "Min can only be 0 or 1, max can only be 1 or -1");
+                }
+            }
+        }
+        MBUtility::WriteData(SourceOut,"}\n");
     }
 //END LLParserGenerator
 }

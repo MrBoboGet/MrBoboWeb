@@ -124,6 +124,7 @@ namespace MBParsing
     struct NonTerminal
     {
         std::string Name;    
+        StructIndex AssociatedStruct = -1;
         std::vector<ParseRule> Rules;
     };
     struct Token
@@ -150,8 +151,9 @@ namespace MBParsing
         std::vector<StructDefinition> Structs;
         std::unordered_map<std::string,NonTerminalIndex> NameToNonTerminal;
         std::unordered_map<std::string,TerminalIndex> NameToTerminal;
-        std::unordered_map<std::string,StructIndex> NonTerminalToStruct;
         std::unordered_map<std::string,StructIndex> NameToStruct;
+
+        NonTerminalIndex Start = -1;
 
         static MBCCDefinitions ParseDefinitions(const char* Data,size_t DataSize,size_t ParseOffset);
         static MBCCDefinitions ParseDefinitions(const char* Data,size_t DataSize,size_t ParseOffset,std::string& OutError);
@@ -225,11 +227,12 @@ namespace MBParsing
         //Easy interfac, memeory map everything   
         size_t m_ParseOffset = 0;
         std::string m_TextData;
+        std::regex m_Skip;
         std::vector<std::regex> m_TerminalRegexes;
         std::deque<Token> m_StoredTokens;
         Token p_ExtractToken();
     public:
-        Tokenizer(std::string Text,std::vector<Terminal> const& Terminals);
+        Tokenizer(std::string Text,std::vector<Terminal> const& Terminals,std::string const& SkipRegex);
         void ConsumeToken();
         Token const& Peek(int Depth = 0);
     };
@@ -246,8 +249,16 @@ namespace MBParsing
         void p_WriteDefinitions(MBCCDefinitions const& Grammar,std::vector<TerminalStringMap> const& ParseTable,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut, int k);
         void p_WriteParser(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
                 MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut);
+        void p_WriteHeader(MBCCDefinitions const& Grammar, MBUtility::MBOctetOutputStream& HeaderOut);
         void p_WriteSource(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
                 MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut);
+        void p_WriteLOOKTable(std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,MBUtility::MBOctetOutputStream& SourceOut);
+        std::string const& p_GetLOOKPredicate(NonTerminalIndex AssociatedNonTerminal,int Production = -1);
+        std::vector<std::vector<std::string>> m_ProductionPredicates;
+        void p_WriteNonTerminalFunction(MBCCDefinitions const& Grammar,NonTerminalIndex NonTerminal, MBUtility::MBOctetOutputStream& SourceOut);
+        void p_WriteNonTerminalProduction(MBCCDefinitions const& Grammar,NonTerminalIndex NonTerminal,int ProductionIndex,std::string const& FunctionName,MBUtility::MBOctetOutputStream& SourceOut);
+        //Could possibly cache result
+        //-1 to specify full look
     public:
         void WriteLLParser(MBCCDefinitions const& InfoToWrite,MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut,int k = 2);
     };
