@@ -3,6 +3,9 @@
 #include <assert.h>
 #include <iostream>
 #include <regex>
+#include <unordered_map>
+#include <set>
+#include <numeric>
 namespace MBParsing
 {
     //BEGIN StructMemberVariable
@@ -1080,9 +1083,160 @@ struct Hej1 : Hej2
         p_WriteHeader(Grammar,HeaderOut);
         p_WriteSource(Grammar,ProductionsLOOk,HeaderOut,SourceOut); 
     }
+    struct i_DependancyInfo
+    {
+        std::vector<StructIndex> StructureDependancyOrder; 
+        //Would it be faster to use a matrix?
+        std::vector<std::set<StructIndex>> ChildrenMap;
+    };
+    int h_CalculateDepth(StructIndex CurrentStructIndex,std::vector<bool>& Busy,std::vector<int>& OutDependancyDepth,std::vector<std::set<StructIndex>> const& StructureDependancies)
+    {
+        int ReturnValue = OutDependancyDepth[CurrentStructIndex];
+        if(ReturnValue != -1)
+        {
+            return(ReturnValue);
+        }
+        if(Busy[CurrentStructIndex])
+        {
+            throw std::runtime_error("Error creating structure dependancies: Cyclic dependancies detected");   
+        }
+        Busy[CurrentStructIndex] = true;
+        if(StructureDependancies[CurrentStructIndex].size() == 0)
+        {
+            ReturnValue = 0;   
+        }
+        else
+        {
+            int MaxDepDepth = -1;      
+            for(auto const& Dependancy : StructureDependancies[CurrentStructIndex])
+            {
+                int NewDepth = h_CalculateDepth(Dependancy,Busy,OutDependancyDepth,StructureDependancies);
+                if(NewDepth > MaxDepDepth)
+                {
+                    MaxDepDepth = NewDepth;           
+                }
+            }
+            ReturnValue = MaxDepDepth+1;
+        }
+        Busy[CurrentStructIndex] = false;
+        OutDependancyDepth[CurrentStructIndex] = ReturnValue;
+        return(ReturnValue);
+    }
+    std::vector<std::set<StructIndex>> h_CalculateStructDependancies(MBCCDefinitions const& Grammar,std::vector<std::set<StructIndex>>& OutChildrenInfo)
+    {
+        std::vector<std::set<StructIndex>> ReturnValue = std::vector<std::set<StructIndex>>(Grammar.Structs.size());
+        for(StructIndex i = 0; i < Grammar.Structs.size();i++)
+        {
+            StructDefinition const& CurrentStruct = Grammar.Structs[i];
+            if(CurrentStruct.ParentStruct != "")
+            {
+                StructIndex ParentIndex =  Grammar.NameToStruct.at(CurrentStruct.ParentStruct);
+                ReturnValue[i].insert(ParentIndex);
+                OutChildrenInfo[ParentIndex].insert(i);
+            }
+            for(auto const& Member : CurrentStruct.MemberVariables)
+            {
+                if(Member.IsType<StructMemberVariable_Struct>())
+                {
+                    ReturnValue[i].insert(Grammar.NameToStruct.at(Member.GetType<StructMemberVariable_Struct>().StructType));
+                }
+                else if(Member.IsType<StructMemberVariable_List>())
+                {
+                    ReturnValue[i].insert(Grammar.NameToStruct.at(Member.GetType<StructMemberVariable_List>().ListType));
+                }
+            }
+        }
+        return(ReturnValue);
+    }
+    i_DependancyInfo h_CalculateDependancyInfo(MBCCDefinitions const& Grammar)
+    {
+        i_DependancyInfo ReturnValue;           
+        ReturnValue.StructureDependancyOrder = std::vector<StructIndex>(Grammar.Structs.size());
+        ReturnValue.ChildrenMap = std::vector<std::set<StructIndex>>(Grammar.Structs.size());
+        std::iota(ReturnValue.StructureDependancyOrder.begin(),ReturnValue.StructureDependancyOrder.end(),0);
+        std::vector<std::set<StructIndex>> Dependancies = h_CalculateStructDependancies(Grammar,ReturnValue.ChildrenMap);
+        std::vector<bool> Busy = std::vector<bool>(Grammar.Structs.size(),false);
+        std::vector<int> DependancyDepth = std::vector<int>(Grammar.Structs.size(),-1);
+        for(StructIndex i = 0; i < Grammar.Structs.size();i++)
+        {
+            h_CalculateDepth(i,Busy,DependancyDepth,Dependancies);
+        }
+        std::sort(ReturnValue.StructureDependancyOrder.begin(),ReturnValue.StructureDependancyOrder.end(),[&](StructIndex Lhs,StructIndex Rhs) -> bool
+                {
+                    return(DependancyDepth[Lhs] < DependancyDepth[Rhs]);
+                });
+        return(ReturnValue);
+    }
+    void h_WriteStructures(MBCCDefinitions const& Grammar,i_DependancyInfo const& DepInfo,MBUtility::MBOctetOutputStream& HeaderOut)
+    {
+        for(StructIndex CurrentIndex : DepInfo.StructureDependancyOrder)
+        {
+            StructDefinition const& CurrentStruct = Grammar.Structs[CurrentIndex];
+            HeaderOut << "class "<<CurrentStruct.Name;
+            if(CurrentStruct.ParentStruct != "")
+            {
+                HeaderOut<<" : public "<<CurrentStruct.ParentStruct;
+            }
+            HeaderOut<<"\n{\n";
+            if(DepInfo.ChildrenMap[CurrentIndex].size() > 0)
+            {
+                HeaderOut<<"private:\n std::unique_ptr<std::variant<";
+                std::string VariantMembers;
+                for(StructIndex ChildIndex : DepInfo.ChildrenMap[CurrentIndex])
+                {
+                    VariantMembers += Grammar.Structs[ChildIndex].Name+",";
+                } 
+                VariantMembers.resize(VariantMembers.size()-1);
+                HeaderOut<<VariantMembers<<">> m_Data;\npublic:\n";
+                HeaderOut<<"template<typename T> Accept(T& Visitor)\n{\nstd::visit(Visitor,*m_Data);\n}\n";
+                HeaderOut<<"template<typename T> Accept(T const& Visitor) const\n{\nstd::visit(Visitor,*m_Data);\n}\n";
+                HeaderOut<<"template<typename T> "<<CurrentStruct.Name << "(T ObjectToStore)\n{\nm_Data = std::make_unique<std::variant<"<<VariantMembers<<">>(std::move(ObjectToStore));\n}\n";
+                HeaderOut<<CurrentStruct.Name << "() = default";
+                HeaderOut<<"template<typename T> IsType() const\n{\n std::holds_alternative<T>(*m_Data);\n}\n";
+                HeaderOut<<"template<typename T> GetType() const\n{\n std::get<T>(*m_Data);\n}\n";
+                HeaderOut<<"template<typename T> GetType()\n{\n std::get<T>(*m_Data);\n}\n";
+            }  
+            else
+            {
+                for(auto const& Member : CurrentStruct.MemberVariables)
+                {
+                    if(Member.IsType<StructMemberVariable_Int>())
+                    {
+                        HeaderOut << "int ";     
+                    }
+                    else if(Member.IsType<StructMemberVariable_String>())
+                    {
+                        HeaderOut << "std::string ";   
+                    }
+                    else if(Member.IsType<StructMemberVariable_Struct>())
+                    {
+                        HeaderOut << Member.GetType<StructMemberVariable_Struct>().StructType<<" ";
+                    }
+                    else if(Member.IsType<StructMemberVariable_List>())
+                    {
+                        HeaderOut <<"std::vector<"<<Member.GetType<StructMemberVariable_List>().ListType<<"> ";
+                    }
+                    else if(Member.IsType<StructMemberVariable_Raw>())
+                    {
+                        HeaderOut << Member.GetType<StructMemberVariable_Raw>().RawMemberType<<" ";
+                    }
+                    HeaderOut<<Member.GetName();
+                    if(Member.GetDefaultValue() != "")
+                    {
+                        HeaderOut<<" = "<<Member.GetDefaultValue();   
+                    }
+                    HeaderOut <<";\n";
+
+                }         
+            }
+            HeaderOut<<"\n};\n";
+        }        
+    }
     void LLParserGenerator::p_WriteHeader(MBCCDefinitions const& Grammar, MBUtility::MBOctetOutputStream& HeaderOut)
     {
         HeaderOut << "#include <MBParsing/MBCC.h>\n"; 
+        i_DependancyInfo DepInfo = h_CalculateDependancyInfo(Grammar); 
+        h_WriteStructures(Grammar,DepInfo,HeaderOut);
     }
     void LLParserGenerator::p_WriteSource(MBCCDefinitions const& Grammar,std::vector<std::vector<MBMath::MBDynamicMatrix<bool>>> const& ProductionsLOOk,
         MBUtility::MBOctetOutputStream& HeaderOut,MBUtility::MBOctetOutputStream& SourceOut)
