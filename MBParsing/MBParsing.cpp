@@ -124,6 +124,7 @@ namespace MBParsing
 	}
 	unsigned char Base64CharToBinary(unsigned char CharToDecode)
 	{
+        unsigned char ReturnValue = 0;
 		if (CharToDecode >= 65 && CharToDecode <= 90)
 		{
 			return(CharToDecode - 65);
@@ -145,6 +146,7 @@ namespace MBParsing
 			return(63);
 		}
 		assert(false);
+        return(ReturnValue);
 	}
 	std::string Base64ToBinary(std::string const& Base64Data)
 	{
@@ -182,6 +184,7 @@ namespace MBParsing
 	}
 	char ByteToBASE64(uint8_t ByteToEncode)
 	{
+        char ReturnValue = 0;
 		if (ByteToEncode >= 0 && ByteToEncode <= 25)
 		{
 			return(ByteToEncode + 65);
@@ -203,6 +206,7 @@ namespace MBParsing
 			return('/');
 		}
 		assert(false);
+        return(ReturnValue);
 	}
 	std::string BASE64Decode(const void* CharactersToRead, size_t NumberOfCharacters)
 	{
@@ -532,7 +536,7 @@ namespace MBParsing
 				if (ParseOffset + 4 < DataSize && std::memcmp(Data + ParseOffset, "false", 5) == 0)
 				{
 					ReturnValue = false;
-					ParseOffset += 4;
+					ParseOffset += 5;
 				}
 				else
 				{
@@ -729,7 +733,12 @@ namespace MBParsing
 			assert(false);
 		}
 	}
-	JSONObject::JSONObject(JSONObject const& ObjectToCopy)
+    JSONObject::JSONObject(int IntegerInitializer)
+    {
+        m_Type = JSONObjectType::Integer;
+        m_ObjectData = new intmax_t(IntegerInitializer);
+    }
+    JSONObject::JSONObject(JSONObject const& ObjectToCopy)
 	{
 		m_Type = ObjectToCopy.m_Type;
 		m_ObjectData = ObjectToCopy.p_CloneData();
@@ -1816,7 +1825,6 @@ namespace MBParsing
 	std::string p_GetName(NameToken TokenToConvert)
 	{
 		std::string ReturnValue;
-		if(TokenToConvert == NameToken())
 
 		return(ReturnValue);
 	}
@@ -2080,12 +2088,10 @@ namespace MBParsing
 		JSONObject ReturnValue;
 		if (ObjectType == UBJSON_Type::Null)
 		{
-			ReturnValue;
 		}
 		else if (ObjectType == UBJSON_Type::NoOp)
 		{
 			//kinda whack vet inte hur man ska tolka det
-			ReturnValue;
 		}
 		else if (ObjectType == UBJSON_Type::True)
 		{

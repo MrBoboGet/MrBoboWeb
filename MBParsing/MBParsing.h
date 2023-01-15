@@ -316,6 +316,7 @@ namespace MBParsing
 
 		JSONObject(std::string StringInitializer);
 		JSONObject(intmax_t IntegerInitializer);
+		JSONObject(int IntegerInitializer);
 		JSONObject(bool BoolInitializer);
 		JSONObject(const char* StringInitializer);
 		JSONObject(std::vector<JSONObject> VectorInitializer);
@@ -443,6 +444,7 @@ namespace MBParsing
 			if (ParseOffset < DataSize && Data[ParseOffset] == '{')
 			{
 				ParseOffset += 1;
+                SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
 			}
 			if (EvaluationError)
 			{
@@ -475,6 +477,7 @@ namespace MBParsing
 						if (Data[ParseOffset] == ',')
 						{
 							ParseOffset += 1;
+					        SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
 						}
 						else if (Data[ParseOffset] == '}')
 						{
