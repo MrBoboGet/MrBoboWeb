@@ -411,7 +411,31 @@ namespace MBParsing
 					break;
 				}
 				ReturnValue += std::string(ObjectData + ParseOffset, ObjectData + NextBackslash);
-				ReturnValue += ObjectData[NextBackslash + 1];
+				//ReturnValue += ObjectData[NextBackslash + 1];
+                if(ObjectData[NextBackslash+1] == 'n')
+                {
+                    ReturnValue += '\n';
+                }
+                else if(ObjectData[NextBackslash+1] == 'b')
+                {
+                    ReturnValue += '\b';
+                }
+                else if(ObjectData[NextBackslash+1] == 'f')
+                {
+                    ReturnValue += '\f';
+                }
+                else if(ObjectData[NextBackslash+1] == 'r')
+                {
+                    ReturnValue += '\r';
+                }
+                else if(ObjectData[NextBackslash+1] == 't')
+                {
+                    ReturnValue += '\b';
+                }
+                else
+                {
+                    ReturnValue += ObjectData[NextBackslash+1];   
+                }
 				ParseOffset = NextBackslash + 2;
 			}
 		}
