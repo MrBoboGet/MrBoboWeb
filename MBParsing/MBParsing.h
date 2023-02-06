@@ -9,6 +9,10 @@
 #include <unordered_map>
 
 #include <regex>
+
+
+#include <MBUtility/Meta.h>
+#include <variant>
 namespace MBParsing
 {
 	struct LinearParseState
@@ -308,6 +312,8 @@ namespace MBParsing
 		std::string p_ToPrettyString_Aggregate(int IndentLevel) const;
 		std::string p_ToPrettyString(int IndentLevel) const;
 
+
+
 	public:
 		JSONObject() {};
 		//JSONObject(JSONObjectType InitialType);
@@ -335,7 +341,105 @@ namespace MBParsing
 				DataPointer->push_back(JSONObject(Values[i]));
 			}
 		}
-
+        //mainly in use by MBObjectSpec, implements the
+        //"meta programming" neccessary in order to convert types consisting 
+        //of standard library containers and GetJSON objects. Would in an ideal
+        //world be implemented with Concepts instead
+        template<typename T>
+        static JSONObject ToJSON(T const& TypeToConvert)
+        {
+            JSONObject ReturnValue;
+            if constexpr(std::is_same<T,std::string>::value ||
+                    std::is_same<T,int>::value || 
+                    std::is_same<T,bool>::value)
+            {
+                ReturnValue = JSONObject(TypeToConvert);
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::vector,T>::value)
+            {
+                std::vector<JSONObject> Content;       
+                for(auto const& Value : TypeToConvert)
+                {
+                    Content.push_back(ToJSON(Value));
+                }
+                ReturnValue = JSONObject(std::move(Content));
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::unordered_map,T>::value)
+            {
+                std::map<std::string,JSONObject> Content;       
+                for(auto const& Value : TypeToConvert)
+                {
+                    Content[Value.first] = ToJSON(Value.second);
+                }
+                ReturnValue = JSONObject(std::move(Content));
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::map,T>::value)
+            {
+                std::map<std::string,JSONObject> Content;       
+                for(auto const& Value : TypeToConvert)
+                {
+                    Content[Value.first] = ToJSON(Value.second);
+                }
+                ReturnValue = JSONObject(std::move(Content));
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::variant,T>::value)
+            {
+                ReturnValue = std::visit([](auto const& Value) -> JSONObject
+                        {
+                            return(ToJSON(Value));
+                        });
+            }
+            else
+            {
+                ReturnValue = TypeToConvert.GetJSON();   
+            }
+            return(ReturnValue);
+        }
+        //mainly used by MBObjectSpec and kinda hacky, ideally it would be
+        //implemented using proper templates
+        template<typename T>
+        static T FromJSON(JSONObject const& JSONToConvert)
+        {
+            T ReturnValue;
+            if constexpr( std::is_same<T,bool>::value)
+            {
+                ReturnValue = JSONToConvert.GetBooleanData();
+            }
+            else if constexpr(std::is_same<T,std::string>::value)
+            {
+                ReturnValue = JSONToConvert.GetStringData();
+            }
+            else if constexpr( std::is_same<T,int>::value)
+            {
+                ReturnValue = JSONToConvert.GetIntegerData();
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::vector,T>::value)
+            {
+                for(auto const& Member : JSONToConvert.GetArrayData())
+                {
+                    ReturnValue.push_back(FromJSON<std::remove_reference<decltype(ReturnValue.front())>::type>(Member));
+                }
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::map,T>::value)
+            {
+                for(auto const& Member : JSONToConvert.GetMapData())
+                {
+                    ReturnValue[Member.first] = FromJSON<std::remove_reference<decltype(ReturnValue.front())>::type>(Member);
+                }
+            }
+            else if constexpr(MBUtility::IsInstantiation<std::unordered_map,T>::value)
+            {
+                for(auto const& Member : JSONToConvert.GetMapData())
+                {
+                    ReturnValue[Member.first] = FromJSON<decltype(ReturnValue.end()->second)>(Member);
+                }
+            }
+            else
+            {
+                ReturnValue.FillObject(JSONToConvert);
+            }
+            return(ReturnValue);
+        }
 		JSONObject& operator=(JSONObject ObjectToCopy);
 		~JSONObject();
 
@@ -535,7 +639,7 @@ namespace MBParsing
 					ReturnValue = ResultObjectType(ParseJSONBoolean(Data, DataSize, ParseOffset, &ParseOffset, &EvaluationError));
 				}
 				else if (FirstCharacter == '1' || FirstCharacter == '2' || FirstCharacter == '3' || FirstCharacter == '4' || FirstCharacter == '5' || FirstCharacter == '6'
-					|| FirstCharacter == '7' || FirstCharacter == '8' || FirstCharacter == '9' || FirstCharacter == '0')
+					|| FirstCharacter == '7' || FirstCharacter == '8' || FirstCharacter == '9' || FirstCharacter == '0' || FirstCharacter == '-')
 				{
 					ReturnValue = ResultObjectType(ParseJSONInteger(Data, DataSize, ParseOffset, &ParseOffset, &EvaluationError));
 				}
