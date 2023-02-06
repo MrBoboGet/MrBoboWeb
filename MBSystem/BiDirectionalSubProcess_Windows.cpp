@@ -25,6 +25,8 @@ namespace MBSystem
     }
     struct i_WindowsPipeData
     {
+        //used by close to ensure that multiple closes doesn't interfere
+        bool Initialized = false;
         bool WriteValid = false;
         bool ReadValid = false;
 
@@ -97,7 +99,7 @@ namespace MBSystem
 			  NULL,          // process security attributes 
 			  NULL,          // primary thread security attributes 
 			  TRUE,          // handles are inherited 
-			  0,             // creation flags 
+			  CREATE_NO_WINDOW,             // creation flags 
 			  NULL,          // use parent's environment 
 			  NULL,          // use parent's current directory 
 			  &siStartInfo,  // STARTUPINFO pointer 
@@ -118,6 +120,7 @@ namespace MBSystem
         Result = CloseHandle(SubInfo.Stdout_W);
         SubInfo.ReadValid = true;
         SubInfo.WriteValid = true;
+        SubInfo.Initialized = true;
     }
     size_t BiDirectionalSubProcess::Write(void const* Data,size_t DataSize) 
     {
@@ -155,9 +158,9 @@ namespace MBSystem
         BOOL Result = ReadFile(SubInfo.Stdout_R,Buffer,1,&ReadBytes,NULL);
         if(!Result)
         {
-            std::cout<<h_GetErrorMessage()<<std::endl;
+            //std::cout<<h_GetErrorMessage()<<std::endl;
             SubInfo.ReadValid = false;
-            return(ReturnValue);
+            return(0);
         }
         if(ReadBytes == 0)
         {
@@ -168,14 +171,14 @@ namespace MBSystem
         Result = PeekNamedPipe(SubInfo.Stdout_R,((char*)Buffer)+ReadBytes,BufferSize-1,&PeekedBytes,NULL,NULL);
         if(!Result)
         {
-            std::cout<<h_GetErrorMessage()<<std::endl;
+            //std::cout<<h_GetErrorMessage()<<std::endl;
             SubInfo.ReadValid = false;
             return(0);
         }
         Result = ReadFile(SubInfo.Stdout_R,((char*)Buffer)+ReadBytes,PeekedBytes,&PeekedBytes,NULL);
         if(!Result)
         {
-            std::cout<<h_GetErrorMessage()<<std::endl;
+            //std::cout<<h_GetErrorMessage()<<std::endl;
             SubInfo.ReadValid = false;
             return(0);
         }
@@ -194,6 +197,13 @@ namespace MBSystem
     void BiDirectionalSubProcess::Close()
     {
         i_WindowsPipeData& SubInfo = *(reinterpret_cast<i_WindowsPipeData*>(m_ImplementationData.get()));
+        if(!SubInfo.Initialized)
+        {
+            return;    
+        }
+        CancelIoEx(SubInfo.Stdin_W,NULL);
+        CancelIoEx(SubInfo.Stdout_R,NULL);
+        SubInfo.Initialized = false;
         //CloseHandle(SubInfo.Stdin_W);
         CloseHandle(SubInfo.Stdin_W);
         //CloseHandle(SubInfo.Stderr_W);
