@@ -289,6 +289,7 @@ namespace MBParsing
 		Integer,
 		String,
 		Bool,
+        Float,
 		Null
 	};
 	class JSONObject
@@ -319,10 +320,12 @@ namespace MBParsing
 		//JSONObject(JSONObjectType InitialType);
 		JSONObject(JSONObject&& ObjectToSteal) noexcept;
 		JSONObject(JSONObject const& ObjectToCopy);
+		JSONObject& operator=(JSONObject ObjectToCopy);
 
 		JSONObject(std::string StringInitializer);
 		JSONObject(intmax_t IntegerInitializer);
 		JSONObject(int IntegerInitializer);
+		JSONObject(double FloatInitializer);
 		JSONObject(bool BoolInitializer);
 		JSONObject(const char* StringInitializer);
 		JSONObject(std::vector<JSONObject> VectorInitializer);
@@ -409,22 +412,26 @@ namespace MBParsing
             {
                 ReturnValue = JSONToConvert.GetStringData();
             }
-            else if constexpr( std::is_same<T,int>::value)
+            else if constexpr( std::is_integral<T>::value)
             {
                 ReturnValue = JSONToConvert.GetIntegerData();
+            }
+            else if constexpr( std::is_floating_point<T>::value)
+            {
+                ReturnValue = JSONToConvert.GetFloatData();
             }
             else if constexpr(MBUtility::IsInstantiation<std::vector,T>::value)
             {
                 for(auto const& Member : JSONToConvert.GetArrayData())
                 {
-                    ReturnValue.push_back(FromJSON<std::remove_reference<decltype(ReturnValue.front())>::type>(Member));
+                    ReturnValue.push_back(FromJSON<typename std::remove_reference<decltype(ReturnValue.front())>::type>(Member));
                 }
             }
             else if constexpr(MBUtility::IsInstantiation<std::map,T>::value)
             {
                 for(auto const& Member : JSONToConvert.GetMapData())
                 {
-                    ReturnValue[Member.first] = FromJSON<std::remove_reference<decltype(ReturnValue.front())>::type>(Member);
+                    ReturnValue[Member.first] = FromJSON<typename std::remove_reference<decltype(ReturnValue.front())>::type>(Member);
                 }
             }
             else if constexpr(MBUtility::IsInstantiation<std::unordered_map,T>::value)
@@ -440,14 +447,13 @@ namespace MBParsing
             }
             return(ReturnValue);
         }
-		JSONObject& operator=(JSONObject ObjectToCopy);
-		~JSONObject();
 
 		JSONObjectType GetType() const { return(m_Type); };
 
 		intmax_t GetIntegerData() const;
 		std::string const& GetStringData() const;
 		bool GetBooleanData() const;
+		double GetFloatData() const;
 
 		JSONObject& operator[](std::string const& AttributeName);
 		JSONObject const& operator[](std::string const& AttributeName) const;

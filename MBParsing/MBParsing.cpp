@@ -463,7 +463,7 @@ namespace MBParsing
 		size_t IntEnd = ParseOffset;
 		while (IntEnd < DataSize)
 		{
-			if (!('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9'))
+			if (!(('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9') || ObjectData[IntEnd] == '-'))
 			{
 				break;
 			}
@@ -492,40 +492,7 @@ namespace MBParsing
 	}
 	intmax_t ParseJSONInteger(std::string const& ObjectData, size_t InOffset, size_t* OutOffset , MBError* OutError)
 	{
-		intmax_t ReturnValue = -1;
-		size_t ParseOffset = InOffset;
-		MBError ParseError(true);
-
-		size_t IntBegin = ParseOffset;
-		size_t IntEnd = ParseOffset;
-		while (IntEnd < ObjectData.size())
-		{
-			if (!('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9'))
-			{
-				break;
-			}
-			IntEnd += 1;
-		}
-		try
-		{
-			ReturnValue = std::stoi(ObjectData.substr(IntBegin, IntEnd - IntBegin));
-			ParseOffset = IntEnd;
-		}
-		catch (const std::exception&)
-		{
-			ParseError = false;
-			ParseError.ErrorMessage = "Error parsing JSON integer";
-		}
-
-		if (OutError != nullptr)
-		{
-			*OutError = ParseError;
-		}
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = ParseOffset;
-		}
-		return(ReturnValue);
+        return(ParseJSONInteger(ObjectData.data(),ObjectData.size(),InOffset,OutOffset,OutError));
 	}
 	bool ParseJSONBoolean(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
 	{
@@ -757,6 +724,10 @@ namespace MBParsing
 			assert(false);
 		}
 	}
+    JSONObject::JSONObject(double FloatInitializer)
+    {
+        
+    }
     JSONObject::JSONObject(int IntegerInitializer)
     {
         m_Type = JSONObjectType::Integer;
