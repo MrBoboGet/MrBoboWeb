@@ -1594,7 +1594,7 @@ namespace MBWebsite
         if(Permissions.AssociatedUser == "")
         {
             ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
-            ReturnValue.DocumentData = "<html><body>File not found</body></html>";
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "InvalidPermissions.html", ResourcePath);
             return(ReturnValue);
         }
 		if (!std::filesystem::exists(DBResourcesPath + DBResource))
@@ -1685,7 +1685,15 @@ namespace MBWebsite
 		MrPostOGet::HTTPDocument ReturnValue;
 		ReturnValue.Type = MBMIME::MIMEType::HTML;
 		std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
-		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBAdd.html", ResourcePath);
+        auto Perms = m_GetConnectionPermissions(RequestData);
+        if(Perms.AssociatedUser == "")
+        {
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "InvalidPermissions.html", ResourcePath);
+        }
+        else
+        {
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBAdd.html", ResourcePath);
+        }
 		return(ReturnValue);
 	}
 
@@ -2411,7 +2419,15 @@ namespace MBWebsite
 		MrPostOGet::HTTPDocument ReturnValue;
 		ReturnValue.Type = MBMIME::MIMEType::HTML;
 		std::string ResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
-		ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBUpdate.html", ResourcePath);
+        auto Perms = m_GetConnectionPermissions(RequestData);
+        if(Perms.AssociatedUser == "")
+        {
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "InvalidPermissions.html", ResourcePath);
+        }
+        else
+        {
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "DBUpdate.html", ResourcePath);
+        }
 		return(ReturnValue);
 	}
 	bool MBDB_Website::DBOperationBlipp_Predicate(std::string const& RequestData)

@@ -652,96 +652,19 @@ namespace MBParsing
 	void swap(JSONObject& LeftObject, JSONObject& RightObject)
 	{
 		std::swap(LeftObject.m_Type, RightObject.m_Type);
-		std::swap(LeftObject.m_ObjectData, RightObject.m_ObjectData);
+		std::swap(LeftObject.m_Data, RightObject.m_Data);
 	}
 
-	void* JSONObject::p_CloneData() const
-	{
-		void* ReturnValue = nullptr;
-		if (m_Type == JSONObjectType::Aggregate)
-		{
-			ReturnValue = new std::map<std::string, JSONObject>(*(std::map<std::string, JSONObject> const*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Array)
-		{
-			ReturnValue = new std::vector<JSONObject>(*(std::vector<JSONObject> const*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Integer)
-		{
-			ReturnValue = new intmax_t(*(intmax_t const*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Bool)
-		{
-			ReturnValue = new bool(*(bool const*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::String)
-		{
-			ReturnValue = new std::string(*(const std::string*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Null)
-		{
-
-		}
-		else
-		{
-			assert(false);
-		}
-		return(ReturnValue);
-	}
-	JSONObject& JSONObject::operator=(JSONObject ObjectToCopy)
-	{
-		swap(*this, ObjectToCopy);
-		return(*this);
-	}
-	void JSONObject::p_FreeData()
-	{
-		if (m_Type == JSONObjectType::Aggregate)
-		{
-			delete ((std::map<std::string,JSONObject>*) m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Array)
-		{
-			delete ((std::vector<JSONObject>*) m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Integer)
-		{
-			delete ((intmax_t*) m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Bool)
-		{
-			delete ((bool*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::String)
-		{
-			delete ((std::string*)m_ObjectData);
-		}
-		else if (m_Type == JSONObjectType::Null)
-		{
-		
-		}
-		else
-		{
-			assert(false);
-		}
-	}
     JSONObject::JSONObject(double FloatInitializer)
     {
-        
+        m_Type = JSONObjectType::Float;     
+        m_Data = FloatInitializer;
     }
     JSONObject::JSONObject(int IntegerInitializer)
     {
         m_Type = JSONObjectType::Integer;
-        m_ObjectData = new intmax_t(IntegerInitializer);
+        m_Data = intmax_t(IntegerInitializer);
     }
-    JSONObject::JSONObject(JSONObject const& ObjectToCopy)
-	{
-		m_Type = ObjectToCopy.m_Type;
-		m_ObjectData = ObjectToCopy.p_CloneData();
-	}
-	JSONObject::JSONObject(JSONObject&& ObjectToSteal) noexcept
-	{
-		swap(*this, ObjectToSteal);
-	}
 	JSONObject::JSONObject(const char* StringInitializer)
 	{
 		*this = JSONObject(std::string(StringInitializer));
@@ -753,27 +676,27 @@ namespace MBParsing
 	JSONObject::JSONObject(std::string StringInitializer)
 	{
 		m_Type = JSONObjectType::String;
-		m_ObjectData = new std::string(std::move(StringInitializer));
+		m_Data = std::string(std::move(StringInitializer));
 	}
 	JSONObject::JSONObject(intmax_t IntegerInitializer)
 	{
 		m_Type = JSONObjectType::Integer;
-		m_ObjectData = new intmax_t(IntegerInitializer);
+		m_Data = IntegerInitializer;
 	}
 	JSONObject::JSONObject(bool BoolInitializer)
 	{
 		m_Type = JSONObjectType::Bool;
-		m_ObjectData = new bool(BoolInitializer);
+		m_Data = BoolInitializer;
 	}
 	JSONObject::JSONObject(std::vector<JSONObject> VectorInitializer)
 	{
 		m_Type = JSONObjectType::Array;
-		m_ObjectData = new std::vector<JSONObject>(std::move(VectorInitializer));
+		m_Data = std::move(VectorInitializer);
 	}
 	JSONObject::JSONObject(std::map<std::string, JSONObject> VectorInitializer)
 	{
 		m_Type = JSONObjectType::Aggregate;
-		m_ObjectData = new std::map<std::string,JSONObject>(std::move(VectorInitializer));
+		m_Data = std::move(VectorInitializer);
 	}
 	JSONObject::JSONObject(JSONObjectType InitialType)
 	{
@@ -798,6 +721,10 @@ namespace MBParsing
 		{
 			ObjectToBecome = "";
 		}
+		else if (InitialType == JSONObjectType::Float)
+		{
+			ObjectToBecome = double(0);
+		}
 		else if (InitialType == JSONObjectType::Null)
 		{
 
@@ -809,18 +736,18 @@ namespace MBParsing
 		*this = std::move(ObjectToBecome);
 
 	}
-	JSONObject::~JSONObject()
-	{
-		p_FreeData();
-	}
 
+    JSONObjectType JSONObject::GetType() const 
+    {
+        return(m_Type);
+    }
 	intmax_t JSONObject::GetIntegerData() const
 	{
 		if (m_Type != JSONObjectType::Integer)
 		{
 			throw std::domain_error("JSON object not of integer type");
 		}
-		return(*(const intmax_t*)m_ObjectData);
+		return(std::get<intmax_t>(m_Data));
 	}
 	std::string const& JSONObject::GetStringData() const
 	{
@@ -828,7 +755,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of string type");
 		}
-		std::string const& ReturnValue = *(const std::string*)m_ObjectData;
+		std::string const& ReturnValue = std::get<std::string>(m_Data);
 		return(ReturnValue);
 	}
 	bool JSONObject::GetBooleanData() const
@@ -837,16 +764,23 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of bool type");
 		}
-		return(*(const bool*)m_ObjectData);
+		return(std::get<bool>(m_Data));
 	}
-
+    double JSONObject::GetFloatData() const
+    {
+        if(m_Type != JSONObjectType::Float)
+        {
+            throw std::domain_error("JSON object not of float type");   
+        }
+        return(std::get<double>(m_Data));
+    }
 	std::map<std::string, JSONObject> const& JSONObject::GetMapData() const
 	{
 		if (m_Type != JSONObjectType::Aggregate)
 		{
 			throw std::domain_error("JSON object not of Aggregate type");
 		}
-		return(*(std::map<std::string, JSONObject>*)m_ObjectData);
+		return(std::get<std::map<std::string,JSONObject>>(m_Data));
 	}
 	std::map<std::string, JSONObject>& JSONObject::GetMapData()
 	{
@@ -854,7 +788,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of Aggregate type");
 		}
-		return(*(std::map<std::string, JSONObject>*)m_ObjectData);
+		return(std::get<std::map<std::string,JSONObject>>(m_Data));
 	}
 	std::vector<JSONObject>& JSONObject::GetArrayData()
 	{
@@ -862,7 +796,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of array type");
 		}
-		return(*(std::vector<JSONObject>*)m_ObjectData);
+		return(std::get<std::vector<JSONObject>>(m_Data));
 	}
 	std::vector<JSONObject>const& JSONObject::GetArrayData() const
 	{
@@ -870,7 +804,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of array type");
 		}
-		return(*(const std::vector<JSONObject>*)m_ObjectData);
+		return(std::get<std::vector<JSONObject>>(m_Data));
 	}
 
 	bool JSONObject::HasAttribute(std::string const& AttributeName) const
@@ -879,7 +813,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of aggregate type");
 		}
-		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
+		std::map<std::string, JSONObject> const& ObjectMap = std::get<std::map<std::string, JSONObject>>(m_Data);
 		return(ObjectMap.find(AttributeName) != ObjectMap.end());
 	}
 	JSONObject& JSONObject::GetAttribute(std::string const& AttributeName)
@@ -888,7 +822,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of Aggregate type");
 		}
-		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
+		std::map<std::string, JSONObject>& ObjectMap = std::get<std::map<std::string, JSONObject>>(m_Data);
 		return(ObjectMap[AttributeName]);
 	}
 	JSONObject& JSONObject::operator[](std::string const& AttributeName)
@@ -909,7 +843,7 @@ namespace MBParsing
 		{
 			throw std::domain_error("JSON object not of aggregae type");
 		}
-		std::map<std::string, JSONObject>& ObjectMap = *(std::map<std::string, JSONObject>*)m_ObjectData;
+		std::map<std::string, JSONObject> const& ObjectMap = std::get<std::map<std::string, JSONObject>>(m_Data);
 		return(ObjectMap.at(AttributeName));
 	}
 	std::string JSONObject::ToString() const
@@ -1008,7 +942,7 @@ namespace MBParsing
 	std::string JSONObject::p_ToString_Array() const
 	{
 		std::string ReturnValue = "";
-		std::vector<JSONObject> const& ArrayToConvert = *((std::vector<JSONObject>*)m_ObjectData);
+		std::vector<JSONObject> const& ArrayToConvert = std::get<std::vector<JSONObject>>(m_Data);
 		ReturnValue += "[";
 		for (size_t i = 0; i < ArrayToConvert.size(); i++)
 		{
@@ -1024,7 +958,7 @@ namespace MBParsing
 	std::string JSONObject::p_ToString_Aggregate() const
 	{
 		std::string ReturnValue = "";
-		std::map<std::string, JSONObject> const& Data = *((std::map<std::string, JSONObject>*)m_ObjectData);
+		std::map<std::string, JSONObject> const& Data = std::get<std::map<std::string,JSONObject>>(m_Data);
 		ReturnValue += "{";
 		for(auto const& Entry : Data)
 		{
@@ -1042,16 +976,20 @@ namespace MBParsing
 		std::string ReturnValue = "";
 		if (m_Type == JSONObjectType::Bool)
 		{
-			bool Data = *((bool*)m_ObjectData);
+			bool Data = std::get<bool>(m_Data);
 			ReturnValue = Data ? "true" : "false";
 		}
 		else if (m_Type == JSONObjectType::String)
 		{
-			ReturnValue = ToJason(*((std::string*)m_ObjectData));
+			ReturnValue = ToJason(std::get<std::string>(m_Data));
 		}
 		else if (m_Type == JSONObjectType::Integer)
 		{
-			ReturnValue = std::to_string(*((intmax_t*)m_ObjectData));
+			ReturnValue = std::to_string(std::get<intmax_t>(m_Data));
+		}
+		else if (m_Type == JSONObjectType::Float)
+		{
+			ReturnValue = std::to_string(std::get<double>(m_Data));
 		}
 		else if (m_Type == JSONObjectType::Null)
 		{

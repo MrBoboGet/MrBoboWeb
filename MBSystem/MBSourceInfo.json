@@ -16,7 +16,8 @@
             "OutputName": "MBSystem",
             "Sources": 
             [
-                "/MBSystem.cpp"
+                "/MBSystem.cpp",
+                "/BiDirectionalSubProcess_Windows.cpp"
             ],
             "TargetType": "Library"
         }

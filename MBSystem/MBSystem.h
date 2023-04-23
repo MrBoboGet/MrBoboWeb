@@ -50,5 +50,4 @@ namespace MBSystem
 		bool open();
 		~UniDirectionalSubProcess();
 	};
-
 };

@@ -296,12 +296,8 @@ namespace MBParsing
 	{
 	private:
 		friend void swap(JSONObject& LeftObject, JSONObject& RightObject);
-
-		void* p_CloneData() const;
-		void p_FreeData();
-
 		JSONObjectType m_Type = JSONObjectType::Null;
-		void* m_ObjectData = nullptr;
+        std::variant<intmax_t,bool,double,std::string,std::vector<JSONObject>,std::map<std::string,JSONObject>> m_Data;
 
         static constexpr int m_IndentSpaceWidth = 4;
 
@@ -316,11 +312,11 @@ namespace MBParsing
 
 
 	public:
-		JSONObject() {};
+		JSONObject() = default;
 		//JSONObject(JSONObjectType InitialType);
-		JSONObject(JSONObject&& ObjectToSteal) noexcept;
-		JSONObject(JSONObject const& ObjectToCopy);
-		JSONObject& operator=(JSONObject ObjectToCopy);
+		JSONObject(JSONObject&& ObjectToSteal) noexcept = default;
+		JSONObject(JSONObject const& ObjectToCopy) = default;
+		JSONObject& operator=(JSONObject const& ObjectToCopy) = default;
 
 		JSONObject(std::string StringInitializer);
 		JSONObject(intmax_t IntegerInitializer);
@@ -337,8 +333,8 @@ namespace MBParsing
 		JSONObject(std::vector<T> const& Values)
 		{
 			m_Type = JSONObjectType::Array;
-			m_ObjectData = new std::vector<JSONObject>();
-			std::vector<JSONObject>* DataPointer = (std::vector<JSONObject>*)m_ObjectData;
+		    m_Data = std::vector<JSONObject>();
+			std::vector<JSONObject>* DataPointer = &std::get<std::vector<JSONObject>>(m_Data);
 			for (size_t i = 0; i < Values.size(); i++)
 			{
 				DataPointer->push_back(JSONObject(Values[i]));
@@ -448,7 +444,7 @@ namespace MBParsing
             return(ReturnValue);
         }
 
-		JSONObjectType GetType() const { return(m_Type); };
+		JSONObjectType GetType() const;
 
 		intmax_t GetIntegerData() const;
 		std::string const& GetStringData() const;

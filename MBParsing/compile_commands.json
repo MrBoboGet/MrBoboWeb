@@ -1,1 +1,50 @@
-[{"arguments":["clang++","--include-directory=./","-std=c++17","--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY/","-c","MBParsing.cpp"],"directory":"C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBParsing\\","file":"MBParsing.cpp"},{"arguments":["clang++","--include-directory=./","-std=c++17","--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY/","-c","MBParsingTest.cpp"],"directory":"C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBParsing\\","file":"MBParsingTest.cpp"}]
+[
+    {
+        "arguments": 
+        [
+            "clang++",
+            "-std=c++17",
+            "-c",
+            "MBParsingTest.cpp",
+            "--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY//"
+        ],
+        "directory": "C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBParsing\\",
+        "file": "MBParsingTest.cpp"
+    },
+    {
+        "arguments": 
+        [
+            "clang++",
+            "-std=c++17",
+            "-c",
+            "MBParsing_MBBNFTest.cpp",
+            "--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY//"
+        ],
+        "directory": "C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBParsing\\",
+        "file": "MBParsing_MBBNFTest.cpp"
+    },
+    {
+        "arguments": 
+        [
+            "clang++",
+            "-std=c++17",
+            "-c",
+            "MBCC.cpp",
+            "--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY//"
+        ],
+        "directory": "C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBParsing\\",
+        "file": "MBCC.cpp"
+    },
+    {
+        "arguments": 
+        [
+            "clang++",
+            "-std=c++17",
+            "-c",
+            "MBParsing.cpp",
+            "--include-directory=C:/Users/emanu/Desktop/Program/C++/MBPM_INSTALL_DIRECTORY//"
+        ],
+        "directory": "C:\\Users\\emanu\\Desktop\\Program\\C++\\BasicChatCmake\\MBParsing\\",
+        "file": "MBParsing.cpp"
+    }
+]

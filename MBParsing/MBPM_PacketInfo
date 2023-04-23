@@ -1,10 +1,5 @@
 {
 	"PacketName":"MBParsing",
-	"Attributes":["Embeddable"],
-	"OutputConfigurations":["StaticDebug","StaticRelease"],
-	"OutputTargetNames": {
-		"StaticRelease": "MBParsing_SR",
-		"StaticDebug": "MBParsing_SD"
-	},
+	"Attributes":[],
 	"Dependancies":["MBUtility"]
 }

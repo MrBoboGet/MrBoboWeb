@@ -310,7 +310,14 @@ namespace MBCrypto
 	}
 	HashObject::~HashObject()
 	{
-		delete m_UnderlyingImplementation;
+        if (m_UnderlyingFunction == HashFunction::SHA256)
+        {
+            delete (static_cast<CryptoPP::SHA256*>(m_UnderlyingImplementation));
+        }
+        else if(m_UnderlyingFunction == HashFunction::SHA1)
+        {
+            delete (static_cast<CryptoPP::SHA1*>(m_UnderlyingImplementation));
+        }
 	}
 	HashObject& HashObject::operator=(HashObject ObjectToCopy)
 	{

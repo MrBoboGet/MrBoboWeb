@@ -84,6 +84,7 @@ endmacro()
 set(PROJECT_SOURCES 
 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MBParsing.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/MBCC.cpp"
 )
 set(PROJECT_HEADERS 
 	"${CMAKE_CURRENT_SOURCE_DIR}//MBParsing.h"
@@ -94,6 +95,10 @@ set(COMMON_DYNAMIC_LIBRARIES
 set(COMMON_STATIC_LIBRARIES 
 )
 set(COMMON_LIBRARIES ${COMMON_STATIC_LIBRARIES} ${COMMON_DYNAMIC_LIBRARIES})
+
+add_executable(BNFTest ${COMMON_FILES} 	"${CMAKE_CURRENT_SOURCE_DIR}/MBParsing_MBBNFTest.cpp")
+MBPM_ApplyConfiguration(BNFTest "STATIC" "DEBUG")
+target_compile_features(BNFTest PRIVATE cxx_std_17 )
 
 add_library(MBParsing STATIC ${COMMON_FILES})
 MBPM_ApplyConfiguration("MBParsing" "STATIC" "DEBUG")

@@ -167,6 +167,10 @@ namespace MBSystem
             SubInfo.ReadValid = false;
             return(0);
         }
+        if(Result && BufferSize == 1)
+        {
+            return(ReadBytes);   
+        }
         DWORD PeekedBytes = 0;
         Result = PeekNamedPipe(SubInfo.Stdout_R,((char*)Buffer)+ReadBytes,BufferSize-1,&PeekedBytes,NULL,NULL);
         if(!Result)

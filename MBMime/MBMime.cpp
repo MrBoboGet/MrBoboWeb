@@ -2,6 +2,7 @@
 #include <cstring>
 #include <algorithm>
 #include <MBParsing/MBParsing.h>
+#include <stdexcept>
 namespace MBMIME
 {
 	//BEGIN PUBLIC Functions
@@ -72,13 +73,16 @@ namespace MBMIME
 			size_t NextColon = std::find(DataToParse + ParseOffset, DataToParse + DataSize, ':')-DataToParse;
 			if (NextColon == DataSize)
 			{
-				//Ska egentligen vara ett error h�r
-				break;
+                throw std::runtime_error("Invalid MIME headers: needs delimiting ':' for header name and header value");
 			}
 			std::string NewHeaderName = MBUnicode::UnicodeStringToLower(std::string(DataToParse + ParseOffset, NextColon - ParseOffset));
 			ParseOffset = NextColon + 1;
 			MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
 			size_t BodyEnd = std::find(DataToParse + ParseOffset, DataToParse + DataSize, '\r')-DataToParse;
+            if(BodyEnd == DataSize)
+            {
+                throw std::runtime_error("Invalid MIME headers: Every header has to be delimited with '\\r\\n'");
+            }
 			ReturnValue[NewHeaderName].push_back(std::string(DataToParse + ParseOffset, BodyEnd - ParseOffset));
 			ParseOffset = BodyEnd + 2;
 		}
