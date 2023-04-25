@@ -483,6 +483,9 @@ namespace MBWebsite
 		//bool DBSite_Predicate(std::string const& RequestData);
 		//MrPostOGet::HTTPDocument DBSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedSocket);
 
+        bool UploadSite_Predicate(std::string const& RequestData);
+		MrPostOGet::HTTPDocument UploadSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);
+        
 		bool UploadFile_Predicate(std::string const& RequestData);
 		MrPostOGet::HTTPDocument UploadFile_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);
 
@@ -503,6 +506,9 @@ namespace MBWebsite
 
 		bool DBUpdate_Predicate(std::string const& RequestData);
 		MrPostOGet::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);
+
+		//bool DBUpdate_Predicate(std::string const& RequestData);
+		//MrPostOGet::HTTPDocument DBUpdate_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);
 
 		bool DBLogin_Predicate(std::string const& RequestData);
 		MrPostOGet::HTTPDocument DBLogin_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection);

@@ -548,6 +548,7 @@ namespace MBWebsite
 			{ &MBDB_Website::DBLogin_Predicate,				&MBDB_Website::DBLogin_ResponseGenerator },
 			//{ &MBDB_Website::DBSite_Predicate,				&MBDB_Website::DBSite_ResponseGenerator },
 			{ &MBDB_Website::UploadFile_Predicate,			&MBDB_Website::UploadFile_ResponseGenerator },
+			{ &MBDB_Website::UploadSite_Predicate,			&MBDB_Website::UploadSite_ResponseGenerator },
 			{ &MBDB_Website::DBGet_Predicate,				&MBDB_Website::DBGet_ResponseGenerator },
 			{ &MBDB_Website::DBView_Predicate,				&MBDB_Website::DBView_ResponseGenerator },
 			{ &MBDB_Website::DBViewEmbedd_Predicate,		&MBDB_Website::DBViewEmbedd_ResponseGenerator },
@@ -678,7 +679,13 @@ namespace MBWebsite
 		}
 		if (MBSiteHTTPHandlerToUse != nullptr)
 		{
-			return(MBSiteHTTPHandlerToUse->GenerateResponse(Request, MBSiteUser(), Connection));
+            DBPermissionsList ConnectionPermissions = m_GetConnectionPermissions(Request.RawRequestData);
+            MBSiteUser NewUser;
+            NewUser.m_Username = ConnectionPermissions.AssociatedUser;
+            NewUser.m_GeneralPermissions |= (ConnectionPermissions.Read) * uint64_t(GeneralPermissions::View);
+            NewUser.m_GeneralPermissions |= ConnectionPermissions.Upload ? uint64_t(GeneralPermissions::Upload) : 0;
+            NewUser.m_GeneralPermissions |= ConnectionPermissions.Edit ? uint64_t(GeneralPermissions::Edit) : 0;
+            return(MBSiteHTTPHandlerToUse->GenerateResponse(Request, NewUser, Connection));
 		}
         return(ReturnValue);
 	}
@@ -947,6 +954,40 @@ namespace MBWebsite
 	//	return(NewDocument);
 	//}
 
+    bool MBDB_Website::UploadSite_Predicate(std::string const& RequestData)
+    {
+        bool ReturnValue = false;
+        std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
+        std::vector<std::string> Directorys = MBUtility::Split(RequestResource, "/");
+        if (Directorys.size() >= 1)
+        {
+            if (Directorys[0] == "DBUploadFile.html")
+            {
+                return(true);
+            }
+        }
+        return(false);
+        return(ReturnValue);
+    }
+    MrPostOGet::HTTPDocument MBDB_Website::UploadSite_ResponseGenerator(std::string const& RequestData, MrPostOGet::HTTPServer* AssociatedServer, MrPostOGet::HTTPServerSocket* AssociatedConnection)
+    {
+        MrPostOGet::HTTPDocument ReturnValue;
+		std::string ResourcePath = MrPostOGet::GetRequestResource(RequestData);
+		std::string DBResourcesPath = GetResourceFolderPath();
+        std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
+        DBPermissionsList Permissions = m_GetConnectionPermissions(RequestData);
+        if(Permissions.AssociatedUser == "")
+        {
+            ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "InvalidPermissions.html", HTMLResourcePath);
+        }
+        else
+        {
+            ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "DBUploadFile.html", HTMLResourcePath);
+        }
+        return(ReturnValue);
+    }
 	bool MBDB_Website::UploadFile_Predicate(std::string const& RequestData)
 	{
 		std::string RequestResource = MrPostOGet::GetRequestResource(RequestData);
@@ -1590,11 +1631,12 @@ namespace MBWebsite
 		std::string DBResourcesPath = GetResourceFolderPath();
 		std::string DBResource = ResourcePath.substr(ResourcePath.find_first_of(HandlerName) + HandlerName.size());
 		std::string ResourceExtension = DBResource.substr(DBResource.find_last_of(".") + 1);
+        std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
         DBPermissionsList Permissions = m_GetConnectionPermissions(RequestData);
         if(Permissions.AssociatedUser == "")
         {
             ReturnValue.RequestStatus = MrPostOGet::HTTPRequestStatus::NotFound;
-            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(ResourcePath + "InvalidPermissions.html", ResourcePath);
+            ReturnValue.DocumentData = MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "InvalidPermissions.html", HTMLResourcePath);
             return(ReturnValue);
         }
 		if (!std::filesystem::exists(DBResourcesPath + DBResource))
@@ -1613,7 +1655,6 @@ namespace MBWebsite
 			EmbeddedElement = p_ViewResource(DBResource, AssociatedServer->GetResourcePath("mrboboget.se"), ConnectionPermissions);
 			std::unordered_map<std::string, std::string> MapData = {};
 			MapData["EmbeddedMedia"] = EmbeddedElement;
-			std::string HTMLResourcePath = AssociatedServer->GetResourcePath("mrboboget.se");
 			ReturnValue.DocumentData = MrPostOGet::ReplaceMPGVariables(MrPostOGet::LoadFileWithPreprocessing(HTMLResourcePath + "DBViewTemplate.html", HTMLResourcePath), MapData);
 		}
 		else
@@ -3423,7 +3464,12 @@ namespace MBWebsite
 		MrPostOGet::HTTPDocument NewDocument;
 		NewDocument.Type = MBMIME::MIMEType::HTML;
 		//NewDocument.DocumentData = MrPostOGet::LoadFileWithPreprocessing(AssociatedServer->GetResourcePath("mrboboget.se") + "/DBSite.html", AssociatedServer->GetResourcePath("mrboboget.se"));
-		NewDocument.DocumentData = GetSite().LoadFileWithPreProcessing(m_PluginID, "/DBSite.html");
+        if (!(AssociatedUser.GeneralPermissions() & uint64_t(GeneralPermissions::Upload)))
+        {
+            NewDocument.DocumentData = GetSite().LoadFileWithPreProcessing(m_PluginID,"/InvalidPermissions.html");
+            return(NewDocument);
+        }
+        NewDocument.DocumentData = GetSite().LoadFileWithPreProcessing(m_PluginID, "/DBSite.html");
 		std::unordered_map<std::string, std::string> MapKeys = {};
 
 		std::string QuerryString = "";
