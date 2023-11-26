@@ -17,6 +17,7 @@
             "Sources": 
             [
                 "/MBParsing.cpp",
+                "/Csv.cpp",
                 "/MBParsingTest.cpp"
             ],
             "TargetType":"Library"

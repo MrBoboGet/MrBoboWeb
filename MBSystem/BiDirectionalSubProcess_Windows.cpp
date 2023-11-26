@@ -179,6 +179,10 @@ namespace MBSystem
             SubInfo.ReadValid = false;
             return(0);
         }
+        if(PeekedBytes == 0)
+        {
+            return 1;
+        }
         Result = ReadFile(SubInfo.Stdout_R,((char*)Buffer)+ReadBytes,PeekedBytes,&PeekedBytes,NULL);
         if(!Result)
         {

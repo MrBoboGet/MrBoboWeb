@@ -1503,7 +1503,7 @@ namespace MBDB
 				{
 					std::string ObjectPath = ArgumentValue.GetStringData();
 					MBDBO_EvaluationInfo NewInfoToUse = EvaluationInfo;
-					std::filesystem::path ObjectFilePath = std::filesystem::path(ObjectFilePath);
+					std::filesystem::path ObjectFilePath = std::filesystem::path(ObjectPath);
 					NewInfoToUse.ObjectDirectory = MBUnicode::PathToUTF8(std::filesystem::path(ObjectPath).parent_path());
 					if (NewInfoToUse.ObjectDirectory == "")
 					{
@@ -1733,11 +1733,11 @@ namespace MBDB
 									}
 									else if (CurrentType == MBDB_ColumnValueTypes::Int32)
 									{
-										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<int>(j)));
+										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<MBDB::IntType>(j)));
 									}
 									else if (CurrentType == MBDB_ColumnValueTypes::Int64)
 									{
-										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<long long>(j)));
+										CurrentRow.push_back(MBDB_Object(QuerryResult[i].GetColumnData<MBDB::IntType>(j)));
 									}
 									else
 									{

@@ -70,13 +70,13 @@ namespace MrPostOGet
 
 		bool ChunksRemaining = false;
 		bool RequestIsChunked = false;
-		int CurrentChunkSize = 0;
-		int CurrentChunkParsed = 0;
-		int CurrentContentLength = 0;
-		int ParsedContentData = 0;
+		int_least64_t CurrentChunkSize = 0;
+		int_least64_t CurrentChunkParsed = 0;
+		int_least64_t CurrentContentLength = 0;
+		int_least64_t ParsedContentData = 0;
 
 
-		int p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
+		int_least64_t p_GetNextChunkSize(int_least64_t ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning);
 		std::string p_UpdateAndDeChunkData(std::string const& ChunkedData);
 
 		std::string p_GenerateRequest(HTTPDocument const& DocumentToSend);

@@ -1221,12 +1221,12 @@ namespace MrPostOGet
 	{
 		m_UnderlyingSocket = std::unique_ptr<MBSockets::TLSConnectSocket>(new MBSockets::TLSConnectSocket(std::move(ConntectedSocket)));
 	}
-	int HTTPServerSocket::p_GetNextChunkSize(int ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
+	int_least64_t HTTPServerSocket::p_GetNextChunkSize(int_least64_t ChunkHeaderPosition, std::string const& Data, int& OutChunkDataBeginning)
 	{
 		size_t ChunkHeaderEnd = Data.find("\r\n", ChunkHeaderPosition);
 		std::string NumberOfChunkBytes = Data.substr(ChunkHeaderPosition, ChunkHeaderEnd - ChunkHeaderPosition);
 		OutChunkDataBeginning = ChunkHeaderEnd + 2;
-		return(std::stoi(NumberOfChunkBytes));
+		return(std::stoll(NumberOfChunkBytes));
 	}
 	std::string HTTPServerSocket::p_UpdateAndDeChunkData(std::string const& ChunkedData)
 	{
@@ -1235,11 +1235,11 @@ namespace MrPostOGet
 		if (CurrentChunkSize == 0)
 		{
 			//detta innebär att vi är i den första chunken som innehåller headern
-			int NextChunkHeaderPosition = ChunkedData.find("\n\r\n") + 3;
+			int_least64_t NextChunkHeaderPosition = ChunkedData.find("\n\r\n") + 3;
 			ReturnValue += ChunkedData.substr(0, NextChunkHeaderPosition);
-			int ChunkHeaderEnd = ChunkedData.find("\r\n", NextChunkHeaderPosition);
+			int_least64_t ChunkHeaderEnd = ChunkedData.find("\r\n", NextChunkHeaderPosition);
 			std::string NumberOfChunkBytes = ChunkedData.substr(NextChunkHeaderPosition, ChunkHeaderEnd - NextChunkHeaderPosition);
-			CurrentChunkSize = std::stoi(NumberOfChunkBytes);
+			CurrentChunkSize = std::stoll(NumberOfChunkBytes);
 			CurrentChunkParsed = 0;
 
 			int ChunkDataToReadPosition = ChunkHeaderEnd + 2;
@@ -1284,10 +1284,10 @@ namespace MrPostOGet
 		std::string NewData = "";
 
 		std::string ContentLengthString = "NULL";
-		size_t ContentLength = 0;
-		size_t HeaderLength = 0;
-		size_t MaxDataInMemory = 1650000 * 2;
-		size_t TotalRecievedData = 0;
+		int_least64_t ContentLength = 0;
+		int_least64_t HeaderLength = 0;
+		int_least64_t MaxDataInMemory = 1650000 * 2;
+		int_least64_t TotalRecievedData = 0;
 		while (m_UnderlyingSocket->IsConnected())
 		{
 			NewData = m_UnderlyingSocket->RecieveData(MaxDataInMemory - TotalRecievedData);
@@ -1308,7 +1308,7 @@ namespace MrPostOGet
 					ContentLengthString = GetHeaderValue("Content-Length", ReturnValue);
 					if (ContentLengthString != "")
 					{
-						ContentLength = std::stoi(ContentLengthString);
+						ContentLength = std::stoll(ContentLengthString);
 					}
 				}
 				if (ContentLengthString == "" || ReturnValue.size() - HeaderLength >= ContentLength)

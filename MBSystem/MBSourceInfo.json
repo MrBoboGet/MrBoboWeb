@@ -17,7 +17,8 @@
             "Sources": 
             [
                 "/MBSystem.cpp",
-                "/BiDirectionalSubProcess_Windows.cpp"
+                "/BiDirectionalSubProcess_Windows.cpp",
+                "/BiDirectionalSubProcess_POSIX.cpp"
             ],
             "TargetType": "Library"
         }

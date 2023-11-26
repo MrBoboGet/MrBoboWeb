@@ -723,12 +723,10 @@ namespace MBWebsite
 		std::vector<MBDB::MBDB_RowData> QuerryResult = {};
 		{
 			std::lock_guard<std::mutex> Lock(m_LoginDatabaseMutex);
-			MBDB::SQLStatement* NewStatement = m_LoginDatabase->GetSQLStatement(SQLStatement);
-			NewStatement->BindString(UserName, 1);
-			NewStatement->BindString(PasswordHash, 2);
+			MBDB::SQLStatement NewStatement = m_LoginDatabase->GetSQLStatement(SQLStatement);
+			NewStatement.BindString(UserName, 1);
+			NewStatement.BindString(PasswordHash, 2);
 			QuerryResult = m_LoginDatabase->GetAllRows(NewStatement);
-			NewStatement->FreeData();
-			m_LoginDatabase->FreeSQLStatement(NewStatement);
 		}
 		return(QuerryResult);
 	}
@@ -754,7 +752,7 @@ namespace MBWebsite
 		std::vector<MBDB::MBDB_RowData> QuerryResult = m_GetUser(UserName, PasswordHash);
 		if (QuerryResult.size() != 0)
 		{
-			std::tuple<int, std::string, std::string, int, int, int> UserInfo = QuerryResult[0].GetTuple<int, std::string, std::string, int, int, int>();
+			std::tuple<MBDB::IntType, std::string, std::string, MBDB::IntType, MBDB::IntType, MBDB::IntType> UserInfo = QuerryResult[0].GetTuple<MBDB::IntType, std::string, std::string, MBDB::IntType, MBDB::IntType, MBDB::IntType>();
 			std::string RequestPassword = std::get<2>(UserInfo);
 			if (RequestPassword == PasswordHash)
 			{
@@ -1824,7 +1822,7 @@ namespace MBWebsite
 		long long ReturnValue = 0;
 		try
 		{
-			ReturnValue = std::stoi(IntData);
+			ReturnValue = std::stoll(IntData);
 		}
 		catch (const std::exception&)
 		{
@@ -3249,7 +3247,7 @@ namespace MBWebsite
 		std::vector<MBDB::MBDB_RowData> QuerryResult = {};
 		{
 			std::lock_guard<std::mutex> Lock(m_WriteableDatabaseMutex);
-			MBDB::SQLStatement* NewStatement = m_WriteableDatabase->GetSQLStatement(SQLCommand);
+			MBDB::SQLStatement NewStatement = m_WriteableDatabase->GetSQLStatement(SQLCommand);
 
 			//DEBUG GREJER
 			//MBDB::SQLStatement* DebugStatement = WritableDatabase->GetSQLStatement("SELECT * FROM Music WHERE RowNumber=82");
@@ -3266,11 +3264,9 @@ namespace MBWebsite
 			{
 				ColumnTypes.push_back(ColumnInfo[i].ColumnType);
 			}
-			NewStatement->BindValues(NewColumnValues, ColumnTypes, 0);
-			NewStatement->BindValues(OldColumnValues, ColumnTypes, NewColumnValues.size());
+			NewStatement.BindValues(NewColumnValues, ColumnTypes, 0);
+			NewStatement.BindValues(OldColumnValues, ColumnTypes, NewColumnValues.size());
 			QuerryResult = m_WriteableDatabase->GetAllRows(NewStatement, &DataBaseError);
-			NewStatement->FreeData();
-			m_WriteableDatabase->FreeSQLStatement(NewStatement);
 		}
 		if (DataBaseError)
 		{
@@ -3368,10 +3364,9 @@ namespace MBWebsite
 		{
 			ColumnTypes.push_back(ColumnInfo[ColumnIndexes[i]].ColumnType);
 		}
-		MBDB::SQLStatement* StatementToExecute = m_WriteableDatabase->GetSQLStatement(SQLCommand);
-		StatementToExecute->BindValues(ColumnValues, ColumnTypes, 0);
+		MBDB::SQLStatement StatementToExecute = m_WriteableDatabase->GetSQLStatement(SQLCommand);
+		StatementToExecute.BindValues(ColumnValues, ColumnTypes, 0);
 		std::vector<MBDB::MBDB_RowData> QuerryResult = m_WriteableDatabase->GetAllRows(StatementToExecute, &DataBaseError);
-		m_WriteableDatabase->FreeSQLStatement(StatementToExecute);
 
 		//std::vector<MBDB::MBDB_RowData> QuerryResult = p_EvaluateBoundSQLStatement(SQLCommand, ColumnValues, ColumnIndex, TableName, &DataBaseError);
 		if (DataBaseError)
@@ -3393,9 +3388,8 @@ namespace MBWebsite
 		MBError DatabaseError = true;
 		{
 			std::lock_guard<std::mutex> ReadLock(m_ReadonlyDatabaseMutex);
-			MBDB::SQLStatement* StatementToExecute = m_ReadonlyDatabase->GetSQLStatement(Query);
+			MBDB::SQLStatement StatementToExecute = m_ReadonlyDatabase->GetSQLStatement(Query);
 			RowData = m_ReadonlyDatabase->GetAllRows(StatementToExecute, &DatabaseError);
-			m_ReadonlyDatabase->FreeSQLStatement(StatementToExecute);
 		}
 		if (!DatabaseError)
 		{
