@@ -1070,7 +1070,7 @@ namespace MBParsing
             constexpr size_t ReadChunkSize = 4096;
             char Buffer[ReadChunkSize];
             size_t ReadBytes = FileInput.read(Buffer,ReadChunkSize).gcount();
-            TotalFileData.insert(TotalFileData.begin(),Buffer,Buffer+ReadBytes);
+            TotalFileData.insert(TotalFileData.end(),Buffer,Buffer+ReadBytes);
             if(ReadBytes < ReadChunkSize)
             {
                 break;   
