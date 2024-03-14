@@ -607,6 +607,56 @@ namespace MBParsing
 			UpdateParseState(ParseOffset, EvaluationError, OutOffset, OutError);
 			return(ReturnValue);
 		}
+	    ResultObjectType ParseJSONNumber(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset = nullptr, MBError* OutError = nullptr)
+        {
+            ResultObjectType ReturnValue;
+            bool IsInteger = true;
+
+            size_t ParseOffset = InOffset;
+            MBError ParseError(true);
+            const char* ObjectData = (const char*)DataToParse;
+            size_t IntBegin = ParseOffset;
+            size_t IntEnd = ParseOffset;
+            while (IntEnd < DataSize)
+            {
+                if (!(('0' <= ObjectData[IntEnd] && ObjectData[IntEnd] <= '9') || ObjectData[IntEnd] == '-' || ObjectData[IntEnd] == '.' || ObjectData[IntEnd] == 'e' || ObjectData[IntEnd] == 'E'))
+                {
+                    break;
+                }
+                if(ObjectData[IntEnd] == '.' || ObjectData[IntEnd] == 'e' || ObjectData[IntEnd] == 'E')
+                {
+                    IsInteger = false;
+                }
+                IntEnd += 1;
+            }
+            try
+            {
+                if(IsInteger)
+                {
+                    ReturnValue = ResultObjectType(std::stoll(std::string(ObjectData +IntBegin, ObjectData+ IntEnd)));
+                }
+                else
+                {
+                    ReturnValue = ResultObjectType(std::stod(std::string(ObjectData+IntBegin,ObjectData+IntEnd)));
+                }
+                ParseOffset = IntEnd;
+            }
+            catch (const std::exception&)
+            {
+                ParseError = false;
+                ParseError.ErrorMessage = "Error parsing JSON integer";
+            }
+
+            if (OutError != nullptr)
+            {
+                *OutError = ParseError;
+            }
+            if (OutOffset != nullptr)
+            {
+                *OutOffset = ParseOffset;
+            }
+            return ReturnValue;
+        }
 		//static JSONFloatType sp_ParseFloat(const void* DataToparse, size_t DataSize, size_t ParseOffset, size_t* OutOffset, MBError* OutError);
 	public:
 		ResultObjectType ParseObject(void const* DataToParse, size_t DataSize, size_t InOffset, size_t* OutOffset, MBError* OutError)
@@ -643,7 +693,7 @@ namespace MBParsing
 				else if (FirstCharacter == '1' || FirstCharacter == '2' || FirstCharacter == '3' || FirstCharacter == '4' || FirstCharacter == '5' || FirstCharacter == '6'
 					|| FirstCharacter == '7' || FirstCharacter == '8' || FirstCharacter == '9' || FirstCharacter == '0' || FirstCharacter == '-')
 				{
-					ReturnValue = ResultObjectType(ParseJSONInteger(Data, DataSize, ParseOffset, &ParseOffset, &EvaluationError));
+					ReturnValue = ParseJSONNumber(Data, DataSize, ParseOffset, &ParseOffset, &EvaluationError);
 				}
 				else if (FirstCharacter == '\"')
 				{
