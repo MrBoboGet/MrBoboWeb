@@ -623,8 +623,8 @@ namespace MBSockets
 		p_Initialize(std::move(NewSocket));
 	}
 
-	MBError TLSConnectSocket::EstablishTLSConnection(bool IsHost,std::string const& HostName)
-	{
+    MBError TLSConnectSocket::EstablishClientTLSConnection(std::string const& RemoteHostName)
+    {
 		MBError ReturnValue = true;
 		if (m_UnderlyingSocket == nullptr)
 		{
@@ -636,16 +636,25 @@ namespace MBSockets
 		{
 			return(ReturnValue);
 		}
-		if (!IsHost)
-		{
-			ReturnValue = m_TLSHandler.EstablishTLSConnection(m_UnderlyingSocket.get(),HostName);
-		}
-		else
-		{
-			ReturnValue = m_TLSHandler.EstablishHostTLSConnection(m_UnderlyingSocket.get());
-		}
+        ReturnValue = m_TLSHandler.EstablishTLSConnection(m_UnderlyingSocket.get(),RemoteHostName);
 		return(ReturnValue);
-	}
+    }
+    MBError TLSConnectSocket::EstablishHostTLSConnection(std::unique_ptr<DomainHandler> Retriever)
+    {
+		MBError ReturnValue = true;
+		if (m_UnderlyingSocket == nullptr)
+		{
+			ReturnValue = false;
+			ReturnValue.ErrorMessage = "No internal ConnecSocket to connect";
+			return(ReturnValue);
+		}
+		if (m_TLSHandler.EstablishedSecureConnection())
+		{
+			return(ReturnValue);
+		}
+        ReturnValue = m_TLSHandler.EstablishHostTLSConnection(m_UnderlyingSocket.get(),std::move(Retriever));
+		return(ReturnValue);
+    }
 	bool TLSConnectSocket::IsValid()
 	{
 		if(m_UnderlyingSocket == nullptr)
@@ -944,7 +953,7 @@ namespace MBSockets
 	}
 	MBError HTTPClientSocket::EstablishTLSConnection()
 	{
-		return(m_UnderlyingSocket->EstablishTLSConnection(false,m_RemoteHost));
+		return(m_UnderlyingSocket->EstablishClientTLSConnection(m_RemoteHost));
 	}
 	HTTPClientSocket::HTTPClientSocket(std::unique_ptr<TLSConnectSocket> ConnectedSocket,std::string const& Host)
 	{

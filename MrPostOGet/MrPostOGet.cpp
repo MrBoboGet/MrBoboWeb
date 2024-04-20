@@ -3,6 +3,8 @@
 #include <MBUnicode/MBUnicode.h>
 #include <MBParsing/MBParsing.h>
 #include <MBMime/MBMime.h>
+#include <MBUtility/MBFiles.h>
+
 namespace MrPostOGet
 {
 
@@ -413,13 +415,13 @@ namespace MrPostOGet
 
 		ClientRequest.RawRequestData = std::move(RawData);
 	}
-	void HTTPServer::m_HandleConnectedSocket(std::unique_ptr<HTTPServerSocket> ConnectedClient,MPGConnectionHandle AssociatedHandle)
+	void HTTPServer::m_HandleConnectedSocket(std::unique_ptr<HTTPServerSocket> ConnectedClient,std::unique_ptr<DomainHandler> Retriever,MPGConnectionHandle AssociatedHandle)
 	{
 		try
 		{
 			if (m_UseSecureConnection.load())
 			{
-				MBError ConnectError = ConnectedClient->EstablishTLSConnection();
+				MBError ConnectError = ConnectedClient->EstablishTLSConnection(std::move(Retriever));
 				if (!ConnectError)
 				{
 					std::cout << ConnectError.ErrorMessage << std::endl;
@@ -698,6 +700,138 @@ namespace MrPostOGet
 	{
 		m_RequestHandlers.push_back(std::unique_ptr<HTTPRequestHandler>(HandlerToAdd));
 	}
+
+    class i_DomainHandlerRef : public DomainHandler
+    {
+        DomainHandler* m_Handler = nullptr;
+    public:
+        i_DomainHandlerRef(i_DomainHandlerRef const&) = delete;
+        i_DomainHandlerRef& operator=(i_DomainHandlerRef const&) = delete;
+
+        i_DomainHandlerRef(DomainHandler* AssociatedHandler)
+        {
+            m_Handler = AssociatedHandler;
+        }
+        virtual std::string GetCertificateData(std::string const& DomainName) override
+        {
+            return m_Handler->GetCertificateData(DomainName);
+        }
+        virtual std::string GetKeyData(std::string const& DomainName) override
+        {
+            return m_Handler->GetKeyData(DomainName);
+        }
+
+    };
+    
+    class i_DefaultDomainHandler : public DomainHandler
+    {
+        std::string m_ResourcePrefix;
+        std::string m_ResourceSuffix;
+        std::string m_CertificateName;
+        std::string m_KeyName;
+        std::string m_DefaultDomain;
+
+
+        std::string p_GetTopDomain(std::string const& DomainString)
+        {
+            std::string ReturnValue;
+            if(DomainString == "")
+            {
+                return m_DefaultDomain;
+            }
+            size_t LastDot = DomainString.find_last_of('.');
+            if(LastDot == DomainString.npos || LastDot == 0)
+            {
+                //probably an invalid domain, but skip that for now...
+                return DomainString;
+            }
+            size_t SecondLastDot = DomainString.find_last_of('.',LastDot-1);
+            if(SecondLastDot == DomainString.npos)
+            {
+                ReturnValue = DomainString.substr(LastDot);
+            }
+            else
+            {
+                size_t BeginPos = SecondLastDot+1;
+                size_t Count = SecondLastDot-BeginPos;
+                ReturnValue = DomainString.substr(BeginPos,Count);
+            }
+            //check if numeric, incase of example 127.0.0.1, and return default domain in that case
+            bool IsNumber = true;
+            for(auto Character : ReturnValue)
+            {
+                if(Character == '.' || Character == '/' || Character == '\\')
+                {
+                    throw std::runtime_error("Invalid domain");   
+                }
+                if(!(Character >= '0' && Character <= '9'))
+                {
+                    IsNumber = false;
+                    break;
+                }
+            }
+            if(IsNumber)
+            {
+                return m_DefaultDomain;
+            }
+            return ReturnValue;
+        }
+    public:
+        //extremely backported
+        i_DefaultDomainHandler(std::string const& ResourcePrefix,std::string const& ResourceSuffix,
+                std::string const& CertificateName, std::string const& KeyName,std::string const& DefaultDomain)
+        {
+            m_ResourcePrefix = ResourcePrefix;
+            m_ResourceSuffix = ResourceSuffix;
+            m_CertificateName = CertificateName;
+            m_KeyName = KeyName;
+            m_DefaultDomain = DefaultDomain;
+        }
+        //std::string GetDomainResourcePath(std::string const& DomainName)
+        //{
+        //    std::string ActualDomainName;
+        //    if (DomainName != "" && DomainName != "127.0.0.1")
+        //    {
+        //        ActualDomainName = DomainName.substr(DomainName.find_first_of("."));
+        //        if (ActualDomainName[0] == '.')
+        //        {
+        //            ActualDomainName = DomainName;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        ActualDomainName = DefaultDomain;
+        //    }
+        //    std::string ReturnValue = "./MBWebsite/ServerResources/" + ActualDomainName + "/";
+        //    if (!std::filesystem::exists(ReturnValue))
+        //    {
+        //        std::cout << "TLS domain resource path doesn't exist";
+        //    }
+        //    return(ReturnValue);
+        //}
+        //std::string TLSHandler::GetDefaultCertificate()
+        //{
+        //    //TODO MEGA yikes det h�r med
+        //    return("./MBWebsite/ServerResources/" + DefaultDomain + "/" + "EncryptionResources/SignedCertificateRSA2096.der");
+        //}
+        virtual std::string GetKeyData(std::string const& Domain) override
+        {
+            std::string ReturnValue;
+            std::string TopDomain = p_GetTopDomain(Domain);
+            std::string FilePath = m_ResourcePrefix+ "/" + TopDomain + "/"+m_ResourceSuffix + "/" +m_KeyName;
+            ReturnValue = MBUtility::ReadWholeFile(FilePath);
+            return ReturnValue;
+        }
+        virtual std::string GetCertificateData(std::string const& Domain) override
+        {
+            std::string ReturnValue;
+            std::string TopDomain = p_GetTopDomain(Domain);
+            std::string FilePath = m_ResourcePrefix+ "/" + TopDomain + "/"+m_ResourceSuffix + "/" +m_CertificateName;
+            ReturnValue = MBUtility::ReadWholeFile(FilePath);
+            return ReturnValue;
+        }
+    };
+    
 	void HTTPServer::StartListening()
 	{
 		//huvud loopen som tar och faktiskt sk�ter hur allt funkar internt
@@ -705,6 +839,11 @@ namespace MrPostOGet
 		//std::vector<std::thread*> CurrentActiveThreads = {};
 		ServerSocketen->Bind();
 		ServerSocketen->Listen();
+
+        std::unique_ptr<DomainHandler> TopDomainHandler = std::unique_ptr<DomainHandler>( new 
+                i_DefaultDomainHandler("MBWebsite/ServerResources/","EncryptionResources","SignedCertificateRSA2096.der",
+                    "KeyfileRSA2096.key","mrboboget.se"));
+
 		while (true)
 		{
 			ServerSocketen->Accept();
@@ -723,7 +862,10 @@ namespace MrPostOGet
 				std::thread* NewThread = new std::thread();
 				//CurrentActiveThreads.push_back(NewThread);
 				MPGConnectionHandle NewHandle = m_ActiveConnectionsHandler.AddConnection(std::unique_ptr<std::thread>(NewThread));
-				*NewThread = std::move(std::thread(&HTTPServer::m_HandleConnectedSocket, this,std::unique_ptr<HTTPServerSocket>(new HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket>(NewTCPSocket))),NewHandle));
+				*NewThread = std::move(std::thread(&HTTPServer::m_HandleConnectedSocket, this,
+                            std::unique_ptr<HTTPServerSocket>(new HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket>(NewTCPSocket))),
+                            std::make_unique<i_DomainHandlerRef>(TopDomainHandler.get()),
+                            NewHandle));
 				std::cout << "New connection with Handle: "<<NewHandle << std::endl;
 			}
 		}
@@ -1213,9 +1355,14 @@ namespace MrPostOGet
 	{
 		return(m_UnderlyingSocket->IsValid());
 	}
-	MBError HTTPServerSocket::EstablishTLSConnection()
+
+
+
+
+
+	MBError HTTPServerSocket::EstablishTLSConnection(std::unique_ptr<DomainHandler> CertificateRetriever)
 	{
-		return(m_UnderlyingSocket->EstablishTLSConnection(true,""));
+		return(m_UnderlyingSocket->EstablishHostTLSConnection(std::move(CertificateRetriever)));
 	}
 	HTTPServerSocket::HTTPServerSocket(std::unique_ptr<MBSockets::ConnectSocket> ConntectedSocket)
 	{
@@ -1671,7 +1818,7 @@ namespace MrPostOGet
 	{
 		if (m_IsChunked)
 		{
-			assert(false);
+            throw std::runtime_error("Data available only when not using chunked....the fuck....");
 		}
 		else
 		{
@@ -1687,7 +1834,7 @@ namespace MrPostOGet
 		if (m_IsChunked)
 		{
 			//att implementera B)
-			assert(false);
+            throw std::runtime_error("Not implemented B)");
 		}
 		else
 		{
@@ -1810,7 +1957,7 @@ namespace MrPostOGet
 				m_IsConnected = false;
 				return(ReturnValue);
 			}
-			MBError TLSResult = NewSocket->EstablishTLSConnection(false, NewHost);
+			MBError TLSResult = NewSocket->EstablishClientTLSConnection(NewHost);
 			if (!TLSResult)
 			{
 				ReturnValue = false;
@@ -1870,7 +2017,7 @@ namespace MrPostOGet
 				m_IsConnected = false;
 				return(ReturnValue);
 			}
-			MBError TLSResult = NewSocket->EstablishTLSConnection(false, NewHost);
+			MBError TLSResult = NewSocket->EstablishClientTLSConnection(NewHost);
 			if (!TLSResult)
 			{
 				ReturnValue = false;
@@ -1894,6 +2041,47 @@ namespace MrPostOGet
 		}
 		return(ReturnValue);
 	}
+    MBError HTTPClient::ConnectToHost(std::string const& Address, MBSockets::OSPort PortToUse,std::string const& HostName)
+    {
+        MBError ReturnValue = true;
+		m_Host = HostName;
+		if (PortToUse == 443)
+		{
+			MBSockets::TCPClient* TCPSocket = new MBSockets::TCPClient(Address, std::to_string(PortToUse));
+			MBSockets::TLSConnectSocket* NewSocket = new MBSockets::TLSConnectSocket(std::unique_ptr<MBSockets::ConnectSocket>(TCPSocket));
+			m_SocketToUse = std::unique_ptr<MBSockets::ConnectSocket>(NewSocket);
+			TCPSocket->Connect();
+			if (!TCPSocket->IsConnected())
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TCP connection to host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+			MBError TLSResult = NewSocket->EstablishClientTLSConnection(HostName);
+			if (!TLSResult)
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TLS Handshake with host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+		}
+		else
+		{
+			MBSockets::TCPClient* TCPSocket = new MBSockets::TCPClient(Address, std::to_string(PortToUse));
+			m_SocketToUse = std::unique_ptr<MBSockets::ConnectSocket>(TCPSocket);
+			TCPSocket->Connect();
+			if (!TCPSocket->IsConnected())
+			{
+				ReturnValue = false;
+				ReturnValue.ErrorMessage = "Failed TCP connection to host";
+				m_IsConnected = false;
+				return(ReturnValue);
+			}
+		}
+		return(ReturnValue);
+    }
 	//END HTTPClient
 
 	//BEGIN HTTPFileStream

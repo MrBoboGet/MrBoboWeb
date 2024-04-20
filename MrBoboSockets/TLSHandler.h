@@ -789,6 +789,15 @@ struct TLS_TCP_State
 	std::string CurrentRecordPreviousData = "";
 	std::deque<std::string> StoredRecords = {};
 };
+
+class DomainHandler
+{
+public:
+    virtual std::string GetCertificateData(std::string const& DomainName) = 0;
+    virtual std::string GetKeyData(std::string const& DomainName) = 0;
+    virtual ~DomainHandler(){};
+};
+
 class TLSHandler
 {
 private:
@@ -801,6 +810,7 @@ private:
 	TLS1_2::SecurityParameters ConnectionParameters;
 	std::string DefaultDomain = "mrboboget.se";
 	size_t m_NonceSequenceNumber = 0;
+    std::unique_ptr<DomainHandler> m_CertificateRetriever;
 
 	RSAPublicKey ExtractRSAPublicKeyFromBitString(std::string& BitString);
 	MrBigInt OS2IP(const char* Data, uint64_t LengthOfData);
@@ -855,7 +865,7 @@ public:
 	bool ConnectionIsActive() { return(IsConnected); };
 	RSADecryptInfo GetRSADecryptInfo(std::string const& DomainName);
 	MBError EstablishTLSConnection(MBSockets::ConnectSocket* SocketToConnect,std::string const& HostName);
-	MBError EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect);
+	MBError EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect,std::unique_ptr<DomainHandler> );
 	std::string GenerateTLS1_2ClientHello(MBSockets::ConnectSocket* SocketToConnect);
 	std::vector<std::string> GetCertificateList(std::string& AllCertificateData);
 	void SendChangeCipherMessage(MBSockets::ConnectSocket* SocketToConnect);

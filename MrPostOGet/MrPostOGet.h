@@ -98,7 +98,7 @@ namespace MrPostOGet
 		int Close();
 		bool IsConnected();
 		bool IsValid();
-		MBError EstablishTLSConnection();
+		MBError EstablishTLSConnection(std::unique_ptr<DomainHandler> CertificateRetriever);
 		std::string GetNextChunkData();
 	};
 
@@ -152,6 +152,7 @@ namespace MrPostOGet
 
 		MBError ConnectToHost(std::string const& Host);
 		MBError ConnectToHost(std::string const& Host, MBSockets::OSPort PortToUse);
+		MBError ConnectToHost(std::string const& Address, MBSockets::OSPort PortToUse,std::string const& HostName);
 	};
 	class HTTPFileStream : public MBUtility::MBSearchableInputStream
 	{
@@ -283,7 +284,7 @@ namespace MrPostOGet
 
 		std::vector<std::unique_ptr<HTTPRequestHandler>> m_RequestHandlers = std::vector<std::unique_ptr<HTTPRequestHandler>>(0);
 
-		void m_HandleConnectedSocket(std::unique_ptr<HTTPServerSocket> ConnectedClient,MPGConnectionHandle AssociatedHandle);
+		void m_HandleConnectedSocket(std::unique_ptr<HTTPServerSocket> ConnectedClient,std::unique_ptr<DomainHandler> Retriever,MPGConnectionHandle AssociatedHandle);
 
 		static HTTPDocument m_DefaultHandler(HTTPClientRequest const& Request, std::string const& ResourcePath,HTTPServer* AssociatedServer);
 		static void p_ParseHTTPClientRequest(HTTPClientRequest& ClientRequest, std::string& RawData);

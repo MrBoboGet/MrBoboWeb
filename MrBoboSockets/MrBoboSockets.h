@@ -180,7 +180,8 @@ namespace MBSockets
 	public:
 		TLSConnectSocket(std::unique_ptr<ConnectSocket> NewSocket);
 
-		MBError EstablishTLSConnection(bool IsHost,std::string const& RemoteHostName);
+		MBError EstablishClientTLSConnection(std::string const& RemoteHostName);
+		MBError EstablishHostTLSConnection(std::unique_ptr<DomainHandler> Retriever);
 		virtual bool IsValid() override;
 		virtual void Close() override;
 

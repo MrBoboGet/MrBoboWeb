@@ -1428,9 +1428,10 @@ MBError TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect,
 	IsConnected = true;
 	return(ReturnValue);
 }
-MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect)
+MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect,std::unique_ptr<CertificateRetriever> DomainHandler)
 {
 	//f�ruts�tter att vi redan connectat med TCP protokollet
+    m_CertificateRetriever = std::move(DomainHandler);
 	ConnectionParameters.IsHost = true;
 	MBError ErrorToReturn(true);
 	if (!SocketToConnect->IsConnected() || !SocketToConnect->IsValid())
@@ -1535,7 +1536,11 @@ void TLSHandler::ServerHandleKeyExchange(std::string const& ClientKeyExchangeRec
 RSADecryptInfo TLSHandler::GetRSADecryptInfo(std::string const& DomainName)
 {
 	RSADecryptInfo ReturnValue;
-	std::string KeyBinaryInfo = TLS1_2::PemToBinary(GetDomainResourcePath(DomainName)+"EncryptionResources/KeyfileRSA2096.key");
+    if(m_CertificateRetriever == nullptr)
+    {
+        throw std::runtime_error("Unable to retrieve key: Invalid domain handler: was nullptr");   
+    }
+	std::string KeyBinaryInfo = TLS1_2::PemToBinary(m_CertificateRetriever->GetKeyData(DomainName));
 	ASN1Extracter Parser = ASN1Extracter((uint8_t*)KeyBinaryInfo.c_str());
 	Parser.ExtractTagData();
 	Parser.ExtractLengthOfType();
@@ -1813,22 +1818,26 @@ std::string TLSHandler::GetDefaultCertificate()
 std::string TLSHandler::GenerateServerCertificateRecord(std::string const& DomainName)
 {
 	TLS_RecordGenerator NewRecord;
-	std::string CertificatePath;
-	if (DomainName != "")
-	{
-		CertificatePath = TLSHandler::GetDomainResourcePath(DomainName) + "EncryptionResources/SignedCertificateRSA2096.der";
-	}
-	else
-	{
-		CertificatePath = TLSHandler::GetDefaultCertificate();
-	}
-	std::ifstream t(CertificatePath,std::ifstream::in|std::ifstream::binary);
-	size_t size = MBGetFileSize(CertificatePath);
-	std::string CertificateDataBuffer(size, ' ');
-	t.read(&CertificateDataBuffer[0], size);
-	size_t ReadCharacters = t.gcount();
-	std::string CertificateData(CertificateDataBuffer.c_str(), ReadCharacters);
-
+	//std::string CertificatePath;
+	//if (DomainName != "")
+	//{
+	//	CertificatePath = TLSHandler::GetDomainResourcePath(DomainName) + "EncryptionResources/SignedCertificateRSA2096.der";
+	//}
+	//else
+	//{
+	//	CertificatePath = TLSHandler::GetDefaultCertificate();
+	//}
+	//std::ifstream t(CertificatePath,std::ifstream::in|std::ifstream::binary);
+	//size_t size = MBGetFileSize(CertificatePath);
+	//std::string CertificateDataBuffer(size, ' ');
+	//t.read(&CertificateDataBuffer[0], size);
+	//size_t ReadCharacters = t.gcount();
+	//std::string CertificateData(CertificateDataBuffer.c_str(), ReadCharacters);
+    if(m_CertificateRetriever == nullptr)
+    {
+        throw std::runtime_error("Invalid CertificateRetriever: was nullptr");   
+    }
+    std::string CertificateData = m_CertificateRetriever->GetCertificateData(DomainName);
 	CertificateData = TLS_RecordGenerator::GetNetworkUINT24(CertificateData.size()) + CertificateData;
 	NewRecord.SetContentType(TLS1_2::ContentType::handshake);
 	NewRecord.SetHandshakeType(TLS1_2::HandshakeType::certificate);
