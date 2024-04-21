@@ -585,15 +585,8 @@ namespace TLS1_2
 		}
 		return(ReturnValue);
 	}
-	inline std::string PemToBinary(std::string const& Filepath)	
+	inline std::string PemToBinary(std::string PemFile)	
 	{
-		std::string PemFilePath = Filepath;
-		std::ifstream t(PemFilePath, std::ifstream::in | std::ifstream::binary);
-		size_t size = std::filesystem::file_size(PemFilePath);
-		std::string PemFileBuffer(size, ' ');
-		t.read(&PemFileBuffer[0], size);
-		size_t ReadCharacters = t.gcount();
-		std::string PemFile(PemFileBuffer.c_str(), ReadCharacters);
 		PemFile = MBUtility::ReplaceAll(PemFile, "\n", "");
 		PemFile = MBUtility::ReplaceAll(PemFile, "\r", "");
 		//nu m�ste vi konvertera fr�n detta till bin�r data

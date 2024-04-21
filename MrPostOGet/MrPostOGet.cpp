@@ -748,23 +748,22 @@ namespace MrPostOGet
             size_t SecondLastDot = DomainString.find_last_of('.',LastDot-1);
             if(SecondLastDot == DomainString.npos)
             {
-                ReturnValue = DomainString.substr(LastDot);
+                ReturnValue = DomainString;
             }
             else
             {
                 size_t BeginPos = SecondLastDot+1;
-                size_t Count = SecondLastDot-BeginPos;
-                ReturnValue = DomainString.substr(BeginPos,Count);
+                ReturnValue = DomainString.substr(BeginPos);
             }
             //check if numeric, incase of example 127.0.0.1, and return default domain in that case
             bool IsNumber = true;
             for(auto Character : ReturnValue)
             {
-                if(Character == '.' || Character == '/' || Character == '\\')
+                if(Character == '/' || Character == '\\')
                 {
-                    throw std::runtime_error("Invalid domain");   
+                    throw std::runtime_error("Invalid domain: " + ReturnValue);   
                 }
-                if(!(Character >= '0' && Character <= '9'))
+                if(!(Character >= '0' && Character <= '9' || Character == '.'))
                 {
                     IsNumber = false;
                     break;

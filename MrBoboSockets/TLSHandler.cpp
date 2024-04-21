@@ -1428,7 +1428,7 @@ MBError TLSHandler::InitiateHandShake(MBSockets::ConnectSocket* SocketToConnect,
 	IsConnected = true;
 	return(ReturnValue);
 }
-MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect,std::unique_ptr<CertificateRetriever> DomainHandler)
+MBError TLSHandler::EstablishHostTLSConnection(MBSockets::ConnectSocket* SocketToConnect,std::unique_ptr<DomainHandler> DomainHandler)
 {
 	//f�ruts�tter att vi redan connectat med TCP protokollet
     m_CertificateRetriever = std::move(DomainHandler);
