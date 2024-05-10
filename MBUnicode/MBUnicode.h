@@ -74,6 +74,11 @@ namespace MBUnicode
 		bool operator==(const char* StringToCompare) const;
 		bool operator!=(const char* StringToCompare) const;
 
+		bool operator<(GraphemeCluster const& rhs) const
+        {
+            return m_InternalBuffer < rhs.m_InternalBuffer;
+        }
+
         //TODO sus, assumes the string is a valid grapheme cluster
 		GraphemeCluster& operator=(std::string const& StringToConvert);
 		GraphemeCluster& operator=(char CharToConvert);
@@ -83,6 +88,7 @@ namespace MBUnicode
 
 		static bool ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset);
 		static bool ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, const void* InputData, size_t InputDataSize,size_t InputOffset);
+		static bool ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, std::string const& InputString);
         
         bool IsASCIIControl() const;
         bool IsEmpty() const;

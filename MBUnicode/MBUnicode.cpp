@@ -673,6 +673,11 @@ namespace MBUnicode
 		}
 		return(ReturnValue);
 	}
+    bool GraphemeCluster::ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, std::string const& InputString)
+    {
+        bool ReturnValue = ParseGraphemeClusters(OutCluster,InputString.data(),InputString.size(),0);
+        return ReturnValue;
+    }
 
 	//END GraphemeCluster
 
