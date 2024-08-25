@@ -7,20 +7,19 @@
 
 #include <thread>
 #include <string>
-#include <iostream>
 #include <vector>
 #include <deque>
 #include <mutex>
 #include <functional>
 #include <condition_variable>
 #include "TLSHandler.h"
-#include <filesystem>
-#include <cinttypes>
 
 #include <MBUtility/MBInterfaces.h>
 #include <MBMime/MBMime.h>
 
-#include <map>
+
+#include <MBUtility/PacketStream.h>
+
 #if defined(WIN32) || defined(_WIN32)
 typedef uintmax_t MB_OS_Socket;
 #elif defined(__linux__)
@@ -62,10 +61,20 @@ namespace MBSockets
 
 		};
 	};
-	class UDPSocket : public Socket
+    struct UDPSource
+    {
+        uint32_t IP = 0;
+        uint16_t Port = 0;
+    };
+	class UDPSocket : public Socket, public MBUtility::BidirectionalPacketStream
 	{
 	private:
 		MB_OS_Socket m_UnderlyingHandle;
+
+        uint16_t m_DestinationPort = 0;
+        uint32_t m_DestinationAddres = 0;
+        uint16_t m_LocalPort = 0;
+
 		int m_ErrorResult = 0;
 		bool m_Invalid = false;
 		bool m_SocketClosed = false;
@@ -73,10 +82,25 @@ namespace MBSockets
 		std::string p_GetLastError();
 		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
 	public:
+      
+        virtual size_t ReadMaxPacketSize() override;
+        virtual size_t ReadPacket(void* OutBuffer,size_t BufferSize,double Timeout = -1) override;
+        virtual size_t WriteMaxPacketSize() override;
+        virtual void WritePacket(const void* InBuffer,size_t BufferSize,double Timout = -1) override;
+
+
+        size_t ReadPacket(UDPSource& Source,void* OutBuffer,size_t BufferSize,double Timeout = -1);
+		UDPSocket(uint32_t Adress,uint16_t DestinationPort,uint16_t LocalPort);
+
+
+
 		UDPSocket(std::string const& Adress, std::string const& Port);
 		void UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber);
-		virtual bool IsValid();
-		virtual void Close();
+		void UDPSendData(const char* Data,size_t DataSize, uint32_t HostAdress,uint16_t Port);
+
+
+		virtual bool IsValid() override;
+		virtual void Close() override;
 		int Bind(int PortToAssociateWith);
 		std::string UDPGetData();
 		void UDPMakeSocketNonBlocking(float SecondsToWait = 0.5);
@@ -239,7 +263,8 @@ namespace MBSockets
 		~HTTPClientSocket();
 	};
 
-
+    std::string IPToString(uint32_t IP);
+    uint32_t StringToIP(std::string const& String);
 
 	class ThreadPool;
 	class Worker;

@@ -20,6 +20,8 @@ namespace MBSystem
     
     std::filesystem::path GetUserHomeDirectory();
 
+
+    bool System(std::string const& Program,std::vector<std::string> const& Args);
     
 	struct MBProcessHandle;
 	void MBProcessHandleDeleter(MBProcessHandle* HandleToDelete);

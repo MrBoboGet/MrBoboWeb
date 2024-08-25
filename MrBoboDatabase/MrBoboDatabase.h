@@ -6,6 +6,8 @@
 #include <MBUtility/MBErrorHandling.h>
 #include <stdexcept>
 #include <variant>
+
+#include <unordered_map>
 class sqlite3;
 struct sqlite3_stmt;
 namespace MBDB
@@ -29,6 +31,7 @@ namespace MBDB
         typedef std::variant<std::monostate,FloatType,IntType,std::string> VariantType;
         std::vector<MBDB_ColumnValueTypes> ColumnValueTypes = {};
         std::vector<VariantType> m_Data;
+        std::unordered_map<std::string,int> m_ColumnNames;
         template<typename T> bool IsCorrectType(int Index) const
         {
             if(Index < 0 || Index >= m_Data.size())
@@ -56,7 +59,7 @@ namespace MBDB
     public:
         //constructors
         friend MBDB_RowData CreateRowFromSQLiteStatement(sqlite3_stmt* StatementToInterpret);
-        std::string ToJason() const;
+        std::string ToJSON() const;
         std::string JSONEncodeValue(size_t ColumnIndex) const;
         std::string ColumnToString(size_t ColumnIndex) const;
 
@@ -88,6 +91,26 @@ namespace MBDB
         {
             return(IsCorrectType<T>(ColumnIndex));   
         }
+
+        VariantType& operator[](std::string const& View)
+        {
+            auto It = m_ColumnNames.find(View);
+            if(It == m_ColumnNames.end())
+            {
+                throw std::runtime_error("Invalid column name '"+View+" when accessing SQL result row");
+            }
+            return m_Data[It->second];
+        }
+        VariantType const& operator[](std::string const& View) const
+        {
+            auto It = m_ColumnNames.find(View);
+            if(It == m_ColumnNames.end())
+            {
+                throw std::runtime_error("Invalid column name '"+View+" when accessing SQL result row");
+            }
+            return m_Data.at(It->second);
+        }
+
         MBDB_ColumnValueTypes GetColumnValueType(int ColumnIndex) const;
         bool ColumnValueIsNull(int ColumnIndex) const;
         size_t GetNumberOfColumns() const{ return(m_Data.size()); }
@@ -144,6 +167,8 @@ namespace MBDB
         friend MrBoboDatabase;
         sqlite3_stmt* UnderlyingStatement = nullptr;
         SQLStatement(std::string const& SQLCode,sqlite3* DBConnection);
+
+        std::unordered_map<std::string,int> m_ColumnNames;
         std::vector<MBDB_RowData> GetAllRows(sqlite3* DBConnection,MBError* OutError);
     public:
         SQLStatement() { }
@@ -160,6 +185,33 @@ namespace MBDB
         MBError BindInt(IntType, int ParameterIndex);
         MBError BindNull(int ParameterIndex);
         MBError BindValues(std::vector<std::string> const& ValuesToBind, std::vector<ColumnSQLType> const& ValueTypes, int Offset);
+
+        void BindBlob(std::string const& Value,int Index);
+        void BindBlob(std::vector<uint8_t> const& Value,int Index);
+
+        void BindString(std::string const& ParameterName,std::string const& Value);
+        void BindBlob(std::string const& ParameterName,std::string const& Value);
+        void BindBlob(std::string const& ParameterName,std::vector<uint8_t> const& Value);
+        void BindInt(std::string const& ParameterName,int64_t Value);
+        void BindNull(std::string const& ParameterName);
+
+
+        template<typename T>
+        void BindValue(std::string const& ParameterName,T Value)
+        {
+            if constexpr(std::is_same_v<T,std::string>)
+            {
+                BindString(ParameterName,std::move(Value));
+            }
+            else if constexpr(std::is_integral_v<T> || std::is_enum_v<T>)
+            {
+                BindInt(ParameterName,int64_t(Value));
+            }
+            else
+            {
+                static_assert(std::is_same_v<T,T>,"Error binding value: type not supported");   
+            }
+        }
         void Reset();
         ~SQLStatement();
     };
@@ -174,34 +226,37 @@ namespace MBDB
         sqlite3* UnderlyingConnection = nullptr;
     public:
         MrBoboDatabase(std::string const& DatabaseFile,DBOpenOptions Options);
-        std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn = nullptr);
+        std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MBError* ErrorToReturn);
+        std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry);
         //std::vector<MBDB_RowData> GetAllRows(std::string const& SQLQuerry,MrBoboDatabase* StructPointer,MBError* ErrorToReturn = nullptr);
-        std::vector<MBDB_RowData> GetAllRows(SQLStatement& ,MBError* ErrorToReturn = nullptr);
+        std::vector<MBDB_RowData> GetAllRows(SQLStatement& ,MBError* ErrorToReturn);
+        std::vector<MBDB_RowData> GetAllRows(SQLStatement& Stmt);
         std::vector<std::string> GetAllTableNames();
         std::vector<ColumnInfo> GetColumnInfo(std::string const& TableName);
         SQLStatement GetSQLStatement(std::string const& SQLCode);
         //MBError FreeSQLStatement(SQLStatement* StatementToFree);
 
         MBDB_ResultIterator GetResultIterator(std::string const& SQLQuerry, MBError* ErrorToReturn = nullptr);
+        ~MrBoboDatabase();
     };
 }
 
-std::string ToJason(bool ValueTojason);
-std::string ToJason(MBDB::ColumnSQLType ValueToJason);
-std::string ToJason(MBDB::MBDB_RowData const& RowDataToEncode);
-std::string ToJason(std::string const& ValueToJason);
-std::string ToJason(long long ValueToJason);
-std::string ToJason(MBDB::ColumnInfo const& ValueToJason);
+std::string ToJSON(bool ValueTojason);
+std::string ToJSON(MBDB::ColumnSQLType ValueToJSON);
+std::string ToJSON(MBDB::MBDB_RowData const& RowDataToEncode);
+std::string ToJSON(std::string const& ValueToJSON);
+std::string ToJSON(long long ValueToJSON);
+std::string ToJSON(MBDB::ColumnInfo const& ValueToJSON);
 std::string CombineJSONObjects(std::vector<std::string> const& ObjectNames, std::vector<std::string> const& ObjectsData);
 
 template<typename T>
-std::string MakeJasonArray(std::vector<T> const& ValuesToConvert, std::string ArrayName)
+std::string ToJSONArray(std::vector<T> const& ValuesToConvert, std::string ArrayName)
 {
     std::string JsonRespone = "{\"" + ArrayName + "\":[";
     size_t TableNamesSize = ValuesToConvert.size();
     for (size_t i = 0; i < TableNamesSize; i++)
     {
-        JsonRespone += ToJason(ValuesToConvert[i]);
+        JsonRespone += ToJSON(ValuesToConvert[i]);
         if (i + 1 < TableNamesSize)
         {
             JsonRespone += ",";
@@ -211,13 +266,13 @@ std::string MakeJasonArray(std::vector<T> const& ValuesToConvert, std::string Ar
     return(JsonRespone);
 }
 template<typename T>
-std::string MakeJasonArray(std::vector<T> const& ValuesToConvert)
+std::string ToJSONArray(std::vector<T> const& ValuesToConvert)
 {
     std::string JsonRespone = "[";
     size_t TableNamesSize = ValuesToConvert.size();
     for (size_t i = 0; i < TableNamesSize; i++)
     {
-        JsonRespone += ToJason(ValuesToConvert[i]);
+        JsonRespone += ToJSON(ValuesToConvert[i]);
         if (i + 1 < TableNamesSize)
         {
             JsonRespone += ",";

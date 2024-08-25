@@ -74,7 +74,14 @@ namespace MBDB
             {
                 NewRow.m_Data.emplace_back();
             }
+            auto Name = sqlite3_column_name(StatementToInterpret,i);
+            if(Name == nullptr)
+            {
+                throw std::runtime_error("Error creatign  SQL statement: out of memory");
+            }
+            NewRow.m_ColumnNames[std::string(Name)] = i;
         }
+        
         return(NewRow);
     }
     MBDB_ColumnValueTypes MBDB_RowData::GetColumnValueType(int ColumnIndex) const
@@ -94,7 +101,7 @@ namespace MBDB
         std::string ReturnValue;
         if(IsType<std::string>(ColumnIndex))
         {
-            ReturnValue = ::ToJason(std::get<std::string>(m_Data[ColumnIndex]));
+            ReturnValue = ::ToJSON(std::get<std::string>(m_Data[ColumnIndex]));
         }
         else if(IsType<IntType>(ColumnIndex))
         {
@@ -133,7 +140,7 @@ namespace MBDB
         }
         return(ReturnValue);
     }
-    std::string MBDB_RowData::ToJason() const
+    std::string MBDB_RowData::ToJSON() const
     {
         size_t NumberOfColumns = GetNumberOfColumns();
         std::string ReturnValue = "[";
@@ -171,6 +178,26 @@ namespace MBDB
             ReturnValue.ErrorMessage = sqlite3_errstr(Error);
         }
         return(ReturnValue);
+    }
+    void  SQLStatement::BindBlob(std::string const& Value,int Index)
+    {
+        MBError ReturnValue = MBError(true);
+        int Error = sqlite3_bind_blob64(UnderlyingStatement,Index,Value.data(),Value.size(),SQLITE_TRANSIENT);
+        if (Error != SQLITE_OK)
+        {
+            std::string Message = sqlite3_errstr(Error);
+            throw std::runtime_error("Error binding value to statement: " + Message);
+        }
+    }
+    void  SQLStatement::BindBlob(std::vector<uint8_t> const& Value,int Index)
+    {
+        MBError ReturnValue = MBError(true);
+        int Error = sqlite3_bind_blob64(UnderlyingStatement,Index,Value.data(),Value.size(),SQLITE_TRANSIENT);
+        if (Error != SQLITE_OK)
+        {
+            std::string Message = sqlite3_errstr(Error);
+            throw std::runtime_error("Error binding value to statement: " + Message);
+        }
     }
     SQLStatement::~SQLStatement()
     {
@@ -230,6 +257,63 @@ namespace MBDB
             }
         }
         return(ReturnValue);
+    }
+    void SQLStatement::BindBlob(std::string const& ParameterName,std::string const& Value)
+    {
+        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
+        if(Index == 0)
+        {
+            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
+        }
+        BindBlob(Value,Index);
+    }
+    void SQLStatement::BindBlob(std::string const& ParameterName,std::vector<uint8_t> const& Value)
+    {
+        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
+        if(Index == 0)
+        {
+            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
+        }
+        BindBlob(Value,Index);
+    }
+    void SQLStatement::BindString(std::string const& ParameterName,std::string const& Value)
+    {
+        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
+        if(Index == 0)
+        {
+            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
+        }
+        auto Result = BindString(Value,Index);
+        if(!Result)
+        {
+            throw std::runtime_error("Error binding parameter: "+Result.ErrorMessage);
+        }
+    }
+    void SQLStatement::BindInt(std::string const& ParameterName,int64_t Value)
+    {
+        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
+        if(Index == 0)
+        {
+            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
+        }
+        auto Result = BindInt(Value,Index);
+        if(!Result)
+        {
+            throw std::runtime_error("Error binding parameter: "+Result.ErrorMessage);
+        }
+    }
+    void SQLStatement::BindNull(std::string const& ParameterName)
+    {
+        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
+        if(Index == 0)
+        {
+            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
+        }
+        auto Result = BindNull(Index);
+        if(!Result)
+        {
+            throw std::runtime_error("Error binding parameter: "+Result.ErrorMessage);
+        }
     }
     void SQLStatement::Reset()
     {
@@ -292,7 +376,20 @@ namespace MBDB
         ErrorCode = sqlite3_prepare_v2(SQLiteConnection, SQLQuerry.data(), SQLQuerry.size(), &UnderlyingStatement, &UnusedPortion);
         if (ErrorCode != SQLITE_OK)
         {
-            //assert(false);
+            throw std::runtime_error("Error preparing SQL statment");
+        }
+        else
+        {
+            int ColumnCount = sqlite3_column_count(UnderlyingStatement);
+            for(int i = 0; i < ColumnCount;i++)
+            {
+                auto  Name = sqlite3_column_name(UnderlyingStatement,i);
+                if(Name == nullptr)
+                {
+                    throw std::runtime_error("Error preparing SQL statement: unable to access name of column");   
+                }
+                m_ColumnNames[std::string(Name)]= i;
+            }
         }
     }
     //MrBoboDatabase
@@ -300,9 +397,23 @@ namespace MBDB
     {
         return(SQLStatement(SQLCode,UnderlyingConnection));
     }
+    MrBoboDatabase::~MrBoboDatabase()
+    {
+        sqlite3_close(UnderlyingConnection);
+    }
     std::vector<MBDB_RowData> MrBoboDatabase::GetAllRows(SQLStatement& StatementToEvaluate, MBError* ErrorToReturn)
     {
         return(StatementToEvaluate.GetAllRows(UnderlyingConnection, ErrorToReturn));
+    }
+    std::vector<MBDB_RowData> MrBoboDatabase::GetAllRows(SQLStatement& Stmt)
+    {
+        MBError Result = true;
+        auto ReturnValue = GetAllRows(Stmt,&Result);
+        if (!Result)
+        {
+            throw std::runtime_error("Error evaluating statement: "+Result.ErrorMessage);
+        }
+        return ReturnValue;
     }
     MrBoboDatabase::MrBoboDatabase(std::string const& FilePath,DBOpenOptions Options)
     {
@@ -379,6 +490,16 @@ namespace MBDB
         }
         return(ReturnValue);
     }
+    std::vector<MBDB_RowData> MrBoboDatabase::GetAllRows(std::string const& SQLQuerry)
+    {
+        MBError Result = true;
+        auto ReturnValue = GetAllRows(SQLQuerry,&Result);
+        if(!Result)
+        {
+            throw std::runtime_error("Error executing sql statement: "+Result.ErrorMessage);   
+        }
+        return ReturnValue;
+    }
     std::string ColumnSQLTypeToString(ColumnSQLType ValueToConvert)
     {
         if (ValueToConvert == ColumnSQLType::Int)
@@ -396,7 +517,7 @@ namespace MBDB
         throw std::runtime_error("Invalid ColumnSQLType");
     }
 }
-std::string ToJason(bool ValueTojason)
+std::string ToJSON(bool ValueTojason)
 {
     if (ValueTojason == true)
     {
@@ -407,73 +528,73 @@ std::string ToJason(bool ValueTojason)
         return("false");
     }
 }
-std::string ToJason(MBDB::ColumnSQLType ValueToJason)
+std::string ToJSON(MBDB::ColumnSQLType ValueToJSON)
 {
-    return("\"" + ColumnSQLTypeToString(ValueToJason) + "\"");
+    return("\"" + ColumnSQLTypeToString(ValueToJSON) + "\"");
 }
-std::string ToJason(std::string const& ValueToJason)
+std::string ToJSON(std::string const& ValueToJSON)
 {
     std::string EscapedJasonString = "";
-    for (size_t i = 0; i < ValueToJason.size(); i++)
+    for (size_t i = 0; i < ValueToJSON.size(); i++)
     {
-        if (ValueToJason[i] == '"')
+        if (ValueToJSON[i] == '"')
         {
             EscapedJasonString += "\\\"";
         }
-        else if (ValueToJason[i] == '\\')
+        else if (ValueToJSON[i] == '\\')
         {
             EscapedJasonString += "\\\\";
         }
-        else if (ValueToJason[i] == '\b')
+        else if (ValueToJSON[i] == '\b')
         {
             EscapedJasonString += "\\b";
         }
-        else if (ValueToJason[i] == '\f')
+        else if (ValueToJSON[i] == '\f')
         {
             EscapedJasonString += "\\f";
         }
-        else if (ValueToJason[i] == '\n')
+        else if (ValueToJSON[i] == '\n')
         {
             EscapedJasonString += "\\n";
         }
-        else if (ValueToJason[i] == '\r')
+        else if (ValueToJSON[i] == '\r')
         {
             EscapedJasonString += "\\r";
         }
-        else if (ValueToJason[i] == '\t')
+        else if (ValueToJSON[i] == '\t')
         {
             EscapedJasonString += "\\t";
         }
         else
         {
-            EscapedJasonString += ValueToJason[i];
+            EscapedJasonString += ValueToJSON[i];
         }
     }
     return("\"" + EscapedJasonString + "\"");
 }
-std::string ToJason(long long ValueToJason)
+std::string ToJSON(long long ValueToJSON)
 {
-    return(std::to_string(ValueToJason));
+    return(std::to_string(ValueToJSON));
 }
-std::string ToJason(MBDB::ColumnInfo const& ValueToJason)
+std::string ToJSON(MBDB::ColumnInfo const& ValueToJSON)
 {
     std::string ReturnValue = "{";
-    ReturnValue += "\"ColumnName\":" + ToJason(ValueToJason.ColumnName) + ",";
-    ReturnValue += "\"ColumnType\":" + ToJason(ValueToJason.ColumnType) + ",";
-    ReturnValue += "\"IsNullable\":" + ToJason(ValueToJason.Nullable) + ",";
-    ReturnValue += "\"PrimaryKeyIndex\":" + ToJason((long long)ValueToJason.PrimaryKeyIndex) + "}";
+    ReturnValue += "\"ColumnName\":" + ToJSON(ValueToJSON.ColumnName) + ",";
+    ReturnValue += "\"ColumnType\":" + ToJSON(ValueToJSON.ColumnType) + ",";
+    ReturnValue += "\"IsNullable\":" + ToJSON(ValueToJSON.Nullable) + ",";
+    ReturnValue += "\"PrimaryKeyIndex\":" + ToJSON((long long)ValueToJSON.PrimaryKeyIndex) + "}";
     return(ReturnValue);
 }
-std::string ToJason(MBDB::MBDB_RowData const& ValueToJason)
+std::string ToJSON(MBDB::MBDB_RowData const& ValueToJSON)
 {
-    return(ValueToJason.ToJason());
+    return(ValueToJSON.ToJSON());
 }
 std::string CombineJSONObjects(std::vector<std::string> const& ObjectNames, std::vector<std::string> const& ObjectsData)
 {
     std::string ReturnValue = "{";
     for (size_t i = 0; i < ObjectNames.size(); i++)
     {
-        ReturnValue += ToJason(ObjectNames[i])+":";
+        ReturnValue += ToJSON(ObjectNames[i])+":";
         ReturnValue += ObjectsData[i];
         if (i < ObjectNames.size())
         {

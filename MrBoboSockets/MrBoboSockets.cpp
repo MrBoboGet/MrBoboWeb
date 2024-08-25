@@ -125,6 +125,31 @@ namespace MBSockets
 			m_Invalid = true;
 		}
 	}
+    UDPSocket::UDPSocket(uint32_t Adress,uint16_t TargetPort,uint16_t LocalPort)
+    {
+        m_DestinationAddres = Adress;
+        m_DestinationPort = TargetPort;
+        m_LocalPort = LocalPort;
+
+		m_UnderlyingHandle = socket(AF_UNSPEC, SOCK_DGRAM, IPPROTO_UDP);
+		if (m_UnderlyingHandle == MBInvalidSocket)
+		{
+			p_HandleError("Error at socket(): " + p_GetLastError(), true);
+			return;
+		}
+		sockaddr_in RecvAddr;
+        std::memset(&RecvAddr,0,sizeof(sockaddr_in));
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(LocalPort);
+
+		auto BindResult = bind(m_UnderlyingHandle,(const sockaddr*)&RecvAddr,sizeof(RecvAddr));
+		if (BindResult != 0)
+		{
+			p_HandleError("Error at socket(): " + p_GetLastError(), true);
+			return;
+		}
+
+    }
 	UDPSocket::UDPSocket(std::string const& Adress, std::string const& Port)
 	{
 		struct addrinfo* result = NULL, * ptr = NULL, hints;
@@ -182,6 +207,20 @@ namespace MBSockets
 			//MBCloseSocket(ConnectedSocket);
 		}
 	}
+    void UDPSocket::UDPSendData(const char* Data,size_t DataSize, uint32_t HostAdress,uint16_t Port)
+    {
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(Port);
+		RecvAddr.sin_addr.s_addr = htons(HostAdress);
+		m_ErrorResult = sendto(m_UnderlyingHandle, Data, DataSize, 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("UDP send data failed with error: " + p_GetLastError(), false);
+			//freeaddrinfo(result);
+			//MBCloseSocket(ConnectedSocket);
+		}
+    }
 	int UDPSocket::Bind(int PortToAssociateWith)
 	{
 		sockaddr_in service;
@@ -238,6 +277,38 @@ namespace MBSockets
 			//WSACleanup();
 		}
 	}
+    size_t UDPSocket::ReadMaxPacketSize() 
+    {
+        //Arbitrary AF
+        return 500;
+    }
+    size_t UDPSocket::ReadPacket(void* OutBuffer,size_t BufferSize,double Timeout) 
+    {
+		auto Result = recvfrom(m_UnderlyingHandle, (char*)OutBuffer, BufferSize, 0, nullptr, 0);
+        if (Result == MBSocketError())
+        {
+            p_HandleError("UDPgetdata failed with error: " + p_GetLastError(), false);
+            return 0;
+        }
+        return Result;
+    }
+    size_t UDPSocket::WriteMaxPacketSize() 
+    {
+        //Arbitrary AF
+        return 500;
+    }
+    void UDPSocket::WritePacket(const void* InBuffer,size_t BufferSize,double Timout) 
+    {
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(m_DestinationPort);
+		RecvAddr.sin_addr.s_addr = m_DestinationAddres;
+		m_ErrorResult = sendto(m_UnderlyingHandle,(const char*)InBuffer ,BufferSize, 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
+		if (m_ErrorResult == MBSocketError())
+		{
+			p_HandleError("UDP send data failed with error: " + p_GetLastError(), false);
+		}
+    }
 	//END UdpSocket
 
 
@@ -999,5 +1070,40 @@ namespace MBSockets
 
 	}
 	//END HTTPConnectSocket
-
+    std::string IPToString(uint32_t IP)
+    {
+        std::string ReturnValue;
+        for(int i = 0; i < 4;i++)
+        {
+            ReturnValue += std::to_string(char(IP>> ((3-i)*8)));        
+            if(i != 3)
+            {
+                ReturnValue += '.';
+            }
+        }
+        return ReturnValue;
+    }
+    uint32_t StringToIP(std::string const& String)
+    {
+        uint32_t ReturnValue = 0;
+        size_t ParseOffset = 0;
+        MBParsing::SkipWhitespace(String,ParseOffset,&ParseOffset);
+        for(int i = 0; i < 4;i++)
+        {
+            std::string CurrentNumber;
+            while(ParseOffset < String.size())
+            {
+                if(String[ParseOffset] == '.')
+                {
+                    ParseOffset += 1;
+                    break;
+                }
+                CurrentNumber += String[ParseOffset];
+                ParseOffset += 1;
+            }
+            uint8_t Number = std::stoi(CurrentNumber);
+            ReturnValue += Number << ((3-i)*8);
+        }
+        return ReturnValue;
+    }
 };

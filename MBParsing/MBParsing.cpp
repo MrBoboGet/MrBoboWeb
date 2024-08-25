@@ -46,7 +46,24 @@ namespace MBParsing
         uint64_t ReturnValue = 0;
         unsigned char Buffer[32]; 
         assert(IntegerSize <= 8 && "ParseBigEndianInteger can only parse integers of size 0-8");
-        InStream.Read(Buffer,IntegerSize);
+        size_t ReadBytes = InStream.Read(Buffer,IntegerSize);
+        if(ReadBytes < IntegerSize)
+        {
+            throw std::runtime_error("Insufficient bytes when reading BigEndian integer");
+        }
+        ReturnValue = ParseBigEndianInteger(Buffer,IntegerSize,0,nullptr);
+        return(ReturnValue); 
+    }
+    uint64_t ParseBigEndianInteger(MBUtility::IndeterminateInputStream& InStream,unsigned char IntegerSize)
+    {
+        uint64_t ReturnValue = 0;
+        unsigned char Buffer[32]; 
+        assert(IntegerSize <= 8 && "ParseBigEndianInteger can only parse integers of size 0-8");
+        size_t ReadBytes = MBUtility::ReadExact(InStream,Buffer,IntegerSize);
+        if(ReadBytes < IntegerSize)
+        {
+            throw std::runtime_error("Insufficient bytes when reading BigEndian integer");
+        }
         ReturnValue = ParseBigEndianInteger(Buffer,IntegerSize,0,nullptr);
         return(ReturnValue); 
     }

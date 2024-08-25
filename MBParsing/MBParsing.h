@@ -11,6 +11,8 @@
 #include <regex>
 
 
+#include <MBUtility/IndeterminateInputStream.h>
+
 #include <MBUtility/Meta.h>
 #include <variant>
 namespace MBParsing
@@ -60,6 +62,7 @@ namespace MBParsing
 
 
     uint64_t ParseBigEndianInteger(MBUtility::MBOctetInputStream& InStream,unsigned char IntegerSize);
+    uint64_t ParseBigEndianInteger(MBUtility::IndeterminateInputStream& InStream,unsigned char IntegerSize);
 	uint64_t ParseBigEndianInteger(std::string const& DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 	uint64_t ParseBigEndianInteger(const void* DataToParse, size_t IntegerSize, size_t ParseOffset, size_t* OutParseOffset);
 

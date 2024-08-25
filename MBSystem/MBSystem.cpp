@@ -26,6 +26,17 @@ namespace MBSystem
 #endif
         return(ReturnValue);
     }
+    bool System(std::string const& Program,std::vector<std::string> const& Args)
+    {
+        bool ReturnValue = true;
+        std::string StringToExecute = Program+ " ";
+        for(auto const& Arg : Args)
+        {
+            StringToExecute += Arg;
+            StringToExecute += " ";
+        }
+        return std::system(StringToExecute.c_str()) == 0;
+    }
 	SystemErrorCode TranslateErrorCode(uint64_t ErrorCodeToTranslate)
 	{
 		SystemErrorCode ReturnValue = SystemErrorCode::OK;
