@@ -260,29 +260,17 @@ namespace MBDB
     }
     void SQLStatement::BindBlob(std::string const& ParameterName,std::string const& Value)
     {
-        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
-        if(Index == 0)
-        {
-            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
-        }
+        auto Index = p_GetParameterIndex(ParameterName);
         BindBlob(Value,Index);
     }
     void SQLStatement::BindBlob(std::string const& ParameterName,std::vector<uint8_t> const& Value)
     {
-        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
-        if(Index == 0)
-        {
-            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
-        }
+        auto Index = p_GetParameterIndex(ParameterName);
         BindBlob(Value,Index);
     }
     void SQLStatement::BindString(std::string const& ParameterName,std::string const& Value)
     {
-        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
-        if(Index == 0)
-        {
-            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
-        }
+        auto Index = p_GetParameterIndex(ParameterName);
         auto Result = BindString(Value,Index);
         if(!Result)
         {
@@ -291,11 +279,7 @@ namespace MBDB
     }
     void SQLStatement::BindInt(std::string const& ParameterName,int64_t Value)
     {
-        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
-        if(Index == 0)
-        {
-            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
-        }
+        auto Index = p_GetParameterIndex(ParameterName);
         auto Result = BindInt(Value,Index);
         if(!Result)
         {
@@ -304,16 +288,21 @@ namespace MBDB
     }
     void SQLStatement::BindNull(std::string const& ParameterName)
     {
-        auto Index = sqlite3_bind_parameter_index(UnderlyingStatement,ParameterName.data());
-        if(Index == 0)
-        {
-            throw std::runtime_error("Error binding value in sql statement, invalid parameter name: "+ParameterName);
-        }
+        auto Index = p_GetParameterIndex(ParameterName);
         auto Result = BindNull(Index);
         if(!Result)
         {
             throw std::runtime_error("Error binding parameter: "+Result.ErrorMessage);
         }
+    }
+    int SQLStatement::p_GetParameterIndex(std::string const& Name)
+    {
+        auto It = m_ParameterNames.find(Name);
+        if(It == m_ParameterNames.end())
+        {
+            throw std::runtime_error("Error binding value in sql statement: invalid parameter name: "+Name);
+        }
+        return It->second;
     }
     void SQLStatement::Reset()
     {
@@ -376,7 +365,7 @@ namespace MBDB
         ErrorCode = sqlite3_prepare_v2(SQLiteConnection, SQLQuerry.data(), SQLQuerry.size(), &UnderlyingStatement, &UnusedPortion);
         if (ErrorCode != SQLITE_OK)
         {
-            throw std::runtime_error("Error preparing SQL statment");
+            throw std::runtime_error("Error preparing SQL statment: "+std::string(sqlite3_errmsg(SQLiteConnection)));
         }
         else
         {
@@ -390,12 +379,34 @@ namespace MBDB
                 }
                 m_ColumnNames[std::string(Name)]= i;
             }
+            int ParameterCount = sqlite3_bind_parameter_count(UnderlyingStatement);
+            for(int i = 1; i <= ParameterCount;i++)
+            {
+                auto  Name = sqlite3_bind_parameter_name(UnderlyingStatement,i);
+                if(Name == nullptr)
+                {
+                    throw std::runtime_error("Error preparing SQL statement: unable to access name of parameter");   
+                }
+                //SQlite for some 
+                m_ParameterNames[Name+1] = i;
+            }
         }
     }
     //MrBoboDatabase
     SQLStatement MrBoboDatabase::GetSQLStatement(std::string const& SQLCode)
     {
         return(SQLStatement(SQLCode,UnderlyingConnection));
+    }
+    void MrBoboDatabase::Exec(std::string const& MultiStatementString)
+    {
+        char* ErrorPtr = nullptr;
+        auto Result = sqlite3_exec(UnderlyingConnection,MultiStatementString.c_str(),NULL,NULL,&ErrorPtr);
+        if(ErrorPtr != nullptr)
+        {
+            std::string ErrorMessage = "Error executing statements: "+std::string(ErrorPtr);
+            sqlite3_free(ErrorPtr);
+            throw std::runtime_error(std::move(ErrorMessage));
+        }
     }
     MrBoboDatabase::~MrBoboDatabase()
     {

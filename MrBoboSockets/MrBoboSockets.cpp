@@ -131,7 +131,7 @@ namespace MBSockets
         m_DestinationPort = TargetPort;
         m_LocalPort = LocalPort;
 
-		m_UnderlyingHandle = socket(AF_UNSPEC, SOCK_DGRAM, IPPROTO_UDP);
+		m_UnderlyingHandle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 		if (m_UnderlyingHandle == MBInvalidSocket)
 		{
 			p_HandleError("Error at socket(): " + p_GetLastError(), true);
@@ -148,7 +148,28 @@ namespace MBSockets
 			p_HandleError("Error at socket(): " + p_GetLastError(), true);
 			return;
 		}
+    }
+    UDPSocket::UDPSocket(uint16_t ListenPort)
+    {
+        m_LocalPort = ListenPort;
 
+		m_UnderlyingHandle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		if (m_UnderlyingHandle == MBInvalidSocket)
+		{
+			p_HandleError("Error at socket(): " + p_GetLastError(), true);
+			return;
+		}
+		sockaddr_in RecvAddr;
+        std::memset(&RecvAddr,0,sizeof(sockaddr_in));
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(ListenPort);
+
+		auto BindResult = bind(m_UnderlyingHandle,(const sockaddr*)&RecvAddr,sizeof(RecvAddr));
+		if (BindResult != 0)
+		{
+			p_HandleError("Error at socket(): " + p_GetLastError(), true);
+			return;
+		}
     }
 	UDPSocket::UDPSocket(std::string const& Adress, std::string const& Port)
 	{
@@ -212,7 +233,7 @@ namespace MBSockets
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
 		RecvAddr.sin_port = htons(Port);
-		RecvAddr.sin_addr.s_addr = htons(HostAdress);
+		RecvAddr.sin_addr.s_addr = htonl(HostAdress);
 		m_ErrorResult = sendto(m_UnderlyingHandle, Data, DataSize, 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
 		if (m_ErrorResult == MBSocketError())
 		{
@@ -308,6 +329,20 @@ namespace MBSockets
 		{
 			p_HandleError("UDP send data failed with error: " + p_GetLastError(), false);
 		}
+    }
+    size_t UDPSocket::ReadPacket(UDPSource& Source,void* OutBuffer,size_t BufferSize,double Timeout)
+    {
+        sockaddr_in SourceAdress;
+        socklen_t SourceLen =  sizeof(SourceAdress);
+		auto Result = recvfrom(m_UnderlyingHandle, (char*)OutBuffer, BufferSize, 0,(sockaddr*)&SourceAdress,&SourceLen);
+        if (Result == MBSocketError())
+        {
+            p_HandleError("UDPgetdata failed with error: " + p_GetLastError(), false);
+            return 0;
+        }
+        Source.Port = ntohs(SourceAdress.sin_port);
+        Source.IP = ntohl(SourceAdress.sin_addr.s_addr);
+        return Result;
     }
 	//END UdpSocket
 
@@ -1075,7 +1110,7 @@ namespace MBSockets
         std::string ReturnValue;
         for(int i = 0; i < 4;i++)
         {
-            ReturnValue += std::to_string(char(IP>> ((3-i)*8)));        
+            ReturnValue += std::to_string((unsigned int)((unsigned char)(IP>> ((3-i)*8))));
             if(i != 3)
             {
                 ReturnValue += '.';

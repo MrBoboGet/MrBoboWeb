@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <tuple>
@@ -169,7 +170,10 @@ namespace MBDB
         SQLStatement(std::string const& SQLCode,sqlite3* DBConnection);
 
         std::unordered_map<std::string,int> m_ColumnNames;
+        std::unordered_map<std::string,int> m_ParameterNames;
         std::vector<MBDB_RowData> GetAllRows(sqlite3* DBConnection,MBError* OutError);
+
+        int p_GetParameterIndex(std::string const& Name);
     public:
         SQLStatement() { }
         SQLStatement(SQLStatement const&) = delete;
@@ -207,9 +211,13 @@ namespace MBDB
             {
                 BindInt(ParameterName,int64_t(Value));
             }
+            else if constexpr(std::is_same_v<T,std::vector<uint8_t>>)
+            {
+                BindBlob(ParameterName,std::move(Value));
+            }
             else
             {
-                static_assert(std::is_same_v<T,T>,"Error binding value: type not supported");   
+                static_assert(std::negation_v<std::is_same<T,T>>,"Error binding value: type not supported");   
             }
         }
         void Reset();
@@ -234,6 +242,8 @@ namespace MBDB
         std::vector<std::string> GetAllTableNames();
         std::vector<ColumnInfo> GetColumnInfo(std::string const& TableName);
         SQLStatement GetSQLStatement(std::string const& SQLCode);
+
+        void Exec(std::string const& MultiStatementString);
         //MBError FreeSQLStatement(SQLStatement* StatementToFree);
 
         MBDB_ResultIterator GetResultIterator(std::string const& SQLQuerry, MBError* ErrorToReturn = nullptr);

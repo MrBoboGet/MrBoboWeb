@@ -91,6 +91,7 @@ namespace MBSockets
 
         size_t ReadPacket(UDPSource& Source,void* OutBuffer,size_t BufferSize,double Timeout = -1);
 		UDPSocket(uint32_t Adress,uint16_t DestinationPort,uint16_t LocalPort);
+		explicit UDPSocket(uint16_t ListenPort);
 
 
 
