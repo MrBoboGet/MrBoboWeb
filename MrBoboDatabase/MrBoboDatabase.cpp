@@ -385,7 +385,7 @@ namespace MBDB
                 auto  Name = sqlite3_bind_parameter_name(UnderlyingStatement,i);
                 if(Name == nullptr)
                 {
-                    throw std::runtime_error("Error preparing SQL statement: unable to access name of parameter");   
+                    continue;
                 }
                 //SQlite for some 
                 m_ParameterNames[Name+1] = i;

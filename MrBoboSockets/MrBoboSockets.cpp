@@ -141,13 +141,13 @@ namespace MBSockets
         std::memset(&RecvAddr,0,sizeof(sockaddr_in));
 		RecvAddr.sin_family = AF_INET;
 		RecvAddr.sin_port = htons(LocalPort);
-
-		auto BindResult = bind(m_UnderlyingHandle,(const sockaddr*)&RecvAddr,sizeof(RecvAddr));
-		if (BindResult != 0)
-		{
-			p_HandleError("Error at socket(): " + p_GetLastError(), true);
-			return;
-		}
+        Bind(LocalPort);
+		//auto BindResult = bind(m_UnderlyingHandle,(const sockaddr*)&RecvAddr,sizeof(RecvAddr));
+		//if (BindResult != 0)
+		//{
+		//	p_HandleError("Error at socket(): " + p_GetLastError(), true);
+		//	return;
+		//}
     }
     UDPSocket::UDPSocket(uint16_t ListenPort)
     {
@@ -228,6 +228,14 @@ namespace MBSockets
 			//MBCloseSocket(ConnectedSocket);
 		}
 	}
+    void UDPSocket::SetDstIP(uint32_t DstIp)
+    {
+        m_DestinationAddres = DstIp;
+    }
+    void UDPSocket::SetDstPort(uint16_t DstPort)
+    {
+        m_DestinationPort = DstPort;
+    }
     void UDPSocket::UDPSendData(const char* Data,size_t DataSize, uint32_t HostAdress,uint16_t Port)
     {
 		sockaddr_in RecvAddr;
@@ -255,8 +263,26 @@ namespace MBSockets
 			//freeaddrinfo(result);
 			//MBCloseSocket(ConnectedSocket);
 		}
+        if(PortToAssociateWith == 0)
+        {
+            m_LocalPort = GetBoundPort();
+        }
 		return(0);
 	}
+    uint16_t UDPSocket::GetBoundPort()
+    {
+        uint16_t ReturnValue;
+        sockaddr_in Adress;
+        socklen_t Length = sizeof(Adress);
+        std::memset(&Adress,0,Length);
+        auto Result = getsockname(m_UnderlyingHandle,(sockaddr*)&Adress,&Length);
+        if(Result == MBSocketError())
+        {
+            p_HandleError("Error getting bound port: "+p_GetLastError(),false);
+            return 0;
+        }
+        return ntohs(Adress.sin_port);
+    }
 	std::string UDPSocket::UDPGetData()
 	{
 		int InitialBufferSize = 65535;
@@ -323,7 +349,7 @@ namespace MBSockets
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
 		RecvAddr.sin_port = htons(m_DestinationPort);
-		RecvAddr.sin_addr.s_addr = m_DestinationAddres;
+		RecvAddr.sin_addr.s_addr = htonl(m_DestinationAddres);
 		m_ErrorResult = sendto(m_UnderlyingHandle,(const char*)InBuffer ,BufferSize, 0, (sockaddr*)&RecvAddr, sizeof(sockaddr_in));
 		if (m_ErrorResult == MBSocketError())
 		{

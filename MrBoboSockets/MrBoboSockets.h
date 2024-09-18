@@ -99,10 +99,13 @@ namespace MBSockets
 		void UDPSendData(std::string const& DataToSend, std::string const& HostAdress, int PortNumber);
 		void UDPSendData(const char* Data,size_t DataSize, uint32_t HostAdress,uint16_t Port);
 
+        void SetDstPort(uint16_t DstPort);
+        void SetDstIP(uint32_t DstIp);
 
 		virtual bool IsValid() override;
 		virtual void Close() override;
 		int Bind(int PortToAssociateWith);
+		uint16_t GetBoundPort();
 		std::string UDPGetData();
 		void UDPMakeSocketNonBlocking(float SecondsToWait = 0.5);
 		void Listen(std::string const& PortNumber);
