@@ -79,6 +79,8 @@ namespace MBSockets
 		bool m_Invalid = false;
 		bool m_SocketClosed = false;
 		std::string m_LastErrorMessage = "";
+
+        double m_CurrentTimeout = 0;
 		std::string p_GetLastError();
 		void p_HandleError(std::string const& ErrorMessage, bool IsLethal);
 	public:

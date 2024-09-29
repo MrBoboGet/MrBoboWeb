@@ -1877,21 +1877,33 @@ namespace MrPostOGet
 	}
 	HTTPRequestResponse HTTPClient::SendRequest(HTTPRequestType Type, std::string const& RequestResource, HTTPRequestBody const& DataToSend, std::vector<std::pair<std::string, std::string>> const& ExtraHeaders)
 	{
-		std::string RequestType = "";
-		if (Type == HTTPRequestType::GET)
-		{
-			RequestType = "GET ";
-		}
-		else if (Type == HTTPRequestType::HEAD)
-		{
-			RequestType = "HEAD ";
-		}
-		else
-		{
-			//orkar inte just nu B)))))
-			assert(false);
-		}
-		std::string StringToSend = RequestType + RequestResource + " " + "HTTP/1.1\r\nHost: " + m_Host + "\r\n";
+        std::string RequestType = "";
+        if (Type == HTTPRequestType::GET)
+        {
+            RequestType = "GET ";
+        }
+        else if (Type == HTTPRequestType::HEAD)
+        {
+            RequestType = "HEAD ";
+        }
+        else if(Type == HTTPRequestType::POST)
+        {
+            RequestType = "POST ";
+        }
+        else if(Type == HTTPRequestType::PUT)
+        {
+            RequestType = "PUT ";
+        }
+        else if(Type == HTTPRequestType::DELETE)
+        {
+            RequestType = "DELETE ";
+        }
+        else 
+        {
+            throw std::runtime_error("Invalid HTTPRequestType");
+        }
+
+        std::string StringToSend = RequestType + RequestResource + " " + "HTTP/1.1\r\nHost: " + m_Host + "\r\n";
 		std::vector<std::pair<std::string, std::string>> DefaultHeaders = p_GetDefaultHeaders();
 		if (DataToSend.DocumentData.size() != 0)
 		{

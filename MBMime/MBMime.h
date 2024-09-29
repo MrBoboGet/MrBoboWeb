@@ -27,6 +27,7 @@ namespace MBMIME
 		WebP,
 		WebM,
 		Opus,
+        XML,
 		Null
 	};
 	enum class MediaType
@@ -69,6 +70,8 @@ namespace MBMIME
 			{MIMEType::WebP,MediaType::Image,{"webp"},"image/webp"},
 			{MIMEType::WebM,MediaType::Video,{"webm"},"video/webm"},
 			{MIMEType::Opus,MediaType::Audio,{"opus"},"audio/opus"},
+            //TODO mega hack for UPNP
+			{MIMEType::XML,MediaType::Text,{"xml"},"text/xml; charset=\"utf-8\""},
 		};
 		MIMETypeTuple NullTupple = { MIMEType::Null,MediaType::Null,{},"" };
 	public:

@@ -309,10 +309,19 @@ namespace MBSockets
 	}
 	void UDPSocket::UDPMakeSocketNonBlocking(float SecondsToWait)
 	{
+#ifdef MBPOSIX
 		struct timeval read_timeout;
 		read_timeout.tv_sec = SecondsToWait - std::fmod(SecondsToWait, 1);
 		read_timeout.tv_usec = std::fmod(SecondsToWait, 1);
-		setsockopt(m_UnderlyingHandle, SOL_SOCKET, SO_RCVTIMEO, (const char*)&read_timeout, sizeof read_timeout);
+#endif
+#ifdef MBWindows
+        DWORD read_timeout = SecondsToWait * 1000;
+#endif
+		auto Result = setsockopt(m_UnderlyingHandle, SOL_SOCKET, SO_RCVTIMEO, (const char*)&read_timeout, sizeof read_timeout) == 0;
+        if(!Result)
+        {
+			p_HandleError("Set non blocking failed in UDP socket: " + p_GetLastError(), false);
+        }
 	}
 	void UDPSocket::Listen(std::string const& PortNumber)
 	{
@@ -331,6 +340,16 @@ namespace MBSockets
     }
     size_t UDPSocket::ReadPacket(void* OutBuffer,size_t BufferSize,double Timeout) 
     {
+        if(Timeout > 0 && Timeout != m_CurrentTimeout)
+        {
+            UDPMakeSocketNonBlocking(Timeout);
+            m_CurrentTimeout = Timeout;
+        }
+        else if(Timeout < 0 && m_CurrentTimeout != -1)
+        {
+            UDPMakeSocketNonBlocking(0);
+            m_CurrentTimeout = 0;   
+        }
 		auto Result = recvfrom(m_UnderlyingHandle, (char*)OutBuffer, BufferSize, 0, nullptr, 0);
         if (Result == MBSocketError())
         {
@@ -360,6 +379,16 @@ namespace MBSockets
     {
         sockaddr_in SourceAdress;
         socklen_t SourceLen =  sizeof(SourceAdress);
+        if(Timeout > 0 && Timeout != m_CurrentTimeout)
+        {
+            UDPMakeSocketNonBlocking(Timeout);
+            m_CurrentTimeout = Timeout;
+        }
+        else if(Timeout < 0 && m_CurrentTimeout != -1)
+        {
+            UDPMakeSocketNonBlocking(0);
+            m_CurrentTimeout = 0;   
+        }
 		auto Result = recvfrom(m_UnderlyingHandle, (char*)OutBuffer, BufferSize, 0,(sockaddr*)&SourceAdress,&SourceLen);
         if (Result == MBSocketError())
         {
@@ -645,7 +674,7 @@ namespace MBSockets
 			//TODO Detta var copy pastat från stack overflow, men kan det vara så att det faktiskt beror på endianessen av ens dator?
 			int Enable = 1;
 			m_ListenerClosed = false;
-			m_ErrorResult = setsockopt(m_ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof(int));
+			m_ErrorResult = setsockopt(m_ListenerSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&Enable, sizeof Enable);
 			if (m_ErrorResult < 0)
 			{
 				p_HandleError("Error at socket() when setting SO_REUSEADDR: " + p_GetLastError(), true);
