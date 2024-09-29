@@ -1167,4 +1167,61 @@ namespace MBSockets
         }
         return ReturnValue;
     }
+
+    //URL
+    void URL::p_ParseURL(std::string const& URLToParse)
+    {
+        size_t ProtocolEnd = URLToParse.find("://");
+        if (ProtocolEnd == URLToParse.npos)
+        {
+            m_Type = URLProtocol::File;
+            m_Resource = URLToParse;
+            m_Host = "";
+            return;
+        }
+        std::string ProtocolString = URLToParse.substr(0, ProtocolEnd);
+        bool HasHost = true;
+        if (ProtocolString == "http")
+        {
+            m_Type = URLProtocol::HTTP;
+            m_Port = 80;
+        }
+        else if (ProtocolString == "https")
+        {
+            m_Type = URLProtocol::HTTPS;
+            m_Port = 443;
+        }
+        else if (ProtocolString == "file")
+        {
+            m_Type = URLProtocol::File;
+            HasHost = false;
+            m_Port = 0;
+        }
+        size_t ParseOffset = ProtocolEnd + 3;
+        if (HasHost)
+        {
+            size_t HostEnd = URLToParse.find('/',ParseOffset);
+            if (HostEnd == URLToParse.npos)
+            {
+                m_Host = "";
+                m_Resource = "";
+                return;
+            }
+            m_Host = URLToParse.substr(ParseOffset, HostEnd - ParseOffset);
+            size_t PortBegin = m_Host.find(':');
+            if(PortBegin != m_Host.npos)
+            {
+                std::string Host = m_Host.substr(0,PortBegin);
+                m_Port = std::stoi(m_Host.substr(PortBegin+1));
+                std::swap(m_Host,Host);
+            }
+            ParseOffset = HostEnd;
+        }
+        m_Resource = URLToParse.substr(ParseOffset);
+    }
+    URL::URL(std::string const& String)
+    {
+        p_ParseURL(String);
+    }
+    //URL
 };

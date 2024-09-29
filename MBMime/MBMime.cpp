@@ -77,13 +77,20 @@ namespace MBMIME
 			}
 			std::string NewHeaderName = MBUnicode::UnicodeStringToLower(std::string(DataToParse + ParseOffset, NextColon - ParseOffset));
 			ParseOffset = NextColon + 1;
-			MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
 			size_t BodyEnd = std::find(DataToParse + ParseOffset, DataToParse + DataSize, '\r')-DataToParse;
             if(BodyEnd == DataSize)
             {
                 throw std::runtime_error("Invalid MIME headers: Every header has to be delimited with '\\r\\n'");
             }
-			ReturnValue[NewHeaderName].push_back(std::string(DataToParse + ParseOffset, BodyEnd - ParseOffset));
+			MBParsing::SkipWhitespace(Data, DataSize, ParseOffset, &ParseOffset);
+            if(ParseOffset < BodyEnd)
+            {
+                ReturnValue[NewHeaderName].push_back(std::string(DataToParse + ParseOffset, BodyEnd - ParseOffset));
+            }
+            else
+            {
+                ReturnValue[NewHeaderName].emplace_back();
+            }
 			ParseOffset = BodyEnd + 2;
 		}
 		if (OutOffset != nullptr)

@@ -270,6 +270,43 @@ namespace MBSockets
     std::string IPToString(uint32_t IP);
     uint32_t StringToIP(std::string const& String);
 
+    enum class URLProtocol
+    {
+        File,
+        HTTP,
+        HTTPS,
+        Null
+    };
+    class URL
+    {
+        URLProtocol m_Type = URLProtocol::Null;
+        std::string m_Resource = "";
+        std::string m_Host = "";
+        uint16_t m_Port = 0;
+        void p_ParseURL(std::string const& URLToParse);
+    public:
+        std::string GetHost() const
+        {
+            return m_Host;
+        }
+        std::string GetResource() const
+        {
+            return m_Resource;
+        }
+        uint16_t GetPort() const
+        {
+            return m_Port;   
+        }
+        URLProtocol GetType() const
+        {
+            return m_Type;
+        }
+        explicit URL(std::string const& String);
+        URL() = default;
+
+
+    };
+
 	class ThreadPool;
 	class Worker;
 	void WorkerThreadFunction(Worker*);
