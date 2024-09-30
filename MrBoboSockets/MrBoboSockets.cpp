@@ -140,8 +140,18 @@ namespace MBSockets
 		sockaddr_in RecvAddr;
         std::memset(&RecvAddr,0,sizeof(sockaddr_in));
 		RecvAddr.sin_family = AF_INET;
-		RecvAddr.sin_port = htons(LocalPort);
+		RecvAddr.sin_port = htons(TargetPort);
+        RecvAddr.sin_addr.s_addr = htonl(Adress);
         Bind(LocalPort);
+        if(Adress != 0)
+        {
+            m_ErrorResult = connect(m_UnderlyingHandle,(sockaddr*)&RecvAddr,sizeof(RecvAddr));
+            if (m_ErrorResult != 0)
+            {
+                p_HandleError("Error at socket(): " + p_GetLastError(), true);
+                return;
+            }
+        }
 		//auto BindResult = bind(m_UnderlyingHandle,(const sockaddr*)&RecvAddr,sizeof(RecvAddr));
 		//if (BindResult != 0)
 		//{
@@ -282,6 +292,20 @@ namespace MBSockets
             return 0;
         }
         return ntohs(Adress.sin_port);
+    }
+    uint32_t UDPSocket::GetLocalIP()
+    {
+        uint32_t ReturnValue;
+        sockaddr_in Adress;
+        socklen_t Length = sizeof(Adress);
+        std::memset(&Adress,0,Length);
+        auto Result = getsockname(m_UnderlyingHandle,(sockaddr*)&Adress,&Length);
+        if(Result == MBSocketError())
+        {
+            p_HandleError("Error getting bound port: "+p_GetLastError(),false);
+            return 0;
+        }
+        return ntohl(Adress.sin_addr.s_addr);
     }
 	std::string UDPSocket::UDPGetData()
 	{

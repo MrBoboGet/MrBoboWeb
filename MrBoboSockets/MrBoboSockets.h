@@ -107,7 +107,10 @@ namespace MBSockets
 		virtual bool IsValid() override;
 		virtual void Close() override;
 		int Bind(int PortToAssociateWith);
+
 		uint16_t GetBoundPort();
+        uint32_t GetLocalIP();
+
 		std::string UDPGetData();
 		void UDPMakeSocketNonBlocking(float SecondsToWait = 0.5);
 		void Listen(std::string const& PortNumber);
@@ -308,6 +311,16 @@ namespace MBSockets
 
 
     };
+
+
+    struct Interface
+    {
+        std::string Name;
+        uint32_t Adress;
+    };
+
+
+    std::vector<Interface> GetComputerInterfaces();
 
 	class ThreadPool;
 	class Worker;
