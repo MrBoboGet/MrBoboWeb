@@ -137,27 +137,31 @@ namespace MBSockets
 			p_HandleError("Error at socket(): " + p_GetLastError(), true);
 			return;
 		}
-		sockaddr_in RecvAddr;
-        std::memset(&RecvAddr,0,sizeof(sockaddr_in));
-		RecvAddr.sin_family = AF_INET;
-		RecvAddr.sin_port = htons(TargetPort);
-        RecvAddr.sin_addr.s_addr = htonl(Adress);
         Bind(LocalPort);
-        if(Adress != 0)
-        {
-            m_ErrorResult = connect(m_UnderlyingHandle,(sockaddr*)&RecvAddr,sizeof(RecvAddr));
-            if (m_ErrorResult != 0)
-            {
-                p_HandleError("Error at socket(): " + p_GetLastError(), true);
-                return;
-            }
-        }
+
+        //TODO should probably connect given that adress is not null or adress is not a broadcast adress...
+        //Connect();
+
 		//auto BindResult = bind(m_UnderlyingHandle,(const sockaddr*)&RecvAddr,sizeof(RecvAddr));
 		//if (BindResult != 0)
 		//{
 		//	p_HandleError("Error at socket(): " + p_GetLastError(), true);
 		//	return;
 		//}
+    }
+    void UDPSocket::Connect()
+    {
+		sockaddr_in RecvAddr;
+        std::memset(&RecvAddr,0,sizeof(sockaddr_in));
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(m_DestinationPort);
+        RecvAddr.sin_addr.s_addr = htonl(m_DestinationAddres);
+        m_ErrorResult = connect(m_UnderlyingHandle,(sockaddr*)&RecvAddr,sizeof(RecvAddr));
+        if (m_ErrorResult != 0)
+        {
+            p_HandleError("Error at socket(): " + p_GetLastError(), true);
+            return;
+        }
     }
     UDPSocket::UDPSocket(uint16_t ListenPort)
     {
@@ -333,10 +337,11 @@ namespace MBSockets
 	}
 	void UDPSocket::UDPMakeSocketNonBlocking(float SecondsToWait)
 	{
-#ifdef MBPOSIX
+#ifdef MBPosix
 		struct timeval read_timeout;
+        std::memset(&read_timeout,0,sizeof read_timeout);
 		read_timeout.tv_sec = SecondsToWait - std::fmod(SecondsToWait, 1);
-		read_timeout.tv_usec = std::fmod(SecondsToWait, 1);
+		read_timeout.tv_usec = std::fmod(SecondsToWait, 1)*1000;
 #endif
 #ifdef MBWindows
         DWORD read_timeout = SecondsToWait * 1000;
