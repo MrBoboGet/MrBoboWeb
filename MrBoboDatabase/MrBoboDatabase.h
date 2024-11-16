@@ -27,9 +27,10 @@ namespace MBDB
     };
     class MBDB_RowData
     {
+    public:
+        typedef std::variant<std::monostate,FloatType,IntType,std::string> VariantType;
     private:
         typedef std::monostate Null;
-        typedef std::variant<std::monostate,FloatType,IntType,std::string> VariantType;
         std::vector<MBDB_ColumnValueTypes> ColumnValueTypes = {};
         std::vector<VariantType> m_Data;
         std::unordered_map<std::string,int> m_ColumnNames;
@@ -165,25 +166,44 @@ namespace MBDB
     class SQLStatement
     {
     private:
+
         friend MrBoboDatabase;
         sqlite3_stmt* UnderlyingStatement = nullptr;
-        SQLStatement(std::string const& SQLCode,sqlite3* DBConnection);
+        bool m_RowCached = false;
+        MBDB_RowData m_CachedRow;
 
+
+        SQLStatement(std::string const& SQLCode,sqlite3* DBConnection);
         std::unordered_map<std::string,int> m_ColumnNames;
         std::unordered_map<std::string,int> m_ParameterNames;
         std::vector<MBDB_RowData> GetAllRows(sqlite3* DBConnection,MBError* OutError);
 
+        bool p_Step(MBDB_RowData& OutResult);
         int p_GetParameterIndex(std::string const& Name);
+
+        void swap(SQLStatement& lhs,SQLStatement& rhs)
+        {
+            std::swap(lhs.UnderlyingStatement,rhs.UnderlyingStatement);
+            std::swap(lhs.m_RowCached,rhs.m_RowCached);
+            std::swap(lhs.m_CachedRow,rhs.m_CachedRow);
+        }
     public:
         SQLStatement() { }
         SQLStatement(SQLStatement const&) = delete;
+        SQLStatement(SQLStatement&& other) noexcept
+        {
+            swap(*this,other);
+        }
         SQLStatement& operator=(SQLStatement&& Other)
         {
-            std::swap(UnderlyingStatement,Other.UnderlyingStatement);
+            swap(*this,Other);
             return(*this);
         }
+
+        bool HasMore();
+        MBDB_RowData Next();
+
         SQLStatement& operator=(SQLStatement const&) = delete;
-        SQLStatement(SQLStatement&&) = default;
         bool IsValid() { return(UnderlyingStatement != nullptr); };
         MBError BindString(std::string const& ParameterData, int ParameterIndex);
         MBError BindInt(IntType, int ParameterIndex);

@@ -1,3 +1,4 @@
+
 #pragma once
 #include <string>
 #include <vector>
@@ -35,7 +36,7 @@ namespace MBUnicode
 		uint8_t m_CurrentCodepointNeededBytes = 0;
 		std::string m_LastError = "";
 
-		uint8_t p_GetNeededExtraBytes(uint8_t ByteToCheck);
+		static uint8_t p_GetNeededExtraBytes(uint8_t ByteToCheck);
 	public:
 		bool IsValid();
 		std::string GetLastError();
@@ -44,6 +45,10 @@ namespace MBUnicode
 		size_t AvailableCodepoints();
 		Codepoint ExtractCodepoint();
 		void Reset();
+
+
+        //Newer, less allocaty interface
+        static const unsigned char* ParseUTF8Codepoint(const unsigned char* Begin, const unsigned char* End,Codepoint& OutValue);
 	};
 
 	class GraphemeCluster
@@ -74,6 +79,9 @@ namespace MBUnicode
 		bool operator==(const char* StringToCompare) const;
 		bool operator!=(const char* StringToCompare) const;
 
+		bool operator==(std::string_view StringToCompare) const;
+		bool operator!=(std::string_view StringToCompare) const;
+
 		bool operator<(GraphemeCluster const& rhs) const
         {
             return m_InternalBuffer < rhs.m_InternalBuffer;
@@ -82,6 +90,8 @@ namespace MBUnicode
         //TODO sus, assumes the string is a valid grapheme cluster
 		GraphemeCluster& operator=(std::string const& StringToConvert);
 		GraphemeCluster& operator=(char CharToConvert);
+		GraphemeCluster& operator=(std::string_view String);
+		GraphemeCluster& operator=(const char* String);
 
 		GraphemeCluster() {};
 		explicit GraphemeCluster(std::string const& StringToConvert);
@@ -92,6 +102,12 @@ namespace MBUnicode
         
         bool IsASCIIControl() const;
         bool IsEmpty() const;
+
+
+        std::string_view GetView() const
+        {
+            return std::string_view(m_InternalBuffer.data(),m_InternalBuffer.size());
+        }
         
 		std::string ToString() const
 		{
@@ -122,6 +138,9 @@ namespace MBUnicode
 		size_t AvailableClusters();
 		GraphemeCluster ExtractCluster();
 		void Reset();
+
+        //Newer, less allocaty interface
+        static const unsigned char* ParseGraphemeCluster(const unsigned char* Begin, const unsigned char* End);
 	};
 
 	std::string PathToUTF8(std::filesystem::path const& PathToProcess);
@@ -132,3 +151,4 @@ namespace MBUnicode
 
 	void CreateCodepointPropertiesHeader(std::string const& DataDirectory);
 };
+

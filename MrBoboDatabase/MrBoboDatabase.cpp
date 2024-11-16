@@ -201,7 +201,10 @@ namespace MBDB
     }
     SQLStatement::~SQLStatement()
     {
-        sqlite3_finalize(UnderlyingStatement);
+        if(UnderlyingStatement)
+        {
+            sqlite3_finalize(UnderlyingStatement);
+        }
     }
     inline long long StringToInt(std::string const& IntData, MBError* OutError = nullptr)
     {
@@ -310,6 +313,56 @@ namespace MBDB
         {
             sqlite3_reset(UnderlyingStatement);
         }
+    }
+    bool SQLStatement::HasMore()
+    {
+        if(m_RowCached)
+        {
+            return true;   
+        }
+        m_RowCached = p_Step(m_CachedRow);
+        return m_RowCached;
+    }
+    MBDB_RowData SQLStatement::Next()
+    {
+        if(m_RowCached)
+        {
+            m_RowCached = false;
+            return std::move(m_CachedRow);   
+        }
+        bool HasNext = p_Step(m_CachedRow);
+        if(!HasNext)
+        {
+            throw std::runtime_error("Error stepping prepared statement: statement already finished");
+        }
+        return std::move(m_CachedRow);
+    }
+    bool SQLStatement::p_Step(MBDB_RowData& OutResult)
+    {
+        bool ReturnValue = true;
+        int StatementValue = sqlite3_step(UnderlyingStatement);
+        if(StatementValue == SQLITE_DONE)
+        {
+            return false;   
+        }
+        if (StatementValue == SQLITE_ROW)
+        {
+            OutResult = CreateRowFromSQLiteStatement(UnderlyingStatement);
+        }
+        else if (StatementValue == SQLITE_ERROR)
+        {
+            std::string ErrorMessage = sqlite3_errmsg(sqlite3_db_handle( UnderlyingStatement));
+            throw std::runtime_error("Error stepping statement: "+ErrorMessage);
+        }
+        else if (StatementValue == SQLITE_MISUSE)
+        {
+            throw std::runtime_error("Internal SQLITE_ERROR: Misuse");
+        }
+        else if (StatementValue == SQLITE_BUSY)
+        {
+            throw std::runtime_error("Internal SQLITE_ERROR: Busy");
+        }
+        return ReturnValue;
     }
     std::vector<MBDB_RowData> SQLStatement::GetAllRows(sqlite3* DBConnection, MBError* ErrorToReturn = nullptr)
     {

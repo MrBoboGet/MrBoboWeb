@@ -172,26 +172,25 @@ namespace MBUnicode
         uint8_t ReturnValue = 0;
 		if ((ByteToCheck & (1 << 7)) == 0)
 		{
-			return(0);
+			return 0;
 		}
 		if (ByteToCheck >= 0b11111000)
 		{
-			m_LastError = "To many followup bytes in utf-8 codepoint header";
-			return(-1);
+			return -1;
 		}
 		else if (ByteToCheck >= 0b11110000)
 		{
-			return(3);
+			return 3;
 		}
 		else if (ByteToCheck >= 0b11100000)
 		{
-			return(2);
+			return 2;
 		}
 		else if (ByteToCheck >= 0b11000000)
 		{
-			return(1);
+			return 1;
 		}
-        return(ReturnValue);
+        return ReturnValue;
 	}
 	void UnicodeCodepointSegmenter::InsertData(const void* DataToInsert, size_t DataSize)
 	{
@@ -252,6 +251,45 @@ namespace MBUnicode
 		}
 		return(ReturnValue);
 	}	
+    const unsigned char* UnicodeCodepointSegmenter::ParseUTF8Codepoint(const unsigned char* Begin, const unsigned char* End,Codepoint& OutValue)
+    {
+        static_assert(sizeof(char) == 1, "ParseUTF8 codepoint requires POSIX assumption that sizeof(char) == 1");
+        const unsigned char* CurrentElement = Begin;
+        size_t NeededExtraBytes = 0;
+        while(CurrentElement < reinterpret_cast<const unsigned char*>(End))
+        {
+			if (NeededExtraBytes == 0)
+			{
+				uint8_t ContinuationBytes = p_GetNeededExtraBytes(*CurrentElement);
+				if (ContinuationBytes == 0)
+				{
+					OutValue = *CurrentElement;
+                    return CurrentElement+1;
+				}
+				else
+				{
+					OutValue = *CurrentElement & (0xff >> (ContinuationBytes + 2));
+					NeededExtraBytes = ContinuationBytes;
+				}
+			}
+			else
+			{
+				if (*CurrentElement >= 0b11000000)
+				{
+					throw std::runtime_error("Invalid UTF-8 continuation byte");
+				}
+				OutValue <<= 6;
+				OutValue += *CurrentElement & (0xff >> 2);
+				NeededExtraBytes -= 1;
+				if (NeededExtraBytes == 0)
+				{
+                    return CurrentElement+1;
+				}
+			}
+            ++CurrentElement;
+        }
+        return CurrentElement;
+    }
 	bool UnicodeCodepointSegmenter::IsValid()
 	{
 		return(m_LastError == "");
@@ -506,30 +544,40 @@ namespace MBUnicode
 	GraphemeBreakProperty h_GetCodepointProperty(Codepoint CodepointToExamine)
 	{
 		GraphemeBreakProperty ReturnValue = GraphemeBreakProperty::Null;
-		size_t LowerLimit = 0;
-		size_t HigherLimit = GraphemeBreakSpecifiersCount;
-		size_t PreviousGuess = -1;
-		while (LowerLimit != HigherLimit)
-		{
-			size_t CurrentGuess = (LowerLimit + HigherLimit)/2;
-			if (PreviousGuess == CurrentGuess)
-			{
-				break;
-			}
-			if (GraphemeBreakSpecifiers[CurrentGuess].Lower >= CodepointToExamine && GraphemeBreakSpecifiers[CurrentGuess].Higher <= CodepointToExamine)
-			{
-				ReturnValue = GraphemeBreakSpecifiers[CurrentGuess].Type;
-			}
-			else if (GraphemeBreakSpecifiers[CurrentGuess].Higher < CodepointToExamine)
-			{
-				LowerLimit = CurrentGuess;
-			}
-			else if (GraphemeBreakSpecifiers[CurrentGuess].Lower > CodepointToExamine)
-			{
-				HigherLimit = CurrentGuess;
-			}
-			PreviousGuess = CurrentGuess;
-		}
+        auto It = std::lower_bound(GraphemeBreakSpecifiers,GraphemeBreakSpecifiers+GraphemeBreakSpecifiersCount,
+                CodepointToExamine,
+                [](GraphemeBreakPropertySpecifier Lhs,Codepoint Rhs)
+                {
+                    return Lhs.Higher < Rhs;
+                });
+		//size_t LowerLimit = 0;
+		//size_t HigherLimit = GraphemeBreakSpecifiersCount;
+		//size_t PreviousGuess = -1;
+		//while (LowerLimit != HigherLimit)
+		//{
+		//	size_t CurrentGuess = (LowerLimit + HigherLimit)/2;
+		//	if (PreviousGuess == CurrentGuess)
+		//	{
+		//		break;
+		//	}
+		//	if (GraphemeBreakSpecifiers[CurrentGuess].Lower >= CodepointToExamine && GraphemeBreakSpecifiers[CurrentGuess].Higher <= CodepointToExamine)
+		//	{
+		//		ReturnValue = GraphemeBreakSpecifiers[CurrentGuess].Type;
+		//	}
+		//	else if (GraphemeBreakSpecifiers[CurrentGuess].Higher < CodepointToExamine)
+		//	{
+		//		LowerLimit = CurrentGuess;
+		//	}
+		//	else if (GraphemeBreakSpecifiers[CurrentGuess].Lower > CodepointToExamine)
+		//	{
+		//		HigherLimit = CurrentGuess;
+		//	}
+		//	PreviousGuess = CurrentGuess;
+		//}
+        if(It < GraphemeBreakSpecifiers+GraphemeBreakSpecifiersCount && (It->Lower <= CodepointToExamine && It->Higher <= CodepointToExamine))
+        {
+            return It->Type;
+        }
 		return(ReturnValue);
 	}
 
@@ -560,6 +608,14 @@ namespace MBUnicode
 	{
         return(p_CompareUTF8String(StringToCompare.data(),StringToCompare.size()));
 	}
+    bool GraphemeCluster::operator==(std::string_view StringToCompare) const
+    {
+        return p_CompareUTF8String(&StringToCompare[0],StringToCompare.size());
+    }
+    bool GraphemeCluster::operator!=(std::string_view StringToCompare) const
+    {
+        return !(*this == StringToCompare);
+    }
 	bool GraphemeCluster::operator!=(std::string const& StringToCompare) const
 	{
 		return(!(*this == StringToCompare));
@@ -597,6 +653,21 @@ namespace MBUnicode
 		m_InternalBuffer.push_back(CharToConvert);
 		return(*this);
 	}
+    GraphemeCluster& GraphemeCluster::operator=(std::string_view String)
+    {
+        m_InternalBuffer.clear();
+        //TODO inefficient
+        for(size_t i = 0; i < String.size();i++)
+        {
+            m_InternalBuffer.push_back(String[i]);   
+        }
+        return *this;
+    }
+    GraphemeCluster& GraphemeCluster::operator=(const char* String)
+    {
+        (*this) = std::string_view(String,strlen(String));
+        return *this;
+    }
 	GraphemeCluster::GraphemeCluster(std::string const& StringToConvert)
 	{
 		bool Result = ParseGraphemeCluster(*this, StringToConvert.data(), StringToConvert.size(), 0, nullptr);
@@ -740,5 +811,24 @@ namespace MBUnicode
 	{
 		*this = GraphemeClusterSegmenter();
 	}
+    const unsigned char* GraphemeClusterSegmenter::ParseGraphemeCluster(const unsigned char* Begin, const unsigned char* End)
+    {
+        const unsigned char* CurrentElement = Begin;
+        GraphemeBreakProperty LastProperty = GraphemeBreakProperty::SOF;
+        while(CurrentElement < End)
+        {
+            Codepoint NewCodepoint = 0;
+            auto NextCodepoint = UnicodeCodepointSegmenter::ParseUTF8Codepoint(CurrentElement,End,NewCodepoint);
+            auto CodepointProperty = h_GetCodepointProperty(NewCodepoint);
+            if(h_ShouldBreak(LastProperty,CodepointProperty))
+            {
+                return NextCodepoint;
+            }
+            LastProperty = CodepointProperty;
+            CurrentElement = NextCodepoint;
+        }
+        return CurrentElement;
+    }
 	//END UnicodeGraphemeClusterSegmenter
 }
+
