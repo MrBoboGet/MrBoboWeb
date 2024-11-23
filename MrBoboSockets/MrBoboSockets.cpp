@@ -118,7 +118,7 @@ namespace MBSockets
 	void UDPSocket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
 	{
 		//DEBUG GREJER
-		std::cout << ErrorMessage << std::endl;
+		//std::cout << ErrorMessage << std::endl;
 		m_LastErrorMessage = ErrorMessage;
 		if (IsLethal == true)
 		{
@@ -451,7 +451,7 @@ namespace MBSockets
 	void OSSocket::p_HandleError(std::string const& ErrorMessage, bool IsLethal)
 	{
 		//DEBUG GREJER
-		std::cout << ErrorMessage << std::endl;
+		//std::cout << ErrorMessage << std::endl;
 		m_LastErrorMessage = ErrorMessage;
 		if (IsLethal == true)
 		{
