@@ -521,24 +521,28 @@ namespace MBUnicode
 	{
 		bool ReturnValue = true;
 		//OBS bryter mot grapheme standarden, men tycker personligen det är inte speciellt intuitivt
-		if (LeftProperty == GraphemeBreakProperty::CR && RightProperty == GraphemeBreakProperty::LF)
-		{
-			ReturnValue = false;
-		}
-		else if (RightProperty == GraphemeBreakProperty::Extend || RightProperty == GraphemeBreakProperty::ZWJ)
-		{
-			ReturnValue = false;
-		}
-		else if (RightProperty == GraphemeBreakProperty::SpacingMark)
-		{
-			ReturnValue = false;
-		}
-		else if (LeftProperty == GraphemeBreakProperty::Prepend)
-		{
-			ReturnValue = false;
-		}
-		//TODO implementera hela extended grapheme break grejen med emojis och flaggor
-		return(ReturnValue);
+        if (LeftProperty == GraphemeBreakProperty::CR && RightProperty == GraphemeBreakProperty::LF)
+        {
+        	ReturnValue = true;
+        }
+        else if(LeftProperty == GraphemeBreakProperty::SOF && RightProperty == GraphemeBreakProperty::CR)
+        {
+            ReturnValue = false;
+        }
+        else if (RightProperty == GraphemeBreakProperty::Extend || RightProperty == GraphemeBreakProperty::ZWJ)
+        {
+        	ReturnValue = false;
+        }
+        else if (RightProperty == GraphemeBreakProperty::SpacingMark)
+        {
+        	ReturnValue = false;
+        }
+        else if (LeftProperty == GraphemeBreakProperty::Prepend)
+        {
+        	ReturnValue = false;
+        }
+        //TODO implementera hela extended grapheme break grejen med emojis och flaggor
+        return(ReturnValue);
 	}
 	//grapheme grejer
 	GraphemeBreakProperty h_GetCodepointProperty(Codepoint CodepointToExamine)
@@ -686,46 +690,19 @@ namespace MBUnicode
     }
     bool GraphemeCluster::ParseGraphemeCluster(GraphemeCluster& OutCluster, const void* InputData, size_t InputDataSize, size_t InputDataOffset, size_t* OutOffset)
 	{
-		bool ReturnVale = true;
-		UnicodeCodepointSegmenter CodepointSegmenter;
-		GraphemeClusterSegmenter GraphemeSegmenter;
-		size_t CurrentOffset = InputDataOffset;
-		size_t LastCodepointPosition = InputDataOffset;
-		//TODO innefektiv algorithm som läser alla code points byte för byte, men även det ända sättet att grantera att det blir byte exakt
-		while (GraphemeSegmenter.AvailableClusters() == 0 && CurrentOffset < InputDataSize  && CodepointSegmenter.IsValid())
-		{
-			CodepointSegmenter.InsertData(((const uint8_t*)InputData) + CurrentOffset, 1);
-			if (CodepointSegmenter.AvailableCodepoints() > 0)
-			{
-				Codepoint NewCodepoint = CodepointSegmenter.ExtractCodepoint();
-				if (GraphemeSegmenter.CodepointWouldBreak(NewCodepoint))
-				{
-					GraphemeSegmenter.Finalize();
-					CurrentOffset = LastCodepointPosition;
-					break;
-				}
-				else
-				{
-					GraphemeSegmenter.InsertCodepoint(NewCodepoint);
-				}
-				LastCodepointPosition = CurrentOffset+1;
-			}
-			CurrentOffset += 1;
-		}
-		GraphemeSegmenter.Finalize();
-		if (GraphemeSegmenter.AvailableClusters() == 0 || !CodepointSegmenter.IsValid())
-		{
-			ReturnVale = false;
-		}
-		else
-		{
-			OutCluster = GraphemeSegmenter.ExtractCluster();
-		}
-		if (OutOffset != nullptr)
-		{
-			*OutOffset = CurrentOffset;
-		}
-		return(ReturnVale);
+		bool ReturnValue = true;
+        auto Data = reinterpret_cast<const unsigned char*>(InputData);
+        auto ClusterEnd = GraphemeClusterSegmenter::ParseGraphemeCluster(Data+InputDataOffset,Data+InputDataSize);
+        if(Data == ClusterEnd)
+        {
+            return false;
+        }
+        if(OutOffset != nullptr)
+        {
+            *OutOffset = ClusterEnd-Data;
+        }
+        OutCluster = std::string_view((const char*)Data,ClusterEnd - (Data+InputDataOffset));
+		return ReturnValue;
 	}
 	bool GraphemeCluster::ParseGraphemeClusters(std::vector<GraphemeCluster>& OutCluster, const void* InputData, size_t InputDataSize,size_t InputOffset)
 	{
